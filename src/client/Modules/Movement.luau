@@ -28,6 +28,45 @@ local function tweenCameraOffset(offset, time)
 	end
 end
 
+-- Polvo que levanta el deslizamiento, del color del suelo (nieve, tierra, hormigón...)
+local SLIDE_DUST = {
+	[Enum.Material.Snow] = Color3.fromRGB(240, 245, 255),
+	[Enum.Material.Ice] = Color3.fromRGB(225, 240, 255),
+	[Enum.Material.Glacier] = Color3.fromRGB(225, 240, 255),
+	[Enum.Material.Grass] = Color3.fromRGB(140, 120, 85),
+	[Enum.Material.LeafyGrass] = Color3.fromRGB(140, 120, 85),
+	[Enum.Material.Ground] = Color3.fromRGB(150, 125, 90),
+	[Enum.Material.Mud] = Color3.fromRGB(110, 85, 60),
+	[Enum.Material.Sand] = Color3.fromRGB(205, 185, 140),
+}
+
+local function slideDust(floorMaterial)
+	local settings = ClientState.Settings
+	if not rootPart or not humanoid or (settings and settings.Quality == "Baja") then
+		return nil
+	end
+	local feet = Instance.new("Attachment")
+	feet.Name = "SlideDust"
+	feet.Position = Vector3.new(0, -(humanoid.HipHeight + rootPart.Size.Y / 2) + 0.3, 0)
+	feet.Parent = rootPart
+	local dust = Instance.new("ParticleEmitter")
+	dust.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	dust.Color = ColorSequence.new(SLIDE_DUST[floorMaterial] or Color3.fromRGB(175, 172, 165))
+	dust.LightInfluence = 1
+	dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 2.4) })
+	dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	dust.Lifetime = NumberRange.new(0.5, 0.8)
+	dust.Speed = NumberRange.new(2, 4)
+	dust.SpreadAngle = Vector2.new(50, 50)
+	dust.Acceleration = Vector3.new(0, 1, 0)
+	dust.Rotation = NumberRange.new(0, 360)
+	dust.RotSpeed = NumberRange.new(-40, 40)
+	dust.Rate = 40
+	dust.EmissionDirection = Enum.NormalId.Top
+	dust.Parent = feet
+	return feet
+end
+
 local function slide()
 	if ClientState.Sliding or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
@@ -48,6 +87,7 @@ local function slide()
 	lastSlide = os.clock()
 	ClientState.Sliding = true
 	Sounds.Play("Slide")
+	local dust = slideDust(humanoid.FloorMaterial)
 
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "SlideAttachment"
@@ -76,6 +116,16 @@ local function slide()
 		connection:Disconnect()
 		velocity:Destroy()
 		attachment:Destroy()
+		if dust then
+			-- Deja de emitir y se borra cuando se han disipado las últimas partículas
+			local emitter = dust:FindFirstChildOfClass("ParticleEmitter")
+			if emitter then
+				emitter.Enabled = false
+			end
+			task.delay(1, function()
+				dust:Destroy()
+			end)
+		end
 		ClientState.Sliding = false
 		tweenCameraOffset(Vector3.zero, 0.2)
 	end

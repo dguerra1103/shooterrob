@@ -84,6 +84,7 @@ function Map.Build()
 	-- Lago helado en el centro: ¡resbala!
 	local lake = Kit.cylinder("FrozenLake", 0.3, 54, CFrame.new(0, 0.15, 0), ICE, Enum.Material.Ice)
 	lake.CustomPhysicalProperties = PhysicalProperties.new(0.9, 0.02, 0.05, 100, 1)
+	lake.Reflectance = 0.22 -- hielo pulido: refleja el cielo
 	Kit.cylinder("LakeRim", 0.2, 57, CFrame.new(0, 0.1, 0), RGB(215, 228, 242), Enum.Material.Glacier, nil, true)
 	for i = 1, 6 do
 		local angle = i * math.pi / 3
