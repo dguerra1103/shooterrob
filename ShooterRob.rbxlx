@@ -10826,20 +10826,18 @@ local function addPrint(cf, color)
 end
 
 local function step(character, humanoid, root, state)
-	local color = SOFT[humanoid.FloorMaterial]
-	if not color then
-		state.Last = root.Position
-		return
-	end
 	local flat = Vector3.new(1, 0, 1)
 	local moved = (root.Position - state.Last) * flat
 	if moved.Magnitude < STEP_DISTANCE then
 		return
 	end
 	state.Last = root.Position
+	-- El material sale del rayo hacia el suelo (FloorMaterial solo se calcula para tu personaje);
+	-- si no hay suelo cerca (saltando) no hay huella
 	rayParams.FilterDescendantsInstances = { folder, character }
-	local result = workspace:Raycast(root.Position, Vector3.new(0, -(humanoid.HipHeight + root.Size.Y / 2 + 2), 0), rayParams)
-	if not result then
+	local result = workspace:Raycast(root.Position, Vector3.new(0, -(humanoid.HipHeight + root.Size.Y / 2 + 1), 0), rayParams)
+	local color = result and SOFT[result.Material]
+	if not color then
 		return
 	end
 	local normal = result.Normal
