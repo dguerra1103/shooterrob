@@ -51,6 +51,11 @@
           "Decoration": true
         }
       }
+    },
+    "MaterialService": {
+      "$properties": {
+        "Use2022Materials": true
+      }
     }
   }
 }

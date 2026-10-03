@@ -29,8 +29,8 @@ local V = Vector3.new
 local RGB = Color3.fromRGB
 local C = Kit.C
 
-local STONE = RGB(214, 200, 172)
-local STONE_DARK = RGB(170, 155, 128)
+local STONE = RGB(168, 158, 140) -- adoquín envejecido (antes casi blanco: deslumbraba)
+local STONE_DARK = RGB(132, 122, 104)
 local PLASTER = RGB(236, 226, 205)
 local CANAL_HALF = 12 -- el canal va de x = -12 a x = 12
 local LEDGE_Y = -7.5 -- altura de las pasarelas del canal
