@@ -3874,7 +3874,11 @@ local function makeGrenade(cf)
 end
 
 local function throw(player, direction)
-	if typeof(direction) ~= "Vector3" or direction.Magnitude < 0.5 or direction.Magnitude > 1.5 then
+	if typeof(direction) ~= "Vector3" then
+		return
+	end
+	local length = direction.Magnitude
+	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
 	end
 	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
@@ -3898,8 +3902,22 @@ local function throw(player, direction)
 	end
 
 	direction = direction.Unit
-	local start = head.Position + direction * 2
+	-- Nunca aparece al otro lado de una pared: si hay algo delante, se queda de este lado
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, folder }
+	local hit = workspace:Raycast(head.Position, direction * 2.5, params)
+	local start = hit and (hit.Position - direction * 0.6) or (head.Position + direction * 2)
 	local grenade, light = makeGrenade(CFrame.new(start))
+	-- No choca con quien la lanza (si mira hacia abajo no sale rebotada de su cuerpo)
+	for _, part in character:GetDescendants() do
+		if part:IsA("BasePart") then
+			local noCollide = Instance.new("NoCollisionConstraint")
+			noCollide.Part0 = grenade
+			noCollide.Part1 = part
+			noCollide.Parent = grenade
+		end
+	end
 	grenade.Parent = folder
 	grenade:SetNetworkOwner(nil)
 	grenade.AssemblyLinearVelocity = direction * DEF.ThrowSpeed + Vector3.new(0, 14, 0)
@@ -3929,15 +3947,12 @@ function Grenades.Init()
 	folder.Name = "Grenades"
 	folder.Parent = workspace
 	Remotes.ThrowGrenade.OnServerEvent:Connect(throw)
-	-- Al reaparecer se tiene la granada lista
-	local function onPlayer(player)
-		player.CharacterAdded:Connect(function()
-			player:SetAttribute("GrenadeReadyAt", 0)
-		end)
-	end
-	Players.PlayerAdded:Connect(onPlayer)
+end
+
+-- Al empezar una ronda todos tienen la granada lista (reaparecer no la recarga: evita abusar)
+function Grenades.Reset()
 	for _, player in Players:GetPlayers() do
-		onPlayer(player)
+		player:SetAttribute("GrenadeReadyAt", 0)
 	end
 end
 
@@ -4433,8 +4448,11 @@ local function push(player)
 		local value = math.floor(tonumber(data[board.Field]) or 0)
 		local k = player.UserId .. board.Id
 		if store and value > 0 and pushed[k] ~= value then
+			-- Nunca baja un récord (por ejemplo si sus datos no cargaron y empieza de 0)
 			local ok = pcall(function()
-				store:SetAsync(tostring(player.UserId), value)
+				store:UpdateAsync(tostring(player.UserId), function(old)
+					return math.max(tonumber(old) or 0, value)
+				end)
 			end)
 			if ok then
 				pushed[k] = value
@@ -7278,7 +7296,7 @@ local function publicView(player, data)
 		WeaponCamos = data.WeaponCamos,
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
-		StarterPackAvailable = not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
+		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -7819,13 +7837,22 @@ local function processReceipt(receipt)
 	-- Qué se entrega: un pack de monedas o el pack de inicio
 	local grant, undo, message
 	local starter = Shop.StarterPack
-	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
+	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
+		-- Ya lo tenía (compra repetida): Roblox ya cobró, así que se entregan solo las monedas
+		grant = function()
+			data.Coins += starter.Coins
+		end
+		undo = function()
+			data.Coins -= starter.Coins
+		end
+		message = "+" .. starter.Coins .. " MONEDAS"
+	elseif starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
+		-- Al deshacer solo se quita lo que se dio (no se vuelve a un saldo antiguo:
+		-- mientras se guardaba pudo ganar o gastar monedas)
 		local had = {
-			Coins = data.Coins,
-			Outfit = data.Outfits[starter.Outfit],
-			Skin = data.Skins[starter.Skin],
-			Effect = data.KillEffects[starter.KillEffect],
-			Bought = data.StarterPack,
+			Outfit = data.Outfits[starter.Outfit] == true,
+			Skin = data.Skins[starter.Skin] == true,
+			Effect = data.KillEffects[starter.KillEffect] == true,
 		}
 		grant = function()
 			data.Coins += starter.Coins
@@ -7835,11 +7862,17 @@ local function processReceipt(receipt)
 			data.StarterPack = true
 		end
 		undo = function()
-			data.Coins = had.Coins
-			data.Outfits[starter.Outfit] = had.Outfit
-			data.Skins[starter.Skin] = had.Skin
-			data.KillEffects[starter.KillEffect] = had.Effect
-			data.StarterPack = had.Bought
+			data.Coins -= starter.Coins
+			if not had.Outfit then
+				data.Outfits[starter.Outfit] = nil
+			end
+			if not had.Skin then
+				data.Skins[starter.Skin] = nil
+			end
+			if not had.Effect then
+				data.KillEffects[starter.KillEffect] = nil
+			end
+			data.StarterPack = false
 		end
 		message = "¡PACK DE INICIO DESBLOQUEADO!"
 	else
@@ -7869,7 +7902,10 @@ local function processReceipt(receipt)
 	if not store or noSave[player] or not save(player) then
 		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
 		undo()
-		table.remove(data.Purchases)
+		local index = table.find(data.Purchases, receipt.PurchaseId)
+		if index then
+			table.remove(data.Purchases, index)
+		end
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	Remotes.Notify:FireClient(player, "Big", message)
@@ -8087,6 +8123,7 @@ local Hardpoint = require(script.Parent.Hardpoint)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
+local Grenades = require(script.Parent.Grenades)
 
 local Round = {}
 
@@ -8229,6 +8266,7 @@ local function resetStats()
 		player:SetAttribute("GunLevel", 1)
 	end
 	Killstreaks.Reset()
+	Grenades.Reset()
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -8332,7 +8370,8 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if killerData and killerData.EquippedKillEffect then
 			effect = killerData.EquippedKillEffect
 		end
-		Remotes.KillFX:FireAllClients(position, effect, victimColor)
+		-- Los muñecos (sin jugador) estallan en amarillo, como antes
+		Remotes.KillFX:FireAllClients(position, effect, victim and victimColor or Color3.fromRGB(255, 200, 60))
 	end
 
 	local weapon = weaponName and Weapons.Get(weaponName)
@@ -9235,8 +9274,7 @@ local function debrisBurst(position, count, makePart, speed, lifetime)
 	for _ = 1, count do
 		local part = makePart()
 		part.Anchored = false
-		part.CanCollide = true -- rebotan en el suelo
-		part.Massless = true
+		part.CanCollide = false -- no empujan a nadie; desaparecen antes de caer mucho
 		part.CFrame = CFrame.new(position + Vector3.new(math.random() - 0.5, math.random() * 0.5, math.random() - 0.5))
 			* CFrame.Angles(math.random() * 6.28, math.random() * 6.28, math.random() * 6.28)
 		local dir = Vector3.new(math.random() - 0.5, 0.6 + math.random() * 0.8, math.random() - 0.5).Unit
@@ -9272,7 +9310,7 @@ KILL_FX.Confeti = function(position)
 			Color = CONFETTI_COLORS[math.random(1, #CONFETTI_COLORS)],
 			Material = Enum.Material.SmoothPlastic,
 		})
-	end, 22, 2.2)
+	end, 22, 1.6)
 	flashBall(position, Color3.fromRGB(255, 230, 120), 5, 0.3)
 	floatingText(position + Vector3.new(0, 2, 0), "🎉", 90, Vector3.new(0, 4, 0), 1.4)
 end
@@ -9337,7 +9375,7 @@ KILL_FX.Hielo = function(position)
 			Transparency = 0.2,
 			Reflectance = 0.3,
 		})
-	end, 16, 1.8)
+	end, 16, 1.4)
 	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
 	emit(anchor, {
 		Texture = TEX.Sparkle,
@@ -9431,7 +9469,7 @@ KILL_FX.Monedas = function(position)
 			Material = Enum.Material.Foil,
 		})
 		return coin
-	end, 24, 2.4)
+	end, 24, 1.6)
 	floatingText(position + Vector3.new(0, 2, 0), "+🪙", 80, Vector3.new(0, 4, 0), 1.4, Color3.fromRGB(255, 220, 80))
 	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
 	emit(anchor, {
@@ -9462,17 +9500,20 @@ KILL_FX.AgujeroNegro = function(position)
 	})
 	TweenService:Create(hole, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.one * 6 }):Play()
 	TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.new(0.2, 11, 11) }):Play()
-	-- Partículas que caen hacia el centro
-	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	-- Partículas que nacen en una esfera grande y caen hacia el centro
+	local anchor = fxPart({ Size = Vector3.new(12, 12, 12), Transparency = 1, CFrame = CFrame.new(position) })
+	Debris:AddItem(anchor, 2.5)
 	emit(anchor, {
 		Texture = TEX.Sparkle,
 		Color = ColorSequence.new(Color3.fromRGB(200, 120, 255), Color3.fromRGB(255, 80, 200)),
 		LightEmission = 1,
 		Size = seq(0.7, 0),
-		Lifetime = NumberRange.new(0.9, 1.2),
-		Speed = NumberRange.new(-14, -10),
-		SpreadAngle = Vector2.new(180, 180),
-	}, 40)
+		Lifetime = NumberRange.new(0.5, 0.6),
+		Speed = NumberRange.new(10, 12),
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+	}, 50)
 	task.delay(1.1, function()
 		TweenService:Create(hole, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.one * 0.1 }):Play()
 		TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.new(0.2, 0.1, 0.1), Transparency = 1 }):Play()
@@ -12301,7 +12342,8 @@ local function buildSkinsPage(data)
 	end
 end
 
--- Muestra un efecto de eliminación delante de la cámara (oculta el menú un momento)
+-- Muestra un efecto de eliminación delante de la cámara (oculta el menú, y la pantalla de inicio
+-- con su desenfoque si está abierta, durante un momento)
 local previewing = false
 local function previewKillEffect(effectId)
 	if previewing then
@@ -12311,9 +12353,25 @@ local function previewKillEffect(effectId)
 	local camera = workspace.CurrentCamera
 	local position = camera.CFrame.Position + camera.CFrame.LookVector * 16
 	panel.Visible = false
+	local mainGui = player.PlayerGui:FindFirstChild("MainMenu")
+	local mainWasEnabled = mainGui and mainGui.Enabled
+	local blur = game:GetService("Lighting"):FindFirstChild("MainMenuBlur")
+	local blurSize = blur and blur.Size
+	if mainGui then
+		mainGui.Enabled = false
+	end
+	if blur then
+		blur.Size = 0
+	end
 	Effects.KillEffect(effectId, position, Color3.fromRGB(255, 200, 60))
 	task.delay(2.2, function()
 		previewing = false
+		if mainGui and mainWasEnabled and ClientState.InMainMenu then
+			mainGui.Enabled = true
+		end
+		if blur and blur.Parent and ClientState.InMainMenu then
+			blur.Size = blurSize
+		end
 		if ClientState.MenuOpen then
 			panel.Visible = true
 		end
@@ -12647,8 +12705,12 @@ local function buildShopPage(data)
 			Parent = card,
 		}, { UI.gloss() })
 		buyStarter.Activated:Connect(function()
-			if starter.ProductId ~= 0 then
+			if starter.ProductId ~= 0 and buyStarter.Active then
 				Sounds.Play("Click")
+				-- Un solo intento hasta que llegue la respuesta del servidor (la página se rehace)
+				buyStarter.Active = false
+				buyStarter.AutoButtonColor = false
+				buyStarter.Text = "Procesando..."
 				MarketplaceService:PromptProductPurchase(player, starter.ProductId)
 			else
 				showToast("Próximamente")
@@ -12954,7 +13016,8 @@ local function setOpen(open)
 end
 
 function Menu.Toggle()
-	setOpen(not panel.Visible)
+	-- Durante la vista previa de un efecto el panel está oculto pero el menú sigue abierto
+	setOpen(not ClientState.MenuOpen)
 end
 
 -- Abre el menú directamente en una pestaña
@@ -12966,7 +13029,7 @@ function Menu.Open(tab)
 end
 
 function Menu.IsOpen()
-	return panel ~= nil and panel.Visible
+	return panel ~= nil and ClientState.MenuOpen
 end
 
 -- Recoge la recompensa diaria (también se usa desde la pantalla de inicio)

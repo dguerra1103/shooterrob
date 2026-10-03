@@ -22,6 +22,7 @@ local Hardpoint = require(script.Parent.Hardpoint)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
+local Grenades = require(script.Parent.Grenades)
 
 local Round = {}
 
@@ -164,6 +165,7 @@ local function resetStats()
 		player:SetAttribute("GunLevel", 1)
 	end
 	Killstreaks.Reset()
+	Grenades.Reset()
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -267,7 +269,8 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if killerData and killerData.EquippedKillEffect then
 			effect = killerData.EquippedKillEffect
 		end
-		Remotes.KillFX:FireAllClients(position, effect, victimColor)
+		-- Los muñecos (sin jugador) estallan en amarillo, como antes
+		Remotes.KillFX:FireAllClients(position, effect, victim and victimColor or Color3.fromRGB(255, 200, 60))
 	end
 
 	local weapon = weaponName and Weapons.Get(weaponName)

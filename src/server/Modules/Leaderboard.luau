@@ -52,8 +52,11 @@ local function push(player)
 		local value = math.floor(tonumber(data[board.Field]) or 0)
 		local k = player.UserId .. board.Id
 		if store and value > 0 and pushed[k] ~= value then
+			-- Nunca baja un récord (por ejemplo si sus datos no cargaron y empieza de 0)
 			local ok = pcall(function()
-				store:SetAsync(tostring(player.UserId), value)
+				store:UpdateAsync(tostring(player.UserId), function(old)
+					return math.max(tonumber(old) or 0, value)
+				end)
 			end)
 			if ok then
 				pushed[k] = value

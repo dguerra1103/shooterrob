@@ -56,7 +56,11 @@ local function makeGrenade(cf)
 end
 
 local function throw(player, direction)
-	if typeof(direction) ~= "Vector3" or direction.Magnitude < 0.5 or direction.Magnitude > 1.5 then
+	if typeof(direction) ~= "Vector3" then
+		return
+	end
+	local length = direction.Magnitude
+	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
 	end
 	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
@@ -80,8 +84,22 @@ local function throw(player, direction)
 	end
 
 	direction = direction.Unit
-	local start = head.Position + direction * 2
+	-- Nunca aparece al otro lado de una pared: si hay algo delante, se queda de este lado
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, folder }
+	local hit = workspace:Raycast(head.Position, direction * 2.5, params)
+	local start = hit and (hit.Position - direction * 0.6) or (head.Position + direction * 2)
 	local grenade, light = makeGrenade(CFrame.new(start))
+	-- No choca con quien la lanza (si mira hacia abajo no sale rebotada de su cuerpo)
+	for _, part in character:GetDescendants() do
+		if part:IsA("BasePart") then
+			local noCollide = Instance.new("NoCollisionConstraint")
+			noCollide.Part0 = grenade
+			noCollide.Part1 = part
+			noCollide.Parent = grenade
+		end
+	end
 	grenade.Parent = folder
 	grenade:SetNetworkOwner(nil)
 	grenade.AssemblyLinearVelocity = direction * DEF.ThrowSpeed + Vector3.new(0, 14, 0)
@@ -111,15 +129,12 @@ function Grenades.Init()
 	folder.Name = "Grenades"
 	folder.Parent = workspace
 	Remotes.ThrowGrenade.OnServerEvent:Connect(throw)
-	-- Al reaparecer se tiene la granada lista
-	local function onPlayer(player)
-		player.CharacterAdded:Connect(function()
-			player:SetAttribute("GrenadeReadyAt", 0)
-		end)
-	end
-	Players.PlayerAdded:Connect(onPlayer)
+end
+
+-- Al empezar una ronda todos tienen la granada lista (reaparecer no la recarga: evita abusar)
+function Grenades.Reset()
 	for _, player in Players:GetPlayers() do
-		onPlayer(player)
+		player:SetAttribute("GrenadeReadyAt", 0)
 	end
 end
 

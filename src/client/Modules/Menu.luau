@@ -725,7 +725,8 @@ local function buildSkinsPage(data)
 	end
 end
 
--- Muestra un efecto de eliminación delante de la cámara (oculta el menú un momento)
+-- Muestra un efecto de eliminación delante de la cámara (oculta el menú, y la pantalla de inicio
+-- con su desenfoque si está abierta, durante un momento)
 local previewing = false
 local function previewKillEffect(effectId)
 	if previewing then
@@ -735,9 +736,25 @@ local function previewKillEffect(effectId)
 	local camera = workspace.CurrentCamera
 	local position = camera.CFrame.Position + camera.CFrame.LookVector * 16
 	panel.Visible = false
+	local mainGui = player.PlayerGui:FindFirstChild("MainMenu")
+	local mainWasEnabled = mainGui and mainGui.Enabled
+	local blur = game:GetService("Lighting"):FindFirstChild("MainMenuBlur")
+	local blurSize = blur and blur.Size
+	if mainGui then
+		mainGui.Enabled = false
+	end
+	if blur then
+		blur.Size = 0
+	end
 	Effects.KillEffect(effectId, position, Color3.fromRGB(255, 200, 60))
 	task.delay(2.2, function()
 		previewing = false
+		if mainGui and mainWasEnabled and ClientState.InMainMenu then
+			mainGui.Enabled = true
+		end
+		if blur and blur.Parent and ClientState.InMainMenu then
+			blur.Size = blurSize
+		end
 		if ClientState.MenuOpen then
 			panel.Visible = true
 		end
@@ -1071,8 +1088,12 @@ local function buildShopPage(data)
 			Parent = card,
 		}, { UI.gloss() })
 		buyStarter.Activated:Connect(function()
-			if starter.ProductId ~= 0 then
+			if starter.ProductId ~= 0 and buyStarter.Active then
 				Sounds.Play("Click")
+				-- Un solo intento hasta que llegue la respuesta del servidor (la página se rehace)
+				buyStarter.Active = false
+				buyStarter.AutoButtonColor = false
+				buyStarter.Text = "Procesando..."
 				MarketplaceService:PromptProductPurchase(player, starter.ProductId)
 			else
 				showToast("Próximamente")
@@ -1378,7 +1399,8 @@ local function setOpen(open)
 end
 
 function Menu.Toggle()
-	setOpen(not panel.Visible)
+	-- Durante la vista previa de un efecto el panel está oculto pero el menú sigue abierto
+	setOpen(not ClientState.MenuOpen)
 end
 
 -- Abre el menú directamente en una pestaña
@@ -1390,7 +1412,7 @@ function Menu.Open(tab)
 end
 
 function Menu.IsOpen()
-	return panel ~= nil and panel.Visible
+	return panel ~= nil and ClientState.MenuOpen
 end
 
 -- Recoge la recompensa diaria (también se usa desde la pantalla de inicio)

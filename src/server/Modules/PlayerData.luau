@@ -169,7 +169,7 @@ local function publicView(player, data)
 		WeaponCamos = data.WeaponCamos,
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
-		StarterPackAvailable = not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
+		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -710,13 +710,22 @@ local function processReceipt(receipt)
 	-- Qué se entrega: un pack de monedas o el pack de inicio
 	local grant, undo, message
 	local starter = Shop.StarterPack
-	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
+	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
+		-- Ya lo tenía (compra repetida): Roblox ya cobró, así que se entregan solo las monedas
+		grant = function()
+			data.Coins += starter.Coins
+		end
+		undo = function()
+			data.Coins -= starter.Coins
+		end
+		message = "+" .. starter.Coins .. " MONEDAS"
+	elseif starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
+		-- Al deshacer solo se quita lo que se dio (no se vuelve a un saldo antiguo:
+		-- mientras se guardaba pudo ganar o gastar monedas)
 		local had = {
-			Coins = data.Coins,
-			Outfit = data.Outfits[starter.Outfit],
-			Skin = data.Skins[starter.Skin],
-			Effect = data.KillEffects[starter.KillEffect],
-			Bought = data.StarterPack,
+			Outfit = data.Outfits[starter.Outfit] == true,
+			Skin = data.Skins[starter.Skin] == true,
+			Effect = data.KillEffects[starter.KillEffect] == true,
 		}
 		grant = function()
 			data.Coins += starter.Coins
@@ -726,11 +735,17 @@ local function processReceipt(receipt)
 			data.StarterPack = true
 		end
 		undo = function()
-			data.Coins = had.Coins
-			data.Outfits[starter.Outfit] = had.Outfit
-			data.Skins[starter.Skin] = had.Skin
-			data.KillEffects[starter.KillEffect] = had.Effect
-			data.StarterPack = had.Bought
+			data.Coins -= starter.Coins
+			if not had.Outfit then
+				data.Outfits[starter.Outfit] = nil
+			end
+			if not had.Skin then
+				data.Skins[starter.Skin] = nil
+			end
+			if not had.Effect then
+				data.KillEffects[starter.KillEffect] = nil
+			end
+			data.StarterPack = false
 		end
 		message = "¡PACK DE INICIO DESBLOQUEADO!"
 	else
@@ -760,7 +775,10 @@ local function processReceipt(receipt)
 	if not store or noSave[player] or not save(player) then
 		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
 		undo()
-		table.remove(data.Purchases)
+		local index = table.find(data.Purchases, receipt.PurchaseId)
+		if index then
+			table.remove(data.Purchases, index)
+		end
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	Remotes.Notify:FireClient(player, "Big", message)

@@ -416,8 +416,7 @@ local function debrisBurst(position, count, makePart, speed, lifetime)
 	for _ = 1, count do
 		local part = makePart()
 		part.Anchored = false
-		part.CanCollide = true -- rebotan en el suelo
-		part.Massless = true
+		part.CanCollide = false -- no empujan a nadie; desaparecen antes de caer mucho
 		part.CFrame = CFrame.new(position + Vector3.new(math.random() - 0.5, math.random() * 0.5, math.random() - 0.5))
 			* CFrame.Angles(math.random() * 6.28, math.random() * 6.28, math.random() * 6.28)
 		local dir = Vector3.new(math.random() - 0.5, 0.6 + math.random() * 0.8, math.random() - 0.5).Unit
@@ -453,7 +452,7 @@ KILL_FX.Confeti = function(position)
 			Color = CONFETTI_COLORS[math.random(1, #CONFETTI_COLORS)],
 			Material = Enum.Material.SmoothPlastic,
 		})
-	end, 22, 2.2)
+	end, 22, 1.6)
 	flashBall(position, Color3.fromRGB(255, 230, 120), 5, 0.3)
 	floatingText(position + Vector3.new(0, 2, 0), "🎉", 90, Vector3.new(0, 4, 0), 1.4)
 end
@@ -518,7 +517,7 @@ KILL_FX.Hielo = function(position)
 			Transparency = 0.2,
 			Reflectance = 0.3,
 		})
-	end, 16, 1.8)
+	end, 16, 1.4)
 	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
 	emit(anchor, {
 		Texture = TEX.Sparkle,
@@ -612,7 +611,7 @@ KILL_FX.Monedas = function(position)
 			Material = Enum.Material.Foil,
 		})
 		return coin
-	end, 24, 2.4)
+	end, 24, 1.6)
 	floatingText(position + Vector3.new(0, 2, 0), "+🪙", 80, Vector3.new(0, 4, 0), 1.4, Color3.fromRGB(255, 220, 80))
 	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
 	emit(anchor, {
@@ -643,17 +642,20 @@ KILL_FX.AgujeroNegro = function(position)
 	})
 	TweenService:Create(hole, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.one * 6 }):Play()
 	TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.new(0.2, 11, 11) }):Play()
-	-- Partículas que caen hacia el centro
-	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	-- Partículas que nacen en una esfera grande y caen hacia el centro
+	local anchor = fxPart({ Size = Vector3.new(12, 12, 12), Transparency = 1, CFrame = CFrame.new(position) })
+	Debris:AddItem(anchor, 2.5)
 	emit(anchor, {
 		Texture = TEX.Sparkle,
 		Color = ColorSequence.new(Color3.fromRGB(200, 120, 255), Color3.fromRGB(255, 80, 200)),
 		LightEmission = 1,
 		Size = seq(0.7, 0),
-		Lifetime = NumberRange.new(0.9, 1.2),
-		Speed = NumberRange.new(-14, -10),
-		SpreadAngle = Vector2.new(180, 180),
-	}, 40)
+		Lifetime = NumberRange.new(0.5, 0.6),
+		Speed = NumberRange.new(10, 12),
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+	}, 50)
 	task.delay(1.1, function()
 		TweenService:Create(hole, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.one * 0.1 }):Play()
 		TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.new(0.2, 0.1, 0.1), Transparency = 1 }):Play()
