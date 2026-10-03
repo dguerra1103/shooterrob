@@ -20,8 +20,18 @@ local function track(inst)
 	end
 	local spin = inst:GetAttribute("Spin")
 	local bob = inst:GetAttribute("Bob")
-	if spin or bob then
-		animated[inst] = { Base = inst.CFrame, Spin = spin or 0, Bob = bob or 0, Phase = math.random() * 10 }
+	local blink = inst:GetAttribute("Blink")
+	local sweep = inst:GetAttribute("Sweep")
+	if spin or bob or blink or sweep then
+		animated[inst] = {
+			Base = inst.CFrame,
+			Spin = spin or 0,
+			Bob = bob or 0,
+			Blink = blink,
+			Sweep = sweep,
+			BaseTransparency = inst.Transparency,
+			Phase = math.random() * 10,
+		}
 	end
 end
 
@@ -32,10 +42,22 @@ local function animate()
 			animated[part] = nil
 			continue
 		end
-		local position = info.Base.Position + Vector3.new(0, math.sin(t * 1.5 + info.Phase) * info.Bob, 0)
-		local rotation = info.Base - info.Base.Position
-		-- Giro alrededor del eje Y del mundo que pasa por la pieza
-		part.CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(info.Spin * t), 0) * rotation
+		if info.Blink then
+			-- Baliza que parpadea
+			local on = math.sin((t + info.Phase) * math.pi * 2 / info.Blink) > 0
+			part.Transparency = on and info.BaseTransparency or 0.95
+		end
+		if info.Sweep then
+			-- Haz de luz que barre a un lado y a otro desde su base
+			local pivot = (info.Base * CFrame.new(0, -part.Size.Y / 2, 0)).Position
+			local angle = math.rad(info.Sweep) * math.sin(t * 0.4 + info.Phase)
+			part.CFrame = CFrame.new(pivot) * CFrame.Angles(0, angle, 0) * (CFrame.new(pivot):Inverse() * info.Base)
+		elseif info.Spin ~= 0 or info.Bob ~= 0 then
+			local position = info.Base.Position + Vector3.new(0, math.sin(t * 1.5 + info.Phase) * info.Bob, 0)
+			local rotation = info.Base - info.Base.Position
+			-- Giro alrededor del eje Y del mundo que pasa por la pieza
+			part.CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(info.Spin * t), 0) * rotation
+		end
 	end
 end
 

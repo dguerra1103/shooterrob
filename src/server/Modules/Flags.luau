@@ -89,7 +89,7 @@ local function buildFlag(team)
 	end
 
 	local pole = part("Pole", Vector3.new(0.3, POLE_HEIGHT, 0.3), Color3.fromRGB(220, 220, 225), Enum.Material.Metal)
-	local cloth = part("Cloth", Vector3.new(0.15, 2.4, 3.6), team.Color.Color, Enum.Material.Neon)
+	local cloth = part("Cloth", Vector3.new(0.15, 2.4, 3.6), team.TeamColor.Color, Enum.Material.Neon)
 	cloth.CFrame = pole.CFrame * CFrame.new(0, POLE_HEIGHT / 2 - 1.4, 1.8)
 	local tip = part("Tip", Vector3.new(0.6, 0.6, 0.6), Color3.fromRGB(255, 200, 40), Enum.Material.Neon, Enum.PartType.Ball)
 	tip.CFrame = pole.CFrame * CFrame.new(0, POLE_HEIGHT / 2 + 0.3, 0)
@@ -102,7 +102,7 @@ local function buildFlag(team)
 	model.PrimaryPart = pole
 
 	local light = Instance.new("PointLight")
-	light.Color = team.Color.Color
+	light.Color = team.TeamColor.Color
 	light.Range = 14
 	light.Brightness = 2
 	light.Parent = cloth
@@ -110,7 +110,7 @@ local function buildFlag(team)
 	-- Destellos del color del equipo
 	local sparkles = Instance.new("ParticleEmitter")
 	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkles.Color = ColorSequence.new(team.Color.Color, Color3.new(1, 1, 1))
+	sparkles.Color = ColorSequence.new(team.TeamColor.Color, Color3.new(1, 1, 1))
 	sparkles.LightEmission = 1
 	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 0) })
 	sparkles.Lifetime = NumberRange.new(0.6, 1.2)
@@ -133,7 +133,7 @@ local function buildFlag(team)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.FredokaOne
 	label.TextSize = 18
-	label.TextColor3 = team.Color.Color:Lerp(Color3.new(1, 1, 1), 0.25)
+	label.TextColor3 = team.TeamColor.Color:Lerp(Color3.new(1, 1, 1), 0.25)
 	label.TextStrokeTransparency = 0.2
 	label.Text = ""
 	label.Parent = billboard

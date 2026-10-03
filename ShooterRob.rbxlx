@@ -39,15 +39,19 @@ GameConfig.Teams = {
 
 -- Rondas
 GameConfig.MinPlayers = 1 -- súbelo a 2+ cuando publiques el juego
-GameConfig.IntermissionTime = 15
+GameConfig.IntermissionTime = 20
 
--- Modos de juego. Se juegan en este orden, uno por ronda.
--- Pon solo { "CTF" } o solo { "TDM" } si quieres un único modo.
-GameConfig.Modes = { "CTF", "TDM" }
+-- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
+-- Quita alguno de la lista si no lo quieres.
+GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN" }
 GameConfig.ModeSettings = {
-	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60 }, -- puntos = bajas
-	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60 }, -- puntos = capturas
+	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
+	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
+	KOTH = { Name = "Zona de control", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true }, -- 1 punto/seg en la zona
+	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
+	GUN = { Name = "Escalada de armas", ScoreToWin = 0, RoundTime = 10 * 60, Teams = false }, -- 0 = una baja por arma
 }
+GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 
 -- Captura la bandera
 GameConfig.Flag = {
@@ -2092,14 +2096,16 @@ local Loadout = require(Modules.Loadout)
 local Combat = require(Modules.Combat)
 local Round = require(Modules.Round)
 local Dummies = require(Modules.Dummies)
+local Hazards = require(Modules.Hazards)
 
-MapBuilder.Build()
+MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
 Loadout.Init()
 Combat.Init()
 Combat.OnKill = Round.RegisterKill
 Round.Init()
 Dummies.Init()
+Hazards.Init()
 ]]></string>
         </Properties>
       </Item>
@@ -2669,7 +2675,7 @@ local function buildFlag(team)
 	end
 
 	local pole = part("Pole", Vector3.new(0.3, POLE_HEIGHT, 0.3), Color3.fromRGB(220, 220, 225), Enum.Material.Metal)
-	local cloth = part("Cloth", Vector3.new(0.15, 2.4, 3.6), team.Color.Color, Enum.Material.Neon)
+	local cloth = part("Cloth", Vector3.new(0.15, 2.4, 3.6), team.TeamColor.Color, Enum.Material.Neon)
 	cloth.CFrame = pole.CFrame * CFrame.new(0, POLE_HEIGHT / 2 - 1.4, 1.8)
 	local tip = part("Tip", Vector3.new(0.6, 0.6, 0.6), Color3.fromRGB(255, 200, 40), Enum.Material.Neon, Enum.PartType.Ball)
 	tip.CFrame = pole.CFrame * CFrame.new(0, POLE_HEIGHT / 2 + 0.3, 0)
@@ -2682,7 +2688,7 @@ local function buildFlag(team)
 	model.PrimaryPart = pole
 
 	local light = Instance.new("PointLight")
-	light.Color = team.Color.Color
+	light.Color = team.TeamColor.Color
 	light.Range = 14
 	light.Brightness = 2
 	light.Parent = cloth
@@ -2690,7 +2696,7 @@ local function buildFlag(team)
 	-- Destellos del color del equipo
 	local sparkles = Instance.new("ParticleEmitter")
 	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkles.Color = ColorSequence.new(team.Color.Color, Color3.new(1, 1, 1))
+	sparkles.Color = ColorSequence.new(team.TeamColor.Color, Color3.new(1, 1, 1))
 	sparkles.LightEmission = 1
 	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 0) })
 	sparkles.Lifetime = NumberRange.new(0.6, 1.2)
@@ -2713,7 +2719,7 @@ local function buildFlag(team)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.FredokaOne
 	label.TextSize = 18
-	label.TextColor3 = team.Color.Color:Lerp(Color3.new(1, 1, 1), 0.25)
+	label.TextColor3 = team.TeamColor.Color:Lerp(Color3.new(1, 1, 1), 0.25)
 	label.TextStrokeTransparency = 0.2
 	label.Text = ""
 	label.Parent = billboard
@@ -2973,6 +2979,253 @@ return Flags
         </Item>
         <Item class="ModuleScript" referent="20">
           <Properties>
+            <string name="Name">Hardpoint</string>
+            <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
+-- (sin enemigos dentro) suma 1 punto por segundo. Si hay jugadores de los dos equipos, está disputada.
+--
+-- Estado para la interfaz (atributos de ReplicatedStorage):
+--   ZoneOwner = "" | nombre del equipo | "Contested",  ZoneMoveIn = segundos hasta que cambie,
+--   ZonePosition = Vector3
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Hardpoint = {}
+
+Hardpoint.OnScore = nil -- function(team, amount)
+
+local ROTATE_TIME = 60
+local XP_INTERVAL = 5
+
+local active = false
+local zones = {}
+local index = 0
+local visual
+local thread
+
+local function findZones()
+	local list = {}
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "HardpointZone" then
+				table.insert(list, d)
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		return (a:GetAttribute("Order") or 0) < (b:GetAttribute("Order") or 0)
+	end)
+	return list
+end
+
+function Hardpoint.IsAvailable()
+	return #findZones() > 0
+end
+
+local function makeVisual(zone)
+	if visual then
+		visual:Destroy()
+	end
+	local radius = zone:GetAttribute("Radius") or 10
+	local model = Instance.new("Model")
+	model.Name = "ActiveZone"
+	local function part(name, size, cf, material, transparency)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Size = size
+		p.CFrame = cf
+		p.Material = material
+		p.Transparency = transparency or 0
+		p.Color = Color3.new(1, 1, 1)
+		p.Parent = model
+		return p
+	end
+	local base = zone.Position
+	local ring = part("Ring", Vector3.new(0.3, radius * 2 + 1, radius * 2 + 1), CFrame.new(base + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.Neon)
+	ring.Shape = Enum.PartType.Cylinder
+	local inner = part("Fill", Vector3.new(0.32, radius * 2 - 1, radius * 2 - 1), CFrame.new(base + Vector3.new(0, 0.21, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.ForceField, 0.3)
+	inner.Shape = Enum.PartType.Cylinder
+	local beam = part("Beam", Vector3.new(80, radius * 0.6, radius * 0.6), CFrame.new(base + Vector3.new(0, 40, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.Neon, 0.8)
+	beam.Shape = Enum.PartType.Cylinder
+	local light = Instance.new("PointLight")
+	light.Range = radius * 2
+	light.Brightness = 2
+	light.Parent = ring
+	-- Marcador visible a través de las paredes
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(140, 50)
+	billboard.StudsOffset = Vector3.new(0, 8, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 1500
+	billboard.Parent = ring
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextStrokeTransparency = 0.2
+	label.Text = "◆ ZONA"
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Parent = billboard
+	model.Parent = workspace
+	visual = model
+end
+
+local function paint(color)
+	if not visual then
+		return
+	end
+	for _, p in visual:GetDescendants() do
+		if p:IsA("BasePart") then
+			p.Color = color
+		elseif p:IsA("PointLight") then
+			p.Color = color
+		elseif p:IsA("TextLabel") then
+			p.TextColor3 = color
+		end
+	end
+end
+
+local function playersInZone(zone)
+	local radius = zone:GetAttribute("Radius") or 10
+	local center = zone.Position
+	local byTeam = {}
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if player.Team and humanoid and humanoid.Health > 0 and root then
+			local offset = root.Position - center
+			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -3 and offset.Y < 10 then
+				byTeam[player.Team] = byTeam[player.Team] or {}
+				table.insert(byTeam[player.Team], player)
+			end
+		end
+	end
+	return byTeam
+end
+
+local function moveTo(i)
+	index = i
+	local zone = zones[index]
+	makeVisual(zone)
+	ReplicatedStorage:SetAttribute("ZonePosition", zone.Position)
+	Remotes.Notify:FireAllClients("Flag", "¡La zona se ha movido!")
+end
+
+function Hardpoint.Start()
+	Hardpoint.Stop()
+	zones = findZones()
+	if #zones == 0 then
+		return false
+	end
+	active = true
+	moveTo(1)
+	thread = task.spawn(function()
+		local moveAt = os.clock() + ROTATE_TIME
+		local tick = 0
+		while active do
+			task.wait(1)
+			tick += 1
+			local remaining = math.max(0, math.ceil(moveAt - os.clock()))
+			ReplicatedStorage:SetAttribute("ZoneMoveIn", remaining)
+			if remaining <= 0 then
+				moveAt = os.clock() + ROTATE_TIME
+				moveTo(index % #zones + 1)
+			end
+			local byTeam = playersInZone(zones[index])
+			local owner, count = nil, 0
+			for team in byTeam do
+				count += 1
+				owner = team
+			end
+			if count == 0 then
+				ReplicatedStorage:SetAttribute("ZoneOwner", "")
+				paint(Color3.new(1, 1, 1))
+			elseif count > 1 then
+				ReplicatedStorage:SetAttribute("ZoneOwner", "Contested")
+				paint(Color3.fromRGB(255, 200, 40))
+			else
+				ReplicatedStorage:SetAttribute("ZoneOwner", owner.Name)
+				paint(owner.TeamColor.Color)
+				if Hardpoint.OnScore then
+					Hardpoint.OnScore(owner, 1)
+				end
+				if tick % XP_INTERVAL == 0 then
+					for _, player in byTeam[owner] do
+						PlayerData.AddXP(player, 20, "Zona")
+					end
+				end
+			end
+		end
+	end)
+	return true
+end
+
+function Hardpoint.Stop()
+	active = false
+	if thread then
+		pcall(task.cancel, thread)
+		thread = nil
+	end
+	if visual then
+		visual:Destroy()
+		visual = nil
+	end
+	ReplicatedStorage:SetAttribute("ZoneOwner", nil)
+	ReplicatedStorage:SetAttribute("ZonePosition", nil)
+	ReplicatedStorage:SetAttribute("ZoneMoveIn", nil)
+end
+
+return Hardpoint
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="21">
+          <Properties>
+            <string name="Name">Hazards</string>
+            <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava (material CrackedLava) quita vida cada cuarto de segundo.
+local Players = game:GetService("Players")
+
+local Hazards = {}
+
+local LAVA_DAMAGE = 10 -- por cada 0.25 s
+
+function Hazards.Init()
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			for _, player in Players:GetPlayers() do
+				local character = player.Character
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if humanoid and humanoid.Health > 0 and humanoid.FloorMaterial == Enum.Material.CrackedLava then
+					humanoid:SetAttribute("LastAttacker", nil)
+					humanoid:SetAttribute("LastWeapon", nil)
+					humanoid:TakeDamage(LAVA_DAMAGE)
+				end
+			end
+		end
+	end)
+end
+
+return Hazards
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="22">
+          <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
 local Players = game:GetService("Players")
@@ -3142,18 +3395,278 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="21">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">MapBuilder</string>
-            <string name="Source"><![CDATA[-- Genera un mapa urbano simétrico (estilo arena) con calles, edificios, contenedores, rampas y decoración.
--- Si ya existe workspace.Map (por ejemplo uno que construyas tú en Studio) no genera nada.
--- Tu mapa propio debe tener SpawnLocations con TeamColor = Really red / Really blue
--- y, para Captura la bandera, una pieza "FlagBase" por equipo con el atributo Team.
-local Lighting = game:GetService("Lighting")
-
-local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+            <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
+-- Si construyes tu propio mapa en Studio dentro de workspace.Map (sin el atributo "Generated"),
+-- se usará ese y no habrá rotación de mapas.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MapBuilder = {}
+
+MapBuilder.Defs = {}
+for _, module in script.Parent.MapDefs:GetChildren() do
+	local def = require(module)
+	MapBuilder.Defs[def.Id] = def
+end
+
+-- Orden de rotación (también son las opciones de la votación)
+MapBuilder.Order = { "HarborHeights", "ContainerClash", "NeonFoundry", "Downtown" }
+
+MapBuilder.Current = nil
+
+-- ¿Hay un mapa hecho a mano en Studio?
+function MapBuilder.IsCustom()
+	local map = workspace:FindFirstChild("Map")
+	return map ~= nil and not map:GetAttribute("Generated")
+end
+
+function MapBuilder.Get(id)
+	return MapBuilder.Defs[id]
+end
+
+function MapBuilder.Build(id)
+	if MapBuilder.IsCustom() then
+		ReplicatedStorage:SetAttribute("MapName", "Mapa propio")
+		return nil
+	end
+	local baseplate = workspace:FindFirstChild("Baseplate")
+	if baseplate then
+		baseplate:Destroy()
+	end
+	local def = MapBuilder.Defs[id or MapBuilder.Order[1]] or MapBuilder.Defs[MapBuilder.Order[1]]
+	def.Build()
+	MapBuilder.Current = def.Id
+	ReplicatedStorage:SetAttribute("MapName", def.Name)
+	ReplicatedStorage:SetAttribute("MapId", def.Id)
+	return def
+end
+
+return MapBuilder
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="24">
+          <Properties>
+            <string name="Name">MapDefs</string>
+          </Properties>
+          <Item class="ModuleScript" referent="25">
+            <Properties>
+              <string name="Name">ContainerClash</string>
+              <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
+-- pasillos laterales entre contenedores, pasarelas elevadas y almacenes como zonas de salida.
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+local Kit = require(script.Parent.Parent.MapKit)
+
+local Map = {
+	Id = "ContainerClash",
+	Name = "Container Clash",
+	Description = "Puerto · atardecer · pasillos y pasarelas",
+}
+
+Map.Lighting = {
+	ClockTime = 17.6,
+	Brightness = 2.8,
+	Exposure = 0.1,
+	Ambient = Color3.fromRGB(110, 80, 75),
+	OutdoorAmbient = Color3.fromRGB(175, 125, 105),
+	Atmosphere = { Density = 0.33, Offset = 0.15, Color = Color3.fromRGB(255, 190, 140), Decay = Color3.fromRGB(190, 95, 90), Glare = 0.8, Haze = 2 },
+	Color = { Saturation = 0.35, Contrast = 0.12, Brightness = 0.02, Tint = Color3.fromRGB(255, 228, 205) },
+	Bloom = { Intensity = 1, Size = 28, Threshold = 1.4 },
+	Clouds = 0.5,
+	CloudColor = Color3.fromRGB(255, 200, 170),
+	SunRays = 0.12,
+}
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local C = Kit.C
+
+local CONCRETE = RGB(150, 146, 140)
+local COLORS = { RGB(210, 60, 45), RGB(45, 110, 210), RGB(240, 150, 30), RGB(60, 160, 90), RGB(130, 135, 145), RGB(230, 230, 235) }
+
+-- Contenedor ligero (pocas piezas) para muros y fondos
+local function lite(cf, color, decorative)
+	local fn = decorative and Kit.deco or Kit.block
+	fn("Container", V(20, 8.5, 8), cf * CFrame.new(0, 4.25, 0), color, Enum.Material.CorrodedMetal)
+	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	for i = -1, 1 do
+		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal)
+	end
+	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal)
+end
+
+function Map.Build()
+	local folder = Kit.Begin(Map.Name)
+	Kit.applyLighting(Map.Lighting)
+	local block, deco = Kit.block, Kit.deco
+	local teams = GameConfig.Teams
+
+	-- Suelo con marcas amarillas
+	block("Yard", V(340, 2, 240), CFrame.new(0, -1, 0), CONCRETE, Enum.Material.Concrete)
+	for _, z in { -30, 30, -90, 90 } do
+		deco("LaneLine", V(260, 0.05, 0.8), CFrame.new(0, 0.03, z), C.Yellow, Enum.Material.SmoothPlastic)
+	end
+	for x = -120, 120, 40 do
+		deco("CrossLine", V(0.8, 0.05, 240), CFrame.new(x, 0.03, 0), RGB(200, 190, 120), Enum.Material.SmoothPlastic)
+	end
+	for i = 1, 14 do
+		local x, z = ((i * 53) % 260) - 130, ((i * 71) % 200) - 100
+		deco("Stain", V(6 + i % 4, 0.04, 4 + i % 3), CFrame.new(x, 0.025, z) * CFrame.Angles(0, i, 0), RGB(90, 88, 85), Enum.Material.Concrete).Transparency = 0.5
+	end
+
+	-- Pila central (dos contenedores a lo largo de Z y uno encima)
+	Kit.container(CFrame.new(0, 0, -11) * CFrame.Angles(0, math.rad(90), 0), COLORS[5], "CENTER")
+	Kit.container(CFrame.new(0, 0, 11) * CFrame.Angles(0, math.rad(90), 0), COLORS[5], "CENTER")
+	Kit.container(CFrame.new(0, 8.9, 0) * CFrame.Angles(0, math.rad(90), 0), C.Yellow, "STACK 01")
+
+	-- Grúa pórtico sobre el centro con un contenedor colgando
+	local gantry = RGB(245, 185, 35)
+	for _, x in { -22, 22 } do
+		for _, z in { -38, 38 } do
+			block("GantryLeg", V(2.5, 40, 2.5), CFrame.new(x, 20, z), gantry, Enum.Material.Metal)
+		end
+		block("GantryBeam", V(2.5, 3, 78), CFrame.new(x, 40, 0), gantry, Enum.Material.Metal)
+	end
+	block("GantryCross", V(46, 3, 3), CFrame.new(0, 41, -8), gantry, Enum.Material.Metal)
+	deco("GantryCable", V(0.3, 9, 0.3), CFrame.new(0, 35, -8), RGB(30, 30, 30), Enum.Material.Metal)
+	lite(CFrame.new(0, 22, -8) * CFrame.Angles(0, math.rad(90), 0), RGB(210, 70, 50), true)
+	Kit.ball("GantryBeacon", 1, CFrame.new(0, 43, -8), RGB(255, 60, 40), Enum.Material.Neon, true):SetAttribute("Blink", 1)
+
+	Kit.symmetric(function(m, side)
+		local teamColor = side == "A" and RGB(210, 50, 45) or RGB(45, 110, 220)
+
+		-- Pasillo lateral: dos filas de contenedores con huecos
+		for i, x in { -104, -80, -50, -20 } do
+			local c1 = COLORS[(i % #COLORS) + 1]
+			local c2 = COLORS[((i + 2) % #COLORS) + 1]
+			if i ~= 3 then
+				Kit.container(m * CFrame.new(x, 0, -48), c1)
+			end
+			Kit.container(m * CFrame.new(x + 4, 0, -76), c2)
+			if i % 2 == 0 then
+				Kit.container(m * CFrame.new(x + 4, 8.9, -76), COLORS[((i + 4) % #COLORS) + 1])
+			end
+		end
+		-- Rampa de cajas para subir a la fila alta del pasillo
+		Kit.ramp(m * V(-100, 0, -55), m * V(-100, 8.6, -71.5), 5, RGB(150, 120, 80), Enum.Material.WoodPlanks)
+
+		-- Contenedores y cobertura de la zona media
+		Kit.container(m * CFrame.new(-55, 0, 25), COLORS[2])
+		Kit.container(m * CFrame.new(-55, 0, 33.4), COLORS[1])
+		Kit.container(m * CFrame.new(-30, 0, 55) * CFrame.Angles(0, math.rad(90), 0), COLORS[4])
+		Kit.container(m * CFrame.new(-95, 0, 18) * CFrame.Angles(0, math.rad(90), 0), COLORS[3])
+		Kit.metalCrate(m * CFrame.new(-25, 0, 22), 4)
+		Kit.metalCrate(m * CFrame.new(-21, 0, 22), 4)
+		Kit.metalCrate(m * CFrame.new(-23, 4, 22), 3.5)
+		Kit.crate(m * CFrame.new(-70, 0, -10), 5)
+		Kit.crate(m * CFrame.new(-40, 0, -15))
+		Kit.crate(m * CFrame.new(-40, 0, -19.5), 3)
+		Kit.crate(m * CFrame.new(-120, 0, 40))
+		Kit.barrel(m * CFrame.new(-45, 0, 0), RGB(40, 90, 180))
+		Kit.barrel(m * CFrame.new(-43, 0, 2.3), RGB(40, 90, 180))
+		Kit.barrel(m * CFrame.new(-100, 0, -30), RGB(200, 60, 40))
+		Kit.barrel(m * CFrame.new(-35, 0, 80), RGB(60, 160, 90))
+		for _, p in { V(-60, 0, 0), V(-62, 0, 4), V(-15, 0, 40), V(-80, 0, 45) } do
+			Kit.cone(m * CFrame.new(p))
+		end
+		Kit.forklift(m * CFrame.new(-75, 0, 60) * CFrame.Angles(0, math.rad(30), 0))
+
+		-- Pasarela elevada delante del almacén con escaleras
+		local walkY = 10
+		block("Catwalk", V(8, 1, 100), m * CFrame.new(-118, walkY - 0.5, 0), RGB(80, 82, 92), Enum.Material.DiamondPlate)
+		for z = -48, 48, 16 do
+			block("CatwalkLeg", V(1, walkY - 1, 1), m * CFrame.new(-115, (walkY - 1) / 2, z), C.Metal, Enum.Material.Metal)
+		end
+		Kit.railing(m * V(-114.2, walkY, -50), m * V(-114.2, walkY, 50), 3, C.Yellow)
+		Kit.stairs(m * V(-118, 0, 72), m * V(-118, walkY, 52), 6, RGB(120, 122, 130))
+		Kit.stairs(m * V(-118, 0, -72), m * V(-118, walkY, -52), 6, RGB(120, 122, 130))
+
+		-- Almacén de salida: paredes, número grande y estandartes
+		local wallColor = RGB(120, 118, 115)
+		block("WarehouseWall", V(32, 22, 2), m * CFrame.new(-145, 11, 37), wallColor, Enum.Material.CorrodedMetal)
+		block("WarehouseWall", V(32, 22, 2), m * CFrame.new(-145, 11, -37), wallColor, Enum.Material.CorrodedMetal)
+		block("WarehouseRoof", V(34, 1.5, 76), m * CFrame.new(-145, 22.5, 0), RGB(90, 88, 86), Enum.Material.CorrodedMetal)
+		local front = block("WarehouseFront", V(2, 6, 76), m * CFrame.new(-129.5, 19.5, 0), wallColor, Enum.Material.CorrodedMetal)
+		Kit.sign(front, Enum.NormalId.Right, side == "A" and "02" or "03", RGB(240, 240, 240), RGB(30, 30, 30))
+		for _, z in { -30, 30 } do
+			Kit.banner(m * CFrame.new(-128.2, 17, z) * CFrame.Angles(0, math.rad(-90), 0), 5, 9, teamColor, C.White)
+		end
+		for _, z in { -20, 20 } do
+			local lamp = deco("WarehouseLamp", V(1.4, 0.6, 3), m * CFrame.new(-128.5, 15.6, z), RGB(255, 220, 160), Enum.Material.Neon)
+			Kit.light(lamp, "SpotLight", RGB(255, 210, 150), 30, 2, Enum.NormalId.Bottom).Angle = 110
+		end
+	end)
+
+	-- Spawns y banderas
+	local spawnStyle = { Floor = RGB(110, 108, 106), FloorMaterial = Enum.Material.Concrete, Roof = RGB(90, 88, 86), RoofMaterial = Enum.Material.CorrodedMetal }
+	Kit.spawnArea(teams[1], CFrame.new(-145, 0, 0), spawnStyle)
+	Kit.spawnArea(teams[2], Kit.MIRROR * CFrame.new(-145, 0, 0), spawnStyle)
+	Kit.flagBase(teams[1], CFrame.new(-102, 0, -2))
+	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-102, 0, -2))
+
+	-- Muro perimetral de contenedores (2 alturas) y límites
+	Kit.bounds(320, 220, 60)
+	for x = -150, 150, 21 do
+		for _, z in { -114, 114 } do
+			lite(CFrame.new(x, 0, z), COLORS[(math.abs(x) // 21 + (z > 0 and 1 or 0)) % #COLORS + 1])
+			lite(CFrame.new(x, 8.9, z), COLORS[(math.abs(x) // 21 + 3) % #COLORS + 1], true)
+		end
+	end
+
+	-- Fondo: grúas, barcos, más contenedores y el mar al atardecer
+	workspace.Terrain:FillBlock(CFrame.new(0, -12, 330), V(1000, 20, 400), Enum.Material.Water)
+	block("Quay", V(600, 4, 30), CFrame.new(0, -2, 135), RGB(120, 118, 115), Enum.Material.Concrete)
+	for i, x in { -180, -100, -20, 60, 140, 220 } do
+		Kit.crane(CFrame.new(x, 0, 140) * CFrame.Angles(0, math.rad(180), 0), 50 + (i % 3) * 6, i % 2 == 0 and RGB(220, 70, 50) or RGB(245, 185, 35))
+	end
+	Kit.ship(CFrame.new(-60, -2, 190), 140)
+	Kit.ship(CFrame.new(160, -2, 260) * CFrame.Angles(0, math.rad(-12), 0), 110)
+	for x = -220, 220, 21 do
+		for row = 0, 2 do
+			lite(CFrame.new(x, row * 8.6, -140 - (x % 3) * 9), COLORS[(math.abs(x) // 21 + row) % #COLORS + 1], true)
+		end
+	end
+	for z = -100, 100, 25 do
+		for _, sx in { -1, 1 } do
+			lite(CFrame.new(sx * 175, 0, z) * CFrame.Angles(0, math.rad(90), 0), COLORS[(math.abs(z) // 25) % #COLORS + 1], true)
+			lite(CFrame.new(sx * 175, 8.6, z) * CFrame.Angles(0, math.rad(90), 0), COLORS[(math.abs(z) // 25 + 2) % #COLORS + 1], true)
+		end
+	end
+
+	-- Modos
+	for _, p in {
+		V(-130, 0.5, 50), V(-100, 0.5, -30), V(-70, 0.5, 10), V(-40, 0.5, 40), V(-35, 0.5, -60),
+		V(-118, 10.5, 30), V(-118, 10.5, -30), V(-90, 0.5, 90), V(-15, 0.5, -30), V(-60, 0.5, -90),
+	} do
+		Kit.ffaSpawn(p)
+		Kit.ffaSpawn(Kit.MIRROR * p)
+	end
+	Kit.zone(V(0, 0, 30), 10, 1)
+	Kit.zone(V(-60, 0, -62), 10, 2)
+	Kit.zone(V(60, 0, 62), 10, 3)
+	Kit.zone(V(0, 0, -30), 10, 4)
+	Kit.zone(V(-75, 0, 10), 10, 5)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="26">
+            <Properties>
+              <string name="Name">Downtown</string>
+              <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+local Kit = require(script.Parent.Parent.MapKit)
+
+local Map = {
+	Id = "Downtown",
+	Name = "Downtown",
+	Description = "Ciudad · día · calles y azoteas",
+}
 
 local LENGTH = 320 -- eje X (de spawn a spawn)
 local WIDTH = 220 -- eje Z
@@ -3578,75 +4091,17 @@ local function facade(center, length, alongX, inward)
 	deco("WallBase", baseSize, CFrame.new(basePos), Color3.fromRGB(120, 150, 190), Enum.Material.Concrete)
 end
 
-local function setupLighting()
-	Lighting.ClockTime = 15
-	Lighting.GeographicLatitude = 35
-	Lighting.Brightness = 3.2
-	Lighting.ExposureCompensation = 0.1
-	Lighting.Ambient = Color3.fromRGB(80, 85, 105)
-	Lighting.OutdoorAmbient = Color3.fromRGB(140, 145, 170)
-	Lighting.GlobalShadows = true
-	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 1
-
-	local function ensure(className, parent)
-		parent = parent or Lighting
-		local inst = parent:FindFirstChildOfClass(className)
-		if not inst then
-			inst = Instance.new(className)
-			inst.Parent = parent
-		end
-		return inst
-	end
-	local atmosphere = ensure("Atmosphere")
-	atmosphere.Density = 0.3
-	atmosphere.Offset = 0.25
-	atmosphere.Color = Color3.fromRGB(199, 220, 255)
-	atmosphere.Decay = Color3.fromRGB(106, 120, 150)
-	atmosphere.Glare = 0.3
-	atmosphere.Haze = 1.4
-
-	local cc = ensure("ColorCorrectionEffect")
-	cc.Saturation = 0.25
-	cc.Contrast = 0.1
-	cc.Brightness = 0.02
-	cc.TintColor = Color3.fromRGB(255, 250, 245)
-
-	local bloom = ensure("BloomEffect")
-	bloom.Intensity = 0.8
-	bloom.Size = 24
-	bloom.Threshold = 1.6
-
-	local rays = ensure("SunRaysEffect")
-	rays.Intensity = 0.06
-	rays.Spread = 0.6
-
-	ensure("Sky")
-
-	-- Nubes volumétricas
-	local clouds = ensure("Clouds", workspace.Terrain)
-	clouds.Cover = 0.55
-	clouds.Density = 0.6
-	clouds.Color = Color3.fromRGB(255, 255, 255)
-end
-
 ---------------------------------------------------------------------------
 
-function MapBuilder.Build()
-	setupLighting()
-	if workspace:FindFirstChild("Map") then
-		return workspace.Map
-	end
+Map.Lighting = {
+	ClockTime = 15,
+	Brightness = 3.2,
+	Exposure = 0.1,
+}
 
-	-- Quita el Baseplate por defecto de las plantillas
-	local baseplate = workspace:FindFirstChild("Baseplate")
-	if baseplate then
-		baseplate:Destroy()
-	end
-
-	mapFolder = Instance.new("Folder")
-	mapFolder.Name = "Map"
-	mapFolder.Parent = workspace
+function Map.Build()
+	mapFolder = Kit.Begin(Map.Name)
+	Kit.applyLighting(Map.Lighting)
 
 	-- Suelo: asfalto, aceras y plaza central
 	block("Floor", Vector3.new(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), C.Asphalt, Enum.Material.Asphalt)
@@ -3869,14 +4324,1142 @@ function MapBuilder.Build()
 		end
 	end
 
+	-- Puntos para "Todos contra todos" y zonas de control
+	for _, p in {
+		Vector3.new(-120, 0.5, -80), Vector3.new(-60, 0.5, 40), Vector3.new(-20, 0.5, -60), Vector3.new(-90, 0.5, 0),
+		Vector3.new(-40, 0.5, 85), Vector3.new(0, 7.5, 0), Vector3.new(-130, 0.5, 40), Vector3.new(-75, 12.5, 68),
+	} do
+		Kit.ffaSpawn(p)
+		Kit.ffaSpawn(Vector3.new(-p.X, p.Y, -p.Z))
+	end
+	Kit.zone(Vector3.new(0, 7, 0), 12, 1)
+	Kit.zone(Vector3.new(-75, 12.4, 68), 10, 2)
+	Kit.zone(Vector3.new(75, 12.4, -68), 10, 3)
+	Kit.zone(Vector3.new(-60, 0, -40), 12, 4)
+	Kit.zone(Vector3.new(60, 0, 40), 12, 5)
+
 	return mapFolder
 end
 
-return MapBuilder
+return Map
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="27">
+            <Properties>
+              <string name="Name">HarborHeights</string>
+              <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
+-- de los puentes), torre de control en el puente central, azoteas en cada lado y el mar de fondo.
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+local Kit = require(script.Parent.Parent.MapKit)
+
+local Map = {
+	Id = "HarborHeights",
+	Name = "Harbor Heights",
+	Description = "Costa · día · canal, puentes y azoteas",
+}
+
+Map.Lighting = {
+	ClockTime = 13.5,
+	Brightness = 3.4,
+	Exposure = 0.15,
+	Ambient = Color3.fromRGB(95, 95, 110),
+	OutdoorAmbient = Color3.fromRGB(150, 150, 165),
+	Atmosphere = { Density = 0.22, Offset = 0.2, Color = Color3.fromRGB(190, 220, 255), Decay = Color3.fromRGB(120, 150, 190), Glare = 0.4, Haze = 1 },
+	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(255, 248, 238) },
+	Clouds = 0.6,
+	SunRays = 0.08,
+}
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local C = Kit.C
+
+local STONE = RGB(214, 200, 172)
+local STONE_DARK = RGB(170, 155, 128)
+local PLASTER = RGB(236, 226, 205)
+local CANAL_HALF = 12 -- el canal va de x = -12 a x = 12
+local LEDGE_Y = -7.5 -- altura de las pasarelas del canal
+local WATER_Y = -8.5
+
+function Map.Build()
+	local folder = Kit.Begin(Map.Name)
+	Kit.applyLighting(Map.Lighting)
+	local block, deco = Kit.block, Kit.deco
+	local teams = GameConfig.Teams
+
+	---------------------------------------------------------------------------
+	-- Suelo, canal y agua
+	---------------------------------------------------------------------------
+	Kit.symmetric(function(m)
+		block("Ground", V(150, 2, 220), m * CFrame.new(-(CANAL_HALF + 75), -1, 0), STONE, Enum.Material.Cobblestone)
+		-- Muro del canal y pasarela inferior
+		block("CanalWall", V(2, 14, 220), m * CFrame.new(-(CANAL_HALF - 1), -7, 0), STONE_DARK, Enum.Material.Limestone)
+		block("CanalLedge", V(4, 1, 220), m * CFrame.new(-(CANAL_HALF - 4), LEDGE_Y - 0.5, 0), STONE, Enum.Material.Cobblestone)
+		deco("LedgeEdge", V(0.4, 0.3, 220), m * CFrame.new(-(CANAL_HALF - 6.2), LEDGE_Y + 0.05, 0), C.Yellow, Enum.Material.SmoothPlastic)
+		-- Farolillos del canal
+		for z = -90, 90, 30 do
+			local lamp = deco("CanalLamp", V(0.8, 1, 0.8), m * CFrame.new(-(CANAL_HALF - 2.4), LEDGE_Y + 4, z), RGB(255, 210, 140), Enum.Material.Neon)
+			Kit.light(lamp, "PointLight", RGB(255, 200, 130), 14, 1.4)
+		end
+		-- Escaleras de bajada al canal
+		for _, z in { 30, -75 } do
+			Kit.stairs(m * V(-(CANAL_HALF - 3), 0, z), m * V(-(CANAL_HALF - 3), LEDGE_Y, z + 15), 3.6, STONE)
+		end
+	end)
+	block("CanalFloor", V(16, 1, 220), CFrame.new(0, -14, 0), RGB(60, 70, 60), Enum.Material.Mud)
+	workspace.Terrain:FillBlock(CFrame.new(0, (WATER_Y - 14) / 2, 0), V(16, WATER_Y + 14, 222), Enum.Material.Water)
+	-- Barca amarrada en el canal
+	Kit.boat(CFrame.new(-1, WATER_Y, -40))
+
+	---------------------------------------------------------------------------
+	-- Puentes
+	---------------------------------------------------------------------------
+	local function bridge(z, width)
+		block("Bridge", V(CANAL_HALF * 2 + 4, 1.5, width), CFrame.new(0, -0.75, z), STONE, Enum.Material.Cobblestone)
+		-- Arco de piedra decorativo bajo el puente
+		for _, x in { -6, 0, 6 } do
+			deco("Arch", V(4, 1.2, width + 0.2), CFrame.new(x, -2.1 + math.abs(x) * 0.05, z), STONE_DARK, Enum.Material.Limestone)
+		end
+		for _, side in { -1, 1 } do
+			Kit.railing(V(-(CANAL_HALF + 2), 0, z + side * (width / 2 - 0.3)), V(CANAL_HALF + 2, 0, z + side * (width / 2 - 0.3)), 3, RGB(90, 70, 50))
+		end
+	end
+	bridge(0, 18)
+	bridge(80, 9)
+	bridge(-80, 9)
+
+	---------------------------------------------------------------------------
+	-- Torre de control (centro, sobre el puente)
+	---------------------------------------------------------------------------
+	local towerColor = RGB(200, 185, 160)
+	for _, x in { -7, 7 } do
+		for _, z in { -7, 7 } do
+			block("TowerLeg", V(2.4, 24, 2.4), CFrame.new(x, 12, z), towerColor, Enum.Material.Limestone)
+		end
+	end
+	-- Primer piso (con hueco para la escalera de mano)
+	block("TowerFloor1", V(17, 1, 7), CFrame.new(0, 10.5, -5), STONE, Enum.Material.WoodPlanks)
+	block("TowerFloor1", V(17, 1, 7), CFrame.new(0, 10.5, 5), STONE, Enum.Material.WoodPlanks)
+	block("TowerFloor1", V(6, 1, 3), CFrame.new(-5.5, 10.5, 0), STONE, Enum.Material.WoodPlanks)
+	block("TowerFloor1", V(6, 1, 3), CFrame.new(5.5, 10.5, 0), STONE, Enum.Material.WoodPlanks)
+	-- Azotea de la torre (con hueco en el centro para la escalera de mano)
+	for _, s in { -1, 1 } do
+		block("TowerParapet", V(17, 2.6, 1), CFrame.new(0, 24.3, s * 8), towerColor, Enum.Material.Limestone)
+		block("TowerParapet", V(1, 2.6, 15), CFrame.new(s * 8, 24.3, 0), towerColor, Enum.Material.Limestone)
+		Kit.railing(V(-8.5, 11, s * 8.3), V(8.5, 11, s * 8.3), 3, RGB(90, 70, 50))
+	end
+	-- Escalera de mano (TrussPart: se puede trepar) del primer piso a la azotea
+	local truss = Instance.new("TrussPart")
+	truss.Name = "TowerLadder"
+	truss.Anchored = true
+	truss.Size = V(2, 12, 2)
+	truss.CFrame = CFrame.new(0, 16.5, 0)
+	truss.Color = RGB(110, 85, 60)
+	truss.Parent = folder
+	block("TowerTop", V(17, 1, 7.5), CFrame.new(0, 22.5, -4.75), towerColor, Enum.Material.Limestone)
+	block("TowerTop", V(17, 1, 7.5), CFrame.new(0, 22.5, 4.75), towerColor, Enum.Material.Limestone)
+	block("TowerTop", V(7, 1, 2), CFrame.new(-5, 22.5, 0), towerColor, Enum.Material.Limestone)
+	block("TowerTop", V(7, 1, 2), CFrame.new(5, 22.5, 0), towerColor, Enum.Material.Limestone)
+	-- Antena y radar
+	Kit.cylinder("TowerMast", 10, 0.5, CFrame.new(5, 28, 5), C.Metal, Enum.Material.Metal, nil, true)
+	local dish = deco("RadarDish", V(0.4, 4, 4), CFrame.new(-5, 27, -5) * CFrame.Angles(0, math.rad(35), math.rad(70)), RGB(230, 230, 235), Enum.Material.Metal)
+	dish.Shape = Enum.PartType.Cylinder
+	dish:SetAttribute("Spin", 30)
+	Kit.ball("TowerBeacon", 1, CFrame.new(5, 33.5, 5), RGB(255, 40, 40), Enum.Material.Neon, true):SetAttribute("Blink", 1.2)
+	-- Estandartes de la torre (neutros)
+	for _, s in { -1, 1 } do
+		Kit.banner(CFrame.new(0, 21, s * 8.7) * (s > 0 and CFrame.Angles(0, math.pi, 0) or CFrame.new()), 6, 8, RGB(240, 190, 40), C.White)
+	end
+
+	---------------------------------------------------------------------------
+	-- Mitad simétrica: A (rojo) y B (azul)
+	---------------------------------------------------------------------------
+	Kit.symmetric(function(m, side)
+		local teamColor = side == "A" and RGB(200, 45, 40) or RGB(45, 100, 210)
+
+		-- Rampa a la torre desde la orilla
+		Kit.stairs(m * V(-32, 0, -3.5), m * V(-8.5, 11, -3.5), 4, STONE)
+
+		-- Casas con azoteas (A1 con escalera exterior; A2 alta, comunicada con A1 por una pasarela)
+		Kit.house(m * CFrame.new(-60, 0, 55), V(24, 10, 18), PLASTER, teamColor, { Vines = true, OpenSides = true })
+		Kit.stairs(m * V(-45.5, 0, 68), m * V(-45.5, 10, 50), 4, STONE)
+		Kit.house(m * CFrame.new(-100, 0, 72), V(20, 15, 16), RGB(240, 215, 180), teamColor, { Vines = true, OpenSides = true })
+		Kit.ramp(m * V(-72, 10, 60), m * V(-90, 15, 68), 4, RGB(120, 90, 60), Enum.Material.WoodPlanks)
+		Kit.house(m * CFrame.new(-78, 0, -58), V(22, 10, 20), RGB(245, 235, 215), teamColor, { DoorX = -4, OpenSides = true })
+		Kit.stairs(m * V(-64.5, 0, -45), m * V(-64.5, 10, -61), 4, STONE)
+		Kit.house(m * CFrame.new(-128, 0, -78), V(18, 12, 16), RGB(230, 200, 170), teamColor)
+
+		-- Estandartes del equipo en las fachadas que miran al centro
+		Kit.banner(m * CFrame.new(-55, 9.5, 45.6), 5, 7, teamColor, C.White)
+		Kit.banner(m * CFrame.new(-82, 9.5, -47.4), 5, 7, teamColor, C.White)
+
+		-- Mercado con toldos
+		for i, z in { 18, 30 } do
+			block("Stall", V(8, 3, 5), m * CFrame.new(-38, 1.5, z), RGB(150, 110, 70), Enum.Material.WoodPlanks)
+			for _, x in { -3.7, 3.7 } do
+				deco("StallPost", V(0.4, 6, 0.4), m * CFrame.new(-38 + x, 3, z - 2.2), RGB(110, 80, 50), Enum.Material.Wood)
+			end
+			Kit.awning(m * CFrame.new(-38, 6.2, z + 2), 9, 6, i == 1 and teamColor or RGB(240, 160, 40))
+			Kit.crate(m * CFrame.new(-33, 0, z + 1), 2.5)
+		end
+
+		-- Contenedores y cajas de cobertura
+		Kit.container(m * CFrame.new(-32, 0, -32) * CFrame.Angles(0, math.rad(90), 0), side == "A" and C.Red or C.Blue)
+		Kit.container(m * CFrame.new(-112, 0, 22), side == "A" and C.Blue or C.Red)
+		Kit.crate(m * CFrame.new(-25, 0, 8))
+		Kit.crate(m * CFrame.new(-25, 0, 12.5))
+		Kit.crate(m * CFrame.new(-25, 4, 10), 3.5)
+		Kit.crate(m * CFrame.new(-55, 0, -20), 5)
+		Kit.crate(m * CFrame.new(-90, 0, 40))
+		Kit.crate(m * CFrame.new(-90, 0, 35), 3)
+		Kit.crate(m * CFrame.new(-140, 0, 60), 4)
+		Kit.barrel(m * CFrame.new(-50, 0, 10), RGB(40, 90, 180))
+		Kit.barrel(m * CFrame.new(-48, 0, 12.5), RGB(180, 50, 40))
+		Kit.barrel(m * CFrame.new(-100, 0, -30), RGB(40, 90, 180))
+		-- Muros bajos de piedra
+		block("StoneWall", V(2, 4, 14), m * CFrame.new(-45, 2, -8), STONE_DARK, Enum.Material.Cobblestone)
+		block("StoneWall", V(12, 4, 2), m * CFrame.new(-95, 2, 0), STONE_DARK, Enum.Material.Cobblestone)
+		block("StoneWall", V(2, 3, 18), m * CFrame.new(-120, 1.5, -40), STONE_DARK, Enum.Material.Cobblestone)
+
+		-- Palmeras y farolas
+		for _, p in { V(-20, 0, 45), V(-20, 0, -55), V(-70, 0, 20), V(-130, 0, 95), V(-55, 0, -95), V(-110, 0, -10) } do
+			Kit.palm(m * CFrame.new(p) * CFrame.Angles(0, (p.X + p.Z) % 6, 0), 13 + (math.abs(p.Z) % 4))
+		end
+		for _, p in { V(-18, 0, 20), V(-18, 0, -30), V(-60, 0, 90), V(-90, 0, -95) } do
+			Kit.streetLamp(m * CFrame.new(p) * CFrame.Angles(0, math.rad(90), 0), RGB(255, 225, 170))
+		end
+	end)
+
+	---------------------------------------------------------------------------
+	-- Spawns, banderas, bordes
+	---------------------------------------------------------------------------
+	local spawnStyle = { Floor = RGB(230, 215, 185), FloorMaterial = Enum.Material.CeramicTiles, Roof = RGB(200, 90, 60), RoofMaterial = Enum.Material.ClayRoofTiles }
+	Kit.spawnArea(teams[1], CFrame.new(-145, 0, 0), spawnStyle)
+	Kit.spawnArea(teams[2], Kit.MIRROR * CFrame.new(-145, 0, 0), spawnStyle)
+	Kit.flagBase(teams[1], CFrame.new(-118, 0, 12))
+	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-118, 0, 12))
+	Kit.bounds(320, 220, 60)
+
+	-- Malecón con barandilla hacia el mar (lado +Z) y fachadas al otro lado (lado -Z)
+	block("SeaWall", V(320, 3, 3), CFrame.new(0, 1.5, 111.5), STONE_DARK, Enum.Material.Limestone)
+	Kit.railing(V(-160, 3, 111.5), V(160, 3, 111.5), 2.5, RGB(240, 240, 245))
+	for x = -150, 150, 30 do
+		local h = 18 + (math.abs(x) % 4) * 4
+		block("BackHouse", V(28, h, 10), CFrame.new(x, h / 2, -116), (x / 30) % 2 == 0 and PLASTER or RGB(240, 210, 180), Enum.Material.Plaster)
+		deco("BackRoof", V(29, 1.5, 11), CFrame.new(x, h + 0.75, -116), RGB(200, 90, 60), Enum.Material.ClayRoofTiles)
+		for wx = -9, 9, 6 do
+			deco("BackWindow", V(2.4, 3, 0.2), CFrame.new(x + wx, h * 0.6, -110.9), RGB(60, 70, 90), Enum.Material.Glass)
+		end
+	end
+	for z = -90, 90, 30 do
+		for _, sx in { -1, 1 } do
+			block("SideHouse", V(10, 22, 28), CFrame.new(sx * 167, 11, z), PLASTER, Enum.Material.Plaster)
+			deco("SideRoof", V(11, 1.5, 29), CFrame.new(sx * 167, 22.75, z), RGB(200, 90, 60), Enum.Material.ClayRoofTiles)
+		end
+	end
+
+	-- Mar, isla del faro y barco (fondo)
+	workspace.Terrain:FillBlock(CFrame.new(0, -12, 322), V(900, 20, 420), Enum.Material.Water)
+	Kit.lighthouse(V(120, 0, 300))
+	Kit.ship(CFrame.new(-140, -2, 250) * CFrame.Angles(0, math.rad(10), 0), 110)
+	Kit.crane(CFrame.new(-60, 0, 150), 42)
+	Kit.crane(CFrame.new(40, 0, 160) * CFrame.Angles(0, math.rad(20), 0), 38)
+
+	---------------------------------------------------------------------------
+	-- Modos: puntos libres y zonas
+	---------------------------------------------------------------------------
+	for _, p in {
+		V(-130, 0.5, 45), V(-90, 0.5, -15), V(-50, 0.5, 30), V(-40, 0.5, -70), V(-100, 15.5, 72),
+		V(-60, 10.5, 55), V(-10, LEDGE_Y + 0.5, 60), V(-70, 0.5, 90), V(-150, 0.5, -60), V(-25, 0.5, -10),
+	} do
+		Kit.ffaSpawn(p)
+		Kit.ffaSpawn(Kit.MIRROR * p)
+	end
+	Kit.zone(V(0, 0, 0), 9, 1)
+	Kit.zone(V(-60, 10, 55), 10, 2)
+	Kit.zone(V(60, 10, -55), 10, 3)
+	Kit.zone(V(-40, 0, -45), 12, 4)
+	Kit.zone(V(40, 0, 45), 12, 5)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="28">
+            <Properties>
+              <string name="Name">NeonFoundry</string>
+              <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
+-- puentes metálicos, cintas con lingotes, pasarelas y rótulos de neón.
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+local Kit = require(script.Parent.Parent.MapKit)
+
+local Map = {
+	Id = "NeonFoundry",
+	Name = "Neon Foundry",
+	Description = "Industrial · noche · lava y neón",
+}
+
+Map.Lighting = {
+	ClockTime = 0.3,
+	Brightness = 1.5,
+	Exposure = 0.3,
+	Ambient = Color3.fromRGB(70, 55, 95),
+	OutdoorAmbient = Color3.fromRGB(85, 70, 120),
+	Atmosphere = { Density = 0.36, Offset = 0.1, Color = Color3.fromRGB(120, 80, 170), Decay = Color3.fromRGB(70, 40, 110), Glare = 0, Haze = 2.6 },
+	Color = { Saturation = 0.35, Contrast = 0.15, Brightness = 0.04, Tint = Color3.fromRGB(240, 228, 255) },
+	Bloom = { Intensity = 1.3, Size = 30, Threshold = 1.1 },
+	Clouds = 0.35,
+	CloudColor = Color3.fromRGB(80, 60, 110),
+	SunRays = 0,
+}
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local C = Kit.C
+
+local FLOOR = RGB(58, 60, 72)
+local WALL = RGB(70, 72, 84)
+local ORANGE = RGB(255, 130, 30)
+local LAVA_X = 32 -- canales de lava en x = ±32
+
+function Map.Build()
+	local folder = Kit.Begin(Map.Name)
+	Kit.applyLighting(Map.Lighting)
+	local block, deco = Kit.block, Kit.deco
+	local teams = GameConfig.Teams
+
+	-- Suelo de placas con líneas de neón
+	block("Floor", V(340, 2, 240), CFrame.new(0, -1, 0), FLOOR, Enum.Material.DiamondPlate)
+	for _, z in { -45, 45 } do
+		deco("FloorNeon", V(250, 0.06, 0.5), CFrame.new(0, 0.04, z), C.Cyan, Enum.Material.Neon)
+	end
+	for _, x in { -95, 95 } do
+		deco("FloorNeon", V(0.5, 0.06, 200), CFrame.new(x, 0.04, 0), C.Pink, Enum.Material.Neon)
+	end
+
+	-- Horno central con metal fundido cayendo a una piscina de lava
+	Kit.cylinder("Furnace", 34, 20, CFrame.new(0, 17, 0), RGB(75, 70, 80), Enum.Material.CorrodedMetal)
+	for i, y in { 8, 18, 28 } do
+		Kit.cylinder("FurnaceBand", 1.4, 20.6, CFrame.new(0, y, 0), i == 2 and ORANGE or RGB(45, 45, 52), i == 2 and Enum.Material.Neon or Enum.Material.Metal, nil, true)
+	end
+	local emblemPlate = deco("FurnaceEmblem", V(8, 8, 0.5), CFrame.new(0, 22, -10.3), RGB(40, 40, 48), Enum.Material.Metal)
+	Kit.sign(emblemPlate, Enum.NormalId.Front, "⚡", ORANGE)
+	local emblemBack = deco("FurnaceEmblem", V(8, 8, 0.5), CFrame.new(0, 22, 10.3), RGB(40, 40, 48), Enum.Material.Metal)
+	Kit.sign(emblemBack, Enum.NormalId.Back, "⚡", ORANGE)
+	for _, s in { -1, 1 } do
+		local pour = deco("MoltenPour", V(3, 14, 1.2), CFrame.new(0, 7, s * 10.6), RGB(255, 150, 40), Enum.Material.Neon)
+		Kit.light(pour, "PointLight", ORANGE, 30, 3)
+		Kit.lava(V(12, 1, 6), CFrame.new(0, -0.3, s * 14))
+		Kit.railing(V(-7, 0, s * 17.5), V(7, 0, s * 17.5), 3, ORANGE)
+	end
+	Kit.cylinder("FurnaceCap", 3, 14, CFrame.new(0, 35.5, 0), RGB(50, 50, 58), Enum.Material.Metal, nil, true)
+	Kit.smokestack(V(0, 37, 0), 18)
+
+	Kit.symmetric(function(m, side)
+		local teamColor = side == "A" and RGB(255, 60, 80) or RGB(60, 140, 255)
+
+		-- Canal de lava a lo largo de Z con tres puentes
+		Kit.lava(V(10, 1, 210), m * CFrame.new(-LAVA_X, -0.4, 0))
+		for _, bz in { -70, 5, 70 } do
+			block("LavaBridge", V(14, 1, 10), m * CFrame.new(-LAVA_X, 0.5, bz), RGB(80, 82, 95), Enum.Material.DiamondPlate)
+			for _, s in { -1, 1 } do
+				Kit.railing(m * V(-LAVA_X - 7, 1, bz + s * 4.8), m * V(-LAVA_X + 7, 1, bz + s * 4.8), 2.5, ORANGE)
+			end
+		end
+
+		-- Plataforma elevada con cinta transportadora
+		block("ConveyorDeck", V(14, 8, 46), m * CFrame.new(-62, 4, -60), WALL, Enum.Material.CorrodedMetal)
+		deco("DeckNeon", V(14.2, 0.4, 46.2), m * CFrame.new(-62, 7.9, -60), teamColor, Enum.Material.Neon)
+		Kit.conveyor(m * V(-62, 8.5, -80), m * V(-62, 8.5, -40), 5)
+		Kit.stairs(m * V(-62, 0, -100), m * V(-62, 8, -83), 6, RGB(90, 92, 105))
+		Kit.stairs(m * V(-43, 0, -45), m * V(-55.5, 8, -45), 5, RGB(90, 92, 105))
+		Kit.railing(m * V(-69, 8, -83), m * V(-69, 8, -37), 3, C.Yellow)
+
+		-- Edificio del rótulo de neón (lado del equipo, con pasarela)
+		block("Factory", V(30, 22, 26), m * CFrame.new(-95, 11, 75), WALL, Enum.Material.CorrodedMetal)
+		deco("FactoryTrim", V(30.4, 1, 26.4), m * CFrame.new(-95, 21.8, 75), RGB(40, 40, 50), Enum.Material.Metal)
+		for i, x in { -104, -95, -86 } do
+			local win = deco("FactoryWindow", V(5, 4, 0.3), m * CFrame.new(x, 8, 61.9), i == 2 and ORANGE or RGB(255, 190, 80), Enum.Material.Neon)
+			win.Transparency = 0.25
+		end
+		Kit.neonSign(m * CFrame.new(-95, 16, 61.6), 22, 6, side == "A" and "NEON FOUNDRY" or "FOUNDRY 02", side == "A" and C.Cyan or C.Pink, side == "A" and C.Pink or C.Cyan)
+		block("FactoryWalk", V(8, 1, 40), m * CFrame.new(-76, 9.5, 75), RGB(80, 82, 95), Enum.Material.DiamondPlate)
+		Kit.railing(m * V(-72.2, 10, 56), m * V(-72.2, 10, 94), 3, C.Cyan)
+		Kit.stairs(m * V(-76, 0, 38), m * V(-76, 10, 55), 6, RGB(90, 92, 105))
+
+		-- Cajas metálicas con brillo, tuberías y cobertura
+		Kit.metalCrate(m * CFrame.new(-50, 0, 10), 5, RGB(70, 75, 90), teamColor)
+		Kit.metalCrate(m * CFrame.new(-50, 0, 15.2), 5, RGB(70, 75, 90), teamColor)
+		Kit.metalCrate(m * CFrame.new(-50, 5, 12.6), 4, RGB(70, 75, 90), C.Cyan)
+		Kit.metalCrate(m * CFrame.new(-18, 0, 35), 5, RGB(80, 70, 70), ORANGE)
+		Kit.metalCrate(m * CFrame.new(-18, 0, -35), 5, RGB(80, 70, 70), ORANGE)
+		Kit.metalCrate(m * CFrame.new(-80, 0, 15), 6, RGB(70, 75, 90), C.Pink)
+		Kit.metalCrate(m * CFrame.new(-110, 0, -40), 5, RGB(70, 75, 90), teamColor)
+		Kit.metalCrate(m * CFrame.new(-110, 0, -34.8), 5, RGB(70, 75, 90), teamColor)
+		Kit.container(m * CFrame.new(-82, 0, -15) * CFrame.Angles(0, math.rad(90), 0), RGB(140, 40, 60), "FOUNDRY")
+		Kit.barrier(V(2, 4, 14), m * CFrame.new(-20, 0, 0))
+		Kit.barrier(V(14, 4, 2), m * CFrame.new(-60, 0, 40))
+		Kit.pipeRun(m * V(-140, 14, -96), m * V(-20, 14, -96), 2.4, RGB(110, 100, 120))
+		Kit.pipeRun(m * V(-140, 18, -100), m * V(-40, 18, -100), 1.6, RGB(160, 80, 60))
+		for _, x in { -130, -100, -70, -40 } do
+			block("PipeSupport", V(1.2, 18, 1.2), m * CFrame.new(x, 9, -98), RGB(45, 45, 55), Enum.Material.Metal)
+		end
+
+		-- Grúa con caja colgando (decoración)
+		deco("CraneArm", V(2, 2, 40), m * CFrame.new(-45, 34, 30), C.Yellow, Enum.Material.Metal)
+		deco("CraneMast", V(2, 34, 2), m * CFrame.new(-45, 17, 50), C.Yellow, Enum.Material.Metal)
+		deco("CraneCable", V(0.3, 10, 0.3), m * CFrame.new(-45, 28, 14), RGB(20, 20, 20), Enum.Material.Metal)
+		Kit.metalCrate(m * CFrame.new(-45, 19, 14), 5, RGB(90, 90, 100), C.Yellow)
+
+		-- Focos que barren el cielo
+		local beam = deco("SkyBeam", V(1.5, 120, 1.5), m * CFrame.new(-120, 60, 100) * CFrame.Angles(math.rad(-15), 0, math.rad(12)), side == "A" and C.Cyan or C.Pink, Enum.Material.Neon)
+		beam.Transparency = 0.75
+		beam:SetAttribute("Sweep", 18)
+	end)
+
+	-- Spawns y banderas
+	local spawnStyle = { Floor = RGB(50, 52, 62), FloorMaterial = Enum.Material.DiamondPlate, Roof = RGB(45, 46, 56), RoofMaterial = Enum.Material.Metal }
+	Kit.spawnArea(teams[1], CFrame.new(-145, 0, 0), spawnStyle)
+	Kit.spawnArea(teams[2], Kit.MIRROR * CFrame.new(-145, 0, 0), spawnStyle)
+	Kit.flagBase(teams[1], CFrame.new(-112, 0, 10))
+	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-112, 0, 10))
+
+	-- Límites: muros de fábrica alrededor y chimeneas de fondo
+	Kit.bounds(320, 220, 60)
+	for x = -150, 150, 30 do
+		for _, z in { -1, 1 } do
+			local h = 26 + (math.abs(x) % 3) * 6
+			block("BackFactory", V(30, h, 12), CFrame.new(x, h / 2, z * 117), WALL:Lerp(Color3.new(0, 0, 0), (math.abs(x) % 2) * 0.15), Enum.Material.CorrodedMetal)
+			local stripe = deco("BackStripe", V(30.2, 0.6, 0.3), CFrame.new(x, h - 3, z * 110.9), (x / 30) % 2 == 0 and C.Cyan or C.Pink, Enum.Material.Neon)
+			stripe.Transparency = 0.1
+		end
+	end
+	for z = -90, 90, 30 do
+		for _, sx in { -1, 1 } do
+			block("SideFactory", V(12, 30, 30), CFrame.new(sx * 168, 15, z), WALL, Enum.Material.CorrodedMetal)
+		end
+	end
+	for i, p in { V(-120, 0, 160), V(-40, 0, 190), V(60, 0, 170), V(150, 0, 200), V(-160, 0, -170), V(20, 0, -190), V(130, 0, -160) } do
+		Kit.smokestack(p, 50 + (i % 3) * 15)
+	end
+
+	-- Modos
+	for _, p in {
+		V(-130, 0.5, 45), V(-100, 0.5, -15), V(-60, 8.5, -60), V(-76, 10.5, 75), V(-45, 0.5, 30),
+		V(-20, 0.5, -60), V(-110, 0.5, 85), V(-60, 0.5, 20), V(-15, 0.5, 60), V(-125, 0.5, -80),
+	} do
+		Kit.ffaSpawn(p)
+		Kit.ffaSpawn(Kit.MIRROR * p)
+	end
+	Kit.zone(V(0, 0, 25), 9, 1)
+	Kit.zone(V(-62, 8, -60), 9, 2)
+	Kit.zone(V(62, 8, 60), 9, 3)
+	Kit.zone(V(0, 0, -25), 9, 4)
+	Kit.zone(V(-50, 0, 25), 10, 5)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="ModuleScript" referent="29">
+          <Properties>
+            <string name="Name">MapKit</string>
+            <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
+-- iluminación por mapa y puntos especiales (spawns, bandera, zonas, spawns libres).
+local Lighting = game:GetService("Lighting")
+
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+
+local Kit = {}
+
+Kit.folder = nil -- carpeta del mapa actual (la crea Begin)
+
+-- Rotación de 180° alrededor del centro: la mitad Azul es espejo de la Roja
+Kit.MIRROR = CFrame.Angles(0, math.pi, 0)
+
+function Kit.symmetric(fn)
+	fn(CFrame.new(), "A")
+	fn(Kit.MIRROR, "B")
+end
+
+local rad = math.rad
+local V = Vector3.new
+local RGB = Color3.fromRGB
+
+Kit.C = {
+	Metal = RGB(60, 62, 70),
+	Yellow = RGB(255, 205, 50),
+	White = RGB(245, 245, 250),
+	Wood = RGB(176, 124, 70),
+	WoodDark = RGB(120, 80, 45),
+	Leaf = RGB(80, 180, 80),
+	LeafDark = RGB(50, 140, 60),
+	Pink = RGB(255, 80, 170),
+	Cyan = RGB(0, 220, 255),
+	Red = RGB(210, 50, 45),
+	Blue = RGB(45, 110, 220),
+}
+local C = Kit.C
+
+function Kit.block(name, size, cf, color, material, parent)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Anchored = true
+	part.Size = size
+	part.CFrame = cf
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent or Kit.folder
+	return part
+end
+local block = Kit.block
+
+-- Pieza decorativa: no choca, no bloquea disparos y no hace sombra
+function Kit.deco(name, size, cf, color, material, parent)
+	local part = block(name, size, cf, color, material, parent)
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	return part
+end
+local deco = Kit.deco
+
+-- Cilindro de pie (el eje del cilindro en Roblox es X; lo giramos para que sea vertical)
+function Kit.cylinder(name, height, diameter, cf, color, material, parent, decorative)
+	local fn = decorative and deco or block
+	local part = fn(name, V(height, diameter, diameter), cf * CFrame.Angles(0, 0, math.pi / 2), color, material, parent)
+	part.Shape = Enum.PartType.Cylinder
+	return part
+end
+local cylinder = Kit.cylinder
+
+-- Cilindro tumbado a lo largo del eje X local
+function Kit.pipe(name, length, diameter, cf, color, material, decorative)
+	local fn = decorative and deco or block
+	local part = fn(name, V(length, diameter, diameter), cf, color, material)
+	part.Shape = Enum.PartType.Cylinder
+	return part
+end
+
+function Kit.ball(name, diameter, cf, color, material, decorative)
+	local fn = decorative and deco or block
+	local part = fn(name, V(diameter, diameter, diameter), cf, color, material)
+	part.Shape = Enum.PartType.Ball
+	return part
+end
+
+-- Texto pegado a una cara de una pieza (carteles, rótulos de neón...)
+function Kit.sign(part, face, text, color, strokeColor)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 25
+	gui.LightInfluence = 0
+	gui.Parent = part
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeColor3 = strokeColor or Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Parent = gui
+	return gui
+end
+local sign = Kit.sign
+
+function Kit.light(part, kind, color, range, brightness, face)
+	local light = Instance.new(kind or "PointLight")
+	light.Color = color
+	light.Range = range or 12
+	light.Brightness = brightness or 1.5
+	if face and (light:IsA("SpotLight") or light:IsA("SurfaceLight")) then
+		light.Face = face
+	end
+	light.Parent = part
+	return light
+end
+
+-- Rampa inclinada desde "bottom" hasta "top" (posiciones de la superficie)
+function Kit.ramp(bottom, top, width, color, material)
+	local mid = (bottom + top) / 2
+	local length = (top - bottom).Magnitude
+	local cf = CFrame.lookAt(mid, top) * CFrame.new(0, -0.5, 0)
+	local part = block("Ramp", V(width, 1, length + 1), cf, color or RGB(150, 152, 165), material or Enum.Material.DiamondPlate)
+	for _, side in { -1, 1 } do
+		deco("RampEdge", V(0.4, 0.1, length + 1), cf * CFrame.new(side * (width / 2 - 0.3), 0.52, 0), C.Yellow, Enum.Material.SmoothPlastic)
+	end
+	return part
+end
+
+-- Escalera de piedra (rampa con escalones decorativos)
+function Kit.stairs(bottom, top, width, color, material)
+	local part = Kit.ramp(bottom, top, width, color, material or Enum.Material.Concrete)
+	local steps = math.max(3, math.floor((top - bottom).Magnitude / 1.6))
+	local stepColor = (color or RGB(200, 190, 170)):Lerp(Color3.new(0, 0, 0), 0.12)
+	for i = 0, steps - 1 do
+		local p = bottom:Lerp(top, (i + 0.5) / steps)
+		local dir = (top - bottom)
+		local flat = V(dir.X, 0, dir.Z).Unit
+		deco("Step", V(width, 0.3, 0.3), CFrame.lookAt(p, p + flat) * CFrame.new(0, 0.05, 0), stepColor, Enum.Material.Concrete)
+	end
+	return part
+end
+
+-- Barandilla entre dos puntos (altura h)
+function Kit.railing(a, b, h, color)
+	h = h or 3
+	color = color or C.Metal
+	local length = (b - a).Magnitude
+	local mid = (a + b) / 2
+	local cf = CFrame.lookAt(mid, b)
+	deco("Handrail", V(0.25, 0.25, length), cf * CFrame.new(0, h, 0), color, Enum.Material.Metal)
+	deco("MidRail", V(0.15, 0.15, length), cf * CFrame.new(0, h * 0.5, 0), color, Enum.Material.Metal)
+	local posts = math.max(2, math.floor(length / 4))
+	for i = 0, posts do
+		local p = a:Lerp(b, i / posts)
+		deco("RailPost", V(0.25, h, 0.25), CFrame.new(p + V(0, h / 2, 0)), color, Enum.Material.Metal)
+	end
+	-- colisión invisible para no caerse
+	local wall = block("RailCollider", V(0.4, h, length), cf * CFrame.new(0, h / 2, 0), color)
+	wall.Transparency = 1
+	wall.CanQuery = false
+	wall.CastShadow = false
+end
+
+---------------------------------------------------------------------------
+-- Piezas
+---------------------------------------------------------------------------
+
+local CARGO_NAMES = { "HYPER CARGO", "NEXO LINE", "FROST CO.", "TURBO SHIP", "BLAZE LOG.", "VOLT MARINE" }
+local cargoIndex = 0
+
+function Kit.container(cf, color, labelText)
+	local model = Instance.new("Model")
+	model.Name = "Container"
+	model.Parent = Kit.folder
+	local size = V(20, 8.5, 8)
+	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
+	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	for i = -4, 4 do
+		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
+	end
+	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
+	deco("DoorFrame", V(0.3, 8.6, 8.4), cf * CFrame.new(10.1, 4.25, 0), dark, Enum.Material.Metal, model)
+	for _, z in { -2, 2 } do
+		deco("LockBar", V(0.3, 7.6, 0.25), cf * CFrame.new(10.3, 4.25, z), RGB(200, 200, 205), Enum.Material.Metal, model)
+	end
+	deco("DoorSplit", V(0.35, 8, 0.15), cf * CFrame.new(10.3, 4.25, 0), RGB(30, 30, 30), Enum.Material.Metal, model)
+	cargoIndex = cargoIndex % #CARGO_NAMES + 1
+	local text = labelText or CARGO_NAMES[cargoIndex]
+	sign(body, Enum.NormalId.Front, text, Color3.new(1, 1, 1), dark)
+	sign(body, Enum.NormalId.Back, text, Color3.new(1, 1, 1), dark)
+	return model
+end
+
+function Kit.crate(cf, size, color)
+	size = size or 4
+	local core = block("Crate", V(size, size, size), cf * CFrame.new(0, size / 2, 0), color or C.Wood, Enum.Material.WoodPlanks)
+	for _, y in { 0.12, 0.88 } do
+		deco("CrateBand", V(size + 0.15, size * 0.12, size + 0.15), cf * CFrame.new(0, size * y, 0), C.WoodDark, Enum.Material.Wood)
+	end
+	deco("CrateCross", V(size + 0.1, size * 0.1, size * 1.3), cf * CFrame.new(0, size / 2, 0) * CFrame.Angles(rad(45), 0, 0), C.WoodDark, Enum.Material.Wood)
+	return core
+end
+
+-- Caja metálica con chevron (estilo industrial)
+function Kit.metalCrate(cf, size, color, glow)
+	size = size or 5
+	local core = block("MetalCrate", V(size, size, size), cf * CFrame.new(0, size / 2, 0), color or RGB(70, 75, 90), Enum.Material.DiamondPlate)
+	deco("CrateRim", V(size + 0.2, 0.3, size + 0.2), cf * CFrame.new(0, size - 0.15, 0), RGB(40, 42, 50), Enum.Material.Metal)
+	deco("CrateRimB", V(size + 0.2, 0.3, size + 0.2), cf * CFrame.new(0, 0.15, 0), RGB(40, 42, 50), Enum.Material.Metal)
+	if glow then
+		deco("CrateGlow", V(size + 0.05, 0.2, size * 0.6), cf * CFrame.new(0, size * 0.5, 0), glow, Enum.Material.Neon)
+	end
+	return core
+end
+
+function Kit.barrel(cf, color)
+	cylinder("Barrel", 3, 2, cf * CFrame.new(0, 1.5, 0), color or RGB(40, 90, 180), Enum.Material.Metal)
+	cylinder("BarrelRing", 0.2, 2.06, cf * CFrame.new(0, 0.8, 0), RGB(40, 40, 45), Enum.Material.Metal, nil, true)
+	cylinder("BarrelRing", 0.2, 2.06, cf * CFrame.new(0, 2.2, 0), RGB(40, 40, 45), Enum.Material.Metal, nil, true)
+end
+
+function Kit.cone(cf)
+	cylinder("ConeBase", 0.2, 1.4, cf * CFrame.new(0, 0.1, 0), RGB(255, 120, 20), Enum.Material.SmoothPlastic, nil, true)
+	cylinder("Cone", 1.4, 0.8, cf * CFrame.new(0, 0.8, 0), RGB(255, 120, 20), Enum.Material.SmoothPlastic, nil, true)
+	cylinder("ConeStripe", 0.25, 0.85, cf * CFrame.new(0, 0.9, 0), C.White, Enum.Material.SmoothPlastic, nil, true)
+end
+
+function Kit.barrier(size, cf)
+	local part = block("Barrier", size, cf * CFrame.new(0, size.Y / 2, 0), RGB(225, 225, 230), Enum.Material.Concrete)
+	local long = size.X >= size.Z
+	local length = long and size.X or size.Z
+	local count = math.max(2, math.floor(length / 3))
+	for i = 0, count - 1 do
+		local offset = -length / 2 + (i + 0.5) * (length / count)
+		local color = i % 2 == 0 and RGB(230, 50, 50) or RGB(250, 250, 250)
+		local stripeSize = long and V(length / count, 1, size.Z + 0.1) or V(size.X + 0.1, 1, length / count)
+		local pos = long and CFrame.new(offset, size.Y - 1.2, 0) or CFrame.new(0, size.Y - 1.2, offset)
+		deco("Stripe", stripeSize, cf * pos, color, Enum.Material.SmoothPlastic)
+	end
+	return part
+end
+
+function Kit.streetLamp(cf, color)
+	cylinder("Pole", 14, 0.6, cf * CFrame.new(0, 7, 0), C.Metal, Enum.Material.Metal)
+	cylinder("Base", 1, 1.2, cf * CFrame.new(0, 0.5, 0), C.Metal, Enum.Material.Metal)
+	deco("Arm", V(0.4, 0.4, 4), cf * CFrame.new(0, 13.8, -1.8), C.Metal, Enum.Material.Metal)
+	deco("Lamp", V(1.6, 0.5, 2.2), cf * CFrame.new(0, 13.4, -3.6), C.Metal, Enum.Material.Metal)
+	local bulb = deco("Bulb", V(1.2, 0.2, 1.8), cf * CFrame.new(0, 13.1, -3.6), color or RGB(255, 240, 200), Enum.Material.Neon)
+	Kit.light(bulb, "SpotLight", color or RGB(255, 235, 200), 26, 1.5, Enum.NormalId.Bottom).Angle = 100
+end
+
+function Kit.tree(cf)
+	block("Planter", V(5, 1.6, 5), cf * CFrame.new(0, 0.8, 0), RGB(200, 200, 208), Enum.Material.Concrete)
+	deco("Soil", V(4.4, 0.2, 4.4), cf * CFrame.new(0, 1.65, 0), RGB(90, 60, 40), Enum.Material.Ground)
+	cylinder("Trunk", 7, 0.9, cf * CFrame.new(0, 5, 0), RGB(110, 75, 45), Enum.Material.Wood)
+	for i, spec in {
+		{ V(0, 9.5, 0), 6.5, C.Leaf },
+		{ V(1.6, 8.4, 1), 4.5, C.LeafDark },
+		{ V(-1.5, 8.8, -1.2), 4.8, C.Leaf },
+		{ V(0.3, 11.6, -0.4), 4, C.LeafDark },
+	} do
+		local leaf = deco("Leaves" .. i, V(spec[2], spec[2], spec[2]), cf * CFrame.new(spec[1]), spec[3], Enum.Material.Grass)
+		leaf.Shape = Enum.PartType.Ball
+		leaf.CastShadow = true
+	end
+end
+
+-- Palmera: tronco inclinado por segmentos y hojas largas
+function Kit.palm(cf, height)
+	height = height or 14
+	local segments = 6
+	local lean = rad(8)
+	local pos = cf
+	for i = 1, segments do
+		local seg = height / segments
+		local piece = cylinder("PalmTrunk", seg + 0.2, 1.1 - i * 0.07, pos * CFrame.new(0, seg / 2, 0), RGB(140, 105, 70), Enum.Material.Wood, nil, i > 2)
+		piece.CanCollide = i <= 2
+		deco("TrunkRing", V(0.25, 1.2 - i * 0.07, 1.2 - i * 0.07), pos * CFrame.new(0, seg, 0) * CFrame.Angles(0, 0, math.pi / 2), RGB(110, 80, 50), Enum.Material.Wood).Shape = Enum.PartType.Cylinder
+		pos = pos * CFrame.new(0, seg, 0) * CFrame.Angles(lean / segments * 2, 0, 0)
+	end
+	local top = pos
+	for i = 0, 6 do
+		local angle = i * math.pi * 2 / 7
+		local frond = deco(
+			"Frond",
+			V(1.6, 0.25, 7),
+			top * CFrame.Angles(0, angle, 0) * CFrame.new(0, 0.2, -3.2) * CFrame.Angles(rad(-20), 0, 0),
+			i % 2 == 0 and RGB(70, 170, 70) or RGB(50, 140, 55),
+			Enum.Material.Grass
+		)
+		frond.CastShadow = true
+	end
+	Kit.ball("Coconuts", 1.4, top * CFrame.new(0, -0.4, 0), RGB(110, 80, 40), Enum.Material.Wood, true)
+end
+
+-- Enredadera colgando de una pared (cara mirando en la dirección `normal`)
+function Kit.vines(cf, width, height)
+	for i = 0, math.floor(width / 1.5) do
+		local h = height * (0.5 + ((i * 37) % 10) / 20)
+		deco("Vine", V(1.2, h, 0.3), cf * CFrame.new(-width / 2 + i * 1.5, -h / 2, 0), (i % 2 == 0) and RGB(70, 150, 60) or RGB(90, 175, 70), Enum.Material.LeafyGrass)
+	end
+end
+
+-- Estandarte de tela con emblema (cuelga de una pared, cara -Z)
+function Kit.banner(cf, width, height, color, emblemColor)
+	local cloth = deco("Banner", V(width, height, 0.15), cf * CFrame.new(0, -height / 2, 0), color, Enum.Material.Fabric)
+	deco("BannerRod", V(width + 1, 0.3, 0.3), cf, C.Metal, Enum.Material.Metal)
+	-- Emblema tipo chevron
+	for _, s in { -1, 1 } do
+		deco("Emblem", V(width * 0.12, height * 0.35, 0.05), cf * CFrame.new(s * width * 0.13, -height * 0.45, -0.1) * CFrame.Angles(0, 0, rad(35 * s)), emblemColor or C.White, Enum.Material.SmoothPlastic)
+	end
+	deco("BannerTip", V(width * 0.7, width * 0.7, 0.14), cf * CFrame.new(0, -height, 0) * CFrame.Angles(0, 0, rad(45)), color, Enum.Material.Fabric)
+	return cloth
+end
+
+-- Toldo inclinado
+function Kit.awning(cf, width, depth, color)
+	for i = 0, math.floor(width / 1.5) - 1 do
+		deco("Awning", V(1.5, 0.25, depth), cf * CFrame.new(-width / 2 + 0.75 + i * 1.5, 0, -depth / 2) * CFrame.Angles(rad(-18), 0, 0), i % 2 == 0 and color or C.White, Enum.Material.Fabric)
+	end
+end
+
+-- Edificio mediterráneo: estuco, cornisa, ventanas, puerta, azotea transitable con murete
+function Kit.house(cf, size, color, accent, options)
+	options = options or {}
+	local model = Instance.new("Model")
+	model.Name = "House"
+	model.Parent = Kit.folder
+	local trim = color:Lerp(Color3.new(0, 0, 0), 0.18)
+	block("Walls", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.Plaster, model)
+	deco("Base", V(size.X + 0.4, 1.4, size.Z + 0.4), cf * CFrame.new(0, 0.7, 0), trim, Enum.Material.Limestone, model)
+	deco("Cornice", V(size.X + 0.8, 0.8, size.Z + 0.8), cf * CFrame.new(0, size.Y - 0.4, 0), accent or RGB(200, 70, 50), Enum.Material.Plaster, model)
+	-- Murete de la azotea (cobertura)
+	local h = 2.6
+	for _, z in { -1, 1 } do
+		block("Parapet", V(size.X, h, 1), cf * CFrame.new(0, size.Y + h / 2, z * (size.Z / 2 - 0.5)), color, Enum.Material.Plaster, model)
+	end
+	if not options.OpenSides then
+		for _, x in { -1, 1 } do
+			block("Parapet", V(1, h, size.Z - 2), cf * CFrame.new(x * (size.X / 2 - 0.5), size.Y + h / 2, 0), color, Enum.Material.Plaster, model)
+		end
+	end
+	-- Ventanas con contraventanas
+	local floors = math.max(1, math.floor(size.Y / 7))
+	for f = 1, floors do
+		local y = (f - 0.5) * size.Y / floors + 0.6
+		for _, face in { -1, 1 } do
+			for i = 1, math.max(1, math.floor(size.X / 9)) do
+				local x = -size.X / 2 + (i - 0.5) * size.X / math.max(1, math.floor(size.X / 9))
+				local p = cf * CFrame.new(x, y, face * (size.Z / 2 + 0.1))
+				deco("Window", V(2.4, 3.2, 0.2), p, RGB(60, 70, 90), Enum.Material.Glass, model).Transparency = 0.1
+				deco("Sill", V(3, 0.3, 0.6), p * CFrame.new(0, -1.75, 0), trim, Enum.Material.Limestone, model)
+				for _, s in { -1, 1 } do
+					deco("Shutter", V(1.1, 3.2, 0.15), p * CFrame.new(s * 1.85, 0, face * 0.1), accent or RGB(60, 120, 170), Enum.Material.Wood, model)
+				end
+			end
+		end
+	end
+	-- Puerta con luz
+	local doorCf = cf * CFrame.new(options.DoorX or 0, 3.3, -(size.Z / 2 + 0.12))
+	deco("Door", V(3.6, 6.6, 0.25), doorCf, RGB(100, 65, 40), Enum.Material.WoodPlanks, model)
+	deco("DoorArch", V(4.6, 0.8, 0.4), doorCf * CFrame.new(0, 3.6, 0), trim, Enum.Material.Limestone, model)
+	local lamp = deco("DoorLamp", V(0.6, 0.8, 0.6), doorCf * CFrame.new(2.8, 2.5, -0.3), RGB(255, 210, 140), Enum.Material.Neon, model)
+	Kit.light(lamp, "PointLight", RGB(255, 200, 120), 12, 1.2)
+	if options.Vines then
+		Kit.vines(cf * CFrame.new(size.X * 0.25, size.Y - 0.5, -(size.Z / 2 + 0.25)), 6, 8)
+	end
+	return model
+end
+
+-- Grúa pórtico decorativa (para fondos de puerto)
+function Kit.crane(cf, height, color)
+	color = color or RGB(240, 190, 40)
+	height = height or 40
+	for _, x in { -6, 6 } do
+		for _, z in { -3, 3 } do
+			deco("CraneLeg", V(1.2, height, 1.2), cf * CFrame.new(x, height / 2, z), color, Enum.Material.Metal)
+		end
+	end
+	deco("CraneTop", V(14, 2, 8), cf * CFrame.new(0, height, 0), color, Enum.Material.Metal)
+	deco("CraneBoom", V(2, 2, 50), cf * CFrame.new(0, height + 2, -14), color, Enum.Material.Metal)
+	deco("CraneCab", V(4, 3, 4), cf * CFrame.new(0, height - 2.5, -6), RGB(230, 230, 235), Enum.Material.SmoothPlastic)
+	deco("Cable", V(0.2, 12, 0.2), cf * CFrame.new(0, height - 5, -30), RGB(30, 30, 30), Enum.Material.Metal)
+	local beacon = Kit.ball("CraneBeacon", 1, cf * CFrame.new(0, height + 3.5, -38), RGB(255, 40, 40), Enum.Material.Neon, true)
+	beacon:SetAttribute("Blink", 1)
+end
+
+-- Barco de carga decorativo
+function Kit.ship(cf, length)
+	length = length or 90
+	deco("Hull", V(length, 10, 18), cf * CFrame.new(0, 3, 0), RGB(40, 50, 70), Enum.Material.Metal)
+	deco("HullStripe", V(length + 0.2, 1.5, 18.2), cf * CFrame.new(0, -1, 0), RGB(200, 40, 40), Enum.Material.Metal)
+	deco("Bridge", V(10, 12, 14), cf * CFrame.new(length / 2 - 8, 14, 0), C.White, Enum.Material.SmoothPlastic)
+	local colors = { C.Red, C.Blue, RGB(240, 150, 30), RGB(60, 170, 90) }
+	local i = 0
+	for x = -length / 2 + 8, length / 2 - 18, 9 do
+		for row = 0, 1 do
+			i += 1
+			deco("Cargo", V(8.5, 4, 8), cf * CFrame.new(x, 10 + row * 4, (i % 2 == 0) and -4.2 or 4.2), colors[i % #colors + 1], Enum.Material.CorrodedMetal)
+		end
+	end
+end
+
+-- Faro sobre una isla de roca (fondo)
+function Kit.lighthouse(position)
+	local terrain = workspace.Terrain
+	terrain:FillBall(position + V(0, -6, 0), 26, Enum.Material.Rock)
+	terrain:FillBall(position + V(14, -10, 8), 18, Enum.Material.Rock)
+	terrain:FillBall(position + V(-10, -2, -6), 14, Enum.Material.Grass)
+	local base = position + V(0, 12, 0)
+	cylinder("LighthouseTower", 26, 7, CFrame.new(base + V(0, 13, 0)), C.White, Enum.Material.Plaster, nil, true)
+	for i = 0, 2 do
+		cylinder("LighthouseStripe", 2.5, 7.1, CFrame.new(base + V(0, 6 + i * 8, 0)), C.Red, Enum.Material.Plaster, nil, true)
+	end
+	cylinder("LighthouseTop", 3, 5, CFrame.new(base + V(0, 27.5, 0)), RGB(255, 245, 200), Enum.Material.Neon, nil, true)
+	cylinder("LighthouseRoof", 2, 6, CFrame.new(base + V(0, 30, 0)), C.Red, Enum.Material.Plaster, nil, true)
+end
+
+-- Tubería industrial con soportes
+function Kit.pipeRun(a, b, diameter, color)
+	local length = (b - a).Magnitude
+	local cf = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, rad(90), 0)
+	Kit.pipe("Pipe", length, diameter, cf, color or RGB(90, 95, 110), Enum.Material.Metal, true)
+	local rings = math.floor(length / 8)
+	for i = 1, rings do
+		local p = a:Lerp(b, i / (rings + 1))
+		Kit.pipe("PipeRing", 0.5, diameter + 0.3, CFrame.lookAt(p, b) * CFrame.Angles(0, rad(90), 0), RGB(50, 52, 60), Enum.Material.Metal, true)
+	end
+end
+
+-- Canal de lava (daña al tocarla; ver Hazards)
+function Kit.lava(size, cf)
+	local lava = block("Lava", size, cf, RGB(255, 100, 20), Enum.Material.CrackedLava)
+	lava:SetAttribute("Hazard", "Lava")
+	lava.CanQuery = false
+	local glow = deco("LavaGlow", V(size.X, 0.1, size.Z), cf * CFrame.new(0, size.Y / 2 + 0.05, 0), RGB(255, 140, 30), Enum.Material.Neon)
+	glow.Transparency = 0.4
+	Kit.light(glow, "SurfaceLight", RGB(255, 120, 30), 16, 1.2, Enum.NormalId.Top)
+	return lava
+end
+
+-- Cinta transportadora con lingotes
+function Kit.conveyor(a, b, width)
+	local length = (b - a).Magnitude
+	local cf = CFrame.lookAt((a + b) / 2, b)
+	block("Conveyor", V(width, 1, length), cf, RGB(40, 42, 48), Enum.Material.DiamondPlate)
+	for _, s in { -1, 1 } do
+		deco("ConveyorSide", V(0.4, 1.2, length), cf * CFrame.new(s * (width / 2 + 0.2), 0.3, 0), RGB(255, 170, 30), Enum.Material.Metal)
+	end
+	for i = 1, math.floor(length / 4) do
+		local bar = deco("GoldBar", V(1.6, 0.6, 2.4), cf * CFrame.new(0, 0.8, -length / 2 + i * 4), RGB(255, 200, 60), Enum.Material.Foil)
+		bar.CastShadow = true
+	end
+end
+
+-- Chimenea industrial con luz roja
+function Kit.smokestack(position, height)
+	cylinder("Smokestack", height, 6, CFrame.new(position + V(0, height / 2, 0)), RGB(70, 65, 70), Enum.Material.Concrete, nil, true)
+	for i = 1, 3 do
+		cylinder("StackStripe", 1.2, 6.1, CFrame.new(position + V(0, height * i / 4, 0)), RGB(200, 60, 40), Enum.Material.Concrete, nil, true)
+	end
+	local light = Kit.ball("StackLight", 1.2, CFrame.new(position + V(0, height + 0.8, 0)), RGB(255, 40, 40), Enum.Material.Neon, true)
+	light:SetAttribute("Blink", 1.5)
+end
+
+-- Cartel de neón grande con texto
+function Kit.neonSign(cf, width, height, text, color, frameColor)
+	local board = deco("NeonBoard", V(width, height, 0.6), cf, RGB(20, 20, 30), Enum.Material.SmoothPlastic)
+	sign(board, Enum.NormalId.Front, text, color, frameColor or color:Lerp(Color3.new(1, 1, 1), 0.5))
+	for _, y in { -1, 1 } do
+		deco("NeonFrame", V(width + 0.6, 0.35, 0.7), cf * CFrame.new(0, y * height / 2, 0), frameColor or color, Enum.Material.Neon)
+	end
+	for _, x in { -1, 1 } do
+		deco("NeonFrame", V(0.35, height, 0.7), cf * CFrame.new(x * width / 2, 0, 0), frameColor or color, Enum.Material.Neon)
+	end
+	Kit.light(board, "SurfaceLight", color, 18, 1.5, Enum.NormalId.Front)
+	return board
+end
+
+-- Carretilla elevadora decorativa
+function Kit.forklift(cf)
+	block("ForkBody", V(4, 3, 6), cf * CFrame.new(0, 2, 0), RGB(250, 190, 30), Enum.Material.SmoothPlastic)
+	deco("ForkCab", V(3.6, 3, 0.3), cf * CFrame.new(0, 5, 1.5), RGB(40, 40, 45), Enum.Material.Metal)
+	deco("ForkRoof", V(4, 0.3, 4), cf * CFrame.new(0, 6.6, 0), RGB(40, 40, 45), Enum.Material.Metal)
+	deco("ForkMast", V(3, 6, 0.4), cf * CFrame.new(0, 3.5, -3.2), RGB(40, 40, 45), Enum.Material.Metal)
+	for _, x in { -1, 1 } do
+		deco("Fork", V(0.4, 0.3, 3), cf * CFrame.new(x * 1, 0.6, -4.8), RGB(40, 40, 45), Enum.Material.Metal)
+		for _, z in { -2, 2 } do
+			Kit.pipe("Wheel", 0.8, 1.6, cf * CFrame.new(x * 2.1, 0.8, z), RGB(25, 25, 28), Enum.Material.Rubber, true)
+		end
+	end
+end
+
+-- Barca decorativa en el agua
+function Kit.boat(cf)
+	deco("BoatHull", V(6, 2, 14), cf * CFrame.new(0, 0.5, 0), C.White, Enum.Material.SmoothPlastic)
+	deco("BoatStripe", V(6.1, 0.6, 14.1), cf * CFrame.new(0, 0.2, 0), C.Red, Enum.Material.SmoothPlastic)
+	deco("BoatCabin", V(4.4, 3, 5), cf * CFrame.new(0, 3, 1), RGB(230, 230, 235), Enum.Material.SmoothPlastic)
+	deco("BoatRoof", V(5, 0.4, 6), cf * CFrame.new(0, 4.7, 1), C.Red, Enum.Material.SmoothPlastic)
+	deco("BoatWindow", V(4.5, 1, 0.2), cf * CFrame.new(0, 3.3, -1.5), RGB(60, 120, 180), Enum.Material.Glass)
+end
+
+---------------------------------------------------------------------------
+-- Puntos especiales del modo de juego
+---------------------------------------------------------------------------
+
+-- Zona de reaparición del equipo con techo, muretes y SpawnLocations
+function Kit.spawnArea(team, cf, style)
+	style = style or {}
+	local teamColor = team.Color.Color
+	local light = teamColor:Lerp(Color3.new(1, 1, 1), 0.55)
+	local floorColor = style.Floor or light
+	block(team.Name .. "SpawnFloor", V(30, 0.4, 70), cf * CFrame.new(0, 0.2, 0), floorColor, style.FloorMaterial or Enum.Material.SmoothPlastic)
+	for z = -30, 30, 10 do
+		deco("FloorLine", V(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic)
+	end
+	local roofColor = style.Roof or RGB(235, 235, 240)
+	block(team.Name .. "SpawnRoof", V(30, 1, 70), cf * CFrame.new(0, 16, 0), roofColor, style.RoofMaterial or Enum.Material.Concrete)
+	deco("RoofTrim", V(0.6, 0.5, 70.2), cf * CFrame.new(15, 15.4, 0), teamColor, Enum.Material.Neon)
+	local banner = block("TeamBanner", V(0.6, 4, 28), cf * CFrame.new(15.2, 18.6, 0), teamColor, Enum.Material.SmoothPlastic)
+	sign(banner, Enum.NormalId.Right, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
+	sign(banner, Enum.NormalId.Left, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
+	for _, z in { -34, 34 } do
+		block("Pillar", V(2, 16, 2), cf * CFrame.new(14, 8, z), roofColor, Enum.Material.Concrete)
+		deco("PillarStripe", V(2.1, 1, 2.1), cf * CFrame.new(14, 12, z), teamColor, Enum.Material.Neon)
+	end
+	for _, z in { -24, 0, 24 } do
+		block("Cover", V(2, 4, 10), cf * CFrame.new(14, 2, z), teamColor, Enum.Material.SmoothPlastic)
+		deco("CoverTop", V(2.1, 0.3, 10.1), cf * CFrame.new(14, 4.05, z), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+	end
+	for i, z in { -24, -8, 8, 24 } do
+		local spawn = Instance.new("SpawnLocation")
+		spawn.Name = team.Name .. "Spawn" .. i
+		spawn.Anchored = true
+		spawn.Size = V(6, 1, 6)
+		spawn.CFrame = cf * CFrame.new(-4, 0.5, z) * CFrame.Angles(0, -math.pi / 2, 0)
+		spawn.TeamColor = team.Color
+		spawn.BrickColor = team.Color
+		spawn.Material = Enum.Material.Neon
+		spawn.Neutral = false
+		spawn.AllowTeamChangeOnTouch = false
+		spawn.Duration = GameConfig.SpawnProtection
+		spawn.Parent = Kit.folder
+		local decal = spawn:FindFirstChildOfClass("Decal")
+		if decal then
+			decal:Destroy()
+		end
+	end
+	local lamp = deco("SpawnLight", V(20, 0.2, 60), cf * CFrame.new(0, 15.4, 0), teamColor:Lerp(Color3.new(1, 1, 1), 0.7), Enum.Material.Neon)
+	Kit.light(lamp, "SurfaceLight", teamColor:Lerp(Color3.new(1, 1, 1), 0.5), 16, 0.8, Enum.NormalId.Bottom)
+end
+
+-- Base de la bandera (Captura la bandera). Flags busca piezas "FlagBase" con el atributo Team.
+function Kit.flagBase(team, cf)
+	local teamColor = team.Color.Color
+	local ring = deco("FlagBaseRing", V(0.3, 13, 13), cf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2), teamColor, Enum.Material.Neon)
+	ring.Shape = Enum.PartType.Cylinder
+	local pad = block("FlagBase", V(0.4, 11, 11), cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), RGB(235, 235, 240), Enum.Material.Concrete)
+	pad.Shape = Enum.PartType.Cylinder
+	pad:SetAttribute("Team", team.Name)
+	local inner = deco("FlagBaseInner", V(0.45, 4, 4), cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), teamColor, Enum.Material.Neon)
+	inner.Shape = Enum.PartType.Cylinder
+	for i = 0, 3 do
+		local angle = i * math.pi / 2 + math.pi / 4
+		local offset = CFrame.new(math.cos(angle) * 7.5, 0, math.sin(angle) * 7.5)
+		cylinder("Pylon", 2, 0.7, cf * offset * CFrame.new(0, 1, 0), RGB(230, 230, 235), Enum.Material.SmoothPlastic, nil, true)
+		Kit.ball("PylonLight", 0.8, cf * offset * CFrame.new(0, 2.3, 0), teamColor, Enum.Material.Neon, true)
+	end
+	Kit.light(inner, "PointLight", teamColor, 16, 1.5)
+	return pad
+end
+
+-- Punto de aparición para "Todos contra todos" y "Escalada" (invisible)
+function Kit.ffaSpawn(position)
+	local p = deco("FFASpawn", V(2, 1, 2), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)
+	p.Transparency = 1
+	return p
+end
+
+-- Zona de control (modo "Zona"). order = orden de rotación.
+function Kit.zone(position, radius, order)
+	local z = deco("HardpointZone", V(0.3, radius * 2, radius * 2), CFrame.new(position + V(0, 0.15, 0)) * CFrame.Angles(0, 0, math.pi / 2), C.White, Enum.Material.SmoothPlastic)
+	z.Shape = Enum.PartType.Cylinder
+	z.Transparency = 1
+	z:SetAttribute("Order", order)
+	z:SetAttribute("Radius", radius)
+	return z
+end
+
+-- Muros exteriores invisibles (y techo) para que nadie se salga
+function Kit.bounds(length, width, height)
+	local function wall(size, cf)
+		local w = block("Boundary", size, cf, Color3.new(1, 1, 1))
+		w.Transparency = 1
+		w.CanQuery = false
+		w.CastShadow = false
+	end
+	wall(V(length, height, 4), CFrame.new(0, height / 2, width / 2 + 2))
+	wall(V(length, height, 4), CFrame.new(0, height / 2, -width / 2 - 2))
+	wall(V(4, height, width), CFrame.new(length / 2 + 2, height / 2, 0))
+	wall(V(4, height, width), CFrame.new(-length / 2 - 2, height / 2, 0))
+	wall(V(length, 1, width), CFrame.new(0, height, 0))
+end
+
+---------------------------------------------------------------------------
+-- Iluminación por mapa
+---------------------------------------------------------------------------
+
+local function ensure(className, parent)
+	parent = parent or Lighting
+	local inst = parent:FindFirstChildOfClass(className)
+	if not inst then
+		inst = Instance.new(className)
+		inst.Parent = parent
+	end
+	return inst
+end
+
+-- preset: tabla con ClockTime, Brightness, Ambient, OutdoorAmbient, Atmosphere{...}, Color{...}, Bloom{...}, Clouds
+function Kit.applyLighting(preset)
+	Lighting.ClockTime = preset.ClockTime or 14
+	Lighting.GeographicLatitude = preset.Latitude or 35
+	Lighting.Brightness = preset.Brightness or 3
+	Lighting.ExposureCompensation = preset.Exposure or 0
+	Lighting.Ambient = preset.Ambient or RGB(80, 85, 105)
+	Lighting.OutdoorAmbient = preset.OutdoorAmbient or RGB(140, 145, 170)
+	Lighting.GlobalShadows = true
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+
+	local a = preset.Atmosphere or {}
+	local atmosphere = ensure("Atmosphere")
+	atmosphere.Density = a.Density or 0.3
+	atmosphere.Offset = a.Offset or 0.25
+	atmosphere.Color = a.Color or RGB(199, 220, 255)
+	atmosphere.Decay = a.Decay or RGB(106, 120, 150)
+	atmosphere.Glare = a.Glare or 0.3
+	atmosphere.Haze = a.Haze or 1.4
+
+	local c = preset.Color or {}
+	local cc = ensure("ColorCorrectionEffect")
+	cc.Saturation = c.Saturation or 0.25
+	cc.Contrast = c.Contrast or 0.1
+	cc.Brightness = c.Brightness or 0.02
+	cc.TintColor = c.Tint or RGB(255, 250, 245)
+
+	local b = preset.Bloom or {}
+	local bloom = ensure("BloomEffect")
+	bloom.Intensity = b.Intensity or 0.8
+	bloom.Size = b.Size or 24
+	bloom.Threshold = b.Threshold or 1.6
+
+	local rays = ensure("SunRaysEffect")
+	rays.Intensity = preset.SunRays or 0.06
+	rays.Spread = 0.6
+
+	ensure("Sky")
+
+	local clouds = ensure("Clouds", workspace.Terrain)
+	clouds.Cover = preset.Clouds or 0.55
+	clouds.Density = 0.6
+	clouds.Color = preset.CloudColor or RGB(255, 255, 255)
+end
+
+-- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain)
+function Kit.Begin(name)
+	local old = workspace:FindFirstChild("Map")
+	if old then
+		old:Destroy()
+	end
+	workspace.Terrain:Clear()
+	local folder = Instance.new("Folder")
+	folder.Name = "Map"
+	folder:SetAttribute("Generated", true)
+	folder:SetAttribute("MapName", name)
+	folder.Parent = workspace
+	Kit.folder = folder
+	return folder
+end
+
+return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -4502,13 +6085,18 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="23">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">Round</string>
-            <string name="Source"><![CDATA[-- Equipos, rondas, modos de juego (Duelo por equipos / Captura la bandera), marcador, rachas y recompensas.
--- El estado se publica como atributos de ReplicatedStorage para que la interfaz lo lea:
---   State ("Intermission" | "Playing" | "Ended"), Mode ("TDM" | "CTF"), ModeName,
---   TimeLeft, ScoreToWin, Score_<Equipo>
+            <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
+-- Modos: TDM (duelo por equipos), CTF (captura la bandera), KOTH (zona de control),
+--        FFA (todos contra todos) y GUN (escalada de armas).
+--
+-- Estado publicado en ReplicatedStorage para la interfaz:
+--   State ("Intermission" | "Playing" | "Ended"), Mode, ModeName, TeamMode, TimeLeft, ScoreToWin,
+--   Score_<Equipo>, LeaderName, LeaderScore, MapName,
+--   VoteN_Map, VoteN_Mode, VoteN_Count (N = 1..3) durante el descanso
+-- En cada jugador: atributo Score (bajas en FFA / nivel en Escalada), Streak, Captures, GunLevel
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -4520,17 +6108,30 @@ local Remotes = require(Shared.Remotes)
 
 local PlayerData = require(script.Parent.PlayerData)
 local Flags = require(script.Parent.Flags)
+local Hardpoint = require(script.Parent.Hardpoint)
+local MapBuilder = require(script.Parent.MapBuilder)
+local Loadout = require(script.Parent.Loadout)
 
 local Round = {}
 
 local teams = {}
 local roundOver = false
-local modeIndex = 0
+local currentMode = "TDM"
+local votes = {} -- [player] = índice
+local voteOptions = {}
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
 local function setState(state)
 	ReplicatedStorage:SetAttribute("State", state)
+end
+
+local function settings(mode)
+	return GameConfig.ModeSettings[mode or currentMode]
+end
+
+local function isTeamMode(mode)
+	return settings(mode).Teams ~= false
 end
 
 local function getScore(teamName)
@@ -4565,21 +6166,32 @@ local function addScore(team, amount)
 	end
 end
 
--- Elige el siguiente modo de la rotación (salta CTF si el mapa no tiene bases de bandera)
-local function nextMode()
-	local modes = GameConfig.Modes
-	for _ = 1, #modes do
-		modeIndex = modeIndex % #modes + 1
-		local mode = modes[modeIndex]
-		if GameConfig.ModeSettings[mode] and (mode ~= "CTF" or Flags.IsAvailable()) then
-			return mode
-		end
-		if mode == "CTF" then
-			warn("[Round] El mapa no tiene piezas FlagBase para cada equipo; se salta Captura la bandera")
+-- Líder individual (modos sin equipos)
+local function updateLeader()
+	local best, bestScore = nil, -1
+	for _, player in Players:GetPlayers() do
+		local score = player:GetAttribute("Score") or 0
+		if score > bestScore then
+			best, bestScore = player, score
 		end
 	end
-	return "TDM"
+	ReplicatedStorage:SetAttribute("LeaderName", best and best.Name or "")
+	ReplicatedStorage:SetAttribute("LeaderScore", math.max(bestScore, 0))
+	return best, bestScore
 end
+
+local function addPlayerScore(player, amount)
+	local score = (player:GetAttribute("Score") or 0) + amount
+	player:SetAttribute("Score", score)
+	updateLeader()
+	if ReplicatedStorage:GetAttribute("State") == "Playing" and score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
+		roundOver = true
+	end
+end
+
+---------------------------------------------------------------------------
+-- Equipos
+---------------------------------------------------------------------------
 
 local function smallestTeam(exclude)
 	local best, bestCount = nil, math.huge
@@ -4598,12 +6210,29 @@ local function smallestTeam(exclude)
 end
 
 local function assignTeam(player)
-	player.Neutral = false
-	player.Team = smallestTeam(player)
+	if isTeamMode() then
+		player.Neutral = false
+		player.Team = smallestTeam(player)
+	else
+		player.Team = nil
+		player.Neutral = true
+	end
 end
 
 local function balanceTeams()
-	-- Mueve jugadores del equipo grande al pequeño si la diferencia es > 1
+	if not isTeamMode() then
+		for _, player in Players:GetPlayers() do
+			player.Team = nil
+			player.Neutral = true
+		end
+		return
+	end
+	for _, player in Players:GetPlayers() do
+		if not player.Team then
+			player.Neutral = false
+			player.Team = smallestTeam(player)
+		end
+	end
 	local a, b = teams[1], teams[2]
 	while math.abs(#a:GetPlayers() - #b:GetPlayers()) > 1 do
 		local big = #a:GetPlayers() > #b:GetPlayers() and a or b
@@ -4620,11 +6249,53 @@ local function resetStats()
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
 		player:SetAttribute("Captures", 0)
+		player:SetAttribute("Score", 0)
+		player:SetAttribute("GunLevel", 1)
 	end
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
+	updateLeader()
 end
+
+---------------------------------------------------------------------------
+-- Escalada de armas
+---------------------------------------------------------------------------
+
+local function gunGameWeapons(player)
+	local order = Weapons.GunGameOrder
+	local level = math.clamp(player:GetAttribute("GunLevel") or 1, 1, #order)
+	local weapon = order[level]
+	if weapon == Weapons.Melee then
+		return { weapon }
+	end
+	return { weapon, Weapons.Melee }
+end
+
+local function gunGameKill(killer, victim, weaponName)
+	local order = Weapons.GunGameOrder
+	local level = (killer:GetAttribute("GunLevel") or 1) + 1
+	killer:SetAttribute("GunLevel", level)
+	killer:SetAttribute("Score", level - 1)
+	updateLeader()
+	if level > #order then
+		roundOver = true
+		return
+	end
+	Remotes.Notify:FireClient(killer, "Info", "Nueva arma: " .. Weapons.Get(order[level]).DisplayName)
+	Loadout.Give(killer, gunGameWeapons(killer))
+	-- Humillación: una baja con cuchillo hace bajar un nivel a la víctima
+	if victim and weaponName == Weapons.Melee then
+		local vLevel = math.max(1, (victim:GetAttribute("GunLevel") or 1) - 1)
+		victim:SetAttribute("GunLevel", vLevel)
+		victim:SetAttribute("Score", vLevel - 1)
+		Remotes.Notify:FireClient(victim, "Info", "¡Te han bajado de nivel con el cuchillo!")
+	end
+end
+
+---------------------------------------------------------------------------
+-- Bajas
+---------------------------------------------------------------------------
 
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 	if victim then
@@ -4646,9 +6317,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
 
-			-- En duelo por equipos cada baja es un punto; en CTF solo cuentan las capturas
-			if ReplicatedStorage:GetAttribute("Mode") == "TDM" then
-				addScore(killer.Team, 1)
+			if ReplicatedStorage:GetAttribute("State") == "Playing" then
+				if currentMode == "TDM" then
+					addScore(killer.Team, 1)
+				elseif currentMode == "FFA" then
+					addPlayerScore(killer, 1)
+				elseif currentMode == "GUN" then
+					gunGameKill(killer, victim, weaponName)
+				end
 			end
 
 			local xp = GameConfig.XP.Kill + GameConfig.XP.StreakBonus * (streak - 1)
@@ -4676,6 +6352,124 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 	})
 end
 
+---------------------------------------------------------------------------
+-- Aparición libre (FFA / Escalada): el punto más alejado de los demás
+---------------------------------------------------------------------------
+
+local function ffaSpawnFor(player, character)
+	if isTeamMode() then
+		return
+	end
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return
+	end
+	local points = {}
+	for _, d in map:GetDescendants() do
+		if d:IsA("BasePart") and d.Name == "FFASpawn" then
+			table.insert(points, d)
+		end
+	end
+	if #points == 0 then
+		return
+	end
+	local others = {}
+	for _, p in Players:GetPlayers() do
+		local root = p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+		if root then
+			table.insert(others, root.Position)
+		end
+	end
+	local best, bestDistance = points[math.random(1, #points)], -1
+	for _, point in points do
+		local nearest = math.huge
+		for _, pos in others do
+			nearest = math.min(nearest, (pos - point.Position).Magnitude)
+		end
+		nearest += math.random() * 10 -- un poco de azar entre puntos parecidos
+		if nearest > bestDistance then
+			best, bestDistance = point, nearest
+		end
+	end
+	local root = character:WaitForChild("HumanoidRootPart", 5)
+	if root then
+		task.wait()
+		character:PivotTo(CFrame.new(best.Position + Vector3.new(0, 3, 0)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	end
+end
+
+---------------------------------------------------------------------------
+-- Votación de mapa + modo
+---------------------------------------------------------------------------
+
+local function availableModes(mapId)
+	local list = {}
+	for _, mode in GameConfig.Modes do
+		if GameConfig.ModeSettings[mode] then
+			table.insert(list, mode)
+		end
+	end
+	_ = mapId
+	return list
+end
+
+local function makeVoteOptions()
+	local maps = table.clone(MapBuilder.Order)
+	if MapBuilder.IsCustom() then
+		maps = { "Custom" }
+	end
+	-- Prioriza mapas distintos al actual
+	for i = #maps, 2, -1 do
+		local j = math.random(1, i)
+		maps[i], maps[j] = maps[j], maps[i]
+	end
+	table.sort(maps, function(a, b)
+		return (a ~= MapBuilder.Current and 0 or 1) < (b ~= MapBuilder.Current and 0 or 1)
+	end)
+	local options = {}
+	local usedModes = {}
+	for i = 1, 3 do
+		local mapId = maps[((i - 1) % #maps) + 1]
+		local modes = availableModes(mapId)
+		local mode = modes[math.random(1, #modes)]
+		for _ = 1, 6 do
+			if not usedModes[mode] then
+				break
+			end
+			mode = modes[math.random(1, #modes)]
+		end
+		usedModes[mode] = true
+		table.insert(options, { Map = mapId, Mode = mode })
+	end
+	return options
+end
+
+local function publishVotes()
+	local counts = { 0, 0, 0 }
+	for _, choice in votes do
+		counts[choice] = (counts[choice] or 0) + 1
+	end
+	for i, option in voteOptions do
+		local def = MapBuilder.Get(option.Map)
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and def.Name or "Mapa propio")
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", GameConfig.ModeSettings[option.Mode].Name)
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Count", counts[i])
+	end
+	return counts
+end
+
+local function clearVotes()
+	for i = 1, 3 do
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", nil)
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", nil)
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Count", nil)
+	end
+end
+
+---------------------------------------------------------------------------
+-- Ciclo de rondas
+---------------------------------------------------------------------------
+
 local function countdown(seconds, stopWhen)
 	for t = seconds, 0, -1 do
 		ReplicatedStorage:SetAttribute("TimeLeft", t)
@@ -4696,16 +6490,20 @@ end
 
 local function endRound()
 	setState("Ended")
+	local teamMode = isTeamMode()
 	local a, b = teams[1], teams[2]
 	local scoreA, scoreB = getScore(a.Name), getScore(b.Name)
 	local winner = nil
-	if scoreA > scoreB then
-		winner = a
-	elseif scoreB > scoreA then
-		winner = b
+	if teamMode then
+		if scoreA > scoreB then
+			winner = a
+		elseif scoreB > scoreA then
+			winner = b
+		end
 	end
+	local leader, leaderScore = updateLeader()
 
-	-- MVP = más bajas (en CTF cada captura vale como 3 bajas)
+	-- MVP = más bajas (en CTF cada captura cuenta como 3 bajas)
 	local mvp, mvpKills, mvpScore = nil, 0, -1
 	for _, player in Players:GetPlayers() do
 		local kills = PlayerData.GetLeaderstats(player).Bajas.Value
@@ -4716,7 +6514,13 @@ local function endRound()
 	end
 
 	for _, player in Players:GetPlayers() do
-		if winner and player.Team == winner then
+		local won
+		if teamMode then
+			won = winner ~= nil and player.Team == winner
+		else
+			won = leader == player and leaderScore > 0
+		end
+		if won then
 			PlayerData.AddXP(player, GameConfig.XP.Win, "Victoria")
 			PlayerData.AddCoins(player, GameConfig.Coins.Win)
 			PlayerData.Increment(player, "Wins", 1)
@@ -4726,10 +6530,12 @@ local function endRound()
 	end
 
 	Remotes.RoundEnd:FireAllClients({
-		Winner = winner and winner.Name or nil,
-		WinnerColor = winner and winner.TeamColor.Color or Color3.new(1, 1, 1),
+		TeamMode = teamMode,
+		Winner = teamMode and (winner and winner.Name) or (leader and leader.Name),
+		WinnerColor = winner and winner.TeamColor.Color or Color3.fromRGB(255, 200, 60),
 		ScoreA = scoreA,
 		ScoreB = scoreB,
+		LeaderScore = leaderScore,
 		MVP = mvp and mvp.Name or nil,
 		MVPKills = mvpKills,
 		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
@@ -4737,20 +6543,58 @@ local function endRound()
 	task.wait(GameConfig.EndScreenTime)
 end
 
+local function startMode(mode)
+	currentMode = mode
+	local s = settings(mode)
+	local scoreToWin = s.ScoreToWin
+	if mode == "GUN" then
+		scoreToWin = #Weapons.GunGameOrder
+	end
+	ReplicatedStorage:SetAttribute("Mode", mode)
+	ReplicatedStorage:SetAttribute("ModeName", s.Name)
+	ReplicatedStorage:SetAttribute("TeamMode", s.Teams ~= false)
+	ReplicatedStorage:SetAttribute("ScoreToWin", scoreToWin)
+	Loadout.Override = mode == "GUN" and gunGameWeapons or nil
+end
+
 local function gameLoop()
 	while true do
-		local mode = nextMode()
-		local settings = GameConfig.ModeSettings[mode]
-		ReplicatedStorage:SetAttribute("Mode", mode)
-		ReplicatedStorage:SetAttribute("ModeName", settings.Name)
-		ReplicatedStorage:SetAttribute("ScoreToWin", settings.ScoreToWin)
-
+		-- Descanso con votación
 		setState("Intermission")
+		table.clear(votes)
+		voteOptions = makeVoteOptions()
+		publishVotes()
 		countdown(GameConfig.IntermissionTime)
 		while #Players:GetPlayers() < GameConfig.MinPlayers do
 			ReplicatedStorage:SetAttribute("TimeLeft", 0)
 			task.wait(1)
 		end
+
+		-- Resultado de la votación (empate = al azar)
+		local counts = publishVotes()
+		local bestIndex, bestCount = math.random(1, #voteOptions), -1
+		for i, c in counts do
+			if c > bestCount or (c == bestCount and math.random() < 0.5) then
+				bestIndex, bestCount = i, c
+			end
+		end
+		local choice = voteOptions[bestIndex]
+		clearVotes()
+
+		local mode = choice.Mode
+		-- Comprueba que el mapa soporta el modo
+		if choice.Map ~= "Custom" and choice.Map ~= MapBuilder.Current then
+			Remotes.Notify:FireAllClients("Big", "Cargando " .. MapBuilder.Get(choice.Map).Name .. "...")
+			Flags.Stop()
+			Hardpoint.Stop()
+			MapBuilder.Build(choice.Map)
+		end
+		if mode == "CTF" and not Flags.IsAvailable() then
+			mode = "TDM"
+		elseif mode == "KOTH" and not Hardpoint.IsAvailable() then
+			mode = "TDM"
+		end
+		startMode(mode)
 
 		roundOver = false
 		balanceTeams()
@@ -4758,17 +6602,26 @@ local function gameLoop()
 		setState("Playing")
 		if mode == "CTF" then
 			Flags.Start()
+		elseif mode == "KOTH" then
+			Hardpoint.Start()
 		end
 		respawnAll()
-		if mode == "CTF" then
-			Remotes.Notify:FireAllClients("Big", "¡CAPTURA LA BANDERA! Primero a " .. settings.ScoreToWin)
-		else
-			Remotes.Notify:FireAllClients("Big", "¡A LUCHAR! Primero a " .. settings.ScoreToWin .. " bajas")
-		end
-		countdown(settings.RoundTime, function()
+		local s = settings(mode)
+		local goal = ReplicatedStorage:GetAttribute("ScoreToWin")
+		local intro = {
+			TDM = "¡A LUCHAR! Primero a " .. goal .. " bajas",
+			CTF = "¡CAPTURA LA BANDERA! Primero a " .. goal,
+			KOTH = "¡ZONA DE CONTROL! Primero a " .. goal .. " puntos",
+			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
+			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
+		}
+		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
+		countdown(s.RoundTime, function()
 			return roundOver
 		end)
 		Flags.Stop()
+		Hardpoint.Stop()
+		Loadout.Override = nil
 		endRound()
 	end
 end
@@ -4776,16 +6629,41 @@ end
 function Round.Init()
 	Players.RespawnTime = GameConfig.RespawnTime
 	setupTeams()
+	startMode("TDM")
+	setState("Intermission")
+	ReplicatedStorage:SetAttribute("TimeLeft", GameConfig.IntermissionTime)
 	Flags.OnCapture = function(_, team)
 		addScore(team, 1)
 	end
-	setState("Intermission")
-	ReplicatedStorage:SetAttribute("TimeLeft", GameConfig.IntermissionTime)
+	Hardpoint.OnScore = function(team, amount)
+		addScore(team, amount)
+	end
 
-	Players.PlayerAdded:Connect(assignTeam)
+	Remotes.VoteMap.OnServerEvent:Connect(function(player, index)
+		if ReplicatedStorage:GetAttribute("State") ~= "Intermission" then
+			return
+		end
+		if type(index) ~= "number" or not voteOptions[index] then
+			return
+		end
+		votes[player] = index
+		publishVotes()
+	end)
+
+	local function onPlayer(player)
+		assignTeam(player)
+		player.CharacterAdded:Connect(function(character)
+			task.spawn(ffaSpawnFor, player, character)
+		end)
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		votes[player] = nil
+		updateLeader()
+	end)
 	for _, player in Players:GetPlayers() do
 		if not player.Team then
-			assignTeam(player)
+			onPlayer(player)
 			player:LoadCharacter()
 		end
 	end
@@ -4800,21 +6678,21 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="24">
+  <Item class="StarterPlayer" referent="32">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="25">
+    <Item class="StarterPlayerScripts" referent="33">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="26">
+      <Item class="Folder" referent="34">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="27">
+        <Item class="LocalScript" referent="35">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -4830,6 +6708,7 @@ local HUD = require(Modules.HUD)
 local Menu = require(Modules.Menu)
 local MainMenu = require(Modules.MainMenu)
 local WorldFX = require(Modules.WorldFX)
+local VoteUI = require(Modules.VoteUI)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -4846,15 +6725,16 @@ Menu.Init()
 Movement.Init()
 WeaponController.Init()
 WorldFX.Init()
+VoteUI.Init()
 MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="28">
+        <Item class="Folder" referent="36">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="29">
+          <Item class="ModuleScript" referent="37">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -4897,7 +6777,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="38">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -5291,7 +7171,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="31">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -6150,7 +8030,18 @@ local function onRoundEnd(info)
 	end
 	local teamA = ReplicatedStorage:GetAttribute("TeamA") or "Rojo"
 	local teamB = ReplicatedStorage:GetAttribute("TeamB") or "Azul"
-	if info.Winner then
+	if info.TeamMode == false then
+		local won = info.Winner == player.Name
+		refs.RoundTitle.Text = won and "¡VICTORIA!" or (info.Winner and (info.Winner .. " GANA") or "FIN")
+		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 120, 80)
+		refs.RoundScore.Text = "👑 " .. tostring(info.Winner or "-") .. " · " .. tostring(info.LeaderScore or 0)
+		refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
+		refs.RoundEnd.Visible = true
+		task.delay(7, function()
+			refs.RoundEnd.Visible = false
+		end)
+		return
+	elseif info.Winner then
 		local won = player.Team and player.Team.Name == info.Winner
 		refs.RoundTitle.Text = won and "¡VICTORIA!" or "DERROTA"
 		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 80)
@@ -6272,13 +8163,28 @@ local function updateScoreboard()
 	local state = ReplicatedStorage:GetAttribute("State")
 	local timeLeft = ReplicatedStorage:GetAttribute("TimeLeft") or 0
 	local modeName = ReplicatedStorage:GetAttribute("ModeName") or "Duelo por equipos"
+	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
+	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	refs.Timer.Text = UI.formatTime(timeLeft)
 	if state == "Intermission" then
-		refs.Mode.Text = "Siguiente: " .. modeName .. " · empieza en " .. timeLeft
+		refs.Mode.Text = "Calentamiento · " .. mapName .. " · vota el siguiente mapa (" .. timeLeft .. ")"
 	elseif state == "Ended" then
 		refs.Mode.Text = "Fin de la ronda"
 	else
-		refs.Mode.Text = modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+		refs.Mode.Text = mapName .. " · " .. modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+	end
+
+	-- Modos sin equipos: tu puntuación contra la del líder
+	if not teamMode then
+		refs.ScoreA.Text = tostring(player:GetAttribute("Score") or 0)
+		refs.ScoreB.Text = tostring(ReplicatedStorage:GetAttribute("LeaderScore") or 0)
+		refs.ScoreABox.BackgroundColor3 = Color3.fromRGB(60, 170, 90)
+		refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(230, 160, 30)
+		refs.FlagA.Text, refs.FlagA.TextColor3 = "TÚ", Color3.fromRGB(150, 255, 150)
+		local leader = ReplicatedStorage:GetAttribute("LeaderName") or ""
+		refs.FlagB.Text = leader ~= "" and ("👑 " .. leader) or "LÍDER"
+		refs.FlagB.TextColor3 = Color3.fromRGB(255, 210, 80)
+		return
 	end
 
 	-- Banderas
@@ -6296,6 +8202,22 @@ local function updateScoreboard()
 	end
 	refs.FlagA.Text, refs.FlagA.TextColor3 = flagStatus(teamA)
 	refs.FlagB.Text, refs.FlagB.TextColor3 = flagStatus(teamB)
+
+	-- Zona de control
+	local zoneOwner = ReplicatedStorage:GetAttribute("ZoneOwner")
+	if zoneOwner ~= nil then
+		if zoneOwner == "" then
+			refs.FlagA.Text, refs.FlagA.TextColor3 = "◆ Zona libre", Color3.new(1, 1, 1)
+		elseif zoneOwner == "Contested" then
+			refs.FlagA.Text, refs.FlagA.TextColor3 = "◆ ¡DISPUTADA!", Color3.fromRGB(255, 200, 40)
+		else
+			local team = game:GetService("Teams"):FindFirstChild(zoneOwner)
+			refs.FlagA.Text = "◆ Zona: " .. zoneOwner
+			refs.FlagA.TextColor3 = team and team.TeamColor.Color or Color3.new(1, 1, 1)
+		end
+		refs.FlagB.Text = "Se mueve en " .. tostring(ReplicatedStorage:GetAttribute("ZoneMoveIn") or 0) .. "s"
+		refs.FlagB.TextColor3 = Color3.fromRGB(200, 210, 230)
+	end
 
 	-- La bandera que llevamos a la espalda no nos tapa la vista
 	local flagsFolder = workspace:FindFirstChild("Flags")
@@ -6494,6 +8416,7 @@ function HUD.Init()
 	updateData(ClientState.Data)
 
 	ReplicatedStorage.AttributeChanged:Connect(updateScoreboard)
+	player:GetAttributeChangedSignal("Score"):Connect(updateScoreboard)
 	updateScoreboard()
 
 	local function updateCarrier()
@@ -6516,7 +8439,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="32">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -6846,7 +8769,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="33">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, armas, skins, trajes y tienda.
@@ -8036,7 +9959,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="34">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -8214,7 +10137,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="35">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -8316,7 +10239,159 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="36">
+          <Item class="ModuleScript" referent="44">
+            <Properties>
+              <string name="Name">VoteUI</string>
+              <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
+local Players = game:GetService("Players")
+local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Sounds = require(Shared.Sounds)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+
+local VoteUI = {}
+
+local gui, panel, hint, modal
+local cards = {}
+local myVote = nil
+local open = false
+
+local MODE_ICONS = {
+	["Duelo por equipos"] = "⚔",
+	["Captura la bandera"] = "🚩",
+	["Zona de control"] = "◆",
+	["Todos contra todos"] = "💀",
+	["Escalada de armas"] = "🔫",
+}
+
+local function setOpen(value)
+	open = value
+	modal.Visible = value
+	ClientState.MenuOpen = value
+	UserInputService.MouseIconEnabled = value or ClientState.InMainMenu
+end
+
+local function refresh()
+	local voting = ReplicatedStorage:GetAttribute("State") == "Intermission" and ReplicatedStorage:GetAttribute("Vote1_Map") ~= nil
+	panel.Visible = voting
+	hint.Visible = voting and not open and not ClientState.InMainMenu
+	if not voting then
+		myVote = nil
+		if open then
+			setOpen(false)
+		end
+		return
+	end
+	for i, card in cards do
+		local map = ReplicatedStorage:GetAttribute("Vote" .. i .. "_Map") or "?"
+		local mode = ReplicatedStorage:GetAttribute("Vote" .. i .. "_Mode") or "?"
+		local count = ReplicatedStorage:GetAttribute("Vote" .. i .. "_Count") or 0
+		card.Map.Text = map
+		card.Mode.Text = (MODE_ICONS[mode] or "") .. " " .. mode
+		card.Count.Text = tostring(count) .. (count == 1 and " voto" or " votos")
+		card.Stroke.Color = myVote == i and Color3.fromRGB(255, 200, 40) or Color3.fromRGB(90, 100, 140)
+		card.Stroke.Thickness = myVote == i and 4 or 2
+	end
+	local timeLeft = ReplicatedStorage:GetAttribute("TimeLeft") or 0
+	panel.Title.Text = "VOTA EL SIGUIENTE MAPA · " .. timeLeft .. "s"
+end
+
+function VoteUI.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "Vote",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 6,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	panel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -40),
+		Size = UDim2.fromOffset(660, 150),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = gui,
+	})
+	UI.label({
+		Name = "Title",
+		Size = UDim2.new(1, 0, 0, 28),
+		Text = "VOTA EL SIGUIENTE MAPA",
+		TextSize = 24,
+		TextColor3 = Color3.fromRGB(255, 210, 60),
+		Parent = panel,
+	})
+	local row = UI.new("Frame", {
+		Position = UDim2.fromOffset(0, 32),
+		Size = UDim2.new(1, 0, 0, 110),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 12),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	for i = 1, 3 do
+		local card = UI.button({
+			LayoutOrder = i,
+			Size = UDim2.fromOffset(205, 110),
+			Text = "",
+			BackgroundColor3 = Color3.fromRGB(28, 32, 52),
+			Parent = row,
+		}, { UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 150, 200)), Rotation = 90 }) })
+		local stroke = UI.stroke(Color3.fromRGB(90, 100, 140), 2, 0)
+		stroke.Parent = card
+		local mapLabel = UI.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 30), Text = "", TextSize = 24, Parent = card })
+		local modeLabel = UI.label({ Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 0, 24), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(150, 220, 255), Parent = card })
+		local countLabel = UI.label({ Position = UDim2.fromOffset(0, 74), Size = UDim2.new(1, 0, 0, 24), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(255, 210, 60), Parent = card })
+		card.Activated:Connect(function()
+			myVote = i
+			Sounds.Play("Click")
+			Remotes.VoteMap:FireServer(i)
+			refresh()
+		end)
+		cards[i] = { Map = mapLabel, Mode = modeLabel, Count = countLabel, Stroke = stroke }
+	end
+	hint = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -196),
+		Size = UDim2.fromOffset(400, 26),
+		Text = "Pulsa [V] para votar con el ratón",
+		TextSize = 20,
+		Visible = false,
+		Parent = gui,
+	})
+	-- Botón Modal: libera el ratón mientras se vota
+	modal = UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Visible = false, Parent = gui })
+
+	ContextActionService:BindAction("Vote", function(_, state)
+		if state == Enum.UserInputState.Begin and panel.Visible and not ClientState.InMainMenu then
+			setOpen(not open)
+			refresh()
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.V, Enum.KeyCode.DPadUp)
+
+	ReplicatedStorage.AttributeChanged:Connect(refresh)
+	refresh()
+end
+
+return VoteUI
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -9084,7 +11159,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="37">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -9141,7 +11216,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="38">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -9166,8 +11241,18 @@ local function track(inst)
 	end
 	local spin = inst:GetAttribute("Spin")
 	local bob = inst:GetAttribute("Bob")
-	if spin or bob then
-		animated[inst] = { Base = inst.CFrame, Spin = spin or 0, Bob = bob or 0, Phase = math.random() * 10 }
+	local blink = inst:GetAttribute("Blink")
+	local sweep = inst:GetAttribute("Sweep")
+	if spin or bob or blink or sweep then
+		animated[inst] = {
+			Base = inst.CFrame,
+			Spin = spin or 0,
+			Bob = bob or 0,
+			Blink = blink,
+			Sweep = sweep,
+			BaseTransparency = inst.Transparency,
+			Phase = math.random() * 10,
+		}
 	end
 end
 
@@ -9178,10 +11263,22 @@ local function animate()
 			animated[part] = nil
 			continue
 		end
-		local position = info.Base.Position + Vector3.new(0, math.sin(t * 1.5 + info.Phase) * info.Bob, 0)
-		local rotation = info.Base - info.Base.Position
-		-- Giro alrededor del eje Y del mundo que pasa por la pieza
-		part.CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(info.Spin * t), 0) * rotation
+		if info.Blink then
+			-- Baliza que parpadea
+			local on = math.sin((t + info.Phase) * math.pi * 2 / info.Blink) > 0
+			part.Transparency = on and info.BaseTransparency or 0.95
+		end
+		if info.Sweep then
+			-- Haz de luz que barre a un lado y a otro desde su base
+			local pivot = (info.Base * CFrame.new(0, -part.Size.Y / 2, 0)).Position
+			local angle = math.rad(info.Sweep) * math.sin(t * 0.4 + info.Phase)
+			part.CFrame = CFrame.new(pivot) * CFrame.Angles(0, angle, 0) * (CFrame.new(pivot):Inverse() * info.Base)
+		elseif info.Spin ~= 0 or info.Bob ~= 0 then
+			local position = info.Base.Position + Vector3.new(0, math.sin(t * 1.5 + info.Phase) * info.Bob, 0)
+			local rotation = info.Base - info.Base.Position
+			-- Giro alrededor del eje Y del mundo que pasa por la pieza
+			part.CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(info.Spin * t), 0) * rotation
+		end
 	end
 end
 
@@ -9308,12 +11405,12 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="39">
+  <Item class="Teams" referent="48">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="40">
+  <Item class="Workspace" referent="49">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

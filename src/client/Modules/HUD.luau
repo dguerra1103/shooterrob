@@ -854,7 +854,18 @@ local function onRoundEnd(info)
 	end
 	local teamA = ReplicatedStorage:GetAttribute("TeamA") or "Rojo"
 	local teamB = ReplicatedStorage:GetAttribute("TeamB") or "Azul"
-	if info.Winner then
+	if info.TeamMode == false then
+		local won = info.Winner == player.Name
+		refs.RoundTitle.Text = won and "¡VICTORIA!" or (info.Winner and (info.Winner .. " GANA") or "FIN")
+		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 120, 80)
+		refs.RoundScore.Text = "👑 " .. tostring(info.Winner or "-") .. " · " .. tostring(info.LeaderScore or 0)
+		refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
+		refs.RoundEnd.Visible = true
+		task.delay(7, function()
+			refs.RoundEnd.Visible = false
+		end)
+		return
+	elseif info.Winner then
 		local won = player.Team and player.Team.Name == info.Winner
 		refs.RoundTitle.Text = won and "¡VICTORIA!" or "DERROTA"
 		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 80)
@@ -976,13 +987,28 @@ local function updateScoreboard()
 	local state = ReplicatedStorage:GetAttribute("State")
 	local timeLeft = ReplicatedStorage:GetAttribute("TimeLeft") or 0
 	local modeName = ReplicatedStorage:GetAttribute("ModeName") or "Duelo por equipos"
+	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
+	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	refs.Timer.Text = UI.formatTime(timeLeft)
 	if state == "Intermission" then
-		refs.Mode.Text = "Siguiente: " .. modeName .. " · empieza en " .. timeLeft
+		refs.Mode.Text = "Calentamiento · " .. mapName .. " · vota el siguiente mapa (" .. timeLeft .. ")"
 	elseif state == "Ended" then
 		refs.Mode.Text = "Fin de la ronda"
 	else
-		refs.Mode.Text = modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+		refs.Mode.Text = mapName .. " · " .. modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+	end
+
+	-- Modos sin equipos: tu puntuación contra la del líder
+	if not teamMode then
+		refs.ScoreA.Text = tostring(player:GetAttribute("Score") or 0)
+		refs.ScoreB.Text = tostring(ReplicatedStorage:GetAttribute("LeaderScore") or 0)
+		refs.ScoreABox.BackgroundColor3 = Color3.fromRGB(60, 170, 90)
+		refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(230, 160, 30)
+		refs.FlagA.Text, refs.FlagA.TextColor3 = "TÚ", Color3.fromRGB(150, 255, 150)
+		local leader = ReplicatedStorage:GetAttribute("LeaderName") or ""
+		refs.FlagB.Text = leader ~= "" and ("👑 " .. leader) or "LÍDER"
+		refs.FlagB.TextColor3 = Color3.fromRGB(255, 210, 80)
+		return
 	end
 
 	-- Banderas
@@ -1000,6 +1026,22 @@ local function updateScoreboard()
 	end
 	refs.FlagA.Text, refs.FlagA.TextColor3 = flagStatus(teamA)
 	refs.FlagB.Text, refs.FlagB.TextColor3 = flagStatus(teamB)
+
+	-- Zona de control
+	local zoneOwner = ReplicatedStorage:GetAttribute("ZoneOwner")
+	if zoneOwner ~= nil then
+		if zoneOwner == "" then
+			refs.FlagA.Text, refs.FlagA.TextColor3 = "◆ Zona libre", Color3.new(1, 1, 1)
+		elseif zoneOwner == "Contested" then
+			refs.FlagA.Text, refs.FlagA.TextColor3 = "◆ ¡DISPUTADA!", Color3.fromRGB(255, 200, 40)
+		else
+			local team = game:GetService("Teams"):FindFirstChild(zoneOwner)
+			refs.FlagA.Text = "◆ Zona: " .. zoneOwner
+			refs.FlagA.TextColor3 = team and team.TeamColor.Color or Color3.new(1, 1, 1)
+		end
+		refs.FlagB.Text = "Se mueve en " .. tostring(ReplicatedStorage:GetAttribute("ZoneMoveIn") or 0) .. "s"
+		refs.FlagB.TextColor3 = Color3.fromRGB(200, 210, 230)
+	end
 
 	-- La bandera que llevamos a la espalda no nos tapa la vista
 	local flagsFolder = workspace:FindFirstChild("Flags")
@@ -1198,6 +1240,7 @@ function HUD.Init()
 	updateData(ClientState.Data)
 
 	ReplicatedStorage.AttributeChanged:Connect(updateScoreboard)
+	player:GetAttributeChangedSignal("Score"):Connect(updateScoreboard)
 	updateScoreboard()
 
 	local function updateCarrier()

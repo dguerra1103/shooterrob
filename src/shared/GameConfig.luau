@@ -12,15 +12,19 @@ GameConfig.Teams = {
 
 -- Rondas
 GameConfig.MinPlayers = 1 -- súbelo a 2+ cuando publiques el juego
-GameConfig.IntermissionTime = 15
+GameConfig.IntermissionTime = 20
 
--- Modos de juego. Se juegan en este orden, uno por ronda.
--- Pon solo { "CTF" } o solo { "TDM" } si quieres un único modo.
-GameConfig.Modes = { "CTF", "TDM" }
+-- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
+-- Quita alguno de la lista si no lo quieres.
+GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN" }
 GameConfig.ModeSettings = {
-	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60 }, -- puntos = bajas
-	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60 }, -- puntos = capturas
+	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
+	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
+	KOTH = { Name = "Zona de control", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true }, -- 1 punto/seg en la zona
+	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
+	GUN = { Name = "Escalada de armas", ScoreToWin = 0, RoundTime = 10 * 60, Teams = false }, -- 0 = una baja por arma
 }
+GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 
 -- Captura la bandera
 GameConfig.Flag = {

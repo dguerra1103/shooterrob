@@ -11,6 +11,7 @@ local HUD = require(Modules.HUD)
 local Menu = require(Modules.Menu)
 local MainMenu = require(Modules.MainMenu)
 local WorldFX = require(Modules.WorldFX)
+local VoteUI = require(Modules.VoteUI)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -27,4 +28,5 @@ Menu.Init()
 Movement.Init()
 WeaponController.Init()
 WorldFX.Init()
+VoteUI.Init()
 MainMenu.Init() -- la última: muestra la pantalla de inicio
