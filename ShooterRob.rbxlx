@@ -5795,6 +5795,10 @@ function Map.Build()
 			Kit.oilStain(m * p, 2.6)
 		end
 		Kit.tireMarks(m * CFrame.new(-58, 0, 52) * CFrame.Angles(0, math.rad(80), 0), 26, -0.5)
+		-- Coches aparcados junto al bordillo (también sirven de cobertura)
+		Kit.car(m * CFrame.new(-110, 0, 91), Color3.fromRGB(175, 30, 35))
+		Kit.car(m * CFrame.new(-70, 0, 91) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(225, 225, 228))
+		Kit.car(m * CFrame.new(-58, 0, -91), Color3.fromRGB(30, 60, 120))
 	end)
 
 	return mapFolder
@@ -7179,7 +7183,8 @@ end
 
 -- Sombra de contacto (oclusión ambiental falsa): dos láminas oscuras semitransparentes algo más
 -- grandes que la base, para que lo que está en el suelo parezca apoyado y no flotando. Solo a ras
--- de suelo (encima de otro objeto no hace falta).
+-- de suelo (encima de otro objeto no hace falta). Material rugoso: el plástico liso brillaba con el
+-- cielo y la sombra se veía más clara que el suelo.
 function Kit.contactShadow(cf, sizeX, sizeZ, round, parent)
 	local pos = cf.Position
 	if math.abs(pos.Y) > 0.6 then
@@ -7191,10 +7196,10 @@ function Kit.contactShadow(cf, sizeX, sizeZ, round, parent)
 		local shadow
 		if round then
 			local d = math.max(sizeX, sizeZ) + grow
-			shadow = deco("ContactShadow", V(0.02, d, d), CFrame.new(pos + V(0, 0.012 + i * 0.003, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, parent)
+			shadow = deco("ContactShadow", V(0.02, d, d), CFrame.new(pos + V(0, 0.012 + i * 0.003, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.new(0, 0, 0), Enum.Material.Concrete, parent)
 			shadow.Shape = Enum.PartType.Cylinder
 		else
-			shadow = deco("ContactShadow", V(sizeX + grow, 0.02, sizeZ + grow), CFrame.new(pos + V(0, 0.012 + i * 0.003, 0)) * yaw, Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, parent)
+			shadow = deco("ContactShadow", V(sizeX + grow, 0.02, sizeZ + grow), CFrame.new(pos + V(0, 0.012 + i * 0.003, 0)) * yaw, Color3.new(0, 0, 0), Enum.Material.Concrete, parent)
 		end
 		shadow.Transparency = spec[2]
 		shadow.CastShadow = false
@@ -7742,6 +7747,67 @@ function Kit.log(cf, length, diameter)
 	for _, side in { -1, 1 } do
 		Kit.pipe("LogEnd", 0.1, diameter * 0.9, cf * CFrame.new(side * length / 2, y, 0), RGB(168, 132, 92), Enum.Material.Wood, true)
 	end
+end
+
+-- Coche aparcado (sedán): carrocería de pintura brillante, cabina de cristal, ruedas de goma con
+-- tapacubos, faros y pilotos. La carrocería y la cabina son cobertura; el resto es decorativo.
+-- Largo en el eje X local (el morro mira a -X).
+function Kit.car(cf, color)
+	local model = Instance.new("Model")
+	model.Name = "Car"
+	model.Parent = Kit.folder
+	local function paint(part)
+		part.Material = Enum.Material.SmoothPlastic -- pintura lisa con brillo (no yeso)
+		part.Reflectance = 0.12
+		return part
+	end
+	paint(block("CarBody", V(9, 1.5, 4.2), cf * CFrame.new(0, 1.25, 0), color, nil, model))
+	paint(block("CarHood", V(2.6, 0.35, 4.1), cf * CFrame.new(-3.1, 2.15, 0), color, nil, model))
+	paint(block("CarTrunk", V(1.6, 0.35, 4.1), cf * CFrame.new(3.6, 2.15, 0), color, nil, model))
+	local cabin = block("CarCabin", V(4.6, 1.35, 3.8), cf * CFrame.new(0.2, 2.65, 0), RGB(28, 34, 44), Enum.Material.Glass, model)
+	cabin.Reflectance = 0.35
+	cabin.Transparency = 0.15
+	paint(deco("CarRoof", V(3.4, 0.22, 3.86), cf * CFrame.new(0.3, 3.42, 0), color, nil, model))
+	-- Parabrisas y luna trasera inclinados (cuñas de cristal)
+	for _, spec in { { -2.6, 1, math.pi / 2 }, { 2.9, 0.8, -math.pi / 2 } } do
+		local glass = Instance.new("WedgePart")
+		glass.Name = "CarWindshield"
+		glass.Anchored = true
+		glass.CanCollide = false
+		glass.CanQuery = false
+		glass.CanTouch = false
+		glass.CastShadow = false
+		glass.Size = V(3.8, 1.35, spec[2])
+		glass.CFrame = cf * CFrame.new(spec[1], 2.65, 0) * CFrame.Angles(0, spec[3], 0)
+		glass.Color = RGB(28, 34, 44)
+		glass.Material = Enum.Material.Glass
+		glass.Reflectance = 0.35
+		glass.Transparency = 0.15
+		glass.Parent = model
+	end
+	for _, x in { -2.15, 2.5 } do
+		paint(deco("CarPillar", V(0.3, 1.35, 3.86), cf * CFrame.new(x, 2.65, 0), color, nil, model))
+	end
+	-- Ruedas y tapacubos
+	for _, x in { -2.9, 2.9 } do
+		for _, z in { -1.85, 1.85 } do
+			local wheel = deco("Wheel", V(1.75, 1.75, 0.7), cf * CFrame.new(x, 0.875, z) * CFrame.Angles(0, math.pi / 2, 0), RGB(24, 24, 26), Enum.Material.Rubber, model)
+			wheel.Shape = Enum.PartType.Cylinder
+			local hub = deco("Hubcap", V(0.08, 0.95, 0.95), cf * CFrame.new(x, 0.875, z + (z > 0 and 0.36 or -0.36)) * CFrame.Angles(0, math.pi / 2, 0), RGB(190, 192, 198), Enum.Material.Metal, model)
+			hub.Shape = Enum.PartType.Cylinder
+		end
+	end
+	-- Parachoques, faros y pilotos
+	for _, x in { -4.6, 4.6 } do
+		deco("Bumper", V(0.3, 0.5, 4.3), cf * CFrame.new(x, 0.85, 0), RGB(35, 35, 38), Enum.Material.Plastic, model)
+	end
+	for _, z in { -1.5, 1.5 } do
+		deco("Headlight", V(0.12, 0.35, 0.8), cf * CFrame.new(-4.52, 1.55, z), RGB(250, 248, 235), Enum.Material.Neon, model)
+		deco("Taillight", V(0.12, 0.3, 0.7), cf * CFrame.new(4.52, 1.6, z), RGB(200, 25, 25), Enum.Material.Neon, model)
+	end
+	deco("Plate", V(0.08, 0.35, 1.1), cf * CFrame.new(4.62, 1.05, 0), RGB(235, 235, 225), Enum.Material.SmoothPlastic, model)
+	Kit.contactShadow(cf, 9, 4.2, false, model)
+	return model
 end
 
 -- Tapa de alcantarilla de hierro fundido

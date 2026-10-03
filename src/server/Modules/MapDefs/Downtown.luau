@@ -746,6 +746,10 @@ function Map.Build()
 			Kit.oilStain(m * p, 2.6)
 		end
 		Kit.tireMarks(m * CFrame.new(-58, 0, 52) * CFrame.Angles(0, math.rad(80), 0), 26, -0.5)
+		-- Coches aparcados junto al bordillo (también sirven de cobertura)
+		Kit.car(m * CFrame.new(-110, 0, 91), Color3.fromRGB(175, 30, 35))
+		Kit.car(m * CFrame.new(-70, 0, 91) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(225, 225, 228))
+		Kit.car(m * CFrame.new(-58, 0, -91), Color3.fromRGB(30, 60, 120))
 	end)
 
 	return mapFolder
