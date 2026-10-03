@@ -9205,6 +9205,7 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
+	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
 	InMainMenu = true, -- pantalla de inicio visible
@@ -9254,6 +9255,8 @@ return ClientState
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+
+local ClientState = require(script.Parent.ClientState)
 
 local Effects = {}
 
@@ -9488,6 +9491,15 @@ end
 -- Explosión del cohete
 function Effects.Explosion(position, radius, color)
 	radius = radius or 12
+	-- Temblor de cámara si la explosión es cercana (más fuerte cuanto más cerca)
+	local camera = workspace.CurrentCamera
+	if camera then
+		local distance = (camera.CFrame.Position - position).Magnitude
+		local strength = math.clamp(1 - distance / (radius * 4), 0, 1)
+		if strength > 0 then
+			ClientState.Shake = math.max(ClientState.Shake or 0, strength)
+		end
+	end
 	color = color or Color3.fromRGB(255, 140, 30)
 	local fireball = fxPart({
 		Color = Color3.fromRGB(255, 200, 80),
@@ -11172,6 +11184,7 @@ end
 
 local lastHealth = 100
 local lastDamageTime = 0
+local lowHealthCC: ColorCorrectionEffect? = nil
 local chipRatio = 1
 local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
@@ -11197,6 +11210,18 @@ local function render(dt)
 			refs.DamageStroke.Transparency = 0.7 + 0.15 * math.sin(os.clock() * 5)
 		end
 		lastHealth = health
+		-- Vida baja: el mundo pierde color poco a poco (corrección de color solo en este cliente)
+		local lowCC = lowHealthCC
+		if not lowCC or not lowCC.Parent then
+			lowCC = Instance.new("ColorCorrectionEffect")
+			lowCC.Name = "LowHealthCC"
+			lowCC.Parent = game:GetService("Lighting")
+			lowHealthCC = lowCC
+		end
+		local danger = (health > 0 and ratio < 0.4) and (1 - ratio / 0.4) or 0
+		lowCC.Saturation = -0.7 * danger
+		lowCC.TintColor = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(255, 200, 200), danger)
+		lowCC.Contrast = 0.1 * danger
 	end
 
 	-- Racha
@@ -14863,6 +14888,14 @@ local function renderStep(dt)
 	end
 	shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
 	camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+	-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
+	local shake = ClientState.Shake or 0
+	if shake > 0.01 then
+		local t = os.clock() * 40
+		camera.CFrame = camera.CFrame
+			* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
+		ClientState.Shake = math.max(0, shake - dt * 1.6)
+	end
 
 	-- Latido de las skins míticas
 	if #pulseParts > 0 and pulseSkin then

@@ -1114,6 +1114,7 @@ end
 
 local lastHealth = 100
 local lastDamageTime = 0
+local lowHealthCC: ColorCorrectionEffect? = nil
 local chipRatio = 1
 local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
@@ -1139,6 +1140,18 @@ local function render(dt)
 			refs.DamageStroke.Transparency = 0.7 + 0.15 * math.sin(os.clock() * 5)
 		end
 		lastHealth = health
+		-- Vida baja: el mundo pierde color poco a poco (corrección de color solo en este cliente)
+		local lowCC = lowHealthCC
+		if not lowCC or not lowCC.Parent then
+			lowCC = Instance.new("ColorCorrectionEffect")
+			lowCC.Name = "LowHealthCC"
+			lowCC.Parent = game:GetService("Lighting")
+			lowHealthCC = lowCC
+		end
+		local danger = (health > 0 and ratio < 0.4) and (1 - ratio / 0.4) or 0
+		lowCC.Saturation = -0.7 * danger
+		lowCC.TintColor = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(255, 200, 200), danger)
+		lowCC.Contrast = 0.1 * danger
 	end
 
 	-- Racha

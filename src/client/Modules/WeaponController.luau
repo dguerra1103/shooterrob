@@ -510,6 +510,14 @@ local function renderStep(dt)
 	end
 	shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
 	camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+	-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
+	local shake = ClientState.Shake or 0
+	if shake > 0.01 then
+		local t = os.clock() * 40
+		camera.CFrame = camera.CFrame
+			* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
+		ClientState.Shake = math.max(0, shake - dt * 1.6)
+	end
 
 	-- Latido de las skins míticas
 	if #pulseParts > 0 and pulseSkin then

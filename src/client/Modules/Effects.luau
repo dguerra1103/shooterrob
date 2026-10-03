@@ -2,6 +2,8 @@
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
+local ClientState = require(script.Parent.ClientState)
+
 local Effects = {}
 
 -- Texturas de partículas incluidas con Roblox
@@ -235,6 +237,15 @@ end
 -- Explosión del cohete
 function Effects.Explosion(position, radius, color)
 	radius = radius or 12
+	-- Temblor de cámara si la explosión es cercana (más fuerte cuanto más cerca)
+	local camera = workspace.CurrentCamera
+	if camera then
+		local distance = (camera.CFrame.Position - position).Magnitude
+		local strength = math.clamp(1 - distance / (radius * 4), 0, 1)
+		if strength > 0 then
+			ClientState.Shake = math.max(ClientState.Shake or 0, strength)
+		end
+	end
 	color = color or Color3.fromRGB(255, 140, 30)
 	local fireball = fxPart({
 		Color = Color3.fromRGB(255, 200, 80),
