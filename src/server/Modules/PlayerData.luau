@@ -1,5 +1,6 @@
 -- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
--- y toda la economía: tienda con monedas, compras con Robux, VIP, recompensa diaria y cajas.
+-- y toda la economía: tienda con monedas, compras con Robux, VIP, recompensa diaria, cajas,
+-- retos diarios y maestría de armas.
 -- En Studio activa: Game Settings > Security > "Enable Studio Access to API Services".
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
@@ -13,6 +14,8 @@ local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
+local Challenges = require(Shared.Challenges)
+local Mastery = require(Shared.Mastery)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = {}
@@ -61,7 +64,66 @@ local function defaults()
 		LastDailyDay = -1,
 		FreeCrates = 0,
 		Purchases = {},
+		WeaponKills = {}, -- bajas con cada arma (maestría)
+		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
+		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 	}
+end
+
+---------------------------------------------------------------------------
+-- Retos diarios
+---------------------------------------------------------------------------
+
+-- Reparte retos nuevos si ha cambiado el día
+local function ensureChallenges(player, data)
+	local today = Shop.DayNumber()
+	local state = data.Challenges
+	if type(state) ~= "table" or state.Day ~= today or type(state.List) ~= "table" then
+		local list = {}
+		for _, id in Challenges.Pick(today, player.UserId, data.Level, Challenges.PerDay) do
+			table.insert(list, { Id = id, Progress = 0, Done = false })
+		end
+		state = { Day = today, List = list, Rerolls = 0, Bonus = false }
+		data.Challenges = state
+	end
+	return state
+end
+
+local function challengesView(player, data)
+	local state = ensureChallenges(player, data)
+	local list = {}
+	for _, entry in state.List do
+		local def = Challenges.Get(entry.Id)
+		if def then
+			table.insert(list, {
+				Id = entry.Id,
+				Text = def.Text,
+				Goal = def.Goal,
+				Progress = math.min(entry.Progress, def.Goal),
+				Done = entry.Done,
+				Coins = def.Coins,
+				XP = def.XP,
+			})
+		end
+	end
+	return {
+		List = list,
+		RerollsLeft = math.max(0, Challenges.RerollsPerDay - (state.Rerolls or 0)),
+		Bonus = state.Bonus == true,
+		BonusCrates = Challenges.BonusCrates,
+	}
+end
+
+-- Skin con la que se ve un arma: el camuflaje de maestría elegido para ella (si lo tiene) o la skin general
+function PlayerData.SkinFor(data, weaponName)
+	if not data then
+		return "Default"
+	end
+	local camo = data.WeaponCamos and data.WeaponCamos[weaponName]
+	if camo and Mastery.HasCamo(data.WeaponKills and data.WeaponKills[weaponName] or 0, camo) then
+		return camo
+	end
+	return data.EquippedSkin or "Default"
 end
 
 local function key(player)
@@ -90,6 +152,9 @@ local function publicView(player, data)
 		FreeCrates = data.FreeCrates,
 		CratesRestricted = cratesRestricted[player] == true,
 		Day = Shop.DayNumber(),
+		WeaponKills = data.WeaponKills,
+		WeaponCamos = data.WeaponCamos,
+		Challenges = challengesView(player, data),
 	}
 end
 
@@ -203,6 +268,12 @@ local function load(player)
 			merged.Coins = 0
 		end
 	end
+	if type(merged.WeaponKills) ~= "table" then
+		merged.WeaponKills = {}
+	end
+	if type(merged.WeaponCamos) ~= "table" then
+		merged.WeaponCamos = {}
+	end
 	-- Nombres de armas antiguos -> nuevos
 	merged.Primary = Weapons.Legacy[merged.Primary] or merged.Primary
 	merged.Secondary = Weapons.Legacy[merged.Secondary] or merged.Secondary
@@ -306,6 +377,70 @@ function PlayerData.Increment(player, field, amount)
 	local data = profiles[player]
 	if data and type(data[field]) == "number" then
 		data[field] += amount or 1
+	end
+end
+
+-- Progreso de los retos diarios. stat: ver Challenges.luau. Para "Streak" amount es la racha actual.
+function PlayerData.Track(player, stat, amount, weaponName)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	local state = ensureChallenges(player, data)
+	local changed = false
+	for _, entry in state.List do
+		local def = Challenges.Get(entry.Id)
+		if def and not entry.Done and Challenges.Matches(def, stat, weaponName) then
+			if stat == "Streak" then
+				entry.Progress = math.max(entry.Progress, amount or 0)
+			else
+				entry.Progress += amount or 1
+			end
+			if entry.Progress >= def.Goal then
+				entry.Done = true
+				changed = true
+				Remotes.Notify:FireClient(player, "Challenge", "¡RETO COMPLETADO! +" .. def.Coins .. " 🪙")
+				PlayerData.AddCoins(player, def.Coins, false)
+				PlayerData.AddXP(player, def.XP, "Reto diario")
+			end
+		end
+	end
+	if changed and not state.Bonus then
+		local all = #state.List > 0
+		for _, entry in state.List do
+			all = all and entry.Done
+		end
+		if all then
+			state.Bonus = true
+			data.FreeCrates += Challenges.BonusCrates
+			Remotes.Notify:FireClient(player, "Unlock", "¡Todos los retos de hoy completados! Caja gratis 🎁")
+		end
+	end
+	if changed then
+		sendUpdate(player)
+	end
+end
+
+-- Cuenta una baja con un arma y entrega la maestría al subir de nivel
+function PlayerData.AddWeaponKill(player, weaponName)
+	local data = profiles[player]
+	if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] then
+		return
+	end
+	local before = data.WeaponKills[weaponName] or 0
+	local after = before + 1
+	data.WeaponKills[weaponName] = after
+	local oldLevel, newLevel = Mastery.Level(before), Mastery.Level(after)
+	if newLevel > oldLevel then
+		local tier = Mastery.Tiers[newLevel]
+		-- Equipa el camuflaje nuevo automáticamente: ¡que se vea!
+		data.WeaponCamos[weaponName] = tier.Camo
+		Remotes.Notify:FireClient(player, "Mastery", "MAESTRÍA " .. string.upper(tier.Name) .. ": " .. Weapons.List[weaponName].DisplayName)
+		PlayerData.AddCoins(player, tier.Coins, false)
+		if PlayerData.OnSkinChanged then
+			PlayerData.OnSkinChanged(player)
+		end
+		sendUpdate(player)
 	end
 end
 
@@ -431,7 +566,7 @@ local function openCrate(player, crateId, useFree)
 	-- Objeto aleatorio de esa rareza (skins y trajes)
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and skin.Rarity == rarity then
+		if id ~= "Default" and not skin.Mastery and skin.Rarity == rarity then
 			table.insert(pool, { Kind = "Skin", Id = id })
 		end
 	end
@@ -441,8 +576,8 @@ local function openCrate(player, crateId, useFree)
 		end
 	end
 	if #pool == 0 then
-		for id in Skins.List do
-			if id ~= "Default" then
+		for id, skin in Skins.List do
+			if id ~= "Default" and not skin.Mastery then
 				table.insert(pool, { Kind = "Skin", Id = id })
 			end
 		end
@@ -553,9 +688,12 @@ function PlayerData.Init()
 		if not data or type(skinId) ~= "string" or not Skins.List[skinId] or not data.Skins[skinId] then
 			return
 		end
+		if Skins.List[skinId].Mastery then
+			return
+		end
 		data.EquippedSkin = skinId
 		if PlayerData.OnSkinChanged then
-			PlayerData.OnSkinChanged(player, skinId)
+			PlayerData.OnSkinChanged(player)
 		end
 		sendUpdate(player)
 	end)
@@ -590,6 +728,50 @@ function PlayerData.Init()
 	Remotes.SetSecondary.OnServerEvent:Connect(function(player, weaponName)
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
 	end)
+
+	-- Camuflaje de maestría para un arma ("Default" = usar la skin general)
+	Remotes.SetCamo.OnServerEvent:Connect(function(player, weaponName, camoId)
+		local data = profiles[player]
+		if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] or type(camoId) ~= "string" then
+			return
+		end
+		if camoId == "Default" then
+			data.WeaponCamos[weaponName] = nil
+		elseif Mastery.HasCamo(data.WeaponKills[weaponName] or 0, camoId) then
+			data.WeaponCamos[weaponName] = camoId
+		else
+			return
+		end
+		if PlayerData.OnSkinChanged then
+			PlayerData.OnSkinChanged(player)
+		end
+		sendUpdate(player)
+	end)
+
+	-- Cambiar un reto diario sin completar por otro (1 al día)
+	Remotes.RerollChallenge.OnServerInvoke = function(player, index)
+		local data = profiles[player]
+		if not data or type(index) ~= "number" then
+			return false
+		end
+		local state = ensureChallenges(player, data)
+		local entry = state.List[index]
+		if not entry or entry.Done or (state.Rerolls or 0) >= Challenges.RerollsPerDay then
+			return false
+		end
+		local exclude = {}
+		for _, e in state.List do
+			exclude[e.Id] = true
+		end
+		state.Rerolls = (state.Rerolls or 0) + 1
+		local new = Challenges.Pick(state.Day, player.UserId, data.Level, 1, exclude, state.Rerolls)[1]
+		if not new then
+			return false
+		end
+		state.List[index] = { Id = new, Progress = 0, Done = false }
+		sendUpdate(player)
+		return true
+	end
 
 	Remotes.BuyItem.OnServerInvoke = buyItem
 	Remotes.ClaimDaily.OnServerInvoke = claimDaily

@@ -12,6 +12,7 @@ local EVENTS = {
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
+	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
@@ -25,6 +26,7 @@ local FUNCTIONS = {
 	"BuyItem", -- comprar arma/skin/traje con monedas
 	"ClaimDaily", -- recoger la recompensa diaria
 	"OpenCrate", -- abrir una caja
+	"RerollChallenge", -- cambiar un reto diario
 }
 
 local Remotes = {}

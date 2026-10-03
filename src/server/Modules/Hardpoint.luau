@@ -181,6 +181,9 @@ function Hardpoint.Start()
 				if Hardpoint.OnScore then
 					Hardpoint.OnScore(owner, 1)
 				end
+				for _, player in byTeam[owner] do
+					PlayerData.Track(player, "ZoneTime", 1)
+				end
 				if tick % XP_INTERVAL == 0 then
 					for _, player in byTeam[owner] do
 						PlayerData.AddXP(player, 20, "Zona")

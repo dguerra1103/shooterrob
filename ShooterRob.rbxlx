@@ -24,6 +24,78 @@
       </Properties>
       <Item class="ModuleScript" referent="4">
         <Properties>
+          <string name="Name">Challenges</string>
+          <string name="Source"><![CDATA[-- Retos diarios: cada jugador recibe 3 al día (distintos para cada uno). Se completan solos al jugar
+-- y dan monedas + XP al momento. Completar los 3 regala una caja. Se puede cambiar 1 reto al día.
+--
+-- Stat: "Kill" (con Weapons opcional para limitar a ciertas armas), "Headshot", "Win", "Match",
+-- "Capture", "ZoneTime" (segundos en la zona), "Streak" (mejor racha, no se suma).
+local Challenges = {}
+
+Challenges.PerDay = 3
+Challenges.RerollsPerDay = 1
+Challenges.BonusCrates = 1 -- por completar todos los del día
+
+Challenges.Pool = {
+	{ Id = "Kills", Stat = "Kill", Goal = 15, Text = "Consigue 15 bajas", Coins = 150, XP = 300 },
+	{ Id = "Headshots", Stat = "Headshot", Goal = 5, Text = "Haz 5 bajas a la cabeza", Coins = 200, XP = 300 },
+	{ Id = "Wins", Stat = "Win", Goal = 2, Text = "Gana 2 partidas", Coins = 250, XP = 400 },
+	{ Id = "Matches", Stat = "Match", Goal = 3, Text = "Termina 3 partidas", Coins = 150, XP = 300 },
+	{ Id = "Captures", Stat = "Capture", Goal = 2, Text = "Captura 2 banderas", Coins = 250, XP = 400 },
+	{ Id = "Zone", Stat = "ZoneTime", Goal = 60, Text = "Controla la zona 60 segundos", Coins = 200, XP = 300 },
+	{ Id = "Streak", Stat = "Streak", Goal = 5, Text = "Consigue una racha de 5 bajas", Coins = 300, XP = 400 },
+	{ Id = "Rifles", Stat = "Kill", Weapons = { "ARX27", "VortexBR", "TitanLMG" }, Goal = 12, Text = "12 bajas con fusil o ametralladora", Coins = 200, XP = 300 },
+	{ Id = "SMGs", Stat = "Kill", Weapons = { "Specter9", "NovaDrift" }, Goal = 10, Text = "10 bajas con subfusil", Coins = 200, XP = 300 },
+	{ Id = "Shotguns", Stat = "Kill", Weapons = { "HavocPump", "BreachHammer" }, Goal = 6, Text = "6 bajas con escopeta", Coins = 200, XP = 300 },
+	{ Id = "Snipers", Stat = "Kill", Weapons = { "Signal7", "GhostlineXR", "RaptorDMR" }, Goal = 4, Text = "4 bajas con francotirador o DMR", Coins = 250, XP = 350, MinLevel = 3 },
+	{ Id = "Pistols", Stat = "Kill", Weapons = { "Viper", "HandCannon", "PhantomSidewind" }, Goal = 4, Text = "4 bajas con pistola", Coins = 200, XP = 300 },
+	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife" }, Goal = 2, Text = "2 bajas con el cuchillo", Coins = 300, XP = 400 },
+	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher" }, Goal = 3, Text = "3 bajas con el Tempest Core", Coins = 250, XP = 350, MinLevel = 14 },
+}
+
+local byId = {}
+for _, c in Challenges.Pool do
+	byId[c.Id] = c
+end
+
+function Challenges.Get(id)
+	return byId[id]
+end
+
+-- ¿Cuenta este evento para el reto?
+function Challenges.Matches(challenge, stat, weaponName)
+	if challenge.Stat ~= stat then
+		return false
+	end
+	if challenge.Weapons then
+		return weaponName ~= nil and table.find(challenge.Weapons, weaponName) ~= nil
+	end
+	return true
+end
+
+-- Elige `count` retos distintos (sin repetir los de `exclude`). Determinista por día y jugador.
+function Challenges.Pick(day, userId, level, count, exclude, salt)
+	local rng = Random.new(day * 7919 + userId * 31 + (salt or 0))
+	local pool = {}
+	for _, c in Challenges.Pool do
+		if (c.MinLevel or 1) <= (level or 1) and not (exclude and exclude[c.Id]) then
+			table.insert(pool, c.Id)
+		end
+	end
+	local picked = {}
+	for _ = 1, math.min(count, #pool) do
+		local i = rng:NextInteger(1, #pool)
+		table.insert(picked, table.remove(pool, i))
+	end
+	return picked
+end
+
+return Challenges
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="5">
+        <Properties>
           <string name="Name">GameConfig</string>
           <string name="Source"><![CDATA[-- Configuración general del juego. Cambia aquí los valores para ajustar el balance.
 local GameConfig = {}
@@ -120,7 +192,51 @@ return GameConfig
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="5">
+      <Item class="ModuleScript" referent="6">
+        <Properties>
+          <string name="Name">Mastery</string>
+          <string name="Source"><![CDATA[-- Maestría de armas: las bajas con cada arma desbloquean camuflajes exclusivos para ESA arma
+-- (y monedas). Los camuflajes son skins con Mastery = true (ver Skins.luau): no se venden ni salen en cajas.
+local Mastery = {}
+
+Mastery.Tiers = {
+	{ Kills = 25, Camo = "MaestriaCarbono", Name = "Carbono", Coins = 100 },
+	{ Kills = 75, Camo = "MaestriaOro", Name = "Oro", Coins = 250 },
+	{ Kills = 150, Camo = "MaestriaDiamante", Name = "Diamante", Coins = 500 },
+	{ Kills = 300, Camo = "MaestriaOscura", Name = "Materia oscura", Coins = 1000 },
+}
+
+-- Nivel de maestría alcanzado (0 = ninguno)
+function Mastery.Level(kills)
+	local level = 0
+	for i, tier in Mastery.Tiers do
+		if (kills or 0) >= tier.Kills then
+			level = i
+		end
+	end
+	return level
+end
+
+-- Siguiente nivel por conseguir (nil si ya tiene todos)
+function Mastery.Next(kills)
+	return Mastery.Tiers[Mastery.Level(kills) + 1]
+end
+
+-- ¿Tiene desbloqueado este camuflaje con esas bajas?
+function Mastery.HasCamo(kills, camoId)
+	for i, tier in Mastery.Tiers do
+		if tier.Camo == camoId then
+			return Mastery.Level(kills) >= i
+		end
+	end
+	return false
+end
+
+return Mastery
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="7">
         <Properties>
           <string name="Name">Outfits</string>
           <string name="Source"><![CDATA[-- Trajes de operador: armadura hecha con piezas que se sueldan al personaje R15.
@@ -380,7 +496,7 @@ return Outfits
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="6">
+      <Item class="ModuleScript" referent="8">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Crea (servidor) o espera (cliente) todos los RemoteEvents/RemoteFunctions del juego.
@@ -397,6 +513,7 @@ local EVENTS = {
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
+	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
@@ -410,6 +527,7 @@ local FUNCTIONS = {
 	"BuyItem", -- comprar arma/skin/traje con monedas
 	"ClaimDaily", -- recoger la recompensa diaria
 	"OpenCrate", -- abrir una caja
+	"RerollChallenge", -- cambiar un reto diario
 }
 
 local Remotes = {}
@@ -447,7 +565,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="7">
+      <Item class="ModuleScript" referent="9">
         <Properties>
           <string name="Name">Shop</string>
           <string name="Source"><![CDATA[-- Catálogo de la tienda: precios en monedas, packs de Robux, VIP, recompensas diarias y cajas.
@@ -569,7 +687,7 @@ return Shop
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="ModuleScript" referent="10">
         <Properties>
           <string name="Name">Skins</string>
           <string name="Source"><![CDATA[-- Skins de armas. Cada skin pinta las piezas del arma según su "Role":
@@ -725,6 +843,63 @@ Skins.List = {
 		Effect = "Flame",
 		Pulse = true,
 	},
+
+	-- Camuflajes de maestría (se ganan con bajas de cada arma; ver Mastery.luau)
+	MaestriaCarbono = {
+		Name = "Carbono",
+		Rarity = "Épico",
+		Mastery = true,
+		Body = Color3.fromRGB(30, 30, 34),
+		BodyMaterial = Enum.Material.Fabric,
+		Panel = Color3.fromRGB(56, 56, 62),
+		PanelMaterial = Enum.Material.Fabric,
+		Accent = Color3.fromRGB(235, 235, 245),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(14, 14, 16),
+		Accent2 = Color3.fromRGB(150, 150, 160),
+	},
+	MaestriaOro = {
+		Name = "Oro",
+		Rarity = "Legendario",
+		Mastery = true,
+		Body = Color3.fromRGB(240, 180, 50),
+		BodyMaterial = Enum.Material.Foil,
+		Panel = Color3.fromRGB(255, 215, 90),
+		PanelMaterial = Enum.Material.Foil,
+		Accent = Color3.fromRGB(255, 240, 170),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(120, 84, 20),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
+	},
+	MaestriaDiamante = {
+		Name = "Diamante",
+		Rarity = "Legendario",
+		Mastery = true,
+		Body = Color3.fromRGB(160, 220, 255),
+		BodyMaterial = Enum.Material.Glass,
+		Panel = Color3.fromRGB(225, 245, 255),
+		PanelMaterial = Enum.Material.Glass,
+		Accent = Color3.fromRGB(110, 225, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(60, 110, 160),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
+	},
+	MaestriaOscura = {
+		Name = "Materia oscura",
+		Rarity = "Mítico",
+		Mastery = true,
+		Body = Color3.fromRGB(16, 10, 26),
+		BodyMaterial = Enum.Material.SmoothPlastic,
+		Panel = Color3.fromRGB(44, 20, 78),
+		Accent = Color3.fromRGB(170, 60, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(8, 6, 12),
+		Accent2 = Color3.fromRGB(255, 60, 200),
+		Effect = "Flame",
+		Pulse = true,
+	},
 }
 
 Skins.RarityColors = {
@@ -743,7 +918,7 @@ return Skins
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="9">
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[-- Sonidos del juego. Los "rbxasset://" vienen incluidos con Roblox y funcionan sin subir nada.
@@ -790,7 +965,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="10">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">WeaponDesigns</string>
           <string name="Source"><![CDATA[-- Diseño 3D (hecho con piezas) de cada arma, inspirado en el arte conceptual del juego.
@@ -1746,7 +1921,7 @@ return Designs
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">WeaponModels</string>
           <string name="Source"><![CDATA[-- Construye los modelos de las armas a partir de las piezas de WeaponDesigns.
@@ -1973,7 +2148,7 @@ return WeaponModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">Weapons</string>
           <string name="Source"><![CDATA[-- Arsenal: estadísticas, paleta de fábrica, desbloqueo y posiciones (manos, mira, cañón) de cada arma.
@@ -2576,15 +2751,15 @@ return Weapons
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="13">
+  <Item class="ServerScriptService" referent="15">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="14">
+    <Item class="Folder" referent="16">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Script" referent="15">
+      <Item class="Script" referent="17">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -2613,11 +2788,11 @@ Hazards.Init()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="16">
+      <Item class="Folder" referent="18">
         <Properties>
           <string name="Name">Modules</string>
         </Properties>
-        <Item class="ModuleScript" referent="17">
+        <Item class="ModuleScript" referent="19">
           <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Validación de disparos y daño en el servidor (anti-trampas básico).
@@ -3010,7 +3185,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="18">
+        <Item class="ModuleScript" referent="20">
           <Properties>
             <string name="Name">Dummies</string>
             <string name="Source"><![CDATA[-- Muñecos de práctica para probar las armas en Studio (desactívalos en GameConfig.TrainingDummies).
@@ -3103,7 +3278,7 @@ return Dummies
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="19">
+        <Item class="ModuleScript" referent="21">
           <Properties>
             <string name="Name">Flags</string>
             <string name="Source"><![CDATA[-- Modo Captura la bandera.
@@ -3372,6 +3547,7 @@ local function capture(flag, player)
 	Remotes.Notify:FireAllClients("Big", "¡" .. player.Name .. " CAPTURÓ LA BANDERA!")
 	PlayerData.AddXP(player, GameConfig.XP.Capture, "Captura")
 	PlayerData.AddCoins(player, GameConfig.Coins.Capture)
+	PlayerData.Track(player, "Capture", 1)
 	player:SetAttribute("Captures", (player:GetAttribute("Captures") or 0) + 1)
 	if Flags.OnCapture then
 		Flags.OnCapture(player, team)
@@ -3499,7 +3675,7 @@ return Flags
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="20">
+        <Item class="ModuleScript" referent="22">
           <Properties>
             <string name="Name">Hardpoint</string>
             <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
@@ -3685,6 +3861,9 @@ function Hardpoint.Start()
 				if Hardpoint.OnScore then
 					Hardpoint.OnScore(owner, 1)
 				end
+				for _, player in byTeam[owner] do
+					PlayerData.Track(player, "ZoneTime", 1)
+				end
 				if tick % XP_INTERVAL == 0 then
 					for _, player in byTeam[owner] do
 						PlayerData.AddXP(player, 20, "Zona")
@@ -3715,7 +3894,7 @@ return Hardpoint
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="21">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">Hazards</string>
             <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava (material CrackedLava) quita vida cada cuarto de segundo.
@@ -3746,7 +3925,7 @@ return Hazards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="24">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -3800,7 +3979,6 @@ local function giveLoadout(player, character)
 	if player.Character ~= character then
 		return
 	end
-	local skin = data and data.EquippedSkin or "Default"
 	local list = Loadout.Override and Loadout.Override(player)
 	if not list then
 		local primary = data and data.Primary or "ARX27"
@@ -3814,20 +3992,18 @@ local function giveLoadout(player, character)
 		Outfits.Apply(character, data.EquippedOutfit)
 	end
 
-	Loadout.Give(player, list, skin)
+	Loadout.Give(player, list)
 end
 
--- Da al jugador exactamente estas armas (y equipa la primera)
-function Loadout.Give(player, list, skin)
+-- Da al jugador exactamente estas armas (y equipa la primera).
+-- Cada arma lleva su camuflaje de maestría si lo tiene elegido, o la skin general.
+function Loadout.Give(player, list)
 	local character = player.Character
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	if not character or not backpack then
 		return
 	end
-	if not skin then
-		local data = PlayerData.Get(player)
-		skin = data and data.EquippedSkin or "Default"
-	end
+	local data = PlayerData.Get(player)
 	for _, container in { backpack, character } do
 		for _, child in container:GetChildren() do
 			if child:IsA("Tool") then
@@ -3838,7 +4014,7 @@ function Loadout.Give(player, list, skin)
 	local first
 	for _, weaponName in list do
 		if Weapons.Get(weaponName) then
-			local tool = Loadout.MakeTool(weaponName, skin)
+			local tool = Loadout.MakeTool(weaponName, PlayerData.SkinFor(data, weaponName))
 			tool.Parent = backpack
 			first = first or tool
 		end
@@ -3861,14 +4037,20 @@ local function onOutfitChanged(player, outfitId)
 	end
 end
 
-local function onSkinChanged(player, skinId)
+-- Vuelve a pintar las armas que lleva encima (skin general o camuflaje de maestría)
+local function onSkinChanged(player)
+	local data = PlayerData.Get(player)
 	local containers = { player:FindFirstChild("Backpack"), player.Character }
 	for _, container in containers do
 		if container then
 			for _, tool in container:GetChildren() do
-				if tool:IsA("Tool") and tool:GetAttribute("Weapon") then
-					WeaponModels.ApplySkin(tool, skinId)
-					tool:SetAttribute("Skin", skinId)
+				local weaponName = tool:IsA("Tool") and tool:GetAttribute("Weapon")
+				if weaponName then
+					local skinId = PlayerData.SkinFor(data, weaponName)
+					if tool:GetAttribute("Skin") ~= skinId then
+						WeaponModels.ApplySkin(tool, skinId, weaponName)
+						tool:SetAttribute("Skin", skinId)
+					end
 				end
 			end
 		end
@@ -3917,7 +4099,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="23">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -3969,11 +4151,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="24">
+        <Item class="Folder" referent="26">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="25">
+          <Item class="ModuleScript" referent="27">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -4177,7 +4359,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="26">
+          <Item class="ModuleScript" referent="28">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -4867,7 +5049,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="27">
+          <Item class="ModuleScript" referent="29">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -5118,7 +5300,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="28">
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -5328,7 +5510,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -6055,11 +6237,12 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
--- y toda la economía: tienda con monedas, compras con Robux, VIP, recompensa diaria y cajas.
+-- y toda la economía: tienda con monedas, compras con Robux, VIP, recompensa diaria, cajas,
+-- retos diarios y maestría de armas.
 -- En Studio activa: Game Settings > Security > "Enable Studio Access to API Services".
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
@@ -6073,6 +6256,8 @@ local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
+local Challenges = require(Shared.Challenges)
+local Mastery = require(Shared.Mastery)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = {}
@@ -6121,7 +6306,66 @@ local function defaults()
 		LastDailyDay = -1,
 		FreeCrates = 0,
 		Purchases = {},
+		WeaponKills = {}, -- bajas con cada arma (maestría)
+		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
+		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 	}
+end
+
+---------------------------------------------------------------------------
+-- Retos diarios
+---------------------------------------------------------------------------
+
+-- Reparte retos nuevos si ha cambiado el día
+local function ensureChallenges(player, data)
+	local today = Shop.DayNumber()
+	local state = data.Challenges
+	if type(state) ~= "table" or state.Day ~= today or type(state.List) ~= "table" then
+		local list = {}
+		for _, id in Challenges.Pick(today, player.UserId, data.Level, Challenges.PerDay) do
+			table.insert(list, { Id = id, Progress = 0, Done = false })
+		end
+		state = { Day = today, List = list, Rerolls = 0, Bonus = false }
+		data.Challenges = state
+	end
+	return state
+end
+
+local function challengesView(player, data)
+	local state = ensureChallenges(player, data)
+	local list = {}
+	for _, entry in state.List do
+		local def = Challenges.Get(entry.Id)
+		if def then
+			table.insert(list, {
+				Id = entry.Id,
+				Text = def.Text,
+				Goal = def.Goal,
+				Progress = math.min(entry.Progress, def.Goal),
+				Done = entry.Done,
+				Coins = def.Coins,
+				XP = def.XP,
+			})
+		end
+	end
+	return {
+		List = list,
+		RerollsLeft = math.max(0, Challenges.RerollsPerDay - (state.Rerolls or 0)),
+		Bonus = state.Bonus == true,
+		BonusCrates = Challenges.BonusCrates,
+	}
+end
+
+-- Skin con la que se ve un arma: el camuflaje de maestría elegido para ella (si lo tiene) o la skin general
+function PlayerData.SkinFor(data, weaponName)
+	if not data then
+		return "Default"
+	end
+	local camo = data.WeaponCamos and data.WeaponCamos[weaponName]
+	if camo and Mastery.HasCamo(data.WeaponKills and data.WeaponKills[weaponName] or 0, camo) then
+		return camo
+	end
+	return data.EquippedSkin or "Default"
 end
 
 local function key(player)
@@ -6150,6 +6394,9 @@ local function publicView(player, data)
 		FreeCrates = data.FreeCrates,
 		CratesRestricted = cratesRestricted[player] == true,
 		Day = Shop.DayNumber(),
+		WeaponKills = data.WeaponKills,
+		WeaponCamos = data.WeaponCamos,
+		Challenges = challengesView(player, data),
 	}
 end
 
@@ -6263,6 +6510,12 @@ local function load(player)
 			merged.Coins = 0
 		end
 	end
+	if type(merged.WeaponKills) ~= "table" then
+		merged.WeaponKills = {}
+	end
+	if type(merged.WeaponCamos) ~= "table" then
+		merged.WeaponCamos = {}
+	end
 	-- Nombres de armas antiguos -> nuevos
 	merged.Primary = Weapons.Legacy[merged.Primary] or merged.Primary
 	merged.Secondary = Weapons.Legacy[merged.Secondary] or merged.Secondary
@@ -6366,6 +6619,70 @@ function PlayerData.Increment(player, field, amount)
 	local data = profiles[player]
 	if data and type(data[field]) == "number" then
 		data[field] += amount or 1
+	end
+end
+
+-- Progreso de los retos diarios. stat: ver Challenges.luau. Para "Streak" amount es la racha actual.
+function PlayerData.Track(player, stat, amount, weaponName)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	local state = ensureChallenges(player, data)
+	local changed = false
+	for _, entry in state.List do
+		local def = Challenges.Get(entry.Id)
+		if def and not entry.Done and Challenges.Matches(def, stat, weaponName) then
+			if stat == "Streak" then
+				entry.Progress = math.max(entry.Progress, amount or 0)
+			else
+				entry.Progress += amount or 1
+			end
+			if entry.Progress >= def.Goal then
+				entry.Done = true
+				changed = true
+				Remotes.Notify:FireClient(player, "Challenge", "¡RETO COMPLETADO! +" .. def.Coins .. " 🪙")
+				PlayerData.AddCoins(player, def.Coins, false)
+				PlayerData.AddXP(player, def.XP, "Reto diario")
+			end
+		end
+	end
+	if changed and not state.Bonus then
+		local all = #state.List > 0
+		for _, entry in state.List do
+			all = all and entry.Done
+		end
+		if all then
+			state.Bonus = true
+			data.FreeCrates += Challenges.BonusCrates
+			Remotes.Notify:FireClient(player, "Unlock", "¡Todos los retos de hoy completados! Caja gratis 🎁")
+		end
+	end
+	if changed then
+		sendUpdate(player)
+	end
+end
+
+-- Cuenta una baja con un arma y entrega la maestría al subir de nivel
+function PlayerData.AddWeaponKill(player, weaponName)
+	local data = profiles[player]
+	if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] then
+		return
+	end
+	local before = data.WeaponKills[weaponName] or 0
+	local after = before + 1
+	data.WeaponKills[weaponName] = after
+	local oldLevel, newLevel = Mastery.Level(before), Mastery.Level(after)
+	if newLevel > oldLevel then
+		local tier = Mastery.Tiers[newLevel]
+		-- Equipa el camuflaje nuevo automáticamente: ¡que se vea!
+		data.WeaponCamos[weaponName] = tier.Camo
+		Remotes.Notify:FireClient(player, "Mastery", "MAESTRÍA " .. string.upper(tier.Name) .. ": " .. Weapons.List[weaponName].DisplayName)
+		PlayerData.AddCoins(player, tier.Coins, false)
+		if PlayerData.OnSkinChanged then
+			PlayerData.OnSkinChanged(player)
+		end
+		sendUpdate(player)
 	end
 end
 
@@ -6491,7 +6808,7 @@ local function openCrate(player, crateId, useFree)
 	-- Objeto aleatorio de esa rareza (skins y trajes)
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and skin.Rarity == rarity then
+		if id ~= "Default" and not skin.Mastery and skin.Rarity == rarity then
 			table.insert(pool, { Kind = "Skin", Id = id })
 		end
 	end
@@ -6501,8 +6818,8 @@ local function openCrate(player, crateId, useFree)
 		end
 	end
 	if #pool == 0 then
-		for id in Skins.List do
-			if id ~= "Default" then
+		for id, skin in Skins.List do
+			if id ~= "Default" and not skin.Mastery then
 				table.insert(pool, { Kind = "Skin", Id = id })
 			end
 		end
@@ -6613,9 +6930,12 @@ function PlayerData.Init()
 		if not data or type(skinId) ~= "string" or not Skins.List[skinId] or not data.Skins[skinId] then
 			return
 		end
+		if Skins.List[skinId].Mastery then
+			return
+		end
 		data.EquippedSkin = skinId
 		if PlayerData.OnSkinChanged then
-			PlayerData.OnSkinChanged(player, skinId)
+			PlayerData.OnSkinChanged(player)
 		end
 		sendUpdate(player)
 	end)
@@ -6651,6 +6971,50 @@ function PlayerData.Init()
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
 	end)
 
+	-- Camuflaje de maestría para un arma ("Default" = usar la skin general)
+	Remotes.SetCamo.OnServerEvent:Connect(function(player, weaponName, camoId)
+		local data = profiles[player]
+		if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] or type(camoId) ~= "string" then
+			return
+		end
+		if camoId == "Default" then
+			data.WeaponCamos[weaponName] = nil
+		elseif Mastery.HasCamo(data.WeaponKills[weaponName] or 0, camoId) then
+			data.WeaponCamos[weaponName] = camoId
+		else
+			return
+		end
+		if PlayerData.OnSkinChanged then
+			PlayerData.OnSkinChanged(player)
+		end
+		sendUpdate(player)
+	end)
+
+	-- Cambiar un reto diario sin completar por otro (1 al día)
+	Remotes.RerollChallenge.OnServerInvoke = function(player, index)
+		local data = profiles[player]
+		if not data or type(index) ~= "number" then
+			return false
+		end
+		local state = ensureChallenges(player, data)
+		local entry = state.List[index]
+		if not entry or entry.Done or (state.Rerolls or 0) >= Challenges.RerollsPerDay then
+			return false
+		end
+		local exclude = {}
+		for _, e in state.List do
+			exclude[e.Id] = true
+		end
+		state.Rerolls = (state.Rerolls or 0) + 1
+		local new = Challenges.Pick(state.Day, player.UserId, data.Level, 1, exclude, state.Rerolls)[1]
+		if not new then
+			return false
+		end
+		state.List[index] = { Id = new, Progress = 0, Done = false }
+		sendUpdate(player)
+		return true
+	end
+
 	Remotes.BuyItem.OnServerInvoke = buyItem
 	Remotes.ClaimDaily.OnServerInvoke = claimDaily
 	Remotes.OpenCrate.OnServerInvoke = openCrate
@@ -6681,7 +7045,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -6930,6 +7294,12 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 			PlayerData.AddXP(killer, xp, headshot and "Disparo a la cabeza" or "Eliminación")
 			PlayerData.AddCoins(killer, GameConfig.Coins.Kill)
 			PlayerData.Increment(killer, "TotalKills", 1)
+			PlayerData.AddWeaponKill(killer, weaponName)
+			PlayerData.Track(killer, "Kill", 1, weaponName)
+			PlayerData.Track(killer, "Streak", streak)
+			if headshot then
+				PlayerData.Track(killer, "Headshot", 1, weaponName)
+			end
 
 			if STREAK_ANNOUNCE[streak] then
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
@@ -7120,8 +7490,12 @@ local function endRound()
 			PlayerData.AddXP(player, GameConfig.XP.Win, "Victoria")
 			PlayerData.AddCoins(player, GameConfig.Coins.Win)
 			PlayerData.Increment(player, "Wins", 1)
+			PlayerData.Track(player, "Win", 1)
 		else
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
+		end
+		if not player:GetAttribute("InMenu") then
+			PlayerData.Track(player, "Match", 1)
 		end
 	end
 
@@ -7274,21 +7648,21 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="32">
+  <Item class="StarterPlayer" referent="34">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="33">
+    <Item class="StarterPlayerScripts" referent="35">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="34">
+      <Item class="Folder" referent="36">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="35">
+        <Item class="LocalScript" referent="37">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -7326,11 +7700,11 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="36">
+        <Item class="Folder" referent="38">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="37">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -7373,7 +7747,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="38">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -7767,7 +8141,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="39">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -8487,6 +8861,12 @@ local function onNotify(kind, text)
 		popup(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Challenge" then
+		bigMessage("✅ " .. text, Color3.fromRGB(90, 255, 140))
+		Sounds.Play("Kill")
+	elseif kind == "Mastery" then
+		bigMessage("🏆 " .. text, Color3.fromRGB(255, 200, 50))
+		Sounds.Play("Kill")
 	elseif kind == "LevelUp" then
 		bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
 		Sounds.Play("Kill")
@@ -9035,7 +9415,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -9126,7 +9506,8 @@ local function refreshInfo()
 	if showcase then
 		showcase:ClearAllChildren()
 		if data then
-			WeaponIcon.Create(data.Primary or "Rifle", data.EquippedSkin, { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
+			local primary = data.Primary or "ARX27"
+			WeaponIcon.Create(primary, Menu.SkinFor(data, primary), { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
 		end
 	end
 end
@@ -9365,10 +9746,10 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">Menu</string>
-              <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, armas, skins, trajes y tienda.
+              <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
@@ -9382,6 +9763,7 @@ local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
+local Mastery = require(Shared.Mastery)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
@@ -9405,7 +9787,7 @@ local GREEN = Color3.fromRGB(60, 170, 90)
 local BLUE = Color3.fromRGB(40, 120, 255)
 local GREY = Color3.fromRGB(70, 70, 82)
 
-local TABS = { "Pase", "Armas", "Skins", "Trajes", "Tienda" }
+local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Tienda" }
 
 local function rarityColor(rarity)
 	return Skins.RarityColors[rarity] or Color3.new(1, 1, 1)
@@ -9429,6 +9811,32 @@ end
 
 local function coinsText(n)
 	return "🪙 " .. tostring(n)
+end
+
+-- Skin con la que se ve un arma (camuflaje de maestría elegido o skin general)
+local function skinFor(data, weaponName)
+	local camo = data.WeaponCamos and data.WeaponCamos[weaponName]
+	if camo and Mastery.HasCamo(data.WeaponKills and data.WeaponKills[weaponName] or 0, camo) then
+		return camo
+	end
+	return data.EquippedSkin
+end
+Menu.SkinFor = skinFor
+
+-- Barra de progreso sencilla
+local function progressBar(parent, position, size, fraction, color)
+	local bar = UI.new("Frame", {
+		Position = position,
+		Size = size,
+		BackgroundColor3 = Color3.fromRGB(20, 22, 34),
+		Parent = parent,
+	}, { UI.corner(6) })
+	UI.new("Frame", {
+		Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1),
+		BackgroundColor3 = color,
+		Parent = bar,
+	}, { UI.corner(6), UI.gloss() })
+	return bar
 end
 
 local function scroller(layout)
@@ -9715,12 +10123,128 @@ local function buildPassPage(data)
 end
 
 ---------------------------------------------------------------------------
+-- Pestaña: Retos diarios
+---------------------------------------------------------------------------
+
+local function buildChallengesPage(data)
+	local info = data.Challenges
+	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
+	local secondsLeft = 86400 - os.time() % 86400
+	UI.label({
+		LayoutOrder = 0,
+		Size = UDim2.new(1, -12, 0, 30),
+		Text = string.format("RETOS DE HOY  ·  nuevos en %dh %02dm", secondsLeft // 3600, (secondsLeft % 3600) // 60),
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = scroll,
+	})
+	if not info then
+		return
+	end
+	for i, challenge in info.List do
+		local card = UI.new("Frame", {
+			LayoutOrder = i,
+			Size = UDim2.new(1, -12, 0, 96),
+			BackgroundColor3 = challenge.Done and Color3.fromRGB(34, 70, 50) or CARD_BG,
+			Parent = scroll,
+		}, { UI.corner(12), UI.stroke(challenge.Done and GREEN or Color3.fromRGB(90, 100, 140), 2, 0) })
+		UI.label({
+			Position = UDim2.fromOffset(16, 10),
+			Size = UDim2.new(1, -260, 0, 28),
+			Text = (challenge.Done and "✅ " or "🎯 ") .. challenge.Text,
+			TextSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		progressBar(card, UDim2.fromOffset(16, 50), UDim2.new(1, -300, 0, 14), challenge.Progress / challenge.Goal, challenge.Done and GREEN or BLUE)
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -270, 0, 66),
+			Size = UDim2.fromOffset(140, 20),
+			Text = challenge.Progress .. " / " .. challenge.Goal,
+			TextSize = 16,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = card,
+		})
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 12),
+			Size = UDim2.fromOffset(230, 26),
+			Text = coinsText(challenge.Coins) .. "   +" .. challenge.XP .. " XP",
+			TextSize = 20,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextColor3 = GOLD,
+			Parent = card,
+		})
+		if not challenge.Done and info.RerollsLeft > 0 then
+			local reroll = UI.button({
+				AnchorPoint = Vector2.new(1, 1),
+				Position = UDim2.new(1, -16, 1, -10),
+				Size = UDim2.fromOffset(150, 32),
+				Text = "🔄 Cambiar reto",
+				TextSize = 16,
+				BackgroundColor3 = Color3.fromRGB(110, 80, 200),
+				Parent = card,
+			}, { UI.gloss() })
+			reroll.Activated:Connect(function()
+				if busy then
+					return
+				end
+				busy = true
+				Sounds.Play("Click")
+				local ok, result = pcall(function()
+					return Remotes.RerollChallenge:InvokeServer(i)
+				end)
+				busy = false
+				if not (ok and result) then
+					showToast("No se pudo cambiar el reto", Color3.fromRGB(255, 90, 90))
+				end
+			end)
+		end
+	end
+	local done = 0
+	for _, challenge in info.List do
+		if challenge.Done then
+			done += 1
+		end
+	end
+	local bonus = UI.new("Frame", {
+		LayoutOrder = 10,
+		Size = UDim2.new(1, -12, 0, 70),
+		BackgroundColor3 = info.Bonus and Color3.fromRGB(70, 60, 20) or Color3.fromRGB(50, 40, 70),
+		Parent = scroll,
+	}, { UI.corner(12), UI.stroke(GOLD, 2, info.Bonus and 0 or 0.5) })
+	UI.label({
+		Position = UDim2.fromOffset(16, 0),
+		Size = UDim2.new(1, -32, 1, 0),
+		Text = info.Bonus and "🎁 ¡Premio de hoy conseguido! Tienes una caja gratis en la Tienda"
+			or ("🎁 Completa los " .. #info.List .. " retos (" .. done .. "/" .. #info.List .. ") y gana " .. info.BonusCrates .. " caja gratis"),
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = bonus,
+	})
+	UI.label({
+		LayoutOrder = 11,
+		Size = UDim2.new(1, -12, 0, 40),
+		Text = "Consejo: cada arma tiene MAESTRÍA. Consigue bajas con ella para ganar camuflajes Carbono, Oro, Diamante y Materia oscura (pestaña Armas).",
+		TextSize = 15,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = scroll,
+	})
+end
+
+---------------------------------------------------------------------------
 -- Pestaña: Armas
 ---------------------------------------------------------------------------
 
 local function buildWeaponsPage(data)
 	local scroll = scroller(UI.new("UIGridLayout", {
-		CellSize = UDim2.fromOffset(205, 230),
+		CellSize = UDim2.fromOffset(205, 282),
 		CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}))
@@ -9744,7 +10268,7 @@ local function buildWeaponsPage(data)
 			TextColor3 = Color3.fromRGB(170, 180, 215),
 			Parent = card,
 		})
-		WeaponIcon.Create(weaponName, data.EquippedSkin, { Position = UDim2.fromOffset(8, 46), Size = UDim2.fromOffset(189, 78), Parent = card }, "angled", 189 / 78)
+		WeaponIcon.Create(weaponName, skinFor(data, weaponName), { Position = UDim2.fromOffset(8, 46), Size = UDim2.fromOffset(189, 78), Parent = card }, "angled", 189 / 78)
 		local stats
 		if def.Explosive then
 			stats = "Explosivo · radio " .. def.Explosive.Radius
@@ -9764,6 +10288,44 @@ local function buildWeaponsPage(data)
 			TextStrokeTransparency = 1,
 			Parent = card,
 		})
+		-- Maestría: bajas con esta arma y camuflajes ganados
+		local kills = data.WeaponKills and data.WeaponKills[weaponName] or 0
+		local level = Mastery.Level(kills)
+		local nextTier = Mastery.Next(kills)
+		local current = Mastery.Tiers[level]
+		UI.label({
+			Position = UDim2.fromOffset(8, 182),
+			Size = UDim2.new(1, -16, 0, 16),
+			Text = (current and ("🏆 " .. current.Name) or "🏆 Maestría")
+				.. (nextTier and ("  ·  " .. kills .. "/" .. nextTier.Kills .. " bajas") or "  ·  ¡COMPLETA!"),
+			TextSize = 14,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = current and Skins.RarityColors[Skins.Get(current.Camo).Rarity] or Color3.fromRGB(200, 205, 225),
+			Parent = card,
+		})
+		local previous = current and current.Kills or 0
+		local fraction = nextTier and (kills - previous) / (nextTier.Kills - previous) or 1
+		progressBar(card, UDim2.fromOffset(8, 200), UDim2.new(1, -16, 0, 8), fraction, GOLD)
+		if level > 0 then
+			local options = { "Default" }
+			for i = 1, level do
+				table.insert(options, Mastery.Tiers[i].Camo)
+			end
+			local selected = data.WeaponCamos and data.WeaponCamos[weaponName] or "Default"
+			local index = table.find(options, selected) or 1
+			local camoButton = UI.button({
+				Position = UDim2.fromOffset(10, 212),
+				Size = UDim2.new(1, -20, 0, 22),
+				Text = "🎨 Camuflaje: " .. (selected == "Default" and "Skin general" or Skins.Get(selected).Name) .. "  ▸",
+				TextSize = 13,
+				BackgroundColor3 = Color3.fromRGB(70, 60, 120),
+				Parent = card,
+			})
+			camoButton.Activated:Connect(function()
+				Sounds.Play("Click")
+				Remotes.SetCamo:FireServer(weaponName, options[index % #options + 1])
+			end)
+		end
 		local button = UI.button({
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.new(0.5, 0, 1, -8),
@@ -9876,7 +10438,13 @@ local function buildSkinsPage(data)
 		CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}))
-	for i, id in sortedIds(Skins.List) do
+	local visible = {}
+	for id, skin in Skins.List do
+		if not skin.Mastery then
+			visible[id] = skin
+		end
+	end
+	for i, id in sortedIds(visible) do
 		local skin = Skins.List[id]
 		local owned = data.Skins[id] == true
 		local equipped = data.EquippedSkin == id
@@ -9983,8 +10551,8 @@ local function crateAnimation(result)
 	})
 	-- Rellenamos con objetos aleatorios y el premio en la posición 32
 	local pool = {}
-	for id in Skins.List do
-		if id ~= "Default" then
+	for id, skin in Skins.List do
+		if id ~= "Default" and not skin.Mastery then
 			table.insert(pool, { "Skin", id })
 		end
 	end
@@ -10367,6 +10935,8 @@ local function refresh()
 	end
 	if currentTab == "Pase" then
 		buildPassPage(data)
+	elseif currentTab == "Retos" then
+		buildChallengesPage(data)
 	elseif currentTab == "Armas" then
 		buildWeaponsPage(data)
 	elseif currentTab == "Skins" then
@@ -10506,7 +11076,7 @@ function Menu.Init()
 		local button = UI.button({
 			LayoutOrder = i,
 			Size = UDim2.fromOffset(130, 38),
-			Text = name == "Tienda" and "🛒 Tienda" or name,
+			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name,
 			BackgroundColor3 = CARD_BG,
 			Parent = tabs,
 		})
@@ -10555,7 +11125,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -10733,7 +11303,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="43">
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -10835,7 +11405,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="44">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -10987,7 +11557,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="45">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -11755,7 +12325,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -11812,7 +12382,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -12001,12 +12571,12 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="48">
+  <Item class="Teams" referent="50">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="49">
+  <Item class="Workspace" referent="51">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

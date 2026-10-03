@@ -264,6 +264,7 @@ local function capture(flag, player)
 	Remotes.Notify:FireAllClients("Big", "¡" .. player.Name .. " CAPTURÓ LA BANDERA!")
 	PlayerData.AddXP(player, GameConfig.XP.Capture, "Captura")
 	PlayerData.AddCoins(player, GameConfig.Coins.Capture)
+	PlayerData.Track(player, "Capture", 1)
 	player:SetAttribute("Captures", (player:GetAttribute("Captures") or 0) + 1)
 	if Flags.OnCapture then
 		Flags.OnCapture(player, team)

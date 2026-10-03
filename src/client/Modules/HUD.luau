@@ -715,6 +715,12 @@ local function onNotify(kind, text)
 		popup(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Challenge" then
+		bigMessage("✅ " .. text, Color3.fromRGB(90, 255, 140))
+		Sounds.Play("Kill")
+	elseif kind == "Mastery" then
+		bigMessage("🏆 " .. text, Color3.fromRGB(255, 200, 50))
+		Sounds.Play("Kill")
 	elseif kind == "LevelUp" then
 		bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
 		Sounds.Play("Kill")

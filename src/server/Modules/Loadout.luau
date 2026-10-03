@@ -49,7 +49,6 @@ local function giveLoadout(player, character)
 	if player.Character ~= character then
 		return
 	end
-	local skin = data and data.EquippedSkin or "Default"
 	local list = Loadout.Override and Loadout.Override(player)
 	if not list then
 		local primary = data and data.Primary or "ARX27"
@@ -63,20 +62,18 @@ local function giveLoadout(player, character)
 		Outfits.Apply(character, data.EquippedOutfit)
 	end
 
-	Loadout.Give(player, list, skin)
+	Loadout.Give(player, list)
 end
 
--- Da al jugador exactamente estas armas (y equipa la primera)
-function Loadout.Give(player, list, skin)
+-- Da al jugador exactamente estas armas (y equipa la primera).
+-- Cada arma lleva su camuflaje de maestría si lo tiene elegido, o la skin general.
+function Loadout.Give(player, list)
 	local character = player.Character
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	if not character or not backpack then
 		return
 	end
-	if not skin then
-		local data = PlayerData.Get(player)
-		skin = data and data.EquippedSkin or "Default"
-	end
+	local data = PlayerData.Get(player)
 	for _, container in { backpack, character } do
 		for _, child in container:GetChildren() do
 			if child:IsA("Tool") then
@@ -87,7 +84,7 @@ function Loadout.Give(player, list, skin)
 	local first
 	for _, weaponName in list do
 		if Weapons.Get(weaponName) then
-			local tool = Loadout.MakeTool(weaponName, skin)
+			local tool = Loadout.MakeTool(weaponName, PlayerData.SkinFor(data, weaponName))
 			tool.Parent = backpack
 			first = first or tool
 		end
@@ -110,14 +107,20 @@ local function onOutfitChanged(player, outfitId)
 	end
 end
 
-local function onSkinChanged(player, skinId)
+-- Vuelve a pintar las armas que lleva encima (skin general o camuflaje de maestría)
+local function onSkinChanged(player)
+	local data = PlayerData.Get(player)
 	local containers = { player:FindFirstChild("Backpack"), player.Character }
 	for _, container in containers do
 		if container then
 			for _, tool in container:GetChildren() do
-				if tool:IsA("Tool") and tool:GetAttribute("Weapon") then
-					WeaponModels.ApplySkin(tool, skinId)
-					tool:SetAttribute("Skin", skinId)
+				local weaponName = tool:IsA("Tool") and tool:GetAttribute("Weapon")
+				if weaponName then
+					local skinId = PlayerData.SkinFor(data, weaponName)
+					if tool:GetAttribute("Skin") ~= skinId then
+						WeaponModels.ApplySkin(tool, skinId, weaponName)
+						tool:SetAttribute("Skin", skinId)
+					end
 				end
 			end
 		end

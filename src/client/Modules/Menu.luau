@@ -1,4 +1,4 @@
--- Menú principal del jugador (tecla B): pase de batalla, armas, skins, trajes y tienda.
+-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
@@ -12,6 +12,7 @@ local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
+local Mastery = require(Shared.Mastery)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
@@ -35,7 +36,7 @@ local GREEN = Color3.fromRGB(60, 170, 90)
 local BLUE = Color3.fromRGB(40, 120, 255)
 local GREY = Color3.fromRGB(70, 70, 82)
 
-local TABS = { "Pase", "Armas", "Skins", "Trajes", "Tienda" }
+local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Tienda" }
 
 local function rarityColor(rarity)
 	return Skins.RarityColors[rarity] or Color3.new(1, 1, 1)
@@ -59,6 +60,32 @@ end
 
 local function coinsText(n)
 	return "🪙 " .. tostring(n)
+end
+
+-- Skin con la que se ve un arma (camuflaje de maestría elegido o skin general)
+local function skinFor(data, weaponName)
+	local camo = data.WeaponCamos and data.WeaponCamos[weaponName]
+	if camo and Mastery.HasCamo(data.WeaponKills and data.WeaponKills[weaponName] or 0, camo) then
+		return camo
+	end
+	return data.EquippedSkin
+end
+Menu.SkinFor = skinFor
+
+-- Barra de progreso sencilla
+local function progressBar(parent, position, size, fraction, color)
+	local bar = UI.new("Frame", {
+		Position = position,
+		Size = size,
+		BackgroundColor3 = Color3.fromRGB(20, 22, 34),
+		Parent = parent,
+	}, { UI.corner(6) })
+	UI.new("Frame", {
+		Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1),
+		BackgroundColor3 = color,
+		Parent = bar,
+	}, { UI.corner(6), UI.gloss() })
+	return bar
 end
 
 local function scroller(layout)
@@ -345,12 +372,128 @@ local function buildPassPage(data)
 end
 
 ---------------------------------------------------------------------------
+-- Pestaña: Retos diarios
+---------------------------------------------------------------------------
+
+local function buildChallengesPage(data)
+	local info = data.Challenges
+	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
+	local secondsLeft = 86400 - os.time() % 86400
+	UI.label({
+		LayoutOrder = 0,
+		Size = UDim2.new(1, -12, 0, 30),
+		Text = string.format("RETOS DE HOY  ·  nuevos en %dh %02dm", secondsLeft // 3600, (secondsLeft % 3600) // 60),
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = scroll,
+	})
+	if not info then
+		return
+	end
+	for i, challenge in info.List do
+		local card = UI.new("Frame", {
+			LayoutOrder = i,
+			Size = UDim2.new(1, -12, 0, 96),
+			BackgroundColor3 = challenge.Done and Color3.fromRGB(34, 70, 50) or CARD_BG,
+			Parent = scroll,
+		}, { UI.corner(12), UI.stroke(challenge.Done and GREEN or Color3.fromRGB(90, 100, 140), 2, 0) })
+		UI.label({
+			Position = UDim2.fromOffset(16, 10),
+			Size = UDim2.new(1, -260, 0, 28),
+			Text = (challenge.Done and "✅ " or "🎯 ") .. challenge.Text,
+			TextSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		progressBar(card, UDim2.fromOffset(16, 50), UDim2.new(1, -300, 0, 14), challenge.Progress / challenge.Goal, challenge.Done and GREEN or BLUE)
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -270, 0, 66),
+			Size = UDim2.fromOffset(140, 20),
+			Text = challenge.Progress .. " / " .. challenge.Goal,
+			TextSize = 16,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = card,
+		})
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 12),
+			Size = UDim2.fromOffset(230, 26),
+			Text = coinsText(challenge.Coins) .. "   +" .. challenge.XP .. " XP",
+			TextSize = 20,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextColor3 = GOLD,
+			Parent = card,
+		})
+		if not challenge.Done and info.RerollsLeft > 0 then
+			local reroll = UI.button({
+				AnchorPoint = Vector2.new(1, 1),
+				Position = UDim2.new(1, -16, 1, -10),
+				Size = UDim2.fromOffset(150, 32),
+				Text = "🔄 Cambiar reto",
+				TextSize = 16,
+				BackgroundColor3 = Color3.fromRGB(110, 80, 200),
+				Parent = card,
+			}, { UI.gloss() })
+			reroll.Activated:Connect(function()
+				if busy then
+					return
+				end
+				busy = true
+				Sounds.Play("Click")
+				local ok, result = pcall(function()
+					return Remotes.RerollChallenge:InvokeServer(i)
+				end)
+				busy = false
+				if not (ok and result) then
+					showToast("No se pudo cambiar el reto", Color3.fromRGB(255, 90, 90))
+				end
+			end)
+		end
+	end
+	local done = 0
+	for _, challenge in info.List do
+		if challenge.Done then
+			done += 1
+		end
+	end
+	local bonus = UI.new("Frame", {
+		LayoutOrder = 10,
+		Size = UDim2.new(1, -12, 0, 70),
+		BackgroundColor3 = info.Bonus and Color3.fromRGB(70, 60, 20) or Color3.fromRGB(50, 40, 70),
+		Parent = scroll,
+	}, { UI.corner(12), UI.stroke(GOLD, 2, info.Bonus and 0 or 0.5) })
+	UI.label({
+		Position = UDim2.fromOffset(16, 0),
+		Size = UDim2.new(1, -32, 1, 0),
+		Text = info.Bonus and "🎁 ¡Premio de hoy conseguido! Tienes una caja gratis en la Tienda"
+			or ("🎁 Completa los " .. #info.List .. " retos (" .. done .. "/" .. #info.List .. ") y gana " .. info.BonusCrates .. " caja gratis"),
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = bonus,
+	})
+	UI.label({
+		LayoutOrder = 11,
+		Size = UDim2.new(1, -12, 0, 40),
+		Text = "Consejo: cada arma tiene MAESTRÍA. Consigue bajas con ella para ganar camuflajes Carbono, Oro, Diamante y Materia oscura (pestaña Armas).",
+		TextSize = 15,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = scroll,
+	})
+end
+
+---------------------------------------------------------------------------
 -- Pestaña: Armas
 ---------------------------------------------------------------------------
 
 local function buildWeaponsPage(data)
 	local scroll = scroller(UI.new("UIGridLayout", {
-		CellSize = UDim2.fromOffset(205, 230),
+		CellSize = UDim2.fromOffset(205, 282),
 		CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}))
@@ -374,7 +517,7 @@ local function buildWeaponsPage(data)
 			TextColor3 = Color3.fromRGB(170, 180, 215),
 			Parent = card,
 		})
-		WeaponIcon.Create(weaponName, data.EquippedSkin, { Position = UDim2.fromOffset(8, 46), Size = UDim2.fromOffset(189, 78), Parent = card }, "angled", 189 / 78)
+		WeaponIcon.Create(weaponName, skinFor(data, weaponName), { Position = UDim2.fromOffset(8, 46), Size = UDim2.fromOffset(189, 78), Parent = card }, "angled", 189 / 78)
 		local stats
 		if def.Explosive then
 			stats = "Explosivo · radio " .. def.Explosive.Radius
@@ -394,6 +537,44 @@ local function buildWeaponsPage(data)
 			TextStrokeTransparency = 1,
 			Parent = card,
 		})
+		-- Maestría: bajas con esta arma y camuflajes ganados
+		local kills = data.WeaponKills and data.WeaponKills[weaponName] or 0
+		local level = Mastery.Level(kills)
+		local nextTier = Mastery.Next(kills)
+		local current = Mastery.Tiers[level]
+		UI.label({
+			Position = UDim2.fromOffset(8, 182),
+			Size = UDim2.new(1, -16, 0, 16),
+			Text = (current and ("🏆 " .. current.Name) or "🏆 Maestría")
+				.. (nextTier and ("  ·  " .. kills .. "/" .. nextTier.Kills .. " bajas") or "  ·  ¡COMPLETA!"),
+			TextSize = 14,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = current and Skins.RarityColors[Skins.Get(current.Camo).Rarity] or Color3.fromRGB(200, 205, 225),
+			Parent = card,
+		})
+		local previous = current and current.Kills or 0
+		local fraction = nextTier and (kills - previous) / (nextTier.Kills - previous) or 1
+		progressBar(card, UDim2.fromOffset(8, 200), UDim2.new(1, -16, 0, 8), fraction, GOLD)
+		if level > 0 then
+			local options = { "Default" }
+			for i = 1, level do
+				table.insert(options, Mastery.Tiers[i].Camo)
+			end
+			local selected = data.WeaponCamos and data.WeaponCamos[weaponName] or "Default"
+			local index = table.find(options, selected) or 1
+			local camoButton = UI.button({
+				Position = UDim2.fromOffset(10, 212),
+				Size = UDim2.new(1, -20, 0, 22),
+				Text = "🎨 Camuflaje: " .. (selected == "Default" and "Skin general" or Skins.Get(selected).Name) .. "  ▸",
+				TextSize = 13,
+				BackgroundColor3 = Color3.fromRGB(70, 60, 120),
+				Parent = card,
+			})
+			camoButton.Activated:Connect(function()
+				Sounds.Play("Click")
+				Remotes.SetCamo:FireServer(weaponName, options[index % #options + 1])
+			end)
+		end
 		local button = UI.button({
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.new(0.5, 0, 1, -8),
@@ -506,7 +687,13 @@ local function buildSkinsPage(data)
 		CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}))
-	for i, id in sortedIds(Skins.List) do
+	local visible = {}
+	for id, skin in Skins.List do
+		if not skin.Mastery then
+			visible[id] = skin
+		end
+	end
+	for i, id in sortedIds(visible) do
 		local skin = Skins.List[id]
 		local owned = data.Skins[id] == true
 		local equipped = data.EquippedSkin == id
@@ -613,8 +800,8 @@ local function crateAnimation(result)
 	})
 	-- Rellenamos con objetos aleatorios y el premio en la posición 32
 	local pool = {}
-	for id in Skins.List do
-		if id ~= "Default" then
+	for id, skin in Skins.List do
+		if id ~= "Default" and not skin.Mastery then
 			table.insert(pool, { "Skin", id })
 		end
 	end
@@ -997,6 +1184,8 @@ local function refresh()
 	end
 	if currentTab == "Pase" then
 		buildPassPage(data)
+	elseif currentTab == "Retos" then
+		buildChallengesPage(data)
 	elseif currentTab == "Armas" then
 		buildWeaponsPage(data)
 	elseif currentTab == "Skins" then
@@ -1136,7 +1325,7 @@ function Menu.Init()
 		local button = UI.button({
 			LayoutOrder = i,
 			Size = UDim2.fromOffset(130, 38),
-			Text = name == "Tienda" and "🛒 Tienda" or name,
+			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name,
 			BackgroundColor3 = CARD_BG,
 			Parent = tabs,
 		})

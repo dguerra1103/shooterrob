@@ -244,6 +244,12 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 			PlayerData.AddXP(killer, xp, headshot and "Disparo a la cabeza" or "Eliminación")
 			PlayerData.AddCoins(killer, GameConfig.Coins.Kill)
 			PlayerData.Increment(killer, "TotalKills", 1)
+			PlayerData.AddWeaponKill(killer, weaponName)
+			PlayerData.Track(killer, "Kill", 1, weaponName)
+			PlayerData.Track(killer, "Streak", streak)
+			if headshot then
+				PlayerData.Track(killer, "Headshot", 1, weaponName)
+			end
 
 			if STREAK_ANNOUNCE[streak] then
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
@@ -434,8 +440,12 @@ local function endRound()
 			PlayerData.AddXP(player, GameConfig.XP.Win, "Victoria")
 			PlayerData.AddCoins(player, GameConfig.Coins.Win)
 			PlayerData.Increment(player, "Wins", 1)
+			PlayerData.Track(player, "Win", 1)
 		else
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
+		end
+		if not player:GetAttribute("InMenu") then
+			PlayerData.Track(player, "Match", 1)
 		end
 	end
 

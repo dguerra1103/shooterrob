@@ -86,7 +86,8 @@ local function refreshInfo()
 	if showcase then
 		showcase:ClearAllChildren()
 		if data then
-			WeaponIcon.Create(data.Primary or "Rifle", data.EquippedSkin, { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
+			local primary = data.Primary or "ARX27"
+			WeaponIcon.Create(primary, Menu.SkinFor(data, primary), { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
 		end
 	end
 end

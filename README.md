@@ -12,6 +12,8 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Modos** | **Duelo por equipos** (40 bajas), **Captura la bandera** (3 capturas), **Zona de control** (150 puntos, la zona cambia cada minuto), **Todos contra todos** (25 bajas) y **Escalada de armas** (subes de arma con cada baja; gana quien la complete con el cuchillo). |
 | **Votación** | En el descanso entre rondas salen 3 opciones de mapa + modo. Pulsa **V** para votar con el ratón. |
 | **Armas** | Principales: **ARX-27 Pulse** (fusil), **Havoc Pump** (escopeta), **Specter-9** (subfusil), **Signal-7** (francotirador, nivel 3), **Vortex AR-9** (fusil de energía con ráfagas de 3, nivel 4), **Nova Drift** (subfusil ágil, nivel 5), **Raptor DMR** (tirador, nivel 7), **Breach Hammer** (escopeta semiautomática, nivel 8), **Titan Grind** (ametralladora pesada, nivel 10), **Ghostline XR** (francotirador con supresor, nivel 12) y **Tempest Core** (lanzacohetes con explosión, nivel 14). Secundarias: **Viper P9**, **Hand Cannon** (nivel 6) y **Phantom Sidewind** (pistola de ráfagas de 2 con mira de punto, nivel 9). Cuerpo a cuerpo: **Colmillo**. Las armas bloqueadas se pueden comprar antes con monedas. |
+| **Retos diarios** | 3 retos al día distintos para cada jugador (bajas, tiros a la cabeza, victorias, capturas, zona, rachas, bajas con cierto tipo de arma…). Dan monedas y XP al completarse. Completar los 3 regala una caja, y se puede cambiar 1 reto al día. Pestaña **Retos** del menú. |
+| **Maestría de armas** | Cada arma cuenta sus bajas y desbloquea camuflajes exclusivos para ella: **Carbono** (25), **Oro** (75), **Diamante** (150) y **Materia oscura** (300), más monedas. El camuflaje se equipa solo al ganarlo y se puede cambiar en la pestaña **Armas**. No se venden ni salen en cajas. |
 | **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue y Golden Ace. Se ven en la partida sobre tu avatar. |
 | **Disparo** | Viewmodel con brazos, retroceso, balanceo, apuntado (clic derecho), mira telescópica, recarga, trazadoras, fogonazo, hitmarkers, números de daño, disparos a la cabeza y cohetes con explosión. |
 | **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
@@ -61,7 +63,7 @@ rojo build -o ShooterRob.rbxlx
 | Correr | Shift (mantener) | L3 |
 | Deslizarse | C / Ctrl | R3 |
 | Cambiar arma | 1 / 2 / 3 / rueda del ratón | Y |
-| Menú (pase, armas, skins, trajes, tienda) | B | Select |
+| Menú (pase, retos, armas, skins, trajes, tienda) | B | Select |
 | Votar mapa (en el descanso) | V | Cruceta arriba |
 
 En el móvil aparecen botones táctiles automáticamente.
@@ -78,6 +80,8 @@ Todo lo importante está en `src/shared/`:
 - **`WeaponDesigns.luau`**: la forma de cada arma (piezas). Para añadir un arma nueva, copia una entrada aquí y en `Weapons.luau` y añádela a `Weapons.Primaries`.
 - **`Skins.luau`** y **`Outfits.luau`**: skins de armas y trajes de operador.
 - **`Shop.luau`**: precios, packs de Robux, VIP, recompensa diaria, cajas y ofertas.
+- **`Challenges.luau`**: lista de retos diarios (objetivo, texto y premio).
+- **`Mastery.luau`**: bajas necesarias y premio de cada nivel de maestría.
 - **`Sounds.luau`**: sonidos. Para que suene mejor busca audios en el *Creator Store* y pega su `rbxassetid://`.
 
 Los mapas están en `src/server/Modules/MapDefs/` (uno por archivo) y usan las piezas de `MapKit.luau`. El orden de la rotación está en `MapBuilder.Order`.
@@ -158,6 +162,8 @@ src/
 │   ├── Skins.luau           skins de armas
 │   ├── Outfits.luau         trajes de operador
 │   ├── Shop.luau            tienda, VIP, diarias, cajas y ofertas
+│   ├── Challenges.luau      retos diarios
+│   ├── Mastery.luau         maestría de armas (camuflajes por bajas)
 │   ├── Sounds.luau          sonidos
 │   └── Remotes.luau         RemoteEvents y RemoteFunctions
 ├── server/                 → ServerScriptService.Server
@@ -180,7 +186,7 @@ src/
         ├── WeaponController.luau  viewmodel, disparo, recarga, apuntar
         ├── Movement.luau          correr y deslizarse
         ├── HUD.luau               interfaz de partida
-        ├── Menu.luau              pase, armas, skins, trajes y tienda
+        ├── Menu.luau              pase, retos, armas, skins, trajes y tienda
         ├── MainMenu.luau          pantalla de inicio
         ├── VoteUI.luau            votación de mapa y modo
         ├── WeaponIcon.luau        iconos 3D de las armas
