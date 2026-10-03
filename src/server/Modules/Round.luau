@@ -1,6 +1,7 @@
--- Equipos, rondas (Team Deathmatch), marcador, rachas y recompensas.
+-- Equipos, rondas, modos de juego (Duelo por equipos / Captura la bandera), marcador, rachas y recompensas.
 -- El estado se publica como atributos de ReplicatedStorage para que la interfaz lo lea:
---   State ("Intermission" | "Playing" | "Ended"), TimeLeft, ScoreToWin, Score_<Equipo>
+--   State ("Intermission" | "Playing" | "Ended"), Mode ("TDM" | "CTF"), ModeName,
+--   TimeLeft, ScoreToWin, Score_<Equipo>
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,11 +12,13 @@ local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = require(script.Parent.PlayerData)
+local Flags = require(script.Parent.Flags)
 
 local Round = {}
 
 local teams = {}
 local roundOver = false
+local modeIndex = 0
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -40,9 +43,35 @@ local function setupTeams()
 		table.insert(teams, team)
 		ReplicatedStorage:SetAttribute("Score_" .. cfg.Name, 0)
 	end
-	ReplicatedStorage:SetAttribute("ScoreToWin", GameConfig.ScoreToWin)
 	ReplicatedStorage:SetAttribute("TeamA", teams[1].Name)
 	ReplicatedStorage:SetAttribute("TeamB", teams[2].Name)
+end
+
+local function addScore(team, amount)
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" or not team then
+		return
+	end
+	local score = getScore(team.Name) + amount
+	ReplicatedStorage:SetAttribute("Score_" .. team.Name, score)
+	if score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
+		roundOver = true
+	end
+end
+
+-- Elige el siguiente modo de la rotación (salta CTF si el mapa no tiene bases de bandera)
+local function nextMode()
+	local modes = GameConfig.Modes
+	for _ = 1, #modes do
+		modeIndex = modeIndex % #modes + 1
+		local mode = modes[modeIndex]
+		if GameConfig.ModeSettings[mode] and (mode ~= "CTF" or Flags.IsAvailable()) then
+			return mode
+		end
+		if mode == "CTF" then
+			warn("[Round] El mapa no tiene piezas FlagBase para cada equipo; se salta Captura la bandera")
+		end
+	end
+	return "TDM"
 end
 
 local function smallestTeam(exclude)
@@ -83,6 +112,7 @@ local function resetStats()
 		stats.Bajas.Value = 0
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
+		player:SetAttribute("Captures", 0)
 	end
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
@@ -109,13 +139,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
 
-			if ReplicatedStorage:GetAttribute("State") == "Playing" and killer.Team then
-				local teamName = killer.Team.Name
-				local score = getScore(teamName) + 1
-				ReplicatedStorage:SetAttribute("Score_" .. teamName, score)
-				if score >= GameConfig.ScoreToWin then
-					roundOver = true
-				end
+			-- En duelo por equipos cada baja es un punto; en CTF solo cuentan las capturas
+			if ReplicatedStorage:GetAttribute("Mode") == "TDM" then
+				addScore(killer.Team, 1)
 			end
 
 			local xp = GameConfig.XP.Kill + GameConfig.XP.StreakBonus * (streak - 1)
@@ -172,12 +198,13 @@ local function endRound()
 		winner = b
 	end
 
-	-- MVP = más bajas
-	local mvp, mvpKills = nil, -1
+	-- MVP = más bajas (en CTF cada captura vale como 3 bajas)
+	local mvp, mvpKills, mvpScore = nil, 0, -1
 	for _, player in Players:GetPlayers() do
 		local kills = PlayerData.GetLeaderstats(player).Bajas.Value
-		if kills > mvpKills then
-			mvp, mvpKills = player, kills
+		local score = kills + (player:GetAttribute("Captures") or 0) * 3
+		if score > mvpScore then
+			mvp, mvpKills, mvpScore = player, kills, score
 		end
 	end
 
@@ -197,13 +224,20 @@ local function endRound()
 		ScoreA = scoreA,
 		ScoreB = scoreB,
 		MVP = mvp and mvp.Name or nil,
-		MVPKills = math.max(mvpKills, 0),
+		MVPKills = mvpKills,
+		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
 	})
 	task.wait(GameConfig.EndScreenTime)
 end
 
 local function gameLoop()
 	while true do
+		local mode = nextMode()
+		local settings = GameConfig.ModeSettings[mode]
+		ReplicatedStorage:SetAttribute("Mode", mode)
+		ReplicatedStorage:SetAttribute("ModeName", settings.Name)
+		ReplicatedStorage:SetAttribute("ScoreToWin", settings.ScoreToWin)
+
 		setState("Intermission")
 		countdown(GameConfig.IntermissionTime)
 		while #Players:GetPlayers() < GameConfig.MinPlayers do
@@ -215,11 +249,19 @@ local function gameLoop()
 		balanceTeams()
 		resetStats()
 		setState("Playing")
+		if mode == "CTF" then
+			Flags.Start()
+		end
 		respawnAll()
-		Remotes.Notify:FireAllClients("Big", "¡A LUCHAR! Primero en llegar a " .. GameConfig.ScoreToWin)
-		countdown(GameConfig.RoundTime, function()
+		if mode == "CTF" then
+			Remotes.Notify:FireAllClients("Big", "¡CAPTURA LA BANDERA! Primero a " .. settings.ScoreToWin)
+		else
+			Remotes.Notify:FireAllClients("Big", "¡A LUCHAR! Primero a " .. settings.ScoreToWin .. " bajas")
+		end
+		countdown(settings.RoundTime, function()
 			return roundOver
 		end)
+		Flags.Stop()
 		endRound()
 	end
 end
@@ -227,6 +269,9 @@ end
 function Round.Init()
 	Players.RespawnTime = GameConfig.RespawnTime
 	setupTeams()
+	Flags.OnCapture = function(_, team)
+		addScore(team, 1)
+	end
 	setState("Intermission")
 	ReplicatedStorage:SetAttribute("TimeLeft", GameConfig.IntermissionTime)
 

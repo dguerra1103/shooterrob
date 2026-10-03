@@ -105,13 +105,16 @@ local function update()
 		and not ClientState.Sliding
 		and not ClientState.MenuOpen
 
+	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then
-		humanoid.WalkSpeed = GameConfig.SprintSpeed
+		speed = GameConfig.SprintSpeed
 	elseif ClientState.Aiming then
-		humanoid.WalkSpeed = GameConfig.AimWalkSpeed
-	else
-		humanoid.WalkSpeed = GameConfig.WalkSpeed
+		speed = GameConfig.AimWalkSpeed
 	end
+	if player:GetAttribute("CarryingFlag") then
+		speed *= GameConfig.Flag.CarrierSpeedMultiplier
+	end
+	humanoid.WalkSpeed = speed
 end
 
 local function onCharacter(newCharacter)

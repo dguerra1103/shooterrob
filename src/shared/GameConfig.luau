@@ -7,11 +7,25 @@ GameConfig.Teams = {
 	{ Name = "Azul", Color = BrickColor.new("Really blue") },
 }
 
--- Rondas (Team Deathmatch: gana el primer equipo en llegar a ScoreToWin bajas)
+-- Rondas
 GameConfig.MinPlayers = 1 -- súbelo a 2+ cuando publiques el juego
 GameConfig.IntermissionTime = 15
-GameConfig.RoundTime = 8 * 60
-GameConfig.ScoreToWin = 40
+
+-- Modos de juego. Se juegan en este orden, uno por ronda.
+-- Pon solo { "CTF" } o solo { "TDM" } si quieres un único modo.
+GameConfig.Modes = { "CTF", "TDM" }
+GameConfig.ModeSettings = {
+	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60 }, -- puntos = bajas
+	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60 }, -- puntos = capturas
+}
+
+-- Captura la bandera
+GameConfig.Flag = {
+	PickupRadius = 5, -- distancia para coger/devolver la bandera
+	CaptureRadius = 7, -- distancia a tu base para capturar
+	AutoReturnTime = 20, -- segundos que tarda en volver sola si nadie la toca
+	CarrierSpeedMultiplier = 0.9, -- el portador va un poco más lento
+}
 GameConfig.EndScreenTime = 8
 GameConfig.RespawnTime = 3
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
@@ -34,10 +48,14 @@ GameConfig.XP = {
 	StreakBonus = 20, -- extra por cada baja de racha
 	Win = 500,
 	Loss = 150,
+	Capture = 300, -- capturar la bandera
+	FlagReturn = 75, -- devolver tu bandera caída
+	CarrierKill = 75, -- eliminar al portador de tu bandera
 }
 GameConfig.Coins = {
 	Kill = 5,
 	Win = 50,
+	Capture = 20,
 }
 
 -- ID del GamePass del pase premium. Créalo en el Creator Hub y pon el número aquí.

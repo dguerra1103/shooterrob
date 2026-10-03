@@ -138,6 +138,29 @@ local function spawnArea(team, cf)
 	end
 end
 
+-- Base de la bandera: el módulo Flags busca piezas "FlagBase" con el atributo Team.
+-- En un mapa propio basta con poner una pieza llamada FlagBase con Team = "Rojo" / "Azul".
+local function flagBase(team, cf)
+	local ring = block(
+		"FlagBaseRing",
+		Vector3.new(0.3, 13, 13),
+		cf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		team.Color.Color,
+		Enum.Material.Neon
+	)
+	ring.Shape = Enum.PartType.Cylinder
+	local pad = block(
+		"FlagBase",
+		Vector3.new(0.4, 11, 11),
+		cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(235, 235, 240),
+		Enum.Material.Concrete
+	)
+	pad.Shape = Enum.PartType.Cylinder
+	pad:SetAttribute("Team", team.Name)
+	return pad
+end
+
 local function setupLighting()
 	Lighting.ClockTime = 14.5
 	Lighting.Brightness = 3
@@ -205,6 +228,8 @@ function MapBuilder.Build()
 	local teams = GameConfig.Teams
 	spawnArea(teams[1], CFrame.new(-LENGTH / 2 + 15, 0, 0))
 	spawnArea(teams[2], MIRROR * CFrame.new(-LENGTH / 2 + 15, 0, 0))
+	flagBase(teams[1], CFrame.new(-118, 0, 12))
+	flagBase(teams[2], MIRROR * CFrame.new(-118, 0, 12))
 
 	-- Mitad simétrica del mapa
 	symmetric(function(m)

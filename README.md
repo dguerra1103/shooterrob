@@ -1,6 +1,6 @@
 # ShooterRob 🔫
 
-Un shooter en primera persona para Roblox, inspirado en juegos como *Disparo Hiper*: partidas por equipos (Rojo contra Azul), armas con skins de neón, rachas de bajas y un **pase de batalla** con niveles y recompensas.
+Un shooter en primera persona para Roblox, inspirado en juegos como *Disparo Hiper*: partidas por equipos (Rojo contra Azul) en los modos **Captura la bandera** y **Duelo por equipos**, armas con skins de neón, rachas de bajas y un **pase de batalla** con niveles y recompensas.
 
 Todo está hecho con código (Luau). Incluso el mapa y las armas se generan solos, así que puedes darle a **Play** y probarlo sin tener que modelar nada.
 
@@ -8,7 +8,9 @@ Todo está hecho con código (Luau). Incluso el mapa y las armas se generan solo
 
 | Sistema | Detalles |
 |---|---|
-| **Modo de juego** | Duelo por equipos: el primer equipo que llega a 40 bajas gana (o el que más tenga cuando se acaben los 8 min). Hay calentamiento entre rondas, pantalla de victoria o derrota y un MVP. |
+| **Captura la bandera** | Roba la bandera enemiga y llévala a tu base mientras la tuya siga allí. Gana el primer equipo en hacer 3 capturas (10 min). Si matan al portador la bandera cae: tu equipo la devuelve tocándola y, si nadie la toca, vuelve sola a los 20 s. Las banderas se ven a través de las paredes y el portador va un poco más lento. |
+| **Duelo por equipos** | El primer equipo que llega a 40 bajas gana (o el que más tenga cuando se acaben los 8 min). |
+| **Rondas** | Los modos se turnan en cada ronda. Hay calentamiento entre rondas, pantalla de victoria o derrota y un MVP (en CTF cada captura cuenta como 3 bajas). |
 | **Armas** | Rifle automático *AR-7 Hiper*, escopeta *Trueno SG*, francotirador *Halcón X* (con mira telescópica), pistola *Víbora P9* y cuchillo *Colmillo*. |
 | **Disparo** | Viewmodel en primera persona con brazos, retroceso, balanceo al caminar, apuntado (clic derecho), recarga, trazadoras, fogonazo, hitmarkers, números de daño y disparos a la cabeza. |
 | **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
@@ -65,14 +67,21 @@ En el móvil aparecen botones táctiles automáticamente.
 
 Todo lo importante está en `src/shared/`:
 
-- **`GameConfig.luau`**: duración de la ronda, bajas para ganar, velocidades, XP, recompensas del pase y el ID del GamePass premium.
+- **`GameConfig.luau`**:
+  - Modos y su orden (`Modes`). Pon `{ "CTF" }` para jugar solo a Captura la bandera.
+  - Puntos para ganar y duración de cada modo (`ModeSettings`).
+  - Ajustes de la bandera: radios, tiempo de vuelta y velocidad del portador (`Flag`).
+  - Velocidades, XP (también la de capturar o devolver la bandera), recompensas del pase y el ID del GamePass premium.
 - **`Weapons.luau`**: daño, cadencia, cargador, retroceso, dispersión… y la forma de cada arma (piezas). Para crear un arma nueva, copia una entrada y añádela a `Weapons.Primaries`.
 - **`Skins.luau`**: colores y materiales de cada skin.
 - **`Sounds.luau`**: sonidos. Los que vienen ya incluidos en Roblox funcionan, pero para que suene mejor busca audios en el *Creator Store* y pega su `rbxassetid://`.
 
 ### Usar tu propio mapa
 
-Construye tu mapa en Studio dentro de una carpeta o modelo llamado **`Map`** en `Workspace`. Si existe `workspace.Map`, el generador no crea el suyo. Pon dentro **SpawnLocations** con `TeamColor = Really red` y otras con `Really blue`, y quítales la casilla `Neutral`.
+Construye tu mapa en Studio dentro de una carpeta o modelo llamado **`Map`** en `Workspace`. Si existe `workspace.Map`, el generador no crea el suyo. Pon dentro:
+
+- **SpawnLocations** con `TeamColor = Really red` y otras con `Really blue`, y quítales la casilla `Neutral`.
+- Para Captura la bandera, una pieza llamada **`FlagBase`** por equipo, con un atributo **`Team`** (texto) igual a `Rojo` o `Azul`. La bandera aparece encima de esa pieza. Si faltan, el modo se salta automáticamente.
 
 ## Antes de publicar
 
@@ -101,7 +110,8 @@ src/
 │       ├── PlayerData.luau  guardado, nivel, XP, skins, premium
 │       ├── Loadout.luau     da las armas al aparecer
 │       ├── Combat.luau      valida disparos, daño y bajas
-│       ├── Round.luau       equipos, rondas, marcador, rachas
+│       ├── Round.luau       equipos, rondas, modos, marcador, rachas
+│       ├── Flags.luau       modo Captura la bandera
 │       └── Dummies.luau     muñecos de práctica
 └── client/                 → StarterPlayerScripts.Client
     ├── Main.client.luau     arranque
@@ -117,7 +127,6 @@ src/
 
 ## Ideas para seguir
 
-- **Capturar la bandera** (el modo de la captura): una bandera por equipo, recogerla al tocarla y puntuar al llevarla a tu base.
 - **Habilidades Q/E/X**: granada, dash o escudo, con tiempo de recarga.
 - **Modelos y animaciones de verdad**: importa armas con *MeshPart* desde el Toolbox y cambia `Parts` en `Weapons.luau` por el modelo.
 - **Tienda**: gastar las monedas en skins.

@@ -25,11 +25,25 @@ GameConfig.Teams = {
 	{ Name = "Azul", Color = BrickColor.new("Really blue") },
 }
 
--- Rondas (Team Deathmatch: gana el primer equipo en llegar a ScoreToWin bajas)
+-- Rondas
 GameConfig.MinPlayers = 1 -- súbelo a 2+ cuando publiques el juego
 GameConfig.IntermissionTime = 15
-GameConfig.RoundTime = 8 * 60
-GameConfig.ScoreToWin = 40
+
+-- Modos de juego. Se juegan en este orden, uno por ronda.
+-- Pon solo { "CTF" } o solo { "TDM" } si quieres un único modo.
+GameConfig.Modes = { "CTF", "TDM" }
+GameConfig.ModeSettings = {
+	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60 }, -- puntos = bajas
+	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60 }, -- puntos = capturas
+}
+
+-- Captura la bandera
+GameConfig.Flag = {
+	PickupRadius = 5, -- distancia para coger/devolver la bandera
+	CaptureRadius = 7, -- distancia a tu base para capturar
+	AutoReturnTime = 20, -- segundos que tarda en volver sola si nadie la toca
+	CarrierSpeedMultiplier = 0.9, -- el portador va un poco más lento
+}
 GameConfig.EndScreenTime = 8
 GameConfig.RespawnTime = 3
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
@@ -52,10 +66,14 @@ GameConfig.XP = {
 	StreakBonus = 20, -- extra por cada baja de racha
 	Win = 500,
 	Loss = 150,
+	Capture = 300, -- capturar la bandera
+	FlagReturn = 75, -- devolver tu bandera caída
+	CarrierKill = 75, -- eliminar al portador de tu bandera
 }
 GameConfig.Coins = {
 	Kill = 5,
 	Win = 50,
+	Capture = 20,
 }
 
 -- ID del GamePass del pase premium. Créalo en el Creator Hub y pon el número aquí.
@@ -306,6 +324,7 @@ local Sounds = {
 	Headshot = { Id = "rbxasset://sounds/snap.wav", Volume = 1, Pitch = 2 },
 	Kill = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.8, Pitch = 1 },
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.5, Pitch = 1 },
+	Flag = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 1, Pitch = 0.7 },
 	Slide = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 0.6 },
 }
 
@@ -1082,6 +1101,390 @@ return Dummies
         </Item>
         <Item class="ModuleScript" referent="15">
           <Properties>
+            <string name="Name">Flags</string>
+            <string name="Source"><![CDATA[-- Modo Captura la bandera.
+-- Cada equipo tiene una bandera en su base. Coge la enemiga (acércate a ella) y llévala a tu base
+-- mientras tu bandera siga allí para puntuar. Si matan al portador la bandera cae al suelo:
+-- sus dueños la devuelven tocándola y si nadie la toca vuelve sola.
+--
+-- Estado publicado en ReplicatedStorage para la interfaz:
+--   FlagState_<Equipo>   = "Home" | "Carried" | "Dropped"
+--   FlagCarrier_<Equipo> = nombre del portador ("" si nadie)
+-- y en el jugador: atributo CarryingFlag = true/false
+local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Flags = {}
+
+-- Asignado por Round: function(player, team) que suma el punto
+Flags.OnCapture = nil
+
+local SETTINGS = GameConfig.Flag
+local POLE_HEIGHT = 8
+
+local folder
+local flags = {} -- [teamName] = flag
+local active = false
+local heartbeat
+
+local function findBases()
+	local bases = {}
+	for _, inst in workspace:GetDescendants() do
+		if inst:IsA("BasePart") and inst.Name == "FlagBase" then
+			local team = inst:GetAttribute("Team")
+			if type(team) == "string" then
+				bases[team] = inst
+			end
+		end
+	end
+	return bases
+end
+
+-- ¿El mapa tiene una base para cada equipo?
+function Flags.IsAvailable()
+	local bases = findBases()
+	for _, cfg in GameConfig.Teams do
+		if not bases[cfg.Name] then
+			return false
+		end
+	end
+	return true
+end
+
+local function publish(flag)
+	ReplicatedStorage:SetAttribute("FlagState_" .. flag.Team.Name, flag.State)
+	ReplicatedStorage:SetAttribute("FlagCarrier_" .. flag.Team.Name, flag.Carrier and flag.Carrier.Name or "")
+	local text = "BANDERA " .. string.upper(flag.Team.Name)
+	if flag.State == "Carried" then
+		text ..= "\n¡ROBADA!"
+	elseif flag.State == "Dropped" then
+		text ..= "\nCAÍDA"
+	end
+	flag.Label.Text = text
+end
+
+local function buildFlag(team)
+	local model = Instance.new("Model")
+	model.Name = "Flag_" .. team.Name
+
+	local function part(name, size, color, material, shape)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.Color = color
+		p.Material = material
+		p.Shape = shape or Enum.PartType.Block
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false -- no bloquea disparos
+		p.CanTouch = false
+		p.Massless = true
+		p.CastShadow = false
+		p.Parent = model
+		return p
+	end
+
+	local pole = part("Pole", Vector3.new(0.3, POLE_HEIGHT, 0.3), Color3.fromRGB(220, 220, 225), Enum.Material.Metal)
+	local cloth = part("Cloth", Vector3.new(0.15, 2.4, 3.6), team.Color.Color, Enum.Material.Neon)
+	cloth.CFrame = pole.CFrame * CFrame.new(0, POLE_HEIGHT / 2 - 1.4, 1.8)
+	local tip = part("Tip", Vector3.new(0.6, 0.6, 0.6), Color3.fromRGB(255, 200, 40), Enum.Material.Neon, Enum.PartType.Ball)
+	tip.CFrame = pole.CFrame * CFrame.new(0, POLE_HEIGHT / 2 + 0.3, 0)
+	for _, p in { cloth, tip } do
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = pole
+		weld.Part1 = p
+		weld.Parent = p
+	end
+	model.PrimaryPart = pole
+
+	local light = Instance.new("PointLight")
+	light.Color = team.Color.Color
+	light.Range = 14
+	light.Brightness = 2
+	light.Parent = cloth
+
+	-- Marcador visible a través de las paredes
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "Marker"
+	billboard.Size = UDim2.fromOffset(160, 56)
+	billboard.StudsOffset = Vector3.new(0, POLE_HEIGHT / 2 + 2.5, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 1000
+	billboard.Parent = pole
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextSize = 18
+	label.TextColor3 = team.Color.Color:Lerp(Color3.new(1, 1, 1), 0.25)
+	label.TextStrokeTransparency = 0.2
+	label.Text = ""
+	label.Parent = billboard
+
+	model.Parent = folder
+	return model, label
+end
+
+local function setAnchored(flag, anchored)
+	for _, p in flag.Model:GetDescendants() do
+		if p:IsA("BasePart") then
+			p.Anchored = anchored
+		end
+	end
+end
+
+-- Coloca la bandera de pie en una posición del suelo
+local function placeAt(flag, groundPosition)
+	if flag.Weld then
+		flag.Weld:Destroy()
+		flag.Weld = nil
+	end
+	setAnchored(flag, true)
+	flag.Model:PivotTo(CFrame.new(groundPosition + Vector3.new(0, POLE_HEIGHT / 2, 0)))
+	flag.Position = groundPosition
+end
+
+local function homePosition(flag)
+	-- Superficie de la base (sirve para piezas giradas o cilindros)
+	return flag.Base.Position + Vector3.new(0, flag.Base.ExtentsSize.Y / 2, 0)
+end
+
+-- ¿El personaje (su HumanoidRootPart) está junto a un punto del suelo?
+local function isNear(rootPosition, groundPosition, radius)
+	local offset = rootPosition - groundPosition
+	return Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -2 and offset.Y < 8
+end
+
+local function setCarrier(flag, player)
+	if flag.Carrier then
+		flag.Carrier:SetAttribute("CarryingFlag", false)
+	end
+	flag.Carrier = player
+	if player then
+		player:SetAttribute("CarryingFlag", true)
+	end
+end
+
+local function returnHome(flag, returner, silent)
+	setCarrier(flag, nil)
+	flag.State = "Home"
+	flag.CarrierHumanoid = nil
+	placeAt(flag, homePosition(flag))
+	publish(flag)
+	if silent then
+		return
+	elseif returner then
+		Remotes.Notify:FireAllClients("Flag", returner.Name .. " devolvió la bandera " .. flag.Team.Name)
+		PlayerData.AddXP(returner, GameConfig.XP.FlagReturn, "Bandera devuelta")
+	else
+		Remotes.Notify:FireAllClients("Flag", "La bandera " .. flag.Team.Name .. " volvió a su base")
+	end
+end
+
+local function groundBelow(position, ignore)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignore
+	local result = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -60, 0), params)
+	return result and result.Position or position - Vector3.new(0, 3, 0)
+end
+
+local function drop(flag)
+	local carrier = flag.Carrier
+	local humanoid = flag.CarrierHumanoid
+	local root = flag.Model.PrimaryPart
+	local ignore = { folder }
+	if carrier and carrier.Character then
+		table.insert(ignore, carrier.Character)
+	end
+	local position = groundBelow(flag.LastCarrierPosition or root.Position, ignore)
+
+	-- Recompensa a quien eliminó al portador
+	if humanoid then
+		local attackerId = humanoid:GetAttribute("LastAttacker")
+		local hitTime = humanoid:GetAttribute("LastHitTime")
+		local killer = attackerId and Players:GetPlayerByUserId(attackerId)
+		if killer and hitTime and os.clock() - hitTime < 10 and humanoid.Health <= 0 then
+			PlayerData.AddXP(killer, GameConfig.XP.CarrierKill, "Portador eliminado")
+		end
+	end
+
+	setCarrier(flag, nil)
+	flag.CarrierHumanoid = nil
+	flag.State = "Dropped"
+	flag.DroppedAt = os.clock()
+	placeAt(flag, position)
+	publish(flag)
+	Remotes.Notify:FireAllClients("Flag", "¡La bandera " .. flag.Team.Name .. " ha caído!")
+end
+
+local function pickup(flag, player, character)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	setCarrier(flag, player)
+	flag.CarrierHumanoid = character:FindFirstChildOfClass("Humanoid")
+	flag.State = "Carried"
+	flag.LastCarrierPosition = root.Position
+
+	-- Soldada a la espalda del portador
+	setAnchored(flag, false)
+	flag.Model:PivotTo(root.CFrame * CFrame.new(0, 1.2, 1) * CFrame.Angles(math.rad(-15), 0, 0))
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = root
+	weld.Part1 = flag.Model.PrimaryPart
+	weld.Parent = flag.Model.PrimaryPart
+	flag.Weld = weld
+
+	publish(flag)
+	Remotes.Notify:FireAllClients("Flag", player.Name .. " tiene la bandera " .. flag.Team.Name .. "!")
+end
+
+local function capture(flag, player)
+	local team = player.Team
+	returnHome(flag, nil, true)
+	Remotes.Notify:FireAllClients("Big", "¡" .. player.Name .. " CAPTURÓ LA BANDERA!")
+	PlayerData.AddXP(player, GameConfig.XP.Capture, "Captura")
+	PlayerData.AddCoins(player, GameConfig.Coins.Capture)
+	player:SetAttribute("Captures", (player:GetAttribute("Captures") or 0) + 1)
+	if Flags.OnCapture then
+		Flags.OnCapture(player, team)
+	end
+end
+
+local function aliveCharacter(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if humanoid and root and humanoid.Health > 0 then
+		return character, root
+	end
+	return nil, nil
+end
+
+local function isCarrying(player)
+	for _, flag in flags do
+		if flag.Carrier == player then
+			return true
+		end
+	end
+	return false
+end
+
+local lastTick = 0
+local function step()
+	if not active or os.clock() - lastTick < 0.1 then
+		return
+	end
+	lastTick = os.clock()
+
+	for _, flag in flags do
+		if flag.State == "Carried" then
+			local carrier = flag.Carrier
+			local character, root = nil, nil
+			if carrier and carrier.Parent then
+				character, root = aliveCharacter(carrier)
+			end
+			if
+				not character
+				or flag.CarrierHumanoid == nil
+				or character:FindFirstChildOfClass("Humanoid") ~= flag.CarrierHumanoid
+				or carrier.Team == flag.Team
+			then
+				drop(flag)
+			else
+				flag.LastCarrierPosition = root.Position
+				-- ¿Ha llegado a su base con su propia bandera en casa?
+				local ownFlag = carrier.Team and flags[carrier.Team.Name]
+				if
+					ownFlag
+					and ownFlag.State == "Home"
+					and isNear(root.Position, homePosition(ownFlag), SETTINGS.CaptureRadius)
+				then
+					capture(flag, carrier)
+				end
+			end
+		else
+			if flag.State == "Dropped" and os.clock() - flag.DroppedAt >= SETTINGS.AutoReturnTime then
+				returnHome(flag, nil)
+			end
+			for _, player in Players:GetPlayers() do
+				if player.Team and flag.State ~= "Carried" then
+					local character, root = aliveCharacter(player)
+					if character and isNear(root.Position, flag.Position, SETTINGS.PickupRadius) then
+						if player.Team == flag.Team then
+							if flag.State == "Dropped" then
+								returnHome(flag, player)
+							end
+						elseif not isCarrying(player) then
+							pickup(flag, player, character)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+-- Crea las banderas en sus bases (inicio de una ronda de CTF)
+function Flags.Start()
+	Flags.Stop()
+	local bases = findBases()
+	folder = Instance.new("Folder")
+	folder.Name = "Flags"
+	folder.Parent = workspace
+	for _, team in Teams:GetTeams() do
+		local base = bases[team.Name]
+		if base then
+			local flag = { Team = team, Base = base, State = "Home" }
+			flag.Model, flag.Label = buildFlag(team)
+			placeAt(flag, homePosition(flag))
+			flags[team.Name] = flag
+			publish(flag)
+		end
+	end
+	active = true
+	heartbeat = RunService.Heartbeat:Connect(step)
+end
+
+-- Quita las banderas (fin de la ronda)
+function Flags.Stop()
+	active = false
+	if heartbeat then
+		heartbeat:Disconnect()
+		heartbeat = nil
+	end
+	for teamName, flag in flags do
+		setCarrier(flag, nil)
+		ReplicatedStorage:SetAttribute("FlagState_" .. teamName, nil)
+		ReplicatedStorage:SetAttribute("FlagCarrier_" .. teamName, nil)
+	end
+	table.clear(flags)
+	if folder then
+		folder:Destroy()
+		folder = nil
+	end
+	for _, player in Players:GetPlayers() do
+		player:SetAttribute("CarryingFlag", false)
+	end
+end
+
+return Flags
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="16">
+          <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
 local Players = game:GetService("Players")
@@ -1183,7 +1586,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="16">
+        <Item class="ModuleScript" referent="17">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Genera un mapa urbano simétrico (estilo arena) con contenedores, edificios y rampas.
@@ -1326,6 +1729,29 @@ local function spawnArea(team, cf)
 	end
 end
 
+-- Base de la bandera: el módulo Flags busca piezas "FlagBase" con el atributo Team.
+-- En un mapa propio basta con poner una pieza llamada FlagBase con Team = "Rojo" / "Azul".
+local function flagBase(team, cf)
+	local ring = block(
+		"FlagBaseRing",
+		Vector3.new(0.3, 13, 13),
+		cf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		team.Color.Color,
+		Enum.Material.Neon
+	)
+	ring.Shape = Enum.PartType.Cylinder
+	local pad = block(
+		"FlagBase",
+		Vector3.new(0.4, 11, 11),
+		cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(235, 235, 240),
+		Enum.Material.Concrete
+	)
+	pad.Shape = Enum.PartType.Cylinder
+	pad:SetAttribute("Team", team.Name)
+	return pad
+end
+
 local function setupLighting()
 	Lighting.ClockTime = 14.5
 	Lighting.Brightness = 3
@@ -1393,6 +1819,8 @@ function MapBuilder.Build()
 	local teams = GameConfig.Teams
 	spawnArea(teams[1], CFrame.new(-LENGTH / 2 + 15, 0, 0))
 	spawnArea(teams[2], MIRROR * CFrame.new(-LENGTH / 2 + 15, 0, 0))
+	flagBase(teams[1], CFrame.new(-118, 0, 12))
+	flagBase(teams[2], MIRROR * CFrame.new(-118, 0, 12))
 
 	-- Mitad simétrica del mapa
 	symmetric(function(m)
@@ -1514,7 +1942,7 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="17">
+        <Item class="ModuleScript" referent="18">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins) guardados con DataStore.
@@ -1839,12 +2267,13 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="18">
+        <Item class="ModuleScript" referent="19">
           <Properties>
             <string name="Name">Round</string>
-            <string name="Source"><![CDATA[-- Equipos, rondas (Team Deathmatch), marcador, rachas y recompensas.
+            <string name="Source"><![CDATA[-- Equipos, rondas, modos de juego (Duelo por equipos / Captura la bandera), marcador, rachas y recompensas.
 -- El estado se publica como atributos de ReplicatedStorage para que la interfaz lo lea:
---   State ("Intermission" | "Playing" | "Ended"), TimeLeft, ScoreToWin, Score_<Equipo>
+--   State ("Intermission" | "Playing" | "Ended"), Mode ("TDM" | "CTF"), ModeName,
+--   TimeLeft, ScoreToWin, Score_<Equipo>
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1855,11 +2284,13 @@ local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = require(script.Parent.PlayerData)
+local Flags = require(script.Parent.Flags)
 
 local Round = {}
 
 local teams = {}
 local roundOver = false
+local modeIndex = 0
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -1884,9 +2315,35 @@ local function setupTeams()
 		table.insert(teams, team)
 		ReplicatedStorage:SetAttribute("Score_" .. cfg.Name, 0)
 	end
-	ReplicatedStorage:SetAttribute("ScoreToWin", GameConfig.ScoreToWin)
 	ReplicatedStorage:SetAttribute("TeamA", teams[1].Name)
 	ReplicatedStorage:SetAttribute("TeamB", teams[2].Name)
+end
+
+local function addScore(team, amount)
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" or not team then
+		return
+	end
+	local score = getScore(team.Name) + amount
+	ReplicatedStorage:SetAttribute("Score_" .. team.Name, score)
+	if score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
+		roundOver = true
+	end
+end
+
+-- Elige el siguiente modo de la rotación (salta CTF si el mapa no tiene bases de bandera)
+local function nextMode()
+	local modes = GameConfig.Modes
+	for _ = 1, #modes do
+		modeIndex = modeIndex % #modes + 1
+		local mode = modes[modeIndex]
+		if GameConfig.ModeSettings[mode] and (mode ~= "CTF" or Flags.IsAvailable()) then
+			return mode
+		end
+		if mode == "CTF" then
+			warn("[Round] El mapa no tiene piezas FlagBase para cada equipo; se salta Captura la bandera")
+		end
+	end
+	return "TDM"
 end
 
 local function smallestTeam(exclude)
@@ -1927,6 +2384,7 @@ local function resetStats()
 		stats.Bajas.Value = 0
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
+		player:SetAttribute("Captures", 0)
 	end
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
@@ -1953,13 +2411,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
 
-			if ReplicatedStorage:GetAttribute("State") == "Playing" and killer.Team then
-				local teamName = killer.Team.Name
-				local score = getScore(teamName) + 1
-				ReplicatedStorage:SetAttribute("Score_" .. teamName, score)
-				if score >= GameConfig.ScoreToWin then
-					roundOver = true
-				end
+			-- En duelo por equipos cada baja es un punto; en CTF solo cuentan las capturas
+			if ReplicatedStorage:GetAttribute("Mode") == "TDM" then
+				addScore(killer.Team, 1)
 			end
 
 			local xp = GameConfig.XP.Kill + GameConfig.XP.StreakBonus * (streak - 1)
@@ -2016,12 +2470,13 @@ local function endRound()
 		winner = b
 	end
 
-	-- MVP = más bajas
-	local mvp, mvpKills = nil, -1
+	-- MVP = más bajas (en CTF cada captura vale como 3 bajas)
+	local mvp, mvpKills, mvpScore = nil, 0, -1
 	for _, player in Players:GetPlayers() do
 		local kills = PlayerData.GetLeaderstats(player).Bajas.Value
-		if kills > mvpKills then
-			mvp, mvpKills = player, kills
+		local score = kills + (player:GetAttribute("Captures") or 0) * 3
+		if score > mvpScore then
+			mvp, mvpKills, mvpScore = player, kills, score
 		end
 	end
 
@@ -2041,13 +2496,20 @@ local function endRound()
 		ScoreA = scoreA,
 		ScoreB = scoreB,
 		MVP = mvp and mvp.Name or nil,
-		MVPKills = math.max(mvpKills, 0),
+		MVPKills = mvpKills,
+		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
 	})
 	task.wait(GameConfig.EndScreenTime)
 end
 
 local function gameLoop()
 	while true do
+		local mode = nextMode()
+		local settings = GameConfig.ModeSettings[mode]
+		ReplicatedStorage:SetAttribute("Mode", mode)
+		ReplicatedStorage:SetAttribute("ModeName", settings.Name)
+		ReplicatedStorage:SetAttribute("ScoreToWin", settings.ScoreToWin)
+
 		setState("Intermission")
 		countdown(GameConfig.IntermissionTime)
 		while #Players:GetPlayers() < GameConfig.MinPlayers do
@@ -2059,11 +2521,19 @@ local function gameLoop()
 		balanceTeams()
 		resetStats()
 		setState("Playing")
+		if mode == "CTF" then
+			Flags.Start()
+		end
 		respawnAll()
-		Remotes.Notify:FireAllClients("Big", "¡A LUCHAR! Primero en llegar a " .. GameConfig.ScoreToWin)
-		countdown(GameConfig.RoundTime, function()
+		if mode == "CTF" then
+			Remotes.Notify:FireAllClients("Big", "¡CAPTURA LA BANDERA! Primero a " .. settings.ScoreToWin)
+		else
+			Remotes.Notify:FireAllClients("Big", "¡A LUCHAR! Primero a " .. settings.ScoreToWin .. " bajas")
+		end
+		countdown(settings.RoundTime, function()
 			return roundOver
 		end)
+		Flags.Stop()
 		endRound()
 	end
 end
@@ -2071,6 +2541,9 @@ end
 function Round.Init()
 	Players.RespawnTime = GameConfig.RespawnTime
 	setupTeams()
+	Flags.OnCapture = function(_, team)
+		addScore(team, 1)
+	end
 	setState("Intermission")
 	ReplicatedStorage:SetAttribute("TimeLeft", GameConfig.IntermissionTime)
 
@@ -2092,21 +2565,21 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="19">
+  <Item class="StarterPlayer" referent="20">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="20">
+    <Item class="StarterPlayerScripts" referent="21">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="21">
+      <Item class="Folder" referent="22">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="22">
+        <Item class="LocalScript" referent="23">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -2138,11 +2611,11 @@ WeaponController.Init()
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="23">
+        <Item class="Folder" referent="24">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="24">
+          <Item class="ModuleScript" referent="25">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -2179,7 +2652,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="25">
+          <Item class="ModuleScript" referent="26">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales: trazadoras, impactos y fogonazos.
@@ -2269,7 +2742,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="26">
+          <Item class="ModuleScript" referent="27">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -2349,6 +2822,25 @@ local function buildTopBar()
 	refs.ScoreB = scoreBox(240, "TeamB")
 	refs.ScoreABox = refs.ScoreA.Parent
 	refs.ScoreBBox = refs.ScoreB.Parent
+
+	-- Estado de las banderas (solo en Captura la bandera), a los lados del marcador
+	refs.FlagA = UI.label({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromOffset(-8, 0),
+		Size = UDim2.fromOffset(150, 44),
+		Text = "",
+		TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = top,
+	})
+	refs.FlagB = UI.label({
+		Position = UDim2.fromOffset(338, 0),
+		Size = UDim2.fromOffset(150, 44),
+		Text = "",
+		TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = top,
+	})
 
 	local timerBox = UI.new("Frame", {
 		Position = UDim2.fromOffset(95, 0),
@@ -2726,6 +3218,18 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 
+	refs.CarrierBanner = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -90),
+		Size = UDim2.fromOffset(700, 34),
+		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
+		TextSize = 28,
+		TextColor3 = Color3.fromRGB(255, 220, 70),
+		TextStrokeTransparency = 0,
+		Visible = false,
+		Parent = gui,
+	})
+
 	refs.Toast = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -50),
@@ -2870,6 +3374,9 @@ local function onNotify(kind, text)
 		popup(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Flag" then
+		timedLabel(refs.Banner, "🚩 " .. text, 3)
+		Sounds.Play("Flag")
 	elseif kind == "Streak" then
 		timedLabel(refs.Banner, "🔥 " .. text, 3)
 	else
@@ -2995,7 +3502,16 @@ local function onRoundEnd(info)
 		info.ScoreB or 0,
 		teamB
 	)
-	refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
+	local mvpText = ""
+	if info.MVP then
+		local captures = info.MVPCaptures or 0
+		mvpText = "⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas"
+		if captures > 0 then
+			mvpText ..= ", " .. captures .. (captures == 1 and " captura" or " capturas")
+		end
+		mvpText ..= ")"
+	end
+	refs.RoundMVP.Text = mvpText
 	refs.RoundEnd.Visible = true
 	task.delay(7, function()
 		refs.RoundEnd.Visible = false
@@ -3088,13 +3604,46 @@ local function updateScoreboard()
 	end
 	local state = ReplicatedStorage:GetAttribute("State")
 	local timeLeft = ReplicatedStorage:GetAttribute("TimeLeft") or 0
+	local modeName = ReplicatedStorage:GetAttribute("ModeName") or "Duelo por equipos"
 	refs.Timer.Text = UI.formatTime(timeLeft)
 	if state == "Intermission" then
-		refs.Mode.Text = "Calentamiento · la partida empieza en " .. timeLeft
+		refs.Mode.Text = "Siguiente: " .. modeName .. " · empieza en " .. timeLeft
 	elseif state == "Ended" then
 		refs.Mode.Text = "Fin de la ronda"
 	else
-		refs.Mode.Text = "Duelo por equipos · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+		refs.Mode.Text = modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+	end
+
+	-- Banderas
+	local function flagStatus(teamName)
+		local flagState = teamName and ReplicatedStorage:GetAttribute("FlagState_" .. teamName)
+		if flagState == "Home" then
+			return "🚩 En base", Color3.fromRGB(150, 255, 150)
+		elseif flagState == "Carried" then
+			local carrier = ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) or ""
+			return "⚠ " .. carrier, Color3.fromRGB(255, 90, 90)
+		elseif flagState == "Dropped" then
+			return "⬇ Caída", Color3.fromRGB(255, 210, 80)
+		end
+		return "", Color3.new(1, 1, 1)
+	end
+	refs.FlagA.Text, refs.FlagA.TextColor3 = flagStatus(teamA)
+	refs.FlagB.Text, refs.FlagB.TextColor3 = flagStatus(teamB)
+
+	-- La bandera que llevamos a la espalda no nos tapa la vista
+	local flagsFolder = workspace:FindFirstChild("Flags")
+	if flagsFolder then
+		for _, model in flagsFolder:GetChildren() do
+			local teamName = string.gsub(model.Name, "^Flag_", "")
+			local mine = ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) == player.Name
+			for _, part in model:GetDescendants() do
+				if part:IsA("BasePart") then
+					part.LocalTransparencyModifier = mine and 1 or 0
+				elseif part:IsA("BillboardGui") then
+					part.Enabled = not mine
+				end
+			end
+		end
 	end
 end
 
@@ -3234,6 +3783,12 @@ function HUD.Init()
 	ReplicatedStorage.AttributeChanged:Connect(updateScoreboard)
 	updateScoreboard()
 
+	local function updateCarrier()
+		refs.CarrierBanner.Visible = player:GetAttribute("CarryingFlag") == true
+	end
+	player:GetAttributeChangedSignal("CarryingFlag"):Connect(updateCarrier)
+	updateCarrier()
+
 	task.spawn(function()
 		while true do
 			updatePlayerRow()
@@ -3248,7 +3803,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="27">
+          <Item class="ModuleScript" referent="28">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú del pase de batalla, skins y elección de arma principal (tecla B).
@@ -3828,7 +4383,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="28">
+          <Item class="ModuleScript" referent="29">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -3938,13 +4493,16 @@ local function update()
 		and not ClientState.Sliding
 		and not ClientState.MenuOpen
 
+	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then
-		humanoid.WalkSpeed = GameConfig.SprintSpeed
+		speed = GameConfig.SprintSpeed
 	elseif ClientState.Aiming then
-		humanoid.WalkSpeed = GameConfig.AimWalkSpeed
-	else
-		humanoid.WalkSpeed = GameConfig.WalkSpeed
+		speed = GameConfig.AimWalkSpeed
 	end
+	if player:GetAttribute("CarryingFlag") then
+		speed *= GameConfig.Flag.CarrierSpeedMultiplier
+	end
+	humanoid.WalkSpeed = speed
 end
 
 local function onCharacter(newCharacter)
@@ -3999,7 +4557,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="29">
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -4093,7 +4651,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="31">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -4766,7 +5324,7 @@ return WeaponController
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="31">
+  <Item class="Teams" referent="32">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>

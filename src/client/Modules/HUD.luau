@@ -76,6 +76,25 @@ local function buildTopBar()
 	refs.ScoreABox = refs.ScoreA.Parent
 	refs.ScoreBBox = refs.ScoreB.Parent
 
+	-- Estado de las banderas (solo en Captura la bandera), a los lados del marcador
+	refs.FlagA = UI.label({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromOffset(-8, 0),
+		Size = UDim2.fromOffset(150, 44),
+		Text = "",
+		TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = top,
+	})
+	refs.FlagB = UI.label({
+		Position = UDim2.fromOffset(338, 0),
+		Size = UDim2.fromOffset(150, 44),
+		Text = "",
+		TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = top,
+	})
+
 	local timerBox = UI.new("Frame", {
 		Position = UDim2.fromOffset(95, 0),
 		Size = UDim2.fromOffset(140, 44),
@@ -452,6 +471,18 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 
+	refs.CarrierBanner = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -90),
+		Size = UDim2.fromOffset(700, 34),
+		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
+		TextSize = 28,
+		TextColor3 = Color3.fromRGB(255, 220, 70),
+		TextStrokeTransparency = 0,
+		Visible = false,
+		Parent = gui,
+	})
+
 	refs.Toast = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -50),
@@ -596,6 +627,9 @@ local function onNotify(kind, text)
 		popup(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Flag" then
+		timedLabel(refs.Banner, "🚩 " .. text, 3)
+		Sounds.Play("Flag")
 	elseif kind == "Streak" then
 		timedLabel(refs.Banner, "🔥 " .. text, 3)
 	else
@@ -721,7 +755,16 @@ local function onRoundEnd(info)
 		info.ScoreB or 0,
 		teamB
 	)
-	refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
+	local mvpText = ""
+	if info.MVP then
+		local captures = info.MVPCaptures or 0
+		mvpText = "⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas"
+		if captures > 0 then
+			mvpText ..= ", " .. captures .. (captures == 1 and " captura" or " capturas")
+		end
+		mvpText ..= ")"
+	end
+	refs.RoundMVP.Text = mvpText
 	refs.RoundEnd.Visible = true
 	task.delay(7, function()
 		refs.RoundEnd.Visible = false
@@ -814,13 +857,46 @@ local function updateScoreboard()
 	end
 	local state = ReplicatedStorage:GetAttribute("State")
 	local timeLeft = ReplicatedStorage:GetAttribute("TimeLeft") or 0
+	local modeName = ReplicatedStorage:GetAttribute("ModeName") or "Duelo por equipos"
 	refs.Timer.Text = UI.formatTime(timeLeft)
 	if state == "Intermission" then
-		refs.Mode.Text = "Calentamiento · la partida empieza en " .. timeLeft
+		refs.Mode.Text = "Siguiente: " .. modeName .. " · empieza en " .. timeLeft
 	elseif state == "Ended" then
 		refs.Mode.Text = "Fin de la ronda"
 	else
-		refs.Mode.Text = "Duelo por equipos · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+		refs.Mode.Text = modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+	end
+
+	-- Banderas
+	local function flagStatus(teamName)
+		local flagState = teamName and ReplicatedStorage:GetAttribute("FlagState_" .. teamName)
+		if flagState == "Home" then
+			return "🚩 En base", Color3.fromRGB(150, 255, 150)
+		elseif flagState == "Carried" then
+			local carrier = ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) or ""
+			return "⚠ " .. carrier, Color3.fromRGB(255, 90, 90)
+		elseif flagState == "Dropped" then
+			return "⬇ Caída", Color3.fromRGB(255, 210, 80)
+		end
+		return "", Color3.new(1, 1, 1)
+	end
+	refs.FlagA.Text, refs.FlagA.TextColor3 = flagStatus(teamA)
+	refs.FlagB.Text, refs.FlagB.TextColor3 = flagStatus(teamB)
+
+	-- La bandera que llevamos a la espalda no nos tapa la vista
+	local flagsFolder = workspace:FindFirstChild("Flags")
+	if flagsFolder then
+		for _, model in flagsFolder:GetChildren() do
+			local teamName = string.gsub(model.Name, "^Flag_", "")
+			local mine = ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) == player.Name
+			for _, part in model:GetDescendants() do
+				if part:IsA("BasePart") then
+					part.LocalTransparencyModifier = mine and 1 or 0
+				elseif part:IsA("BillboardGui") then
+					part.Enabled = not mine
+				end
+			end
+		end
 	end
 end
 
@@ -959,6 +1035,12 @@ function HUD.Init()
 
 	ReplicatedStorage.AttributeChanged:Connect(updateScoreboard)
 	updateScoreboard()
+
+	local function updateCarrier()
+		refs.CarrierBanner.Visible = player:GetAttribute("CarryingFlag") == true
+	end
+	player:GetAttributeChangedSignal("CarryingFlag"):Connect(updateCarrier)
+	updateCarrier()
 
 	task.spawn(function()
 		while true do

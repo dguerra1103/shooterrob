@@ -10,6 +10,7 @@ local Sounds = {
 	Headshot = { Id = "rbxasset://sounds/snap.wav", Volume = 1, Pitch = 2 },
 	Kill = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.8, Pitch = 1 },
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.5, Pitch = 1 },
+	Flag = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 1, Pitch = 0.7 },
 	Slide = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 0.6 },
 }
 
