@@ -60,6 +60,19 @@ function Map.Build()
 		for _, z in { 30, -75 } do
 			Kit.stairs(m * V(-(CANAL_HALF - 3), 0, z), m * V(-(CANAL_HALF - 3), LEDGE_Y, z + 15), 3.6, STONE)
 		end
+		-- Realismo: algas en la línea del agua, mancha de humedad en el muro y bolardos de amarre
+		deco("WaterlineAlgae", V(0.06, 0.7, 220), m * CFrame.new(-(CANAL_HALF - 6) + 0.03, WATER_Y + 0.15, 0), RGB(48, 66, 44), Enum.Material.Slate)
+		deco("WetStain", V(0.06, 1.2, 220), m * CFrame.new(-(CANAL_HALF - 1) + 1.03, LEDGE_Y + 0.6, 0), STONE_DARK:Lerp(RGB(40, 50, 40), 0.35), Enum.Material.Limestone)
+		for z = -100, 100, 20 do
+			local nearBridge = math.abs(z) < 12 or math.abs(math.abs(z) - 80) < 8
+			local nearStairs = (z >= 26 and z <= 50) or (z >= -79 and z <= -56)
+			if not nearBridge and not nearStairs then
+				Kit.cylinder("Bollard", 1.4, 1, m * CFrame.new(-(CANAL_HALF - 1), 0.7, z), RGB(40, 42, 46), Enum.Material.Metal, nil, true)
+				Kit.ball("BollardCap", 1.3, m * CFrame.new(-(CANAL_HALF - 1), 1.45, z), RGB(40, 42, 46), Enum.Material.Metal, true)
+			end
+		end
+		Kit.manhole(m * V(-75, 0, -30))
+		Kit.manhole(m * V(-115, 0, 50))
 	end)
 	block("CanalFloor", V(16, 1, 220), CFrame.new(0, -14, 0), RGB(60, 70, 60), Enum.Material.Mud)
 	workspace.Terrain:FillBlock(CFrame.new(0, (WATER_Y - 14) / 2, 0), V(16, WATER_Y + 14, 222), Enum.Material.Water)

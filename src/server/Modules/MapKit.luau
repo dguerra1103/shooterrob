@@ -199,6 +199,30 @@ end
 -- Piezas
 ---------------------------------------------------------------------------
 
+-- Sombra de contacto (oclusión ambiental falsa): dos láminas oscuras semitransparentes algo más
+-- grandes que la base, para que lo que está en el suelo parezca apoyado y no flotando. Solo a ras
+-- de suelo (encima de otro objeto no hace falta).
+function Kit.contactShadow(cf, sizeX, sizeZ, round, parent)
+	local pos = cf.Position
+	if math.abs(pos.Y) > 0.6 then
+		return
+	end
+	local yaw = cf - pos
+	for i, spec in { { 0.45, 0.7 }, { 1.2, 0.86 } } do
+		local grow = spec[1] * 2
+		local shadow
+		if round then
+			local d = math.max(sizeX, sizeZ) + grow
+			shadow = deco("ContactShadow", V(0.02, d, d), CFrame.new(pos + V(0, 0.012 + i * 0.003, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, parent)
+			shadow.Shape = Enum.PartType.Cylinder
+		else
+			shadow = deco("ContactShadow", V(sizeX + grow, 0.02, sizeZ + grow), CFrame.new(pos + V(0, 0.012 + i * 0.003, 0)) * yaw, Color3.new(0, 0, 0), Enum.Material.SmoothPlastic, parent)
+		end
+		shadow.Transparency = spec[2]
+		shadow.CastShadow = false
+	end
+end
+
 local CARGO_NAMES = { "HYPER CARGO", "NEXO LINE", "FROST CO.", "TURBO SHIP", "BLAZE LOG.", "VOLT MARINE" }
 local cargoIndex = 0
 
@@ -208,6 +232,7 @@ function Kit.container(cf, color, labelText)
 	model.Parent = Kit.folder
 	local size = V(20, 8.5, 8)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
+	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
 	for i = -4, 4 do
 		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
@@ -235,6 +260,7 @@ end
 function Kit.crate(cf, size, color)
 	size = size or 4
 	local core = block("Crate", V(size, size, size), cf * CFrame.new(0, size / 2, 0), color or C.Wood, Enum.Material.WoodPlanks)
+	Kit.contactShadow(cf, size, size)
 	for _, y in { 0.12, 0.88 } do
 		deco("CrateBand", V(size + 0.15, size * 0.12, size + 0.15), cf * CFrame.new(0, size * y, 0), C.WoodDark, Enum.Material.Wood)
 	end
@@ -246,6 +272,7 @@ end
 function Kit.metalCrate(cf, size, color, glow)
 	size = size or 5
 	local core = block("MetalCrate", V(size, size, size), cf * CFrame.new(0, size / 2, 0), color or RGB(70, 75, 90), Enum.Material.DiamondPlate)
+	Kit.contactShadow(cf, size, size)
 	deco("CrateRim", V(size + 0.2, 0.3, size + 0.2), cf * CFrame.new(0, size - 0.15, 0), RGB(40, 42, 50), Enum.Material.Metal)
 	deco("CrateRimB", V(size + 0.2, 0.3, size + 0.2), cf * CFrame.new(0, 0.15, 0), RGB(40, 42, 50), Enum.Material.Metal)
 	if glow then
@@ -256,6 +283,7 @@ end
 
 function Kit.barrel(cf, color)
 	cylinder("Barrel", 3, 2, cf * CFrame.new(0, 1.5, 0), color or RGB(40, 90, 180), Enum.Material.Metal)
+	Kit.contactShadow(cf, 2, 2, true)
 	cylinder("BarrelRing", 0.2, 2.06, cf * CFrame.new(0, 0.8, 0), RGB(40, 40, 45), Enum.Material.Metal, nil, true)
 	cylinder("BarrelRing", 0.2, 2.06, cf * CFrame.new(0, 2.2, 0), RGB(40, 40, 45), Enum.Material.Metal, nil, true)
 end
@@ -268,6 +296,7 @@ end
 
 function Kit.barrier(size, cf)
 	local part = block("Barrier", size, cf * CFrame.new(0, size.Y / 2, 0), RGB(225, 225, 230), Enum.Material.Concrete)
+	Kit.contactShadow(cf, size.X, size.Z)
 	local long = size.X >= size.Z
 	local length = long and size.X or size.Z
 	local count = math.max(2, math.floor(length / 3))
@@ -370,6 +399,7 @@ function Kit.house(cf, size, color, accent, options)
 	local trim = color:Lerp(Color3.new(0, 0, 0), 0.18)
 	block("Walls", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.Plaster, model)
 	deco("Base", V(size.X + 0.4, 1.4, size.Z + 0.4), cf * CFrame.new(0, 0.7, 0), trim, Enum.Material.Limestone, model)
+	Kit.contactShadow(cf, size.X + 0.4, size.Z + 0.4, false, model)
 	deco("Cornice", V(size.X + 0.8, 0.8, size.Z + 0.8), cf * CFrame.new(0, size.Y - 0.4, 0), accent or RGB(200, 70, 50), Enum.Material.Plaster, model)
 	-- Murete de la azotea (cobertura)
 	local h = 2.6

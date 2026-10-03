@@ -137,6 +137,7 @@ local function container(cf, color)
 	model.Parent = mapFolder
 	local size = Vector3.new(20, 8.5, 8)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
+	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
 	for i = -4, 4 do
 		deco("Rib", Vector3.new(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
@@ -148,6 +149,13 @@ local function container(cf, color)
 		deco("LockBar", Vector3.new(0.3, 7.6, 0.25), cf * CFrame.new(10.3, 4.25, z), Color3.fromRGB(200, 200, 205), Enum.Material.Metal, model)
 	end
 	deco("DoorSplit", Vector3.new(0.35, 8, 0.15), cf * CFrame.new(10.3, 4.25, 0), Color3.fromRGB(30, 30, 30), Enum.Material.Metal, model)
+	-- Desgaste: chorretones de óxido bajando desde el techo
+	local rust = color:Lerp(Color3.fromRGB(105, 58, 34), 0.6)
+	for i, x in { -7.7, 3.3, 5.5 } do
+		local side = i % 2 == 0 and 1 or -1
+		local length = 2 + ((cargoIndex + i) % 3) * 1.4
+		deco("RustStreak", Vector3.new(0.9, length, 0.06), cf * CFrame.new(x, 8.45 - length / 2, side * 4.04), rust, Enum.Material.CorrodedMetal, model)
+	end
 	-- Rótulo de la naviera en los dos lados largos
 	cargoIndex = cargoIndex % #CARGO_NAMES + 1
 	local text = CARGO_NAMES[cargoIndex]
@@ -165,6 +173,7 @@ local function crate(cf, size)
 		C.Wood,
 		Enum.Material.WoodPlanks
 	)
+	Kit.contactShadow(cf, size, size)
 	-- Bandas de refuerzo
 	for _, y in { 0.12, 0.88 } do
 		deco(
@@ -181,6 +190,7 @@ end
 -- Barrera tipo "jersey" de hormigón con franjas rojas y blancas
 local function barrier(size, cf)
 	local part = block("Barrier", size, cf * CFrame.new(0, size.Y / 2, 0), Color3.fromRGB(225, 225, 230), Enum.Material.Concrete)
+	Kit.contactShadow(cf, size.X, size.Z)
 	local long = size.X >= size.Z
 	local length = long and size.X or size.Z
 	local count = math.max(2, math.floor(length / 3))
