@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
@@ -94,6 +95,115 @@ local function refreshInfo()
 			WeaponIcon.Create(primary, Menu.SkinFor(data, primary), { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
 		end
 	end
+end
+
+-- Clasificación global (la publica el servidor en atributos como JSON)
+local function buildLeaderboard(parent)
+	local panel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -60, 0, 64),
+		Size = UDim2.fromOffset(330, 282),
+		BackgroundColor3 = Color3.fromRGB(16, 18, 32),
+		BackgroundTransparency = 0.2,
+		Parent = parent,
+	}, { UI.corner(14), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.2) })
+	UI.label({
+		Position = UDim2.fromOffset(14, 6),
+		Size = UDim2.new(1, -28, 0, 30),
+		Text = "🏆 TOP MUNDIAL",
+		TextSize = 24,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(255, 210, 60),
+		Parent = panel,
+	})
+	local list = UI.new("Frame", {
+		Position = UDim2.fromOffset(12, 44),
+		Size = UDim2.new(1, -24, 1, -52),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	}, { UI.new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }) })
+
+	local board = "Kills"
+	local tabButtons = {}
+	local function render()
+		for _, child in list:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		for id, button in tabButtons do
+			button.BackgroundColor3 = id == board and Color3.fromRGB(50, 130, 255) or Color3.fromRGB(45, 48, 70)
+		end
+		local raw = ReplicatedStorage:GetAttribute("Leaderboard_" .. board)
+		local ok, rows = pcall(function()
+			return HttpService:JSONDecode(raw)
+		end)
+		if type(raw) ~= "string" or not ok or type(rows) ~= "table" or #rows == 0 then
+			UI.label({ Size = UDim2.new(1, 0, 0, 60), Text = "Aún no hay datos.\n¡Sé el primero!", TextSize = 18, TextWrapped = true, Parent = list })
+			return
+		end
+		local medals = { "🥇", "🥈", "🥉" }
+		for i, row in rows do
+			local me = row.UserId == player.UserId
+			local line = UI.new("Frame", {
+				LayoutOrder = i,
+				Size = UDim2.new(1, 0, 0, 21),
+				BackgroundColor3 = me and Color3.fromRGB(120, 90, 20) or Color3.fromRGB(30, 32, 50),
+				BackgroundTransparency = me and 0.1 or 0.5,
+				Parent = list,
+			}, { UI.corner(6) })
+			UI.label({
+				Position = UDim2.fromOffset(6, 0),
+				Size = UDim2.fromOffset(34, 21),
+				Text = medals[i] or ("#" .. tostring(row.Rank or i)),
+				TextSize = 16,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = line,
+			})
+			UI.label({
+				Position = UDim2.fromOffset(42, 0),
+				Size = UDim2.new(1, -120, 1, 0),
+				Text = tostring(row.Name or "?"),
+				TextSize = 16,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				TextColor3 = me and Color3.fromRGB(255, 230, 120) or Color3.new(1, 1, 1),
+				Parent = line,
+			})
+			UI.label({
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -8, 0, 0),
+				Size = UDim2.fromOffset(80, 21),
+				Text = tostring(row.Value or 0),
+				TextSize = 16,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				TextColor3 = Color3.fromRGB(255, 210, 60),
+				Parent = line,
+			})
+		end
+	end
+	for i, info in { { "Kills", "Bajas" }, { "Wins", "Victorias" } } do
+		local button = UI.button({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -12 - (2 - i) * 84, 0, 9),
+			Size = UDim2.fromOffset(80, 26),
+			Text = info[2],
+			TextSize = 14,
+			Parent = panel,
+		})
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			board = info[1]
+			render()
+		end)
+		tabButtons[info[1]] = button
+	end
+	render()
+	ReplicatedStorage.AttributeChanged:Connect(function(name)
+		if name == "Leaderboard_" .. board then
+			render()
+		end
+	end)
 end
 
 local function play()
@@ -202,7 +312,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "CAPTURA LA BANDERA  ·  DUELO POR EQUIPOS",
+		Text = "5 MODOS  ·  14 ARMAS  ·  RETOS DIARIOS",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -266,7 +376,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 150),
 		Size = UDim2.new(1, 0, 0, 22),
-		Text = "Clic izq. disparar · Clic der. apuntar · Shift correr · C deslizar · B pase",
+		Text = "Clic izq. disparar · Clic der. apuntar · Shift correr · C deslizar · G granada · B menú",
 		TextSize = 16,
 		TextColor3 = Color3.fromRGB(190, 195, 215),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -276,11 +386,13 @@ function MainMenu.Init()
 	-- Escaparate del arma a la derecha (fuera del CanvasGroup para que el 3D se dibuje siempre)
 	showcase = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -60, 0.55, 0),
-		Size = UDim2.fromOffset(480, 300),
+		Position = UDim2.new(1, -60, 0.74, 0),
+		Size = UDim2.fromOffset(440, 260),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
+
+	buildLeaderboard(root)
 
 	-- Desenfoque del fondo
 	blur = Instance.new("BlurEffect")

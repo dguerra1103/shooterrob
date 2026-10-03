@@ -16,6 +16,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Maestría de armas** | Cada arma cuenta sus bajas y desbloquea camuflajes exclusivos para ella: **Carbono** (25), **Oro** (75), **Diamante** (150) y **Materia oscura** (300), más monedas. El camuflaje se equipa solo al ganarlo y se puede cambiar en la pestaña **Armas**. No se venden ni salen en cajas. |
 | **Granadas** | Tecla **G**: granada de fragmentación que rebota y explota a los 2 s (daño en área). Una por jugador, se recarga en 15 s y vuelve al reaparecer. No hay en Escalada de armas. |
 | **Efectos de eliminación** | Lo que ven todos cuando eliminas a alguien: Confeti, Amor, Llamarada, Congelado, Fantasma, Calavera, Rayo, Lluvia de monedas y Agujero negro. Se compran con monedas en la pestaña **Efectos** (con botón para verlos antes). |
+| **Clasificación global** | Top 10 mundial de bajas y de victorias (todos los servidores) en la pantalla de inicio. Se actualiza cada 90 s; tu fila se resalta si estás dentro. |
 | **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue y Golden Ace. Se ven en la partida sobre tu avatar. |
 | **Disparo** | Viewmodel con brazos, retroceso, balanceo, apuntado (clic derecho), mira telescópica, recarga, trazadoras, fogonazo, hitmarkers, números de daño, disparos a la cabeza y cohetes con explosión. |
 | **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
@@ -184,6 +185,7 @@ src/
 │       ├── Hardpoint.luau   Zona de control
 │       ├── Hazards.luau     lava
 │       ├── Grenades.luau    granadas
+│       ├── Leaderboard.luau clasificación global
 │       └── Dummies.luau     muñecos de práctica
 └── client/                 → StarterPlayerScripts.Client
     ├── Main.client.luau     arranque
