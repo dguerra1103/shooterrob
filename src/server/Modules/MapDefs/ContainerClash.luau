@@ -21,6 +21,8 @@ Map.Lighting = {
 	Clouds = 0.5,
 	CloudColor = Color3.fromRGB(255, 200, 170),
 	SunRays = 0.12,
+	SunSize = 30, -- sol grande de atardecer
+	Water = { Color = Color3.fromRGB(25, 70, 105), Reflectance = 1, Transparency = 0.3, WaveSize = 0.2, WaveSpeed = 9 },
 }
 
 local V = Vector3.new

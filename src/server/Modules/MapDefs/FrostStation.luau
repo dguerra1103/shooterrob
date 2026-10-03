@@ -23,6 +23,11 @@ Map.Lighting = {
 	Clouds = 0.8,
 	CloudColor = Color3.fromRGB(228, 234, 245),
 	SunRays = 0.12,
+	TerrainColors = {
+		Snow = Color3.fromRGB(232, 238, 248),
+		Glacier = Color3.fromRGB(150, 200, 235),
+		Rock = Color3.fromRGB(95, 105, 120),
+	},
 }
 
 local V = Vector3.new

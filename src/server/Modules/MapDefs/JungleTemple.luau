@@ -21,6 +21,14 @@ Map.Lighting = {
 	Bloom = { Intensity = 0.8, Size = 24, Threshold = 1.6 },
 	Clouds = 0.6,
 	SunRays = 0.18,
+	Water = { Color = Color3.fromRGB(40, 115, 95), Reflectance = 0.6, Transparency = 0.55, WaveSize = 0.05, WaveSpeed = 6 },
+	TerrainColors = {
+		Grass = Color3.fromRGB(88, 140, 58),
+		LeafyGrass = Color3.fromRGB(70, 125, 50),
+		Mud = Color3.fromRGB(105, 80, 52),
+		Ground = Color3.fromRGB(110, 92, 62),
+		Rock = Color3.fromRGB(120, 116, 100),
+	},
 }
 
 local V = Vector3.new
@@ -32,7 +40,6 @@ local STONE_DARK = RGB(110, 108, 92)
 local MOSS = RGB(95, 130, 70)
 local JADE = RGB(40, 255, 140)
 local GRASS = RGB(85, 135, 60)
-local MUD = RGB(120, 92, 60)
 
 -- Árbol de la selva: tronco alto y copa de varias bolas de hojas
 local function jungleTree(position, scale)
@@ -75,12 +82,19 @@ function Map.Build()
 	local block, deco = Kit.block, Kit.deco
 	local teams = GameConfig.Teams
 
-	-- Suelo de hierba con caminos de barro
-	block("Floor", V(340, 2, 240), CFrame.new(0, -1, 0), GRASS, Enum.Material.Grass)
+	-- Suelo de terreno con hierba 3D animada y caminos de barro (sin hierba)
+	Kit.terrainFloor(Enum.Material.Grass, 340, 240)
 	for _, z in { -60, 60 } do
-		deco("MudPath", V(260, 0.05, 7), CFrame.new(0, 0.03, z), MUD, Enum.Material.Ground)
+		Kit.terrainPatch(CFrame.new(0, 0, z), V(260, 4, 8), Enum.Material.Mud)
 	end
-	deco("MudPath", V(260, 0.05, 6), CFrame.new(0, 0.03, 0), MUD, Enum.Material.Ground)
+	Kit.terrainPatch(CFrame.new(0, 0, 0), V(260, 4, 8), Enum.Material.Mud)
+	-- Tierra bajo las bases, salones y plataformas (para que la hierba no atraviese los suelos)
+	for _, cf in { CFrame.new(-145, 0, 0), Kit.MIRROR * CFrame.new(-145, 0, 0) } do
+		Kit.terrainPatch(cf, V(36, 4, 76), Enum.Material.Ground)
+	end
+	for _, cf in { CFrame.new(-112, 0, 10), Kit.MIRROR * CFrame.new(-112, 0, 10) } do
+		Kit.terrainPatch(cf, V(20, 4, 20), Enum.Material.Ground)
+	end
 
 	-- Foso de agua alrededor de la pirámide (poco profundo) y puentes de piedra
 	workspace.Terrain:FillCylinder(CFrame.new(0, 0.6, 0), 1.2, 31, Enum.Material.Water)
@@ -116,6 +130,7 @@ function Map.Build()
 
 		-- Salón de columnas en ruinas
 		local hall = m * CFrame.new(-78, 0, -55)
+		Kit.terrainPatch(hall, V(32, 4, 24), Enum.Material.Ground)
 		block("HallFloor", V(28, 1, 20), hall * CFrame.new(0, 0.5, 0), STONE, Enum.Material.Cobblestone)
 		for i, x in { -12, -4, 4, 12 } do
 			for _, z in { -8, 8 } do

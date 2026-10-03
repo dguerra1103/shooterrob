@@ -4788,6 +4788,8 @@ Map.Lighting = {
 	Clouds = 0.5,
 	CloudColor = Color3.fromRGB(255, 200, 170),
 	SunRays = 0.12,
+	SunSize = 30, -- sol grande de atardecer
+	Water = { Color = Color3.fromRGB(25, 70, 105), Reflectance = 1, Transparency = 0.3, WaveSize = 0.2, WaveSpeed = 9 },
 }
 
 local V = Vector3.new
@@ -5688,6 +5690,11 @@ Map.Lighting = {
 	Clouds = 0.8,
 	CloudColor = Color3.fromRGB(228, 234, 245),
 	SunRays = 0.12,
+	TerrainColors = {
+		Snow = Color3.fromRGB(232, 238, 248),
+		Glacier = Color3.fromRGB(150, 200, 235),
+		Rock = Color3.fromRGB(95, 105, 120),
+	},
 }
 
 local V = Vector3.new
@@ -5966,6 +5973,8 @@ Map.Lighting = {
 	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(255, 248, 238) },
 	Clouds = 0.6,
 	SunRays = 0.08,
+	-- Agua de puerto: verde azulada, con reflejos y oleaje suave
+	Water = { Color = Color3.fromRGB(20, 110, 135), Reflectance = 0.8, Transparency = 0.45, WaveSize = 0.12, WaveSpeed = 8 },
 }
 
 local V = Vector3.new
@@ -6219,6 +6228,14 @@ Map.Lighting = {
 	Bloom = { Intensity = 0.8, Size = 24, Threshold = 1.6 },
 	Clouds = 0.6,
 	SunRays = 0.18,
+	Water = { Color = Color3.fromRGB(40, 115, 95), Reflectance = 0.6, Transparency = 0.55, WaveSize = 0.05, WaveSpeed = 6 },
+	TerrainColors = {
+		Grass = Color3.fromRGB(88, 140, 58),
+		LeafyGrass = Color3.fromRGB(70, 125, 50),
+		Mud = Color3.fromRGB(105, 80, 52),
+		Ground = Color3.fromRGB(110, 92, 62),
+		Rock = Color3.fromRGB(120, 116, 100),
+	},
 }
 
 local V = Vector3.new
@@ -6230,7 +6247,6 @@ local STONE_DARK = RGB(110, 108, 92)
 local MOSS = RGB(95, 130, 70)
 local JADE = RGB(40, 255, 140)
 local GRASS = RGB(85, 135, 60)
-local MUD = RGB(120, 92, 60)
 
 -- Árbol de la selva: tronco alto y copa de varias bolas de hojas
 local function jungleTree(position, scale)
@@ -6273,12 +6289,19 @@ function Map.Build()
 	local block, deco = Kit.block, Kit.deco
 	local teams = GameConfig.Teams
 
-	-- Suelo de hierba con caminos de barro
-	block("Floor", V(340, 2, 240), CFrame.new(0, -1, 0), GRASS, Enum.Material.Grass)
+	-- Suelo de terreno con hierba 3D animada y caminos de barro (sin hierba)
+	Kit.terrainFloor(Enum.Material.Grass, 340, 240)
 	for _, z in { -60, 60 } do
-		deco("MudPath", V(260, 0.05, 7), CFrame.new(0, 0.03, z), MUD, Enum.Material.Ground)
+		Kit.terrainPatch(CFrame.new(0, 0, z), V(260, 4, 8), Enum.Material.Mud)
 	end
-	deco("MudPath", V(260, 0.05, 6), CFrame.new(0, 0.03, 0), MUD, Enum.Material.Ground)
+	Kit.terrainPatch(CFrame.new(0, 0, 0), V(260, 4, 8), Enum.Material.Mud)
+	-- Tierra bajo las bases, salones y plataformas (para que la hierba no atraviese los suelos)
+	for _, cf in { CFrame.new(-145, 0, 0), Kit.MIRROR * CFrame.new(-145, 0, 0) } do
+		Kit.terrainPatch(cf, V(36, 4, 76), Enum.Material.Ground)
+	end
+	for _, cf in { CFrame.new(-112, 0, 10), Kit.MIRROR * CFrame.new(-112, 0, 10) } do
+		Kit.terrainPatch(cf, V(20, 4, 20), Enum.Material.Ground)
+	end
 
 	-- Foso de agua alrededor de la pirámide (poco profundo) y puentes de piedra
 	workspace.Terrain:FillCylinder(CFrame.new(0, 0.6, 0), 1.2, 31, Enum.Material.Water)
@@ -6314,6 +6337,7 @@ function Map.Build()
 
 		-- Salón de columnas en ruinas
 		local hall = m * CFrame.new(-78, 0, -55)
+		Kit.terrainPatch(hall, V(32, 4, 24), Enum.Material.Ground)
 		block("HallFloor", V(28, 1, 20), hall * CFrame.new(0, 0.5, 0), STONE, Enum.Material.Cobblestone)
 		for i, x in { -12, -4, 4, 12 } do
 			for _, z in { -8, 8 } do
@@ -6494,6 +6518,8 @@ Map.Lighting = {
 	Clouds = 0.35,
 	CloudColor = Color3.fromRGB(80, 60, 110),
 	SunRays = 0,
+	Stars = 5000, -- cielo nocturno estrellado
+	MoonSize = 16,
 }
 
 local V = Vector3.new
@@ -7332,6 +7358,19 @@ end
 -- Iluminación por mapa
 ---------------------------------------------------------------------------
 
+-- Colores por defecto de los materiales del terreno (se restauran al cambiar de mapa)
+local TERRAIN_DEFAULTS = {
+	Grass = RGB(106, 127, 63),
+	LeafyGrass = RGB(115, 132, 74),
+	Mud = RGB(58, 46, 36),
+	Ground = RGB(102, 92, 59),
+	Snow = RGB(195, 199, 218),
+	Glacier = RGB(101, 176, 234),
+	Rock = RGB(102, 108, 111),
+	Sand = RGB(143, 126, 95),
+	Slate = RGB(63, 127, 107),
+}
+
 local function ensure(className, parent)
 	parent = parent or Lighting
 	local inst = parent:FindFirstChildOfClass(className)
@@ -7380,12 +7419,44 @@ function Kit.applyLighting(preset)
 	rays.Intensity = preset.SunRays or 0.06
 	rays.Spread = 0.6
 
-	ensure("Sky")
+	local sky = ensure("Sky")
+	sky.StarCount = preset.Stars or 3000
+	sky.SunAngularSize = preset.SunSize or 21
+	sky.MoonAngularSize = preset.MoonSize or 11
+	sky.CelestialBodiesShown = true
 
 	local clouds = ensure("Clouds", workspace.Terrain)
 	clouds.Cover = preset.Clouds or 0.55
 	clouds.Density = 0.6
 	clouds.Color = preset.CloudColor or RGB(255, 255, 255)
+
+	-- Agua del terreno: color, reflejo, transparencia y olas de cada mapa
+	local w = preset.Water or {}
+	local terrain = workspace.Terrain
+	terrain.WaterColor = w.Color or RGB(12, 84, 92)
+	terrain.WaterReflectance = w.Reflectance or 1
+	terrain.WaterTransparency = w.Transparency or 0.3
+	terrain.WaterWaveSize = w.WaveSize or 0.15
+	terrain.WaterWaveSpeed = w.WaveSpeed or 10
+
+	-- Colores de los materiales del terreno (hierba, nieve, roca...) según el mapa
+	for name, color in TERRAIN_DEFAULTS do
+		local custom = preset.TerrainColors and preset.TerrainColors[name]
+		pcall(function()
+			terrain:SetMaterialColor(Enum.Material[name], custom or color)
+		end)
+	end
+end
+
+-- Suelo de terreno (en vez de una pieza): con Grass sale hierba 3D animada (Terrain.Decoration,
+-- activada en default.project.json). La superficie queda exactamente en y = 0.
+function Kit.terrainFloor(material, length, width)
+	workspace.Terrain:FillBlock(CFrame.new(0, -2, 0), V(length, 4, width), material)
+end
+
+-- Cambia el material del terreno del suelo en una zona (caminos de barro, suelo bajo edificios...)
+function Kit.terrainPatch(cf, size, material)
+	workspace.Terrain:FillBlock(cf * CFrame.new(0, -2, 0), V(size.X, 4, size.Z), material)
 end
 
 -- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain)
@@ -14979,5 +15050,11 @@ return WorldFX
       <bool name="NeedsPivotMigration">false</bool>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
+    <Item class="Terrain" referent="60">
+      <Properties>
+        <string name="Name">Terrain</string>
+        <bool name="Decoration">true</bool>
+      </Properties>
+    </Item>
   </Item>
 </roblox>

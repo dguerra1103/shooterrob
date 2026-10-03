@@ -21,6 +21,8 @@ Map.Lighting = {
 	Clouds = 0.35,
 	CloudColor = Color3.fromRGB(80, 60, 110),
 	SunRays = 0,
+	Stars = 5000, -- cielo nocturno estrellado
+	MoonSize = 16,
 }
 
 local V = Vector3.new

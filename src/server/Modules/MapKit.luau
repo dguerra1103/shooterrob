@@ -649,6 +649,19 @@ end
 -- Iluminación por mapa
 ---------------------------------------------------------------------------
 
+-- Colores por defecto de los materiales del terreno (se restauran al cambiar de mapa)
+local TERRAIN_DEFAULTS = {
+	Grass = RGB(106, 127, 63),
+	LeafyGrass = RGB(115, 132, 74),
+	Mud = RGB(58, 46, 36),
+	Ground = RGB(102, 92, 59),
+	Snow = RGB(195, 199, 218),
+	Glacier = RGB(101, 176, 234),
+	Rock = RGB(102, 108, 111),
+	Sand = RGB(143, 126, 95),
+	Slate = RGB(63, 127, 107),
+}
+
 local function ensure(className, parent)
 	parent = parent or Lighting
 	local inst = parent:FindFirstChildOfClass(className)
@@ -697,12 +710,44 @@ function Kit.applyLighting(preset)
 	rays.Intensity = preset.SunRays or 0.06
 	rays.Spread = 0.6
 
-	ensure("Sky")
+	local sky = ensure("Sky")
+	sky.StarCount = preset.Stars or 3000
+	sky.SunAngularSize = preset.SunSize or 21
+	sky.MoonAngularSize = preset.MoonSize or 11
+	sky.CelestialBodiesShown = true
 
 	local clouds = ensure("Clouds", workspace.Terrain)
 	clouds.Cover = preset.Clouds or 0.55
 	clouds.Density = 0.6
 	clouds.Color = preset.CloudColor or RGB(255, 255, 255)
+
+	-- Agua del terreno: color, reflejo, transparencia y olas de cada mapa
+	local w = preset.Water or {}
+	local terrain = workspace.Terrain
+	terrain.WaterColor = w.Color or RGB(12, 84, 92)
+	terrain.WaterReflectance = w.Reflectance or 1
+	terrain.WaterTransparency = w.Transparency or 0.3
+	terrain.WaterWaveSize = w.WaveSize or 0.15
+	terrain.WaterWaveSpeed = w.WaveSpeed or 10
+
+	-- Colores de los materiales del terreno (hierba, nieve, roca...) según el mapa
+	for name, color in TERRAIN_DEFAULTS do
+		local custom = preset.TerrainColors and preset.TerrainColors[name]
+		pcall(function()
+			terrain:SetMaterialColor(Enum.Material[name], custom or color)
+		end)
+	end
+end
+
+-- Suelo de terreno (en vez de una pieza): con Grass sale hierba 3D animada (Terrain.Decoration,
+-- activada en default.project.json). La superficie queda exactamente en y = 0.
+function Kit.terrainFloor(material, length, width)
+	workspace.Terrain:FillBlock(CFrame.new(0, -2, 0), V(length, 4, width), material)
+end
+
+-- Cambia el material del terreno del suelo en una zona (caminos de barro, suelo bajo edificios...)
+function Kit.terrainPatch(cf, size, material)
+	workspace.Terrain:FillBlock(cf * CFrame.new(0, -2, 0), V(size.X, 4, size.Z), material)
 end
 
 -- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain)

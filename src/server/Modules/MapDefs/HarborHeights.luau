@@ -19,6 +19,8 @@ Map.Lighting = {
 	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(255, 248, 238) },
 	Clouds = 0.6,
 	SunRays = 0.08,
+	-- Agua de puerto: verde azulada, con reflejos y oleaje suave
+	Water = { Color = Color3.fromRGB(20, 110, 135), Reflectance = 0.8, Transparency = 0.45, WaveSize = 0.12, WaveSpeed = 8 },
 }
 
 local V = Vector3.new
