@@ -1,0 +1,35 @@
+{
+  "name": "ShooterRob",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$properties": {
+        "CameraMode": "LockFirstPerson",
+        "CharacterWalkSpeed": 18
+      },
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Teams": {
+      "$className": "Teams"
+    },
+    "Players": {
+      "$properties": {
+        "RespawnTime": 3
+      }
+    }
+  }
+}

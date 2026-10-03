@@ -1,0 +1,26 @@
+-- Punto de entrada del cliente.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+
+local Modules = script.Parent:WaitForChild("Modules")
+local ClientState = require(Modules.ClientState)
+local WeaponController = require(Modules.WeaponController)
+local Movement = require(Modules.Movement)
+local HUD = require(Modules.HUD)
+local Menu = require(Modules.Menu)
+
+Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
+task.spawn(function()
+	local ok, data = pcall(function()
+		return Remotes.GetData:InvokeServer()
+	end)
+	if ok and data and not ClientState.Data then
+		ClientState.SetData(data)
+	end
+end)
+
+HUD.Init()
+Menu.Init()
+Movement.Init()
+WeaponController.Init()

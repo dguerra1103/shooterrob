@@ -1,0 +1,4774 @@
+<roblox version="4">
+  <Item class="Players" referent="0">
+    <Properties>
+      <string name="Name">Players</string>
+      <float name="RespawnTime">3</float>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">Shared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
+          <string name="Name">GameConfig</string>
+          <string name="Source"><![CDATA[-- Configuración general del juego. Cambia aquí los valores para ajustar el balance.
+local GameConfig = {}
+
+-- Equipos
+GameConfig.Teams = {
+	{ Name = "Rojo", Color = BrickColor.new("Really red") },
+	{ Name = "Azul", Color = BrickColor.new("Really blue") },
+}
+
+-- Rondas (Team Deathmatch: gana el primer equipo en llegar a ScoreToWin bajas)
+GameConfig.MinPlayers = 1 -- súbelo a 2+ cuando publiques el juego
+GameConfig.IntermissionTime = 15
+GameConfig.RoundTime = 8 * 60
+GameConfig.ScoreToWin = 40
+GameConfig.EndScreenTime = 8
+GameConfig.RespawnTime = 3
+GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
+GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
+
+-- Movimiento
+GameConfig.WalkSpeed = 18
+GameConfig.SprintSpeed = 26
+GameConfig.AimWalkSpeed = 11
+GameConfig.SlideSpeed = 58
+GameConfig.SlideDuration = 0.75
+GameConfig.SlideCooldown = 1.1
+GameConfig.FieldOfView = 80
+
+-- Progresión (pase de batalla)
+GameConfig.XPPerLevel = 1000
+GameConfig.XP = {
+	Kill = 100,
+	Headshot = 25,
+	StreakBonus = 20, -- extra por cada baja de racha
+	Win = 500,
+	Loss = 150,
+}
+GameConfig.Coins = {
+	Kill = 5,
+	Win = 50,
+}
+
+-- ID del GamePass del pase premium. Créalo en el Creator Hub y pon el número aquí.
+-- Con 0 el botón de compra queda desactivado.
+GameConfig.PremiumPassId = 0
+
+-- Recompensas por nivel. Free = pase gratis, Premium = pase de pago.
+-- Tipos: { Type = "Skin", Id = "<id de Skins>" } o { Type = "Coins", Amount = n }
+GameConfig.BattlePass = {
+	{ Free = { Type = "Coins", Amount = 50 }, Premium = { Type = "Skin", Id = "Sakura" } },
+	{ Free = { Type = "Skin", Id = "Toxico" }, Premium = { Type = "Coins", Amount = 150 } },
+	{ Free = { Type = "Coins", Amount = 75 }, Premium = { Type = "Skin", Id = "Hielo" } },
+	{ Free = nil, Premium = { Type = "Coins", Amount = 200 } },
+	{ Free = { Type = "Skin", Id = "Selva" }, Premium = { Type = "Skin", Id = "Calabaza" } },
+	{ Free = { Type = "Coins", Amount = 100 }, Premium = { Type = "Coins", Amount = 250 } },
+	{ Free = nil, Premium = { Type = "Skin", Id = "Vacio" } },
+	{ Free = { Type = "Coins", Amount = 125 }, Premium = { Type = "Coins", Amount = 300 } },
+	{ Free = { Type = "Skin", Id = "Oceano" }, Premium = { Type = "Skin", Id = "Dorado" } },
+	{ Free = { Type = "Coins", Amount = 150 }, Premium = { Type = "Coins", Amount = 400 } },
+	{ Free = nil, Premium = { Type = "Skin", Id = "Galaxia" } },
+	{ Free = { Type = "Coins", Amount = 200 }, Premium = { Type = "Coins", Amount = 500 } },
+	{ Free = { Type = "Skin", Id = "Atardecer" }, Premium = { Type = "Skin", Id = "Dragon" } },
+	{ Free = { Type = "Coins", Amount = 250 }, Premium = { Type = "Coins", Amount = 750 } },
+	{ Free = { Type = "Coins", Amount = 500 }, Premium = { Type = "Skin", Id = "Magma" } },
+}
+
+return GameConfig
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
+          <string name="Name">Remotes</string>
+          <string name="Source"><![CDATA[-- Crea (servidor) o espera (cliente) todos los RemoteEvents/RemoteFunctions del juego.
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local EVENTS = {
+	"Fire", -- cliente -> servidor: disparo
+	"Reload", -- cliente -> servidor: recargar
+	"Melee", -- cliente -> servidor: cuchillazo
+	"EquipSkin", -- cliente -> servidor: equipar skin
+	"SetPrimary", -- cliente -> servidor: elegir arma principal
+	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
+	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
+	"KillFeed", -- servidor -> clientes: registro de bajas
+	"Notify", -- servidor -> cliente(s): mensajes en pantalla
+	"DataUpdate", -- servidor -> cliente: datos de progreso
+	"Died", -- servidor -> cliente: quién te eliminó
+	"RoundEnd", -- servidor -> clientes: resultado de la ronda
+}
+local FUNCTIONS = {
+	"GetData",
+}
+
+local Remotes = {}
+
+if RunService:IsServer() then
+	local folder = ReplicatedStorage:FindFirstChild("Remotes")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Remotes"
+		folder.Parent = ReplicatedStorage
+	end
+	for _, name in EVENTS do
+		local remote = folder:FindFirstChild(name) or Instance.new("RemoteEvent")
+		remote.Name = name
+		remote.Parent = folder
+		Remotes[name] = remote
+	end
+	for _, name in FUNCTIONS do
+		local remote = folder:FindFirstChild(name) or Instance.new("RemoteFunction")
+		remote.Name = name
+		remote.Parent = folder
+		Remotes[name] = remote
+	end
+else
+	local folder = ReplicatedStorage:WaitForChild("Remotes")
+	for _, name in EVENTS do
+		Remotes[name] = folder:WaitForChild(name)
+	end
+	for _, name in FUNCTIONS do
+		Remotes[name] = folder:WaitForChild(name)
+	end
+end
+
+return Remotes
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="5">
+        <Properties>
+          <string name="Name">Skins</string>
+          <string name="Source"><![CDATA[-- Skins de armas. Cada skin pinta las piezas del arma según su "Role":
+--   Body   = cuerpo principal
+--   Accent = detalles brillantes (neón)
+--   Dark   = cañón, cargador, mira
+local Skins = {}
+
+Skins.List = {
+	Default = {
+		Name = "Estándar",
+		Rarity = "Común",
+		Body = Color3.fromRGB(70, 74, 82),
+		BodyMaterial = Enum.Material.Metal,
+		Accent = Color3.fromRGB(0, 200, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(30, 30, 34),
+	},
+	Toxico = {
+		Name = "Tóxico",
+		Rarity = "Raro",
+		Body = Color3.fromRGB(40, 48, 40),
+		BodyMaterial = Enum.Material.SmoothPlastic,
+		Accent = Color3.fromRGB(110, 255, 60),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(20, 26, 20),
+	},
+	Selva = {
+		Name = "Selva",
+		Rarity = "Raro",
+		Body = Color3.fromRGB(86, 110, 60),
+		BodyMaterial = Enum.Material.Fabric,
+		Accent = Color3.fromRGB(196, 160, 90),
+		AccentMaterial = Enum.Material.SmoothPlastic,
+		Dark = Color3.fromRGB(50, 40, 30),
+	},
+	Oceano = {
+		Name = "Océano",
+		Rarity = "Épico",
+		Body = Color3.fromRGB(20, 60, 120),
+		BodyMaterial = Enum.Material.Glass,
+		Accent = Color3.fromRGB(80, 220, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(10, 25, 50),
+	},
+	Atardecer = {
+		Name = "Atardecer",
+		Rarity = "Épico",
+		Body = Color3.fromRGB(255, 140, 80),
+		BodyMaterial = Enum.Material.SmoothPlastic,
+		Accent = Color3.fromRGB(255, 60, 140),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(70, 20, 60),
+	},
+	Sakura = {
+		Name = "Sakura",
+		Rarity = "Épico",
+		Body = Color3.fromRGB(255, 170, 215),
+		BodyMaterial = Enum.Material.SmoothPlastic,
+		Accent = Color3.fromRGB(255, 80, 200),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(120, 40, 110),
+	},
+	Hielo = {
+		Name = "Hielo",
+		Rarity = "Épico",
+		Body = Color3.fromRGB(200, 235, 255),
+		BodyMaterial = Enum.Material.Ice,
+		Accent = Color3.fromRGB(120, 200, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(60, 90, 120),
+	},
+	Calabaza = {
+		Name = "Calabaza",
+		Rarity = "Legendario",
+		Body = Color3.fromRGB(255, 120, 20),
+		BodyMaterial = Enum.Material.SmoothPlastic,
+		Accent = Color3.fromRGB(255, 220, 40),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(30, 20, 10),
+	},
+	Vacio = {
+		Name = "Vacío",
+		Rarity = "Legendario",
+		Body = Color3.fromRGB(15, 15, 18),
+		BodyMaterial = Enum.Material.SmoothPlastic,
+		Accent = Color3.fromRGB(255, 20, 40),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(40, 0, 5),
+	},
+	Dorado = {
+		Name = "Dorado",
+		Rarity = "Legendario",
+		Body = Color3.fromRGB(255, 200, 60),
+		BodyMaterial = Enum.Material.Foil,
+		Accent = Color3.fromRGB(255, 255, 200),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(110, 80, 20),
+	},
+	Galaxia = {
+		Name = "Galaxia",
+		Rarity = "Mítico",
+		Body = Color3.fromRGB(120, 60, 255),
+		BodyMaterial = Enum.Material.ForceField,
+		Accent = Color3.fromRGB(255, 120, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(25, 10, 60),
+	},
+	Dragon = {
+		Name = "Dragón",
+		Rarity = "Mítico",
+		Body = Color3.fromRGB(150, 20, 20),
+		BodyMaterial = Enum.Material.Slate,
+		Accent = Color3.fromRGB(255, 170, 0),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(40, 5, 5),
+	},
+	Magma = {
+		Name = "Magma",
+		Rarity = "Mítico",
+		Body = Color3.fromRGB(40, 20, 15),
+		BodyMaterial = Enum.Material.Basalt,
+		Accent = Color3.fromRGB(255, 90, 0),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(255, 50, 0),
+	},
+}
+
+Skins.RarityColors = {
+	["Común"] = Color3.fromRGB(180, 180, 180),
+	["Raro"] = Color3.fromRGB(70, 160, 255),
+	["Épico"] = Color3.fromRGB(190, 80, 255),
+	["Legendario"] = Color3.fromRGB(255, 180, 30),
+	["Mítico"] = Color3.fromRGB(255, 60, 90),
+}
+
+function Skins.Get(id)
+	return Skins.List[id] or Skins.List.Default
+end
+
+return Skins
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="6">
+        <Properties>
+          <string name="Name">Sounds</string>
+          <string name="Source"><![CDATA[-- Sonidos del juego. Los "rbxasset://" vienen incluidos con Roblox y funcionan sin subir nada.
+-- Para mejores sonidos busca en el Creator Store (Toolbox > Audio) y pega aquí "rbxassetid://<id>".
+local Sounds = {
+	Shot = { Id = "rbxasset://sounds/paintball.wav", Volume = 0.7, Pitch = 1.3 },
+	ShotHeavy = { Id = "rbxasset://sounds/Rocket shot.wav", Volume = 0.6, Pitch = 1.6 },
+	Empty = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.6, Pitch = 1 },
+	Reload = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.8, Pitch = 0.7 },
+	Swing = { Id = "rbxasset://sounds/swordslash.wav", Volume = 0.6, Pitch = 1.2 },
+	Hit = { Id = "rbxasset://sounds/snap.wav", Volume = 0.9, Pitch = 1.4 },
+	Headshot = { Id = "rbxasset://sounds/snap.wav", Volume = 1, Pitch = 2 },
+	Kill = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.8, Pitch = 1 },
+	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.5, Pitch = 1 },
+	Slide = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 0.6 },
+}
+
+-- Reproduce un sonido. Si parent es nil, suena en 2D (para el jugador local).
+function Sounds.Play(name, parent)
+	local info = Sounds[name]
+	if type(info) ~= "table" then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = info.Id
+	sound.Volume = info.Volume
+	sound.PlaybackSpeed = info.Pitch * (0.95 + math.random() * 0.1)
+	sound.RollOffMaxDistance = 300
+	sound.Parent = parent or workspace.CurrentCamera or workspace
+	sound:Play()
+	sound.Ended:Once(function()
+		sound:Destroy()
+	end)
+	task.delay(5, function()
+		if sound.Parent then
+			sound:Destroy()
+		end
+	end)
+	return sound
+end
+
+return Sounds
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="7">
+        <Properties>
+          <string name="Name">WeaponModels</string>
+          <string name="Source"><![CDATA[-- Construye los modelos de las armas a partir de las piezas definidas en Weapons.
+-- Lo usan el servidor (Tool que ven los demás) y el cliente (viewmodel en primera persona).
+local Weapons = require(script.Parent.Weapons)
+local Skins = require(script.Parent.Skins)
+
+local WeaponModels = {}
+
+local function paint(part, role, skin)
+	if role == "Accent" then
+		part.Color = skin.Accent
+		part.Material = skin.AccentMaterial
+	elseif role == "Dark" then
+		part.Color = skin.Dark
+		part.Material = Enum.Material.Metal
+	else
+		part.Color = skin.Body
+		part.Material = skin.BodyMaterial
+	end
+end
+
+-- Pinta todas las piezas de un arma (Model o Tool) con la skin indicada.
+function WeaponModels.ApplySkin(container, skinId)
+	local skin = Skins.Get(skinId)
+	for _, part in container:GetDescendants() do
+		if part:IsA("BasePart") then
+			local role = part:GetAttribute("Role")
+			if role then
+				paint(part, role, skin)
+			end
+		end
+	end
+end
+
+-- Devuelve un Model con PrimaryPart = Handle. Las piezas van soldadas al Handle.
+function WeaponModels.Build(weaponName, skinId)
+	local def = Weapons.Get(weaponName)
+	assert(def, "Arma desconocida: " .. tostring(weaponName))
+	local skin = Skins.Get(skinId)
+
+	local model = Instance.new("Model")
+	model.Name = weaponName
+
+	local handle
+	for _, spec in def.Parts do
+		local part = Instance.new("Part")
+		part.Name = spec.Name
+		part.Size = spec.Size
+		part.CanCollide = false
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Massless = true
+		part.CastShadow = false
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		part:SetAttribute("Role", spec.Role)
+		paint(part, spec.Role, skin)
+		if spec.Name == "Handle" then
+			handle = part
+			part.CFrame = CFrame.new()
+		end
+		part.Parent = model
+	end
+
+	-- Coloca y suelda cada pieza al Handle
+	for _, spec in def.Parts do
+		if spec.Name ~= "Handle" then
+			local part = model:FindFirstChild(spec.Name)
+			part.CFrame = handle.CFrame * spec.CFrame
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = part
+			weld.Parent = part
+		end
+	end
+
+	if def.Muzzle then
+		local muzzle = Instance.new("Attachment")
+		muzzle.Name = "Muzzle"
+		muzzle.Position = def.Muzzle
+		muzzle.Parent = handle
+	end
+	if def.AimPoint then
+		local aim = Instance.new("Attachment")
+		aim.Name = "AimPoint"
+		aim.Position = def.AimPoint
+		aim.Parent = handle
+	end
+
+	model.PrimaryPart = handle
+	return model
+end
+
+return WeaponModels
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="8">
+        <Properties>
+          <string name="Name">Weapons</string>
+          <string name="Source"><![CDATA[-- Estadísticas y modelo (hecho con piezas) de cada arma.
+-- Espacio del modelo: -Z = hacia delante (cañón), +Y = arriba. "Handle" es la pieza raíz.
+local Weapons = {}
+
+local function P(name, size, cf, role)
+	return { Name = name, Size = size, CFrame = cf, Role = role }
+end
+
+local rad = math.rad
+
+Weapons.List = {
+	Rifle = {
+		DisplayName = "AR-7 Hiper",
+		Slot = 1,
+		Type = "Gun",
+		Damage = 24,
+		MinDamage = 16,
+		FalloffStart = 120,
+		FalloffEnd = 350,
+		HeadshotMultiplier = 1.6,
+		FireRate = 10, -- disparos por segundo
+		Automatic = true,
+		MagSize = 30,
+		ReserveAmmo = 150,
+		ReloadTime = 1.9,
+		Range = 600,
+		Spread = 1.6, -- grados (desde la cadera)
+		AimSpread = 0.25, -- grados (apuntando)
+		Pellets = 1,
+		Recoil = 0.8, -- grados por disparo
+		AimFOV = 60,
+		ViewOffset = CFrame.new(0.75, -0.75, -1.9),
+		AimDistance = 0.9,
+		RightHand = Vector3.new(0, -0.45, 0.45),
+		LeftHand = Vector3.new(0, -0.22, -1.2),
+		AimPoint = Vector3.new(0, 0.43, 0.2),
+		Muzzle = Vector3.new(0, 0.04, -2.6),
+		Parts = {
+			P("Handle", Vector3.new(0.3, 0.42, 1.5), CFrame.new(), "Body"),
+			P("Rail", Vector3.new(0.32, 0.08, 1.3), CFrame.new(0, 0.25, -0.05), "Accent"),
+			P("Handguard", Vector3.new(0.36, 0.36, 0.9), CFrame.new(0, 0, -1.15), "Body"),
+			P("HandguardStripe", Vector3.new(0.38, 0.08, 0.9), CFrame.new(0, 0.05, -1.15), "Accent"),
+			P("Barrel", Vector3.new(0.14, 0.14, 0.8), CFrame.new(0, 0.04, -2), "Dark"),
+			P("Brake", Vector3.new(0.2, 0.2, 0.22), CFrame.new(0, 0.04, -2.45), "Dark"),
+			P("Mag", Vector3.new(0.2, 0.65, 0.32), CFrame.new(0, -0.5, -0.35) * CFrame.Angles(rad(-12), 0, 0), "Dark"),
+			P("Grip", Vector3.new(0.2, 0.5, 0.28), CFrame.new(0, -0.42, 0.45) * CFrame.Angles(rad(18), 0, 0), "Body"),
+			P("Stock", Vector3.new(0.26, 0.36, 0.9), CFrame.new(0, -0.05, 1.2), "Body"),
+			P("StockPad", Vector3.new(0.28, 0.4, 0.08), CFrame.new(0, -0.05, 1.68), "Accent"),
+			P("SightBase", Vector3.new(0.14, 0.14, 0.3), CFrame.new(0, 0.33, 0.05), "Dark"),
+			P("SightDot", Vector3.new(0.06, 0.06, 0.04), CFrame.new(0, 0.43, 0.05), "Accent"),
+		},
+	},
+
+	Shotgun = {
+		DisplayName = "Trueno SG",
+		Slot = 1,
+		Type = "Gun",
+		Damage = 12, -- por perdigón
+		MinDamage = 3,
+		FalloffStart = 25,
+		FalloffEnd = 70,
+		HeadshotMultiplier = 1.3,
+		FireRate = 1.4,
+		Automatic = false,
+		MagSize = 6,
+		ReserveAmmo = 36,
+		ReloadTime = 2.4,
+		Range = 160,
+		Spread = 6,
+		AimSpread = 4.5,
+		Pellets = 8,
+		Recoil = 4,
+		AimFOV = 65,
+		ViewOffset = CFrame.new(0.75, -0.8, -1.8),
+		AimDistance = 0.9,
+		RightHand = Vector3.new(0, -0.45, 0.4),
+		LeftHand = Vector3.new(0, -0.25, -1.3),
+		AimPoint = Vector3.new(0, 0.3, 0.3),
+		Muzzle = Vector3.new(0, 0.1, -2.25),
+		Parts = {
+			P("Handle", Vector3.new(0.3, 0.4, 1.3), CFrame.new(), "Body"),
+			P("Barrel", Vector3.new(0.16, 0.16, 1.6), CFrame.new(0, 0.1, -1.4), "Dark"),
+			P("Tube", Vector3.new(0.14, 0.14, 1.3), CFrame.new(0, -0.12, -1.4), "Dark"),
+			P("Pump", Vector3.new(0.26, 0.24, 0.8), CFrame.new(0, -0.12, -1.3), "Accent"),
+			P("Grip", Vector3.new(0.2, 0.5, 0.28), CFrame.new(0, -0.4, 0.4) * CFrame.Angles(rad(18), 0, 0), "Body"),
+			P("Stock", Vector3.new(0.26, 0.38, 1), CFrame.new(0, -0.1, 1.1), "Body"),
+			P("Stripe", Vector3.new(0.32, 0.08, 1.2), CFrame.new(0, 0.12, 0), "Accent"),
+			P("Bead", Vector3.new(0.05, 0.05, 0.05), CFrame.new(0, 0.21, -2.15), "Accent"),
+		},
+	},
+
+	Sniper = {
+		DisplayName = "Halcón X",
+		Slot = 1,
+		Type = "Gun",
+		Damage = 90,
+		MinDamage = 90,
+		FalloffStart = 2000,
+		FalloffEnd = 2000,
+		HeadshotMultiplier = 2,
+		FireRate = 0.9,
+		Automatic = false,
+		MagSize = 5,
+		ReserveAmmo = 25,
+		ReloadTime = 2.8,
+		Range = 2000,
+		Spread = 6,
+		AimSpread = 0,
+		Pellets = 1,
+		Recoil = 5,
+		AimFOV = 20,
+		Scope = true, -- muestra mira telescópica al apuntar
+		ViewOffset = CFrame.new(0.75, -0.8, -1.9),
+		AimDistance = 0.9,
+		RightHand = Vector3.new(0, -0.45, 0.5),
+		LeftHand = Vector3.new(0, -0.2, -1.2),
+		AimPoint = Vector3.new(0, 0.45, 0.6),
+		Muzzle = Vector3.new(0, 0.05, -3.1),
+		Parts = {
+			P("Handle", Vector3.new(0.3, 0.4, 1.6), CFrame.new(), "Body"),
+			P("Barrel", Vector3.new(0.13, 0.13, 2), CFrame.new(0, 0.05, -1.8), "Dark"),
+			P("MuzzleBrake", Vector3.new(0.2, 0.2, 0.3), CFrame.new(0, 0.05, -2.9), "Dark"),
+			P("Scope", Vector3.new(0.22, 0.22, 1.1), CFrame.new(0, 0.45, -0.1), "Dark"),
+			P("ScopeRingFront", Vector3.new(0.26, 0.26, 0.1), CFrame.new(0, 0.45, -0.45), "Accent"),
+			P("ScopeRingBack", Vector3.new(0.26, 0.26, 0.1), CFrame.new(0, 0.45, 0.25), "Accent"),
+			P("Mag", Vector3.new(0.2, 0.4, 0.4), CFrame.new(0, -0.4, -0.3), "Dark"),
+			P("Grip", Vector3.new(0.2, 0.5, 0.28), CFrame.new(0, -0.42, 0.5) * CFrame.Angles(rad(18), 0, 0), "Body"),
+			P("Stock", Vector3.new(0.28, 0.45, 1.2), CFrame.new(0, -0.08, 1.35), "Body"),
+			P("StockStripe", Vector3.new(0.3, 0.1, 1), CFrame.new(0, 0.1, 1.3), "Accent"),
+		},
+	},
+
+	Pistol = {
+		DisplayName = "Víbora P9",
+		Slot = 2,
+		Type = "Gun",
+		Damage = 26,
+		MinDamage = 15,
+		FalloffStart = 60,
+		FalloffEnd = 200,
+		HeadshotMultiplier = 1.5,
+		FireRate = 7,
+		Automatic = false,
+		MagSize = 12,
+		ReserveAmmo = 72,
+		ReloadTime = 1.4,
+		Range = 400,
+		Spread = 1.4,
+		AimSpread = 0.3,
+		Pellets = 1,
+		Recoil = 1.6,
+		AimFOV = 65,
+		ViewOffset = CFrame.new(0.6, -0.6, -1.6),
+		AimDistance = 1.3,
+		RightHand = Vector3.new(0, -0.5, 0.3),
+		LeftHand = Vector3.new(-0.15, -0.55, 0.28),
+		AimPoint = Vector3.new(0, 0.2, 0.5),
+		Muzzle = Vector3.new(0, 0.02, -0.6),
+		Parts = {
+			P("Handle", Vector3.new(0.22, 0.28, 1), CFrame.new(), "Body"),
+			P("SlideStripe", Vector3.new(0.24, 0.06, 0.9), CFrame.new(0, 0.1, 0), "Accent"),
+			P("Frame", Vector3.new(0.2, 0.14, 0.9), CFrame.new(0, -0.2, -0.05), "Dark"),
+			P("Grip", Vector3.new(0.2, 0.6, 0.3), CFrame.new(0, -0.5, 0.3) * CFrame.Angles(rad(14), 0, 0), "Body"),
+			P("BarrelTip", Vector3.new(0.12, 0.12, 0.1), CFrame.new(0, 0.02, -0.52), "Dark"),
+			P("RearSight", Vector3.new(0.18, 0.06, 0.06), CFrame.new(0, 0.17, 0.45), "Dark"),
+			P("FrontSight", Vector3.new(0.05, 0.07, 0.05), CFrame.new(0, 0.17, -0.45), "Accent"),
+		},
+	},
+
+	Knife = {
+		DisplayName = "Colmillo",
+		Slot = 3,
+		Type = "Melee",
+		Damage = 55,
+		Range = 7,
+		Cooldown = 0.55,
+		ViewOffset = CFrame.new(0.8, -0.75, -1.5) * CFrame.Angles(rad(15), rad(20), 0),
+		RightHand = Vector3.new(0, 0, 0.1),
+		Parts = {
+			P("Handle", Vector3.new(0.16, 0.2, 0.6), CFrame.new(), "Dark"),
+			P("Guard", Vector3.new(0.3, 0.25, 0.06), CFrame.new(0, 0, -0.33), "Body"),
+			P("Blade", Vector3.new(0.05, 0.24, 1), CFrame.new(0, 0.02, -0.86), "Accent"),
+			P("Spine", Vector3.new(0.06, 0.08, 0.9), CFrame.new(0, 0.14, -0.8), "Body"),
+		},
+	},
+}
+
+-- Armas principales que el jugador puede elegir (slot 1)
+Weapons.Primaries = { "Rifle", "Shotgun", "Sniper" }
+Weapons.Secondary = "Pistol"
+Weapons.Melee = "Knife"
+
+function Weapons.Get(name)
+	return Weapons.List[name]
+end
+
+return Weapons
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="9">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="10">
+      <Properties>
+        <string name="Name">Server</string>
+      </Properties>
+      <Item class="Script" referent="11">
+        <Properties>
+          <string name="Name">Main</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[-- Punto de entrada del servidor: inicia todos los sistemas en orden.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+require(ReplicatedStorage.Shared.Remotes) -- crea los RemoteEvents antes que nada
+
+local Modules = script.Parent.Modules
+local MapBuilder = require(Modules.MapBuilder)
+local PlayerData = require(Modules.PlayerData)
+local Loadout = require(Modules.Loadout)
+local Combat = require(Modules.Combat)
+local Round = require(Modules.Round)
+local Dummies = require(Modules.Dummies)
+
+MapBuilder.Build()
+PlayerData.Init()
+Loadout.Init()
+Combat.Init()
+Combat.OnKill = Round.RegisterKill
+Round.Init()
+Dummies.Init()
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="Folder" referent="12">
+        <Properties>
+          <string name="Name">Modules</string>
+        </Properties>
+        <Item class="ModuleScript" referent="13">
+          <Properties>
+            <string name="Name">Combat</string>
+            <string name="Source"><![CDATA[-- Validación de disparos y daño en el servidor (anti-trampas básico).
+-- El cliente calcula el impacto; el servidor comprueba cadencia, munición, distancia y línea de visión.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local Weapons = require(Shared.Weapons)
+local Remotes = require(Shared.Remotes)
+
+local Combat = {}
+
+-- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot)
+Combat.OnKill = nil
+
+local lastShot = setmetatable({}, { __mode = "k" })
+local reloadTokens = setmetatable({}, { __mode = "k" })
+local lastMelee = {}
+
+local function getCharacterFromPart(part)
+	local model = part:FindFirstAncestorOfClass("Model")
+	while model do
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			return model, humanoid
+		end
+		model = model:FindFirstAncestorOfClass("Model")
+	end
+	return nil, nil
+end
+
+local function isEnemy(attacker, targetPlayer)
+	if not targetPlayer then
+		return true -- muñecos de práctica / NPCs
+	end
+	if attacker == targetPlayer then
+		return false
+	end
+	if attacker.Neutral or targetPlayer.Neutral or not attacker.Team then
+		return true
+	end
+	return attacker.Team ~= targetPlayer.Team
+end
+
+local function isHeadshot(part, character, position)
+	if part.Name == "Head" then
+		return true
+	end
+	if part.Parent and part.Parent:IsA("Accessory") then
+		local head = character:FindFirstChild("Head")
+		return head ~= nil and (head.Position - position).Magnitude < 1.6
+	end
+	return false
+end
+
+local function hasLineOfSight(origin, target, ignore)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignore
+	local offset = target - origin
+	local distance = offset.Magnitude - 1.5
+	if distance <= 0 then
+		return true
+	end
+	return workspace:Raycast(origin, offset.Unit * distance, params) == nil
+end
+
+local function damageAtDistance(def, distance)
+	if distance <= def.FalloffStart then
+		return def.Damage
+	end
+	if distance >= def.FalloffEnd then
+		return def.MinDamage
+	end
+	local alpha = (distance - def.FalloffStart) / (def.FalloffEnd - def.FalloffStart)
+	return def.Damage + (def.MinDamage - def.Damage) * alpha
+end
+
+local function removeSpawnShield(character)
+	local shield = character:FindFirstChildOfClass("ForceField")
+	if shield then
+		shield:Destroy()
+	end
+end
+
+-- Aplica daño y deja la "etiqueta" del atacante. Devuelve daño real y si murió.
+local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
+	if humanoid.Health <= 0 then
+		return 0, false
+	end
+	humanoid:SetAttribute("LastAttacker", attacker.UserId)
+	humanoid:SetAttribute("LastWeapon", weaponName)
+	humanoid:SetAttribute("LastHeadshot", headshot)
+	humanoid:SetAttribute("LastHitTime", os.clock())
+	local before = humanoid.Health
+	humanoid:TakeDamage(damage) -- respeta el ForceField de spawn
+	local dealt = before - humanoid.Health
+	return dealt, humanoid.Health <= 0
+end
+
+-- Detecta la muerte de un Humanoid y avisa a quien corresponda
+function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
+	humanoid.Died:Connect(function()
+		local killer
+		local attackerId = humanoid:GetAttribute("LastAttacker")
+		local hitTime = humanoid:GetAttribute("LastHitTime")
+		if attackerId and hitTime and os.clock() - hitTime < 10 then
+			killer = Players:GetPlayerByUserId(attackerId)
+		end
+		local weaponName = humanoid:GetAttribute("LastWeapon")
+		local headshot = humanoid:GetAttribute("LastHeadshot") == true
+		if victimPlayer then
+			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName)
+		end
+		if Combat.OnKill then
+			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot)
+		end
+	end)
+end
+
+local function onFire(player, tool, origin, rays)
+	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") or typeof(origin) ~= "Vector3" or type(rays) ~= "table" then
+		return
+	end
+	local character = player.Character
+	if not character or tool.Parent ~= character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local head = character:FindFirstChild("Head")
+	if not humanoid or humanoid.Health <= 0 or not head then
+		return
+	end
+	local weaponName = tool:GetAttribute("Weapon")
+	local def = Weapons.Get(weaponName)
+	if not def or def.Type ~= "Gun" or tool:GetAttribute("Reloading") then
+		return
+	end
+	local ammo = tool:GetAttribute("Ammo") or 0
+	if ammo <= 0 then
+		return
+	end
+	local now = os.clock()
+	if now - (lastShot[tool] or 0) < (1 / def.FireRate) * 0.75 then
+		return
+	end
+	if (head.Position - origin).Magnitude > 12 then
+		return
+	end
+	lastShot[tool] = now
+	tool:SetAttribute("Ammo", ammo - 1)
+	removeSpawnShield(character)
+
+	local endpoints = {}
+	local perTarget = {}
+	for i = 1, math.min(#rays, def.Pellets) do
+		local ray = rays[i]
+		if type(ray) == "table" and typeof(ray.Position) == "Vector3" then
+			local position = ray.Position
+			local distance = (position - origin).Magnitude
+			if distance <= def.Range + 5 then
+				table.insert(endpoints, position)
+				local part = ray.Part
+				if typeof(part) == "Instance" and part:IsA("BasePart") and part:IsDescendantOf(workspace) then
+					local targetChar, targetHum = getCharacterFromPart(part)
+					if targetChar and targetChar ~= character and targetHum.Health > 0 then
+						local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+						local closeEnough = (part.Position - position).Magnitude <= part.Size.Magnitude / 2 + 8
+						if
+							isEnemy(player, targetPlayer)
+							and closeEnough
+							and hasLineOfSight(origin, position, { character, targetChar })
+						then
+							local headshot = isHeadshot(part, targetChar, position)
+							local damage = damageAtDistance(def, distance)
+								* (headshot and def.HeadshotMultiplier or 1)
+							local entry = perTarget[targetHum]
+							if not entry then
+								entry = { Damage = 0, Headshot = false }
+								perTarget[targetHum] = entry
+							end
+							entry.Damage += damage
+							entry.Headshot = entry.Headshot or headshot
+						end
+					end
+				end
+			end
+		end
+	end
+
+	local totalDealt, anyHeadshot, anyKill = 0, false, false
+	for targetHum, entry in perTarget do
+		local dealt, killed = applyDamage(player, targetHum, entry.Damage, weaponName, entry.Headshot)
+		if dealt > 0 then
+			totalDealt += dealt
+			anyHeadshot = anyHeadshot or entry.Headshot
+			anyKill = anyKill or killed
+		end
+	end
+	if totalDealt > 0 then
+		Remotes.HitConfirm:FireClient(player, math.floor(totalDealt + 0.5), anyHeadshot, anyKill)
+	end
+
+	for _, other in Players:GetPlayers() do
+		if other ~= player then
+			Remotes.ShotFX:FireClient(other, tool, endpoints)
+		end
+	end
+end
+
+local function onReload(player, tool)
+	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") then
+		return
+	end
+	local character = player.Character
+	if not character or tool.Parent ~= character then
+		return
+	end
+	local def = Weapons.Get(tool:GetAttribute("Weapon"))
+	if not def or def.Type ~= "Gun" or tool:GetAttribute("Reloading") then
+		return
+	end
+	local ammo = tool:GetAttribute("Ammo") or 0
+	local reserve = tool:GetAttribute("Reserve") or 0
+	if ammo >= def.MagSize or reserve <= 0 then
+		return
+	end
+	tool:SetAttribute("Reloading", true)
+	local token = {}
+	reloadTokens[tool] = token
+	task.delay(def.ReloadTime, function()
+		if reloadTokens[tool] ~= token then
+			return
+		end
+		reloadTokens[tool] = nil
+		-- Si cambió de arma la recarga ya se canceló (Reloading = false)
+		if not tool:GetAttribute("Reloading") or tool.Parent ~= player.Character then
+			tool:SetAttribute("Reloading", false)
+			return
+		end
+		local currentAmmo = tool:GetAttribute("Ammo") or 0
+		local currentReserve = tool:GetAttribute("Reserve") or 0
+		local take = math.min(def.MagSize - currentAmmo, currentReserve)
+		tool:SetAttribute("Ammo", currentAmmo + take)
+		tool:SetAttribute("Reserve", currentReserve - take)
+		tool:SetAttribute("Reloading", false)
+	end)
+end
+
+local function findKnife(player)
+	for _, container in { player.Character, player:FindFirstChild("Backpack") } do
+		if container then
+			for _, tool in container:GetChildren() do
+				if tool:IsA("Tool") and tool:GetAttribute("Weapon") == Weapons.Melee then
+					return tool
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function onMelee(player, part)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or humanoid.Health <= 0 or not root or not findKnife(player) then
+		return
+	end
+	local def = Weapons.Get(Weapons.Melee)
+	local now = os.clock()
+	if now - (lastMelee[player] or 0) < def.Cooldown * 0.8 then
+		return
+	end
+	lastMelee[player] = now
+	if typeof(part) ~= "Instance" or not part:IsA("BasePart") or not part:IsDescendantOf(workspace) then
+		return
+	end
+	local targetChar, targetHum = getCharacterFromPart(part)
+	if not targetChar or targetChar == character or targetHum.Health <= 0 then
+		return
+	end
+	local targetRoot = targetChar:FindFirstChild("HumanoidRootPart") or part
+	if (targetRoot.Position - root.Position).Magnitude > def.Range + 4 then
+		return
+	end
+	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar)) then
+		return
+	end
+	removeSpawnShield(character)
+	local dealt, killed = applyDamage(player, targetHum, def.Damage, Weapons.Melee, false)
+	if dealt > 0 then
+		Remotes.HitConfirm:FireClient(player, math.floor(dealt + 0.5), false, killed)
+	end
+end
+
+function Combat.Init()
+	Remotes.Fire.OnServerEvent:Connect(onFire)
+	Remotes.Reload.OnServerEvent:Connect(onReload)
+	Remotes.Melee.OnServerEvent:Connect(onMelee)
+
+	local function onPlayer(player)
+		player.CharacterAdded:Connect(function(character)
+			local humanoid = character:WaitForChild("Humanoid")
+			Combat.WatchHumanoid(humanoid, player, player.Name)
+		end)
+		if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+			Combat.WatchHumanoid(player.Character:FindFirstChildOfClass("Humanoid"), player, player.Name)
+		end
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in Players:GetPlayers() do
+		onPlayer(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		lastMelee[player] = nil
+	end)
+end
+
+return Combat
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="14">
+          <Properties>
+            <string name="Name">Dummies</string>
+            <string name="Source"><![CDATA[-- Muñecos de práctica para probar las armas en Studio (desactívalos en GameConfig.TrainingDummies).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Combat = require(script.Parent.Combat)
+
+local Dummies = {}
+
+local SPOTS = {
+	Vector3.new(-20, 4, -60),
+	Vector3.new(20, 4, 60),
+	Vector3.new(-50, 4, 30),
+	Vector3.new(50, 4, -30),
+	Vector3.new(0, 11, 0),
+}
+
+local folder
+
+local function spawnDummy(position)
+	local description = Instance.new("HumanoidDescription")
+	description.HeadColor = Color3.fromRGB(255, 200, 80)
+	description.TorsoColor = Color3.fromRGB(80, 80, 90)
+	description.LeftArmColor = Color3.fromRGB(255, 200, 80)
+	description.RightArmColor = Color3.fromRGB(255, 200, 80)
+	description.LeftLegColor = Color3.fromRGB(60, 60, 70)
+	description.RightLegColor = Color3.fromRGB(60, 60, 70)
+
+	local ok, model = pcall(function()
+		return Players:CreateHumanoidModelFromDescriptionAsync(description, Enum.HumanoidRigType.R15)
+	end)
+	if not ok then
+		ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+		end)
+	end
+	if not ok then
+		warn("[Dummies] No se pudo crear el muñeco:", model)
+		return
+	end
+	model.Name = "Muñeco"
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	humanoid.DisplayName = "Muñeco"
+	humanoid.MaxHealth = 100
+	humanoid.Health = 100
+	model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	model.Parent = folder
+
+	Combat.WatchHumanoid(humanoid, nil, "Muñeco")
+	humanoid.Died:Connect(function()
+		task.wait(4)
+		model:Destroy()
+		spawnDummy(position)
+	end)
+end
+
+function Dummies.Init()
+	if not GameConfig.TrainingDummies then
+		return
+	end
+	folder = Instance.new("Folder")
+	folder.Name = "Dummies"
+	folder.Parent = workspace
+	for _, position in SPOTS do
+		spawnDummy(position)
+	end
+end
+
+return Dummies
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="15">
+          <Properties>
+            <string name="Name">Loadout</string>
+            <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local Weapons = require(Shared.Weapons)
+local WeaponModels = require(Shared.WeaponModels)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Loadout = {}
+
+function Loadout.MakeTool(weaponName, skinId)
+	local def = Weapons.Get(weaponName)
+	local tool = Instance.new("Tool")
+	tool.Name = def.DisplayName
+	tool.ToolTip = def.DisplayName
+	tool.CanBeDropped = false
+	tool.RequiresHandle = true
+	-- La mano derecha agarra la empuñadura del arma
+	tool.Grip = CFrame.new(def.RightHand or Vector3.zero)
+	tool:SetAttribute("Weapon", weaponName)
+	tool:SetAttribute("Skin", skinId)
+	tool:SetAttribute("Slot", def.Slot)
+	if def.Type == "Gun" then
+		tool:SetAttribute("Ammo", def.MagSize)
+		tool:SetAttribute("Reserve", def.ReserveAmmo)
+		tool:SetAttribute("Reloading", false)
+		tool.Unequipped:Connect(function()
+			tool:SetAttribute("Reloading", false) -- cambiar de arma cancela la recarga
+		end)
+	end
+
+	local model = WeaponModels.Build(weaponName, skinId)
+	for _, child in model:GetChildren() do
+		child.Parent = tool
+	end
+	model:Destroy()
+	return tool
+end
+
+local function giveLoadout(player, character)
+	local data = PlayerData.WaitFor(player, 15)
+	if player.Character ~= character then
+		return
+	end
+	local skin = data and data.EquippedSkin or "Default"
+	local primary = data and data.Primary or "Rifle"
+
+	local backpack = player:WaitForChild("Backpack")
+	backpack:ClearAllChildren()
+
+	local first
+	for _, weaponName in { primary, Weapons.Secondary, Weapons.Melee } do
+		local tool = Loadout.MakeTool(weaponName, skin)
+		tool.Parent = backpack
+		first = first or tool
+	end
+
+	local humanoid = character:WaitForChild("Humanoid")
+	if humanoid.Health > 0 then
+		humanoid:EquipTool(first)
+	end
+end
+
+local function onSkinChanged(player, skinId)
+	local containers = { player:FindFirstChild("Backpack"), player.Character }
+	for _, container in containers do
+		if container then
+			for _, tool in container:GetChildren() do
+				if tool:IsA("Tool") and tool:GetAttribute("Weapon") then
+					WeaponModels.ApplySkin(tool, skinId)
+					tool:SetAttribute("Skin", skinId)
+				end
+			end
+		end
+	end
+end
+
+local function onPlayer(player)
+	player.CharacterAdded:Connect(function(character)
+		giveLoadout(player, character)
+	end)
+	if player.Character then
+		task.spawn(giveLoadout, player, player.Character)
+	end
+end
+
+function Loadout.Init()
+	PlayerData.OnSkinChanged = onSkinChanged
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in Players:GetPlayers() do
+		onPlayer(player)
+	end
+end
+
+return Loadout
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="16">
+          <Properties>
+            <string name="Name">MapBuilder</string>
+            <string name="Source"><![CDATA[-- Genera un mapa urbano simétrico (estilo arena) con contenedores, edificios y rampas.
+-- Si ya existe workspace.Map (por ejemplo uno que construyas tú en Studio) no genera nada.
+-- Tu mapa propio debe tener SpawnLocations con TeamColor = Really red / Really blue.
+local Lighting = game:GetService("Lighting")
+
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+
+local MapBuilder = {}
+
+local LENGTH = 320 -- eje X (de spawn a spawn)
+local WIDTH = 220 -- eje Z
+local WALL_HEIGHT = 34
+
+local mapFolder
+
+local function block(name, size, cf, color, material, parent)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Anchored = true
+	part.Size = size
+	part.CFrame = cf
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent or mapFolder
+	return part
+end
+
+-- Rampa inclinada desde "bottom" hasta "top" (posiciones de la superficie)
+local function ramp(bottom, top, width, color)
+	local mid = (bottom + top) / 2
+	local length = (top - bottom).Magnitude
+	local cf = CFrame.lookAt(mid, top) * CFrame.new(0, -0.5, 0)
+	return block("Ramp", Vector3.new(width, 1, length + 1), cf, color, Enum.Material.DiamondPlate)
+end
+
+-- Rotación de 180° alrededor del centro: la mitad del equipo Azul es espejo de la del Rojo
+local MIRROR = CFrame.Angles(0, math.pi, 0)
+
+local function symmetric(fn)
+	fn(CFrame.new(), "A")
+	fn(MIRROR, "B")
+end
+
+local function container(cf, color)
+	local model = Instance.new("Model")
+	model.Name = "Container"
+	model.Parent = mapFolder
+	local size = Vector3.new(20, 8.5, 8)
+	block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
+	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	for i = -4, 4 do
+		block("Rib", Vector3.new(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
+	end
+	block("Roof", Vector3.new(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
+	return model
+end
+
+local function crate(cf, size)
+	size = size or 4
+	return block(
+		"Crate",
+		Vector3.new(size, size, size),
+		cf * CFrame.new(0, size / 2, 0),
+		Color3.fromRGB(176, 124, 70),
+		Enum.Material.WoodPlanks
+	)
+end
+
+local function building(cf, size, color)
+	local model = Instance.new("Model")
+	model.Name = "Building"
+	model.Parent = mapFolder
+	block("Block", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.Concrete, model)
+	-- franja decorativa y ventanas
+	block(
+		"Stripe",
+		Vector3.new(size.X + 0.2, 1, size.Z + 0.2),
+		cf * CFrame.new(0, size.Y - 1.5, 0),
+		Color3.fromRGB(255, 196, 0),
+		Enum.Material.SmoothPlastic,
+		model
+	)
+	for i = -1, 1 do
+		block(
+			"Window",
+			Vector3.new(size.X * 0.2, size.Y * 0.35, size.Z + 0.3),
+			cf * CFrame.new(i * size.X * 0.3, size.Y * 0.45, 0),
+			Color3.fromRGB(120, 190, 255),
+			Enum.Material.Glass,
+			model
+		).Transparency = 0.3
+	end
+	-- murito de cobertura en la azotea
+	local h = 3
+	local top = size.Y
+	block("Rail", Vector3.new(size.X, h, 1), cf * CFrame.new(0, top + h / 2, -size.Z / 2 + 0.5), color, Enum.Material.Concrete, model)
+	block("Rail", Vector3.new(size.X, h, 1), cf * CFrame.new(0, top + h / 2, size.Z / 2 - 0.5), color, Enum.Material.Concrete, model)
+	return model
+end
+
+local function spawnArea(team, cf)
+	-- Zona de spawn con techo y muretes
+	local base = block(
+		"SpawnFloor",
+		Vector3.new(30, 0.4, 70),
+		cf * CFrame.new(0, 0.2, 0),
+		team.Color.Color:Lerp(Color3.new(1, 1, 1), 0.55),
+		Enum.Material.SmoothPlastic
+	)
+	base.Name = team.Name .. "SpawnFloor"
+	block("Roof", Vector3.new(30, 1, 70), cf * CFrame.new(0, 16, 0), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)
+	for _, z in { -34, 34 } do
+		block("Pillar", Vector3.new(2, 16, 2), cf * CFrame.new(14, 8, z), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)
+	end
+	for _, z in { -24, 0, 24 } do
+		block("Cover", Vector3.new(2, 4, 10), cf * CFrame.new(14, 2, z), team.Color.Color, Enum.Material.SmoothPlastic)
+	end
+
+	for i, z in { -24, -8, 8, 24 } do
+		local spawn = Instance.new("SpawnLocation")
+		spawn.Name = team.Name .. "Spawn" .. i
+		spawn.Anchored = true
+		spawn.Size = Vector3.new(6, 1, 6)
+		spawn.CFrame = cf * CFrame.new(-4, 0.5, z) * CFrame.Angles(0, -math.pi / 2, 0)
+		spawn.TeamColor = team.Color
+		spawn.BrickColor = team.Color
+		spawn.Material = Enum.Material.Neon
+		spawn.Neutral = false
+		spawn.AllowTeamChangeOnTouch = false
+		spawn.Duration = GameConfig.SpawnProtection
+		spawn.Parent = mapFolder
+		local decal = spawn:FindFirstChildOfClass("Decal")
+		if decal then
+			decal:Destroy()
+		end
+	end
+end
+
+local function setupLighting()
+	Lighting.ClockTime = 14.5
+	Lighting.Brightness = 3
+	Lighting.Ambient = Color3.fromRGB(110, 110, 130)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 170)
+	Lighting.GlobalShadows = true
+
+	local function ensure(className)
+		local inst = Lighting:FindFirstChildOfClass(className)
+		if not inst then
+			inst = Instance.new(className)
+			inst.Parent = Lighting
+		end
+		return inst
+	end
+	local atmosphere = ensure("Atmosphere")
+	atmosphere.Density = 0.25
+	atmosphere.Haze = 1
+	atmosphere.Color = Color3.fromRGB(200, 225, 255)
+	local cc = ensure("ColorCorrectionEffect")
+	cc.Saturation = 0.2
+	cc.Contrast = 0.08
+	local bloom = ensure("BloomEffect")
+	bloom.Intensity = 0.6
+	bloom.Size = 20
+	bloom.Threshold = 1.4
+	ensure("Sky")
+end
+
+function MapBuilder.Build()
+	setupLighting()
+	if workspace:FindFirstChild("Map") then
+		return workspace.Map
+	end
+
+	-- Quita el Baseplate por defecto de las plantillas
+	local baseplate = workspace:FindFirstChild("Baseplate")
+	if baseplate then
+		baseplate:Destroy()
+	end
+
+	mapFolder = Instance.new("Folder")
+	mapFolder.Name = "Map"
+	mapFolder.Parent = workspace
+
+	-- Suelo
+	block("Floor", Vector3.new(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), Color3.fromRGB(196, 200, 210), Enum.Material.Concrete)
+	-- Carriles de color
+	for _, z in { -70, 0, 70 } do
+		block("Lane", Vector3.new(LENGTH - 60, 0.05, 3), CFrame.new(0, 0.03, z), Color3.fromRGB(240, 240, 245), Enum.Material.SmoothPlastic)
+	end
+
+	-- Muros exteriores
+	local wallColor = Color3.fromRGB(163, 196, 230)
+	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, WIDTH / 2 + 2), wallColor, Enum.Material.Concrete)
+	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, -WIDTH / 2 - 2), wallColor, Enum.Material.Concrete)
+	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(LENGTH / 2 + 2, WALL_HEIGHT / 2, 0), wallColor, Enum.Material.Concrete)
+	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(-LENGTH / 2 - 2, WALL_HEIGHT / 2, 0), wallColor, Enum.Material.Concrete)
+	-- Techo invisible para que nadie salga del mapa
+	local ceiling = block("Ceiling", Vector3.new(LENGTH, 1, WIDTH), CFrame.new(0, WALL_HEIGHT + 12, 0), Color3.new(1, 1, 1))
+	ceiling.Transparency = 1
+	ceiling.CanQuery = false
+
+	-- Spawns
+	local teams = GameConfig.Teams
+	spawnArea(teams[1], CFrame.new(-LENGTH / 2 + 15, 0, 0))
+	spawnArea(teams[2], MIRROR * CFrame.new(-LENGTH / 2 + 15, 0, 0))
+
+	-- Mitad simétrica del mapa
+	symmetric(function(m)
+		-- Contenedores
+		container(m * CFrame.new(-95, 0, -62), Color3.fromRGB(220, 60, 50))
+		container(m * CFrame.new(-95, 0, -62 + 8.4), Color3.fromRGB(40, 120, 220))
+		container(m * CFrame.new(-95, 8.9, -58), Color3.fromRGB(240, 150, 30))
+		container(m * CFrame.new(-60, 0, 10) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(60, 170, 90))
+		container(m * CFrame.new(-35, 0, -85), Color3.fromRGB(240, 150, 30))
+		container(m * CFrame.new(-120, 0, 75), Color3.fromRGB(40, 120, 220))
+
+		-- Edificio con azotea accesible por rampa
+		building(m * CFrame.new(-75, 0, 68), Vector3.new(26, 12, 22), Color3.fromRGB(245, 245, 250))
+		ramp(
+			(m * CFrame.new(-38, 0, 74)).Position,
+			(m * CFrame.new(-62, 12, 74)).Position,
+			7,
+			Color3.fromRGB(150, 150, 160)
+		)
+
+		-- Pasarela elevada sobre los contenedores
+		block("Catwalk", Vector3.new(30, 1, 6), m * CFrame.new(-95, 17.9, -45), Color3.fromRGB(90, 90, 100), Enum.Material.DiamondPlate)
+		ramp(
+			(m * CFrame.new(-120, 0, -5)).Position,
+			(m * CFrame.new(-110, 17.4, -45)).Position,
+			6,
+			Color3.fromRGB(150, 150, 160)
+		)
+
+		-- Cajas de cobertura
+		crate(m * CFrame.new(-110, 0, 20))
+		crate(m * CFrame.new(-110, 0, 25))
+		crate(m * CFrame.new(-110, 4, 22.5))
+		crate(m * CFrame.new(-45, 0, 45), 5)
+		crate(m * CFrame.new(-80, 0, -20))
+		crate(m * CFrame.new(-25, 0, -40), 5)
+		crate(m * CFrame.new(-25, 0, -35))
+
+		-- Muros bajos de cobertura
+		block("LowWall", Vector3.new(2, 4.5, 16), m * CFrame.new(-40, 2.25, -15), Color3.fromRGB(250, 210, 80), Enum.Material.Concrete)
+		block("LowWall", Vector3.new(14, 4.5, 2), m * CFrame.new(-18, 2.25, 40), Color3.fromRGB(250, 210, 80), Enum.Material.Concrete)
+
+		-- Rampa a la plataforma central
+		ramp((m * CFrame.new(-34, 0, 0)).Position, (m * CFrame.new(-12, 7, 0)).Position, 8, Color3.fromRGB(150, 150, 160))
+	end)
+
+	-- Plataforma central
+	block("CenterPlatform", Vector3.new(24, 1, 24), CFrame.new(0, 6.5, 0), Color3.fromRGB(80, 80, 95), Enum.Material.DiamondPlate)
+	for _, x in { -10, 10 } do
+		for _, z in { -10, 10 } do
+			block("Pillar", Vector3.new(2, 6, 2), CFrame.new(x, 3, z), Color3.fromRGB(60, 60, 70), Enum.Material.Metal)
+		end
+	end
+	block("CenterCover", Vector3.new(2, 4, 10), CFrame.new(0, 9, 7), Color3.fromRGB(255, 80, 160), Enum.Material.SmoothPlastic)
+	block("CenterCover", Vector3.new(2, 4, 10), CFrame.new(0, 9, -7), Color3.fromRGB(255, 80, 160), Enum.Material.SmoothPlastic)
+
+	-- Rascacielos de fondo (decoración fuera de los muros)
+	local rng = Random.new(42)
+	local skyline = Instance.new("Folder")
+	skyline.Name = "Skyline"
+	skyline.Parent = mapFolder
+	local palette = {
+		Color3.fromRGB(120, 170, 230),
+		Color3.fromRGB(90, 140, 210),
+		Color3.fromRGB(200, 220, 245),
+		Color3.fromRGB(70, 110, 180),
+	}
+	for x = -220, 220, 36 do
+		for _, side in { -1, 1 } do
+			local h = rng:NextNumber(60, 160)
+			local w = rng:NextNumber(24, 34)
+			local z = side * (WIDTH / 2 + 40 + rng:NextNumber(0, 30))
+			local tower = block(
+				"Tower",
+				Vector3.new(w, h, w),
+				CFrame.new(x, h / 2, z),
+				palette[rng:NextInteger(1, #palette)],
+				Enum.Material.Glass,
+				skyline
+			)
+			tower.CanCollide = false
+			tower.CanQuery = false
+			tower.CastShadow = false
+			for y = 10, h - 10, 14 do
+				local strip = block(
+					"Window",
+					Vector3.new(w + 0.4, 1, w + 0.4),
+					CFrame.new(x, y, z),
+					Color3.fromRGB(255, 255, 255),
+					Enum.Material.SmoothPlastic,
+					skyline
+				)
+				strip.CanCollide = false
+				strip.CanQuery = false
+			end
+		end
+	end
+	for _, x in { -1, 1 } do
+		for z = -140, 140, 40 do
+			local h = rng:NextNumber(50, 130)
+			local tower = block(
+				"Tower",
+				Vector3.new(30, h, 30),
+				CFrame.new(x * (LENGTH / 2 + 50), h / 2, z),
+				palette[rng:NextInteger(1, #palette)],
+				Enum.Material.Glass,
+				skyline
+			)
+			tower.CanCollide = false
+			tower.CanQuery = false
+			tower.CastShadow = false
+		end
+	end
+
+	return mapFolder
+end
+
+return MapBuilder
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="17">
+          <Properties>
+            <string name="Name">PlayerData</string>
+            <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins) guardados con DataStore.
+-- En Studio activa: Game Settings > Security > "Enable Studio Access to API Services".
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local GameConfig = require(Shared.GameConfig)
+local Skins = require(Shared.Skins)
+local Weapons = require(Shared.Weapons)
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = {}
+
+-- Callbacks que otros módulos pueden asignar
+PlayerData.OnSkinChanged = nil -- function(player, skinId)
+
+local store
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore("ShooterRobData_v1")
+	end)
+	if ok then
+		store = result
+	else
+		warn("[PlayerData] DataStore no disponible, el progreso no se guardará:", result)
+	end
+end
+
+local profiles = {}
+local noSave = {} -- jugadores cuya carga falló: no sobrescribimos sus datos
+
+local function defaults()
+	return {
+		Level = 1,
+		XP = 0,
+		Coins = 0,
+		Skins = { Default = true },
+		EquippedSkin = "Default",
+		Primary = "Rifle",
+		ClaimedFree = {},
+		ClaimedPremium = {},
+		TotalKills = 0,
+		Wins = 0,
+		Premium = false,
+	}
+end
+
+local function key(player)
+	return "u_" .. player.UserId
+end
+
+local function publicView(data)
+	return {
+		Level = data.Level,
+		XP = data.XP,
+		XPPerLevel = GameConfig.XPPerLevel,
+		Coins = data.Coins,
+		Skins = data.Skins,
+		EquippedSkin = data.EquippedSkin,
+		Primary = data.Primary,
+		TotalKills = data.TotalKills,
+		Wins = data.Wins,
+		Premium = data.Premium,
+	}
+end
+
+local function sendUpdate(player)
+	local data = profiles[player]
+	if data then
+		Remotes.DataUpdate:FireClient(player, publicView(data))
+	end
+end
+PlayerData.SendUpdate = sendUpdate
+
+function PlayerData.GetLeaderstats(player)
+	local stats = player:FindFirstChild("leaderstats")
+	if not stats then
+		stats = Instance.new("Folder")
+		stats.Name = "leaderstats"
+		for _, name in { "Bajas", "Muertes", "Nivel" } do
+			local value = Instance.new("IntValue")
+			value.Name = name
+			value.Parent = stats
+		end
+		stats.Parent = player
+	end
+	return stats
+end
+
+local function grant(player, data, reward)
+	if not reward then
+		return
+	end
+	if reward.Type == "Skin" then
+		data.Skins[reward.Id] = true
+		Remotes.Notify:FireClient(player, "Unlock", "¡Skin desbloqueada: " .. Skins.Get(reward.Id).Name .. "!")
+	elseif reward.Type == "Coins" then
+		data.Coins += reward.Amount
+	end
+end
+
+-- Entrega todas las recompensas del pase hasta el nivel actual que aún no se hayan reclamado
+local function grantTierRewards(player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	local maxTier = math.min(data.Level, #GameConfig.BattlePass)
+	for tier = 1, maxTier do
+		local t = GameConfig.BattlePass[tier]
+		local k = tostring(tier)
+		if not data.ClaimedFree[k] then
+			data.ClaimedFree[k] = true
+			grant(player, data, t.Free)
+		end
+		if data.Premium and not data.ClaimedPremium[k] then
+			data.ClaimedPremium[k] = true
+			grant(player, data, t.Premium)
+		end
+	end
+end
+
+local function ownsPremium(player)
+	if GameConfig.PremiumPassId == 0 then
+		return false
+	end
+	local ok, owns = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, GameConfig.PremiumPassId)
+	end)
+	return ok and owns
+end
+
+local function load(player)
+	local data
+	if store then
+		local loaded, result = false, nil
+		for attempt = 1, 3 do
+			loaded, result = pcall(function()
+				return store:GetAsync(key(player))
+			end)
+			if loaded then
+				break
+			end
+			task.wait(attempt)
+		end
+		if loaded then
+			data = result
+		else
+			warn("[PlayerData] No se pudieron cargar los datos de", player.Name, result)
+			noSave[player] = true
+		end
+	end
+
+	local merged = defaults()
+	if type(data) == "table" then
+		for k, v in data do
+			merged[k] = v
+		end
+	end
+	if not Skins.List[merged.EquippedSkin] or not merged.Skins[merged.EquippedSkin] then
+		merged.EquippedSkin = "Default"
+	end
+	if not table.find(Weapons.Primaries, merged.Primary) then
+		merged.Primary = "Rifle"
+	end
+	merged.Premium = merged.Premium or ownsPremium(player)
+
+	if not player.Parent then
+		return
+	end
+	profiles[player] = merged
+	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
+	grantTierRewards(player)
+	sendUpdate(player)
+end
+
+local function save(player)
+	local data = profiles[player]
+	if not data or not store or noSave[player] then
+		return
+	end
+	local ok, err = pcall(function()
+		store:SetAsync(key(player), data)
+	end)
+	if not ok then
+		warn("[PlayerData] Error al guardar", player.Name, err)
+	end
+end
+
+function PlayerData.Get(player)
+	return profiles[player]
+end
+
+-- Espera a que los datos del jugador estén cargados (máx. timeout segundos)
+function PlayerData.WaitFor(player, timeout)
+	local start = os.clock()
+	while not profiles[player] and player.Parent and os.clock() - start < (timeout or 15) do
+		task.wait(0.1)
+	end
+	return profiles[player]
+end
+
+function PlayerData.AddXP(player, amount, reason)
+	local data = profiles[player]
+	if not data or amount <= 0 then
+		return
+	end
+	data.XP += amount
+	Remotes.Notify:FireClient(player, "XP", "+" .. amount .. " XP  " .. (reason or ""))
+	local leveled = false
+	while data.XP >= GameConfig.XPPerLevel do
+		data.XP -= GameConfig.XPPerLevel
+		data.Level += 1
+		leveled = true
+	end
+	if leveled then
+		PlayerData.GetLeaderstats(player).Nivel.Value = data.Level
+		Remotes.Notify:FireClient(player, "Big", "¡NIVEL " .. data.Level .. "!")
+		grantTierRewards(player)
+	end
+	sendUpdate(player)
+end
+
+function PlayerData.AddCoins(player, amount)
+	local data = profiles[player]
+	if data then
+		data.Coins += amount
+		sendUpdate(player)
+	end
+end
+
+function PlayerData.Increment(player, field, amount)
+	local data = profiles[player]
+	if data and type(data[field]) == "number" then
+		data[field] += amount or 1
+	end
+end
+
+function PlayerData.Init()
+	Players.PlayerAdded:Connect(function(player)
+		PlayerData.GetLeaderstats(player)
+		load(player)
+	end)
+	for _, player in Players:GetPlayers() do
+		PlayerData.GetLeaderstats(player)
+		task.spawn(load, player)
+	end
+
+	Players.PlayerRemoving:Connect(function(player)
+		save(player)
+		profiles[player] = nil
+		noSave[player] = nil
+	end)
+
+	game:BindToClose(function()
+		for _, player in Players:GetPlayers() do
+			task.spawn(save, player)
+		end
+		task.wait(3)
+	end)
+
+	-- Autoguardado
+	task.spawn(function()
+		while true do
+			task.wait(120)
+			for _, player in Players:GetPlayers() do
+				task.spawn(save, player)
+			end
+		end
+	end)
+
+	Remotes.GetData.OnServerInvoke = function(player)
+		local data = PlayerData.WaitFor(player, 20)
+		return data and publicView(data)
+	end
+
+	Remotes.EquipSkin.OnServerEvent:Connect(function(player, skinId)
+		local data = profiles[player]
+		if not data or type(skinId) ~= "string" or not Skins.List[skinId] or not data.Skins[skinId] then
+			return
+		end
+		data.EquippedSkin = skinId
+		if PlayerData.OnSkinChanged then
+			PlayerData.OnSkinChanged(player, skinId)
+		end
+		sendUpdate(player)
+	end)
+
+	Remotes.SetPrimary.OnServerEvent:Connect(function(player, weaponName)
+		local data = profiles[player]
+		if not data or type(weaponName) ~= "string" or not table.find(Weapons.Primaries, weaponName) then
+			return
+		end
+		data.Primary = weaponName
+		Remotes.Notify:FireClient(
+			player,
+			"Info",
+			Weapons.Get(weaponName).DisplayName .. " equipada (al reaparecer)"
+		)
+		sendUpdate(player)
+	end)
+
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+		if purchased and passId == GameConfig.PremiumPassId then
+			local data = profiles[player]
+			if data then
+				data.Premium = true
+				Remotes.Notify:FireClient(player, "Big", "¡PASE PREMIUM ACTIVADO!")
+				grantTierRewards(player)
+				sendUpdate(player)
+				save(player)
+			end
+		end
+	end)
+end
+
+return PlayerData
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="18">
+          <Properties>
+            <string name="Name">Round</string>
+            <string name="Source"><![CDATA[-- Equipos, rondas (Team Deathmatch), marcador, rachas y recompensas.
+-- El estado se publica como atributos de ReplicatedStorage para que la interfaz lo lea:
+--   State ("Intermission" | "Playing" | "Ended"), TimeLeft, ScoreToWin, Score_<Equipo>
+local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local GameConfig = require(Shared.GameConfig)
+local Weapons = require(Shared.Weapons)
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Round = {}
+
+local teams = {}
+local roundOver = false
+
+local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
+
+local function setState(state)
+	ReplicatedStorage:SetAttribute("State", state)
+end
+
+local function getScore(teamName)
+	return ReplicatedStorage:GetAttribute("Score_" .. teamName) or 0
+end
+
+local function setupTeams()
+	for _, cfg in GameConfig.Teams do
+		local team = Teams:FindFirstChild(cfg.Name)
+		if not team then
+			team = Instance.new("Team")
+			team.Name = cfg.Name
+			team.TeamColor = cfg.Color
+			team.AutoAssignable = false
+			team.Parent = Teams
+		end
+		table.insert(teams, team)
+		ReplicatedStorage:SetAttribute("Score_" .. cfg.Name, 0)
+	end
+	ReplicatedStorage:SetAttribute("ScoreToWin", GameConfig.ScoreToWin)
+	ReplicatedStorage:SetAttribute("TeamA", teams[1].Name)
+	ReplicatedStorage:SetAttribute("TeamB", teams[2].Name)
+end
+
+local function smallestTeam(exclude)
+	local best, bestCount = nil, math.huge
+	for _, team in teams do
+		local count = 0
+		for _, p in team:GetPlayers() do
+			if p ~= exclude then
+				count += 1
+			end
+		end
+		if count < bestCount or (count == bestCount and math.random() < 0.5) then
+			best, bestCount = team, count
+		end
+	end
+	return best
+end
+
+local function assignTeam(player)
+	player.Neutral = false
+	player.Team = smallestTeam(player)
+end
+
+local function balanceTeams()
+	-- Mueve jugadores del equipo grande al pequeño si la diferencia es > 1
+	local a, b = teams[1], teams[2]
+	while math.abs(#a:GetPlayers() - #b:GetPlayers()) > 1 do
+		local big = #a:GetPlayers() > #b:GetPlayers() and a or b
+		local small = big == a and b or a
+		local list = big:GetPlayers()
+		list[math.random(1, #list)].Team = small
+	end
+end
+
+local function resetStats()
+	for _, player in Players:GetPlayers() do
+		local stats = PlayerData.GetLeaderstats(player)
+		stats.Bajas.Value = 0
+		stats.Muertes.Value = 0
+		player:SetAttribute("Streak", 0)
+	end
+	for _, team in teams do
+		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
+	end
+end
+
+function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
+	if victim then
+		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
+		victim:SetAttribute("Streak", 0)
+	end
+
+	local killerColor, victimColor = Color3.new(1, 1, 1), Color3.new(1, 1, 1)
+	if victim and victim.Team then
+		victimColor = victim.TeamColor.Color
+	end
+
+	if killer and killer ~= victim then
+		if killer.Team then
+			killerColor = killer.TeamColor.Color
+		end
+		if victim then
+			PlayerData.GetLeaderstats(killer).Bajas.Value += 1
+			local streak = (killer:GetAttribute("Streak") or 0) + 1
+			killer:SetAttribute("Streak", streak)
+
+			if ReplicatedStorage:GetAttribute("State") == "Playing" and killer.Team then
+				local teamName = killer.Team.Name
+				local score = getScore(teamName) + 1
+				ReplicatedStorage:SetAttribute("Score_" .. teamName, score)
+				if score >= GameConfig.ScoreToWin then
+					roundOver = true
+				end
+			end
+
+			local xp = GameConfig.XP.Kill + GameConfig.XP.StreakBonus * (streak - 1)
+			if headshot then
+				xp += GameConfig.XP.Headshot
+			end
+			PlayerData.AddXP(killer, xp, headshot and "Disparo a la cabeza" or "Eliminación")
+			PlayerData.AddCoins(killer, GameConfig.Coins.Kill)
+			PlayerData.Increment(killer, "TotalKills", 1)
+
+			if STREAK_ANNOUNCE[streak] then
+				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
+			end
+		end
+	end
+
+	local weapon = weaponName and Weapons.Get(weaponName)
+	Remotes.KillFeed:FireAllClients({
+		Killer = killer and killer.Name or nil,
+		KillerColor = killerColor,
+		Victim = victimName,
+		VictimColor = victimColor,
+		Weapon = weapon and weapon.DisplayName or "",
+		Headshot = headshot,
+	})
+end
+
+local function countdown(seconds, stopWhen)
+	for t = seconds, 0, -1 do
+		ReplicatedStorage:SetAttribute("TimeLeft", t)
+		if stopWhen and stopWhen() then
+			return
+		end
+		task.wait(1)
+	end
+end
+
+local function respawnAll()
+	for _, player in Players:GetPlayers() do
+		task.spawn(function()
+			player:LoadCharacter()
+		end)
+	end
+end
+
+local function endRound()
+	setState("Ended")
+	local a, b = teams[1], teams[2]
+	local scoreA, scoreB = getScore(a.Name), getScore(b.Name)
+	local winner = nil
+	if scoreA > scoreB then
+		winner = a
+	elseif scoreB > scoreA then
+		winner = b
+	end
+
+	-- MVP = más bajas
+	local mvp, mvpKills = nil, -1
+	for _, player in Players:GetPlayers() do
+		local kills = PlayerData.GetLeaderstats(player).Bajas.Value
+		if kills > mvpKills then
+			mvp, mvpKills = player, kills
+		end
+	end
+
+	for _, player in Players:GetPlayers() do
+		if winner and player.Team == winner then
+			PlayerData.AddXP(player, GameConfig.XP.Win, "Victoria")
+			PlayerData.AddCoins(player, GameConfig.Coins.Win)
+			PlayerData.Increment(player, "Wins", 1)
+		else
+			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
+		end
+	end
+
+	Remotes.RoundEnd:FireAllClients({
+		Winner = winner and winner.Name or nil,
+		WinnerColor = winner and winner.TeamColor.Color or Color3.new(1, 1, 1),
+		ScoreA = scoreA,
+		ScoreB = scoreB,
+		MVP = mvp and mvp.Name or nil,
+		MVPKills = math.max(mvpKills, 0),
+	})
+	task.wait(GameConfig.EndScreenTime)
+end
+
+local function gameLoop()
+	while true do
+		setState("Intermission")
+		countdown(GameConfig.IntermissionTime)
+		while #Players:GetPlayers() < GameConfig.MinPlayers do
+			ReplicatedStorage:SetAttribute("TimeLeft", 0)
+			task.wait(1)
+		end
+
+		roundOver = false
+		balanceTeams()
+		resetStats()
+		setState("Playing")
+		respawnAll()
+		Remotes.Notify:FireAllClients("Big", "¡A LUCHAR! Primero en llegar a " .. GameConfig.ScoreToWin)
+		countdown(GameConfig.RoundTime, function()
+			return roundOver
+		end)
+		endRound()
+	end
+end
+
+function Round.Init()
+	Players.RespawnTime = GameConfig.RespawnTime
+	setupTeams()
+	setState("Intermission")
+	ReplicatedStorage:SetAttribute("TimeLeft", GameConfig.IntermissionTime)
+
+	Players.PlayerAdded:Connect(assignTeam)
+	for _, player in Players:GetPlayers() do
+		if not player.Team then
+			assignTeam(player)
+			player:LoadCharacter()
+		end
+	end
+
+	task.spawn(gameLoop)
+end
+
+return Round
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="19">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+      <token name="CameraMode">1</token>
+      <float name="CharacterWalkSpeed">18</float>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="20">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="Folder" referent="21">
+        <Properties>
+          <string name="Name">Client</string>
+        </Properties>
+        <Item class="LocalScript" referent="22">
+          <Properties>
+            <string name="Name">Main</string>
+            <string name="Source"><![CDATA[-- Punto de entrada del cliente.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+
+local Modules = script.Parent:WaitForChild("Modules")
+local ClientState = require(Modules.ClientState)
+local WeaponController = require(Modules.WeaponController)
+local Movement = require(Modules.Movement)
+local HUD = require(Modules.HUD)
+local Menu = require(Modules.Menu)
+
+Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
+task.spawn(function()
+	local ok, data = pcall(function()
+		return Remotes.GetData:InvokeServer()
+	end)
+	if ok and data and not ClientState.Data then
+		ClientState.SetData(data)
+	end
+end)
+
+HUD.Init()
+Menu.Init()
+Movement.Init()
+WeaponController.Init()
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="23">
+          <Properties>
+            <string name="Name">Modules</string>
+          </Properties>
+          <Item class="ModuleScript" referent="24">
+            <Properties>
+              <string name="Name">ClientState</string>
+              <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
+local ClientState = {
+	Data = nil, -- datos de progreso (nivel, XP, skins...)
+	MenuOpen = false,
+	Aiming = false,
+	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
+	Sprinting = false,
+	Sliding = false,
+	CurrentTool = nil,
+	CurrentDef = nil,
+	Ammo = 0,
+	Reloading = false,
+	ReloadProgress = 0,
+	LastShotTime = 0,
+	Bloom = 0, -- apertura extra de la mira por disparos
+	Spread = 0, -- dispersión actual (grados)
+
+	DataChanged = Instance.new("BindableEvent"),
+	WeaponChanged = Instance.new("BindableEvent"),
+	ShotFired = Instance.new("BindableEvent"),
+}
+
+function ClientState.SetData(data)
+	if type(data) ~= "table" then
+		return
+	end
+	ClientState.Data = data
+	ClientState.DataChanged:Fire(data)
+end
+
+return ClientState
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="25">
+            <Properties>
+              <string name="Name">Effects</string>
+              <string name="Source"><![CDATA[-- Efectos visuales: trazadoras, impactos y fogonazos.
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local Effects = {}
+
+local folder = Instance.new("Folder")
+folder.Name = "ClientFX"
+folder.Parent = workspace
+
+local function fxPart(props)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Material = Enum.Material.Neon
+	for key, value in props do
+		part[key] = value
+	end
+	part.Parent = folder
+	return part
+end
+
+function Effects.Tracer(from, to, color)
+	local distance = (to - from).Magnitude
+	if distance < 0.5 then
+		return
+	end
+	local part = fxPart({
+		Color = color or Color3.fromRGB(255, 230, 120),
+		Size = Vector3.new(0.07, 0.07, distance),
+		CFrame = CFrame.lookAt(from, to) * CFrame.new(0, 0, -distance / 2),
+		Transparency = 0.2,
+	})
+	TweenService:Create(part, TweenInfo.new(0.12), { Transparency = 1, Size = Vector3.new(0.02, 0.02, distance) }):Play()
+	Debris:AddItem(part, 0.15)
+end
+
+function Effects.Impact(position, normal, hitPart)
+	local isCharacter = hitPart and hitPart.Parent and hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil
+	local color = isCharacter and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(255, 240, 200)
+	local part = fxPart({
+		Color = color,
+		Size = Vector3.new(0.45, 0.45, 0.05),
+		CFrame = CFrame.lookAt(position, position + (normal or Vector3.yAxis)),
+		Shape = Enum.PartType.Block,
+	})
+	TweenService:Create(part, TweenInfo.new(0.25), { Transparency = 1, Size = Vector3.new(0.9, 0.9, 0.02) }):Play()
+	Debris:AddItem(part, 0.3)
+
+	if not isCharacter and hitPart then
+		local mark = fxPart({
+			Color = Color3.fromRGB(30, 30, 30),
+			Material = Enum.Material.SmoothPlastic,
+			Size = Vector3.new(0.25, 0.25, 0.02),
+			CFrame = CFrame.lookAt(position, position + (normal or Vector3.yAxis)),
+			Transparency = 0.2,
+		})
+		TweenService:Create(mark, TweenInfo.new(4, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
+		Debris:AddItem(mark, 4.2)
+	end
+end
+
+function Effects.MuzzleFlash(attachment)
+	if not attachment then
+		return
+	end
+	local flash = fxPart({
+		Color = Color3.fromRGB(255, 210, 90),
+		Size = Vector3.new(0.35, 0.35, 0.6),
+		CFrame = attachment.WorldCFrame * CFrame.Angles(0, 0, math.random() * math.pi),
+		Transparency = 0.1,
+	})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 200, 100)
+	light.Range = 10
+	light.Brightness = 3
+	light.Parent = flash
+	Debris:AddItem(flash, 0.05)
+end
+
+return Effects
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="26">
+            <Properties>
+              <string name="Name">HUD</string>
+              <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Weapons = require(Shared.Weapons)
+local Sounds = require(Shared.Sounds)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+local WeaponController = require(script.Parent.WeaponController)
+
+local player = Players.LocalPlayer
+
+local HUD = {}
+
+local gui
+local refs = {}
+local thumbnails = {}
+
+local function tween(inst, time, props, style)
+	local t = TweenService:Create(inst, TweenInfo.new(time, style or Enum.EasingStyle.Quad), props)
+	t:Play()
+	return t
+end
+
+local function disableCoreGui()
+	for _ = 1, 20 do
+		local ok = pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
+		end)
+		if ok then
+			return
+		end
+		task.wait(0.5)
+	end
+end
+
+---------------------------------------------------------------------------
+-- Construcción
+---------------------------------------------------------------------------
+
+local function buildTopBar()
+	local top = UI.new("Frame", {
+		Name = "TopBar",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 10),
+		Size = UDim2.fromOffset(330, 44),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	})
+	local function scoreBox(x, name)
+		local box = UI.new("Frame", {
+			Name = name,
+			Position = UDim2.fromOffset(x, 0),
+			Size = UDim2.fromOffset(90, 44),
+			BackgroundColor3 = Color3.fromRGB(80, 80, 80),
+			Parent = top,
+		}, { UI.corner(8), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+		return UI.label({
+			Size = UDim2.fromScale(1, 1),
+			Text = "0",
+			TextSize = 30,
+			Parent = box,
+		})
+	end
+	refs.ScoreA = scoreBox(0, "TeamA")
+	refs.ScoreB = scoreBox(240, "TeamB")
+	refs.ScoreABox = refs.ScoreA.Parent
+	refs.ScoreBBox = refs.ScoreB.Parent
+
+	local timerBox = UI.new("Frame", {
+		Position = UDim2.fromOffset(95, 0),
+		Size = UDim2.fromOffset(140, 44),
+		BackgroundColor3 = Color3.fromRGB(25, 30, 60),
+		Parent = top,
+	}, { UI.corner(8), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+	refs.Timer = UI.label({ Size = UDim2.fromScale(1, 1), Text = "00:00", TextSize = 30, Parent = timerBox })
+
+	refs.Mode = UI.label({
+		Position = UDim2.fromOffset(0, 46),
+		Size = UDim2.new(1, 0, 0, 20),
+		Text = "",
+		TextSize = 16,
+		Parent = top,
+	})
+
+	refs.PlayerRow = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 70),
+		Size = UDim2.fromOffset(500, 54),
+		BackgroundTransparency = 1,
+		Parent = top,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+end
+
+local function buildCrosshair()
+	local holder = UI.new("Frame", {
+		Name = "Crosshair",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	})
+	refs.Crosshair = holder
+	refs.CrossLines = {}
+	for i, dir in { Vector2.new(0, -1), Vector2.new(0, 1), Vector2.new(-1, 0), Vector2.new(1, 0) } do
+		local vertical = dir.X == 0
+		refs.CrossLines[i] = {
+			Dir = dir,
+			Frame = UI.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Size = vertical and UDim2.fromOffset(2, 9) or UDim2.fromOffset(9, 2),
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BorderSizePixel = 0,
+				Parent = holder,
+			}, { UI.stroke(Color3.new(0, 0, 0), 1, 0.4) }),
+		}
+	end
+	refs.CrossDot = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.fromOffset(3, 3),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+		Parent = holder,
+	}, { UI.corner(2) })
+
+	-- Hitmarker (4 líneas diagonales)
+	refs.Hitmarker = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(34, 34),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = gui,
+	})
+	refs.HitLines = {}
+	for i, pos in { Vector2.new(-1, -1), Vector2.new(1, -1), Vector2.new(-1, 1), Vector2.new(1, 1) } do
+		refs.HitLines[i] = UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, pos.X * 10, 0.5, pos.Y * 10),
+			Size = UDim2.fromOffset(10, 3),
+			Rotation = pos.X * pos.Y * 45,
+			BorderSizePixel = 0,
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			Parent = refs.Hitmarker,
+		})
+	end
+
+	-- Mira telescópica (círculo con borde negro enorme)
+	refs.Scope = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.8, 0.8),
+		BackgroundTransparency = 1,
+		Visible = false,
+		ZIndex = 0,
+		Parent = gui,
+	}, {
+		UI.new("UIAspectRatioConstraint", { AspectRatio = 1 }),
+		UI.new("UICorner", { CornerRadius = UDim.new(0.5, 0) }),
+		UI.new("UIStroke", { Thickness = 3000, Color = Color3.new(0, 0, 0) }),
+		-- Bandas negras a los lados (por si el borde no cubre toda la pantalla)
+		UI.new("Frame", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(0, 0.5),
+			Size = UDim2.new(0, 4000, 3, 0),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BorderSizePixel = 0,
+		}),
+		UI.new("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.fromScale(1, 0.5),
+			Size = UDim2.new(0, 4000, 3, 0),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BorderSizePixel = 0,
+		}),
+		UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(1, 0, 0, 2),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BorderSizePixel = 0,
+		}),
+		UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(0, 2, 1, 0),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BorderSizePixel = 0,
+		}),
+		UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(5, 5),
+			BackgroundColor3 = Color3.fromRGB(255, 40, 40),
+			BorderSizePixel = 0,
+		}, { UI.corner(3) }),
+	})
+end
+
+local function buildWeaponPanel()
+	-- Munición (abajo a la derecha)
+	local panel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -24, 1, -20),
+		Size = UDim2.fromOffset(260, 90),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	})
+	refs.WeaponName = UI.label({
+		Size = UDim2.new(1, 0, 0, 24),
+		Text = "",
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = panel,
+	})
+	refs.Ammo = UI.label({
+		Position = UDim2.fromOffset(0, 24),
+		Size = UDim2.new(1, 0, 0, 50),
+		Text = "",
+		TextSize = 46,
+		RichText = true,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = panel,
+	})
+	refs.ReloadHint = UI.label({
+		Position = UDim2.fromOffset(0, 72),
+		Size = UDim2.new(1, 0, 0, 18),
+		Text = "",
+		TextSize = 16,
+		TextColor3 = Color3.fromRGB(255, 210, 80),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = panel,
+	})
+
+	-- Ranuras de armas (derecha)
+	local slots = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -20, 0.62, 0),
+		Size = UDim2.fromOffset(200, 150),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	}, {
+		UI.new("UIListLayout", {
+			Padding = UDim.new(0, 8),
+			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	refs.Slots = {}
+	for slot = 1, 3 do
+		local row = UI.new("Frame", {
+			LayoutOrder = slot,
+			Size = UDim2.fromOffset(200, 40),
+			BackgroundTransparency = 1,
+			Parent = slots,
+		})
+		local name = UI.label({
+			Size = UDim2.new(1, -40, 1, 0),
+			Text = "",
+			TextSize = 18,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = row,
+		})
+		local key = UI.new("Frame", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, 0, 0.5, 0),
+			Size = UDim2.fromOffset(30, 30),
+			BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+			Parent = row,
+		}, { UI.corner(6) })
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = tostring(slot), TextSize = 18, Parent = key })
+		refs.Slots[slot] = { Name = name, Key = key, Row = row }
+	end
+
+	-- Controles (estilo de la captura)
+	if not UserInputService.TouchEnabled or UserInputService.KeyboardEnabled then
+		local hints = UI.new("Frame", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -20, 0.22, 0),
+			Size = UDim2.fromOffset(220, 150),
+			BackgroundTransparency = 1,
+			Parent = gui,
+		}, {
+			UI.new("UIListLayout", {
+				Padding = UDim.new(0, 4),
+				HorizontalAlignment = Enum.HorizontalAlignment.Right,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+		})
+		for i, pair in {
+			{ "Pase de batalla", "B" },
+			{ "Deslizar", "C" },
+			{ "Cuchillo rápido", "F" },
+			{ "Recargar", "R" },
+			{ "Correr", "Shift" },
+		} do
+			local row = UI.new("Frame", {
+				LayoutOrder = i,
+				Size = UDim2.fromOffset(220, 24),
+				BackgroundTransparency = 1,
+				Parent = hints,
+			})
+			UI.label({
+				Size = UDim2.new(1, -56, 1, 0),
+				Text = pair[1],
+				TextSize = 17,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				Parent = row,
+			})
+			local key = UI.new("Frame", {
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, 0, 0.5, 0),
+				Size = UDim2.fromOffset(50, 22),
+				BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+				Parent = row,
+			}, { UI.corner(5) })
+			UI.label({ Size = UDim2.fromScale(1, 1), Text = pair[2], TextSize = 14, Parent = key })
+		end
+	end
+end
+
+local function buildPlayerPanel()
+	-- Vida (abajo a la izquierda)
+	local health = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 24, 1, -24),
+		Size = UDim2.fromOffset(240, 22),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+		Parent = gui,
+	}, { UI.corner(11), UI.stroke(Color3.new(0, 0, 0), 2, 0.2) })
+	refs.HealthFill = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(70, 220, 90),
+		Parent = health,
+	}, { UI.corner(11) })
+	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 16, Parent = health })
+
+	-- Racha (barra vertical a la izquierda, como en la captura)
+	local streakBar = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 40, 0.55, 0),
+		Size = UDim2.fromOffset(10, 240),
+		BackgroundColor3 = Color3.fromRGB(30, 30, 35),
+		Parent = gui,
+	}, { UI.corner(5), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+	refs.StreakFill = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 0),
+		BackgroundColor3 = Color3.fromRGB(255, 180, 30),
+		Parent = streakBar,
+	}, { UI.corner(5) })
+	refs.StreakText = UI.label({
+		AnchorPoint = Vector2.new(0, 0),
+		Position = UDim2.new(0, 14, 0.55, 126),
+		Size = UDim2.fromOffset(120, 22),
+		Text = "Racha x0",
+		TextSize = 18,
+		TextColor3 = Color3.fromRGB(255, 210, 80),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = gui,
+	})
+
+	-- Nivel / XP (abajo al centro)
+	local level = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -10),
+		Size = UDim2.fromOffset(320, 10),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+		Parent = gui,
+	}, { UI.corner(5) })
+	refs.XPFill = UI.new("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Color3.fromRGB(80, 170, 255),
+		Parent = level,
+	}, { UI.corner(5) })
+	refs.LevelText = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, -2),
+		Size = UDim2.fromOffset(320, 18),
+		Text = "Nivel 1",
+		TextSize = 15,
+		Parent = level,
+	})
+end
+
+local function buildFeedsAndOverlays()
+	refs.KillFeed = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 60),
+		Size = UDim2.fromOffset(380, 220),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	}, {
+		UI.new("UIListLayout", {
+			Padding = UDim.new(0, 4),
+			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	refs.Popups = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.58, 0),
+		Size = UDim2.fromOffset(400, 140),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	}, {
+		UI.new("UIListLayout", {
+			Padding = UDim.new(0, 2),
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	refs.BigText = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.3),
+		Size = UDim2.fromOffset(800, 70),
+		Text = "",
+		TextSize = 54,
+		TextStrokeTransparency = 0,
+		Visible = false,
+		Parent = gui,
+	})
+
+	refs.Banner = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 135),
+		Size = UDim2.fromOffset(600, 30),
+		Text = "",
+		TextSize = 24,
+		TextColor3 = Color3.fromRGB(255, 200, 60),
+		Visible = false,
+		Parent = gui,
+	})
+
+	refs.Toast = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -50),
+		Size = UDim2.fromOffset(600, 30),
+		Text = "",
+		TextSize = 22,
+		Visible = false,
+		Parent = gui,
+	})
+
+	-- Viñeta roja de daño
+	refs.Damage = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -120, 1, -120),
+		BackgroundTransparency = 1,
+		ZIndex = 0,
+		Parent = gui,
+	}, { UI.new("UICorner", { CornerRadius = UDim.new(0, 60) }) })
+	refs.DamageStroke = UI.new("UIStroke", {
+		Thickness = 90,
+		Color = Color3.fromRGB(200, 0, 0),
+		Transparency = 1,
+		Parent = refs.Damage,
+	})
+
+	-- Pantalla de muerte
+	refs.DeathScreen = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.6,
+		Visible = false,
+		Parent = gui,
+	})
+	refs.DeathText = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.45),
+		Size = UDim2.fromOffset(800, 60),
+		Text = "",
+		TextSize = 40,
+		TextColor3 = Color3.fromRGB(255, 80, 80),
+		RichText = true,
+		Parent = refs.DeathScreen,
+	})
+	UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.53),
+		Size = UDim2.fromOffset(600, 30),
+		Text = "Reapareciendo...",
+		TextSize = 22,
+		Parent = refs.DeathScreen,
+	})
+
+	-- Fin de ronda
+	refs.RoundEnd = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.42),
+		Size = UDim2.fromOffset(560, 220),
+		BackgroundColor3 = Color3.fromRGB(20, 22, 35),
+		BackgroundTransparency = 0.15,
+		Visible = false,
+		Parent = gui,
+	}, { UI.corner(16), UI.stroke(Color3.new(1, 1, 1), 3, 0.6) })
+	refs.RoundTitle = UI.label({
+		Position = UDim2.fromOffset(0, 20),
+		Size = UDim2.new(1, 0, 0, 56),
+		Text = "",
+		TextSize = 44,
+		Parent = refs.RoundEnd,
+	})
+	refs.RoundScore = UI.label({
+		Position = UDim2.fromOffset(0, 86),
+		Size = UDim2.new(1, 0, 0, 50),
+		Text = "",
+		TextSize = 40,
+		RichText = true,
+		Parent = refs.RoundEnd,
+	})
+	refs.RoundMVP = UI.label({
+		Position = UDim2.fromOffset(0, 150),
+		Size = UDim2.new(1, 0, 0, 40),
+		Text = "",
+		TextSize = 24,
+		TextColor3 = Color3.fromRGB(255, 210, 80),
+		Parent = refs.RoundEnd,
+	})
+end
+
+---------------------------------------------------------------------------
+-- Mensajes
+---------------------------------------------------------------------------
+
+local function popup(text, color)
+	local label = UI.label({
+		Size = UDim2.fromOffset(400, 26),
+		Text = text,
+		TextSize = 22,
+		TextColor3 = color or Color3.fromRGB(255, 230, 120),
+		LayoutOrder = math.floor(os.clock() * 100) % 100000,
+		Parent = refs.Popups,
+	})
+	task.delay(1.4, function()
+		tween(label, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
+	end)
+	Debris:AddItem(label, 2)
+end
+
+local bigToken
+local function bigMessage(text, color)
+	local label = refs.BigText
+	label.Text = text
+	label.TextColor3 = color or Color3.new(1, 1, 1)
+	label.TextTransparency = 0
+	label.TextStrokeTransparency = 0
+	label.Size = UDim2.fromOffset(800, 70)
+	label.TextSize = 70
+	label.Visible = true
+	tween(label, 0.25, { TextSize = 54 }, Enum.EasingStyle.Back)
+	local token = {}
+	bigToken = token
+	task.delay(2.5, function()
+		if bigToken == token then
+			tween(label, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		end
+	end)
+end
+
+local function timedLabel(label, text, duration)
+	label.Text = text
+	label.Visible = true
+	local token = {}
+	label:SetAttribute("Token", tostring(token))
+	task.delay(duration, function()
+		if label:GetAttribute("Token") == tostring(token) then
+			label.Visible = false
+		end
+	end)
+end
+
+local function onNotify(kind, text)
+	if kind == "XP" then
+		popup(text)
+	elseif kind == "Big" then
+		bigMessage(text)
+	elseif kind == "Streak" then
+		timedLabel(refs.Banner, "🔥 " .. text, 3)
+	else
+		timedLabel(refs.Toast, text, 3)
+		Sounds.Play("Click")
+	end
+end
+
+local function onKillFeed(info)
+	if type(info) ~= "table" then
+		return
+	end
+	local killer = info.Killer
+	local text
+	local weapon = info.Weapon ~= "" and (" [" .. info.Weapon .. "] ") or " ✖ "
+	if info.Headshot then
+		weapon ..= "🎯 "
+	end
+	local victim = string.format('<font color="%s">%s</font>', UI.hex(info.VictimColor), info.Victim or "?")
+	if killer then
+		text = string.format('<font color="%s">%s</font>%s%s', UI.hex(info.KillerColor), killer, weapon, victim)
+	else
+		text = victim .. " se eliminó"
+	end
+	local entry = UI.new("Frame", {
+		Size = UDim2.fromOffset(380, 26),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.55,
+		LayoutOrder = math.floor(os.clock() * 100) % 1000000,
+		Parent = refs.KillFeed,
+	}, { UI.corner(6) })
+	if killer == player.Name or info.Victim == player.Name then
+		UI.stroke(Color3.fromRGB(255, 210, 80), 2, 0.2).Parent = entry
+	end
+	UI.label({
+		Size = UDim2.new(1, -12, 1, 0),
+		Position = UDim2.fromOffset(6, 0),
+		Text = text,
+		RichText = true,
+		TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = entry,
+	})
+	local entries = {}
+	for _, child in refs.KillFeed:GetChildren() do
+		if child:IsA("Frame") then
+			table.insert(entries, child)
+		end
+	end
+	if #entries > 6 then
+		table.sort(entries, function(a, b)
+			return a.LayoutOrder < b.LayoutOrder
+		end)
+		entries[1]:Destroy()
+	end
+	Debris:AddItem(entry, 7)
+end
+
+local hitToken
+local function onHitConfirm(damage, headshot, killed)
+	local color = Color3.new(1, 1, 1)
+	if killed then
+		color = Color3.fromRGB(255, 40, 40)
+	elseif headshot then
+		color = Color3.fromRGB(255, 210, 40)
+	end
+	for _, line in refs.HitLines do
+		line.BackgroundColor3 = color
+		line.Size = killed and UDim2.fromOffset(14, 4) or UDim2.fromOffset(10, 3)
+	end
+	refs.Hitmarker.Visible = true
+	local token = {}
+	hitToken = token
+	task.delay(killed and 0.35 or 0.15, function()
+		if hitToken == token then
+			refs.Hitmarker.Visible = false
+		end
+	end)
+	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
+
+	-- Número de daño
+	if type(damage) == "number" then
+		local label = UI.label({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, math.random(30, 60), 0.5, math.random(-40, -20)),
+			Size = UDim2.fromOffset(80, 30),
+			Text = tostring(damage),
+			TextSize = headshot and 28 or 22,
+			TextColor3 = color,
+			Parent = gui,
+		})
+		tween(label, 0.6, {
+			Position = label.Position + UDim2.fromOffset(0, -30),
+			TextTransparency = 1,
+			TextStrokeTransparency = 1,
+		})
+		Debris:AddItem(label, 0.7)
+	end
+end
+
+local function onRoundEnd(info)
+	if type(info) ~= "table" then
+		return
+	end
+	local teamA = ReplicatedStorage:GetAttribute("TeamA") or "Rojo"
+	local teamB = ReplicatedStorage:GetAttribute("TeamB") or "Azul"
+	if info.Winner then
+		local won = player.Team and player.Team.Name == info.Winner
+		refs.RoundTitle.Text = won and "¡VICTORIA!" or "DERROTA"
+		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 80)
+	else
+		refs.RoundTitle.Text = "EMPATE"
+		refs.RoundTitle.TextColor3 = Color3.new(1, 1, 1)
+	end
+	local colorA = refs.ScoreABox.BackgroundColor3
+	local colorB = refs.ScoreBBox.BackgroundColor3
+	refs.RoundScore.Text = string.format(
+		'<font color="%s">%s %d</font>  -  <font color="%s">%d %s</font>',
+		UI.hex(colorA),
+		teamA,
+		info.ScoreA or 0,
+		UI.hex(colorB),
+		info.ScoreB or 0,
+		teamB
+	)
+	refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
+	refs.RoundEnd.Visible = true
+	task.delay(7, function()
+		refs.RoundEnd.Visible = false
+	end)
+end
+
+---------------------------------------------------------------------------
+-- Actualización
+---------------------------------------------------------------------------
+
+local function getThumbnail(userId)
+	if thumbnails[userId] ~= nil then
+		return thumbnails[userId]
+	end
+	thumbnails[userId] = ""
+	task.spawn(function()
+		local ok, image = pcall(function()
+			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+		end)
+		thumbnails[userId] = ok and image or ""
+	end)
+	return ""
+end
+
+local function updatePlayerRow()
+	local list = Players:GetPlayers()
+	local function kills(p)
+		local stats = p:FindFirstChild("leaderstats")
+		local value = stats and stats:FindFirstChild("Bajas")
+		return value and value.Value or 0
+	end
+	table.sort(list, function(a, b)
+		return kills(a) > kills(b)
+	end)
+	for _, child in refs.PlayerRow:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	for rank = 1, math.min(10, #list) do
+		local p = list[rank]
+		local teamColor = p.Team and p.TeamColor.Color or Color3.new(1, 1, 1)
+		local card = UI.new("Frame", {
+			LayoutOrder = rank,
+			Size = UDim2.fromOffset(40, 54),
+			BackgroundTransparency = 1,
+			Parent = refs.PlayerRow,
+		})
+		UI.new("ImageLabel", {
+			Size = UDim2.fromOffset(40, 40),
+			BackgroundColor3 = Color3.fromRGB(40, 40, 45),
+			Image = getThumbnail(p.UserId),
+			Parent = card,
+		}, { UI.new("UICorner", { CornerRadius = UDim.new(0.5, 0) }), UI.stroke(teamColor, 3, 0) })
+		UI.label({
+			Position = UDim2.fromOffset(-6, -6),
+			Size = UDim2.fromOffset(24, 14),
+			Text = "#" .. rank,
+			TextSize = 13,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(0, 38),
+			Size = UDim2.fromOffset(40, 16),
+			Text = tostring(kills(p)),
+			TextSize = 15,
+			TextColor3 = p == player and Color3.fromRGB(255, 210, 60) or Color3.new(1, 1, 1),
+			Parent = card,
+		})
+	end
+end
+
+local function updateScoreboard()
+	local teamA = ReplicatedStorage:GetAttribute("TeamA")
+	local teamB = ReplicatedStorage:GetAttribute("TeamB")
+	if teamA then
+		refs.ScoreA.Text = tostring(ReplicatedStorage:GetAttribute("Score_" .. teamA) or 0)
+		local team = game:GetService("Teams"):FindFirstChild(teamA)
+		if team then
+			refs.ScoreABox.BackgroundColor3 = team.TeamColor.Color
+		end
+	end
+	if teamB then
+		refs.ScoreB.Text = tostring(ReplicatedStorage:GetAttribute("Score_" .. teamB) or 0)
+		local team = game:GetService("Teams"):FindFirstChild(teamB)
+		if team then
+			refs.ScoreBBox.BackgroundColor3 = team.TeamColor.Color
+		end
+	end
+	local state = ReplicatedStorage:GetAttribute("State")
+	local timeLeft = ReplicatedStorage:GetAttribute("TimeLeft") or 0
+	refs.Timer.Text = UI.formatTime(timeLeft)
+	if state == "Intermission" then
+		refs.Mode.Text = "Calentamiento · la partida empieza en " .. timeLeft
+	elseif state == "Ended" then
+		refs.Mode.Text = "Fin de la ronda"
+	else
+		refs.Mode.Text = "Duelo por equipos · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+	end
+end
+
+local function updateData(data)
+	if not data then
+		return
+	end
+	local per = data.XPPerLevel or 1000
+	refs.LevelText.Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. "/" .. per .. " XP"
+	tween(refs.XPFill, 0.3, { Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1) })
+end
+
+local lastHealth = 100
+local function render()
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+	-- Vida
+	if humanoid then
+		local health = math.max(0, humanoid.Health)
+		local ratio = health / math.max(humanoid.MaxHealth, 1)
+		refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
+		refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
+		refs.HealthText.Text = tostring(math.ceil(health))
+		if health < lastHealth - 0.5 then
+			refs.DamageStroke.Transparency = 0.35
+			tween(refs.DamageStroke, 0.6, { Transparency = ratio < 0.35 and 0.75 or 1 })
+		end
+		lastHealth = health
+	end
+
+	-- Racha
+	local streak = player:GetAttribute("Streak") or 0
+	refs.StreakText.Text = "Racha x" .. streak
+	refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
+
+	-- Arma
+	local def = ClientState.CurrentDef
+	local tool = ClientState.CurrentTool
+	if def and tool then
+		refs.WeaponName.Text = def.DisplayName
+		if def.Type == "Gun" then
+			local reserve = tool:GetAttribute("Reserve") or 0
+			local ammoColor = ClientState.Ammo <= math.ceil(def.MagSize * 0.25) and "#FF5050" or "#FFFFFF"
+			refs.Ammo.Text = string.format(
+				'<font color="%s">%d</font><font size="28" color="#C8C8C8"> | %d</font>',
+				ammoColor,
+				ClientState.Ammo,
+				reserve
+			)
+			if ClientState.Reloading then
+				refs.ReloadHint.Text = "RECARGANDO " .. math.floor(ClientState.ReloadProgress * 100) .. "%"
+			elseif ClientState.Ammo == 0 and reserve == 0 then
+				refs.ReloadHint.Text = "SIN MUNICIÓN"
+			elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
+				refs.ReloadHint.Text = "[R] Recargar"
+			else
+				refs.ReloadHint.Text = ""
+			end
+		else
+			refs.Ammo.Text = "∞"
+			refs.ReloadHint.Text = ""
+		end
+	else
+		refs.WeaponName.Text = ""
+		refs.Ammo.Text = ""
+		refs.ReloadHint.Text = ""
+	end
+
+	-- Ranuras
+	local tools = WeaponController.GetTools()
+	for slot, row in refs.Slots do
+		local slotTool = tools[slot]
+		local slotDef = slotTool and Weapons.Get(slotTool:GetAttribute("Weapon"))
+		row.Name.Text = slotDef and slotDef.DisplayName or ""
+		local active = slotTool ~= nil and slotTool == tool
+		row.Name.TextColor3 = active and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(220, 220, 220)
+		row.Key.BackgroundColor3 = active and Color3.fromRGB(255, 170, 30) or Color3.fromRGB(20, 20, 25)
+	end
+
+	-- Mira
+	local aim = ClientState.AimAlpha
+	local isGun = def and def.Type == "Gun"
+	local gap = 6 + ClientState.Spread * 6
+	for _, line in refs.CrossLines do
+		line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4), line.Dir.Y * (gap + 4))
+		line.Frame.Visible = isGun and aim < 0.5
+	end
+	refs.CrossDot.Visible = aim < 0.5
+	refs.Crosshair.Visible = not ClientState.MenuOpen
+	refs.Scope.Visible = def ~= nil and def.Scope == true and aim > 0.85
+end
+
+---------------------------------------------------------------------------
+
+function HUD.Init()
+	task.spawn(disableCoreGui)
+
+	gui = UI.new("ScreenGui", {
+		Name = "HUD",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	buildTopBar()
+	buildCrosshair()
+	buildWeaponPanel()
+	buildPlayerPanel()
+	buildFeedsAndOverlays()
+
+	Remotes.Notify.OnClientEvent:Connect(onNotify)
+	Remotes.KillFeed.OnClientEvent:Connect(onKillFeed)
+	Remotes.HitConfirm.OnClientEvent:Connect(onHitConfirm)
+	Remotes.RoundEnd.OnClientEvent:Connect(onRoundEnd)
+	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName)
+		local weapon = weaponName and Weapons.Get(weaponName)
+		if killerName then
+			refs.DeathText.Text = "ELIMINADO POR <b>"
+				.. killerName
+				.. "</b>"
+				.. (weapon and (" · " .. weapon.DisplayName) or "")
+		else
+			refs.DeathText.Text = "HAS MUERTO"
+		end
+		refs.DeathScreen.Visible = true
+	end)
+	player.CharacterAdded:Connect(function()
+		refs.DeathScreen.Visible = false
+		lastHealth = 100
+		refs.DamageStroke.Transparency = 1
+	end)
+
+	ClientState.DataChanged.Event:Connect(updateData)
+	updateData(ClientState.Data)
+
+	ReplicatedStorage.AttributeChanged:Connect(updateScoreboard)
+	updateScoreboard()
+
+	task.spawn(function()
+		while true do
+			updatePlayerRow()
+			task.wait(1)
+		end
+	end)
+
+	RunService.RenderStepped:Connect(render)
+end
+
+return HUD
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="27">
+            <Properties>
+              <string name="Name">Menu</string>
+              <string name="Source"><![CDATA[-- Menú del pase de batalla, skins y elección de arma principal (tecla B).
+local Players = game:GetService("Players")
+local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Skins = require(Shared.Skins)
+local Weapons = require(Shared.Weapons)
+local Sounds = require(Shared.Sounds)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+
+local Menu = {}
+
+local gui, panel, content, headerInfo
+local tabButtons = {}
+local currentTab = "Pase"
+
+local GOLD = Color3.fromRGB(255, 190, 40)
+local PANEL_BG = Color3.fromRGB(22, 24, 38)
+local CARD_BG = Color3.fromRGB(38, 42, 64)
+
+---------------------------------------------------------------------------
+-- Tarjetas de recompensa
+---------------------------------------------------------------------------
+
+local function skinSwatch(skinId, parent, size)
+	local skin = Skins.Get(skinId)
+	local swatch = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 8),
+		Size = size or UDim2.fromOffset(80, 40),
+		BackgroundColor3 = skin.Body,
+		Parent = parent,
+	}, { UI.corner(6), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+	UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0, 0.45),
+		Size = UDim2.new(1, 0, 0.22, 0),
+		BackgroundColor3 = skin.Accent,
+		BorderSizePixel = 0,
+		Parent = swatch,
+	})
+	UI.new("Frame", {
+		Position = UDim2.fromScale(0.15, 0.62),
+		Size = UDim2.fromScale(0.18, 0.5),
+		BackgroundColor3 = skin.Dark,
+		BorderSizePixel = 0,
+		Parent = swatch,
+	})
+	return swatch
+end
+
+local function rewardCard(reward, unlocked, premium, parent, order)
+	local card = UI.new("Frame", {
+		LayoutOrder = order,
+		Size = UDim2.fromOffset(110, 110),
+		BackgroundColor3 = CARD_BG,
+		Parent = parent,
+	}, { UI.corner(10), UI.stroke(premium and GOLD or Color3.fromRGB(90, 100, 140), 2, 0) })
+
+	if not reward then
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = "—", TextSize = 30, TextTransparency = 0.5, Parent = card })
+	elseif reward.Type == "Skin" then
+		local skin = Skins.Get(reward.Id)
+		skinSwatch(reward.Id, card)
+		UI.label({
+			Position = UDim2.fromOffset(0, 52),
+			Size = UDim2.new(1, 0, 0, 22),
+			Text = skin.Name,
+			TextSize = 17,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(0, 74),
+			Size = UDim2.new(1, 0, 0, 18),
+			Text = skin.Rarity,
+			TextSize = 14,
+			TextColor3 = Skins.RarityColors[skin.Rarity] or Color3.new(1, 1, 1),
+			Parent = card,
+		})
+	else
+		UI.label({
+			Position = UDim2.fromOffset(0, 18),
+			Size = UDim2.new(1, 0, 0, 40),
+			Text = "🪙",
+			TextSize = 34,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(0, 62),
+			Size = UDim2.new(1, 0, 0, 24),
+			Text = tostring(reward.Amount),
+			TextSize = 20,
+			TextColor3 = GOLD,
+			Parent = card,
+		})
+	end
+
+	if reward then
+		local status = UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -4, 0, 2),
+			Size = UDim2.fromOffset(24, 24),
+			Text = unlocked and "✔" or "🔒",
+			TextSize = 18,
+			TextColor3 = unlocked and Color3.fromRGB(90, 230, 110) or Color3.new(1, 1, 1),
+			ZIndex = 3,
+			Parent = card,
+		})
+		if not unlocked then
+			UI.new("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BackgroundTransparency = 0.5,
+				ZIndex = 2,
+				Parent = card,
+			}, { UI.corner(10) })
+		end
+		return card, status
+	end
+	return card
+end
+
+---------------------------------------------------------------------------
+-- Páginas
+---------------------------------------------------------------------------
+
+local function buildPassPage(data)
+	local page = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
+
+	-- Progreso
+	local per = data.XPPerLevel or GameConfig.XPPerLevel
+	UI.label({
+		Size = UDim2.fromOffset(400, 26),
+		Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. " / " .. per .. " XP",
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = page,
+	})
+	local bar = UI.new("Frame", {
+		Position = UDim2.fromOffset(0, 30),
+		Size = UDim2.fromOffset(400, 12),
+		BackgroundColor3 = Color3.fromRGB(10, 10, 15),
+		Parent = page,
+	}, { UI.corner(6) })
+	UI.new("Frame", {
+		Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1),
+		BackgroundColor3 = Color3.fromRGB(80, 170, 255),
+		Parent = bar,
+	}, { UI.corner(6) })
+
+	-- Premium
+	if data.Premium then
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 0, 0, 4),
+			Size = UDim2.fromOffset(240, 34),
+			Text = "👑 PREMIUM ACTIVO",
+			TextSize = 22,
+			TextColor3 = GOLD,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = page,
+		})
+	else
+		local buy = UI.button({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 0, 0, 2),
+			Size = UDim2.fromOffset(240, 40),
+			Text = "👑 Obtener Premium",
+			BackgroundColor3 = GOLD,
+			TextColor3 = Color3.fromRGB(40, 25, 0),
+			Parent = page,
+		})
+		buy.Activated:Connect(function()
+			if GameConfig.PremiumPassId == 0 then
+				buy.Text = "Configura PremiumPassId"
+				return
+			end
+			MarketplaceService:PromptGamePassPurchase(player, GameConfig.PremiumPassId)
+		end)
+	end
+
+	-- Filas de etiquetas
+	UI.label({
+		Position = UDim2.fromOffset(0, 92),
+		Size = UDim2.fromOffset(70, 110),
+		Text = "GRATIS",
+		TextSize = 16,
+		Parent = page,
+	})
+	UI.label({
+		Position = UDim2.fromOffset(0, 210),
+		Size = UDim2.fromOffset(70, 110),
+		Text = "PREMIUM",
+		TextSize = 16,
+		TextColor3 = GOLD,
+		Parent = page,
+	})
+
+	local scroll = UI.new("ScrollingFrame", {
+		Position = UDim2.fromOffset(74, 56),
+		Size = UDim2.new(1, -74, 1, -56),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		CanvasSize = UDim2.new(),
+		ScrollBarThickness = 8,
+		Parent = page,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 10),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	for tier, rewards in GameConfig.BattlePass do
+		local reached = data.Level >= tier
+		local column = UI.new("Frame", {
+			LayoutOrder = tier,
+			Size = UDim2.fromOffset(110, 270),
+			BackgroundTransparency = 1,
+			Parent = scroll,
+		}, {
+			UI.new("UIListLayout", {
+				Padding = UDim.new(0, 8),
+				HorizontalAlignment = Enum.HorizontalAlignment.Center,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+		})
+		UI.label({
+			LayoutOrder = 0,
+			Size = UDim2.fromOffset(110, 26),
+			Text = "NIVEL " .. tier,
+			TextSize = 18,
+			TextColor3 = reached and Color3.fromRGB(90, 230, 110) or Color3.fromRGB(180, 180, 190),
+			Parent = column,
+		})
+		rewardCard(rewards.Free, reached, false, column, 1)
+		rewardCard(rewards.Premium, reached and data.Premium, true, column, 2)
+	end
+end
+
+local function buildSkinsPage(data)
+	local scroll = UI.new("ScrollingFrame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		ScrollBarThickness = 8,
+		Parent = content,
+	}, {
+		UI.new("UIGridLayout", {
+			CellSize = UDim2.fromOffset(165, 150),
+			CellPadding = UDim2.fromOffset(10, 10),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	local order = { "Común", "Raro", "Épico", "Legendario", "Mítico" }
+	local ids = {}
+	for id in Skins.List do
+		table.insert(ids, id)
+	end
+	table.sort(ids, function(a, b)
+		local ra = table.find(order, Skins.List[a].Rarity) or 0
+		local rb = table.find(order, Skins.List[b].Rarity) or 0
+		if ra == rb then
+			return Skins.List[a].Name < Skins.List[b].Name
+		end
+		return ra < rb
+	end)
+
+	for i, id in ids do
+		local skin = Skins.List[id]
+		local owned = data.Skins[id] == true
+		local equipped = data.EquippedSkin == id
+		local card = UI.new("Frame", {
+			LayoutOrder = i,
+			BackgroundColor3 = CARD_BG,
+			Parent = scroll,
+		}, {
+			UI.corner(10),
+			UI.stroke(equipped and GOLD or (Skins.RarityColors[skin.Rarity] or Color3.new(1, 1, 1)), 2, equipped and 0 or 0.4),
+		})
+		skinSwatch(id, card, UDim2.fromOffset(120, 46))
+		UI.label({
+			Position = UDim2.fromOffset(0, 58),
+			Size = UDim2.new(1, 0, 0, 22),
+			Text = skin.Name,
+			TextSize = 19,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(0, 80),
+			Size = UDim2.new(1, 0, 0, 16),
+			Text = skin.Rarity,
+			TextSize = 14,
+			TextColor3 = Skins.RarityColors[skin.Rarity] or Color3.new(1, 1, 1),
+			Parent = card,
+		})
+		local button = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -20, 0, 30),
+			TextSize = 16,
+			Text = equipped and "Equipada" or (owned and "Equipar" or "🔒 Pase de batalla"),
+			BackgroundColor3 = equipped and Color3.fromRGB(60, 160, 80)
+				or (owned and Color3.fromRGB(40, 120, 255) or Color3.fromRGB(70, 70, 80)),
+			AutoButtonColor = owned and not equipped,
+			Parent = card,
+		})
+		if owned and not equipped then
+			button.Activated:Connect(function()
+				Sounds.Play("Click")
+				Remotes.EquipSkin:FireServer(id)
+			end)
+		end
+	end
+end
+
+local function buildWeaponsPage(data)
+	local holder = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Parent = content,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 14),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	for i, weaponName in Weapons.Primaries do
+		local def = Weapons.Get(weaponName)
+		local selected = data.Primary == weaponName
+		local card = UI.new("Frame", {
+			LayoutOrder = i,
+			Size = UDim2.fromOffset(220, 300),
+			BackgroundColor3 = CARD_BG,
+			Parent = holder,
+		}, { UI.corner(12), UI.stroke(selected and GOLD or Color3.fromRGB(90, 100, 140), 2, 0) })
+		UI.label({
+			Position = UDim2.fromOffset(0, 12),
+			Size = UDim2.new(1, 0, 0, 30),
+			Text = def.DisplayName,
+			TextSize = 26,
+			Parent = card,
+		})
+		local stats = {
+			{ "Daño", def.Pellets > 1 and (def.Damage .. " x" .. def.Pellets) or tostring(def.Damage) },
+			{ "Cadencia", string.format("%.1f/s", def.FireRate) },
+			{ "Cargador", tostring(def.MagSize) },
+			{ "Recarga", string.format("%.1fs", def.ReloadTime) },
+			{ "Alcance", tostring(def.Range) },
+		}
+		for j, stat in stats do
+			UI.label({
+				Position = UDim2.fromOffset(18, 52 + (j - 1) * 30),
+				Size = UDim2.new(1, -36, 0, 26),
+				Text = stat[1],
+				TextSize = 18,
+				TextColor3 = Color3.fromRGB(180, 185, 210),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = card,
+			})
+			UI.label({
+				Position = UDim2.fromOffset(18, 52 + (j - 1) * 30),
+				Size = UDim2.new(1, -36, 0, 26),
+				Text = stat[2],
+				TextSize = 18,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				Parent = card,
+			})
+		end
+		local button = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -14),
+			Size = UDim2.new(1, -30, 0, 40),
+			Text = selected and "Elegida" or "Elegir",
+			BackgroundColor3 = selected and Color3.fromRGB(60, 160, 80) or Color3.fromRGB(40, 120, 255),
+			Parent = card,
+		})
+		if not selected then
+			button.Activated:Connect(function()
+				Sounds.Play("Click")
+				Remotes.SetPrimary:FireServer(weaponName)
+			end)
+		end
+	end
+	UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 20),
+		Text = "Secundaria: " .. Weapons.Get(Weapons.Secondary).DisplayName .. "  ·  Cuerpo a cuerpo: " .. Weapons.Get(
+			Weapons.Melee
+		).DisplayName,
+		TextSize = 15,
+		TextColor3 = Color3.fromRGB(180, 185, 210),
+		Parent = holder.Parent,
+	})
+end
+
+---------------------------------------------------------------------------
+
+local function refresh()
+	if not content then
+		return
+	end
+	for _, child in content:GetChildren() do
+		child:Destroy()
+	end
+	local data = ClientState.Data
+	if headerInfo then
+		headerInfo.Text = data and ("Nivel " .. data.Level .. "   🪙 " .. data.Coins) or "Cargando..."
+	end
+	for name, button in tabButtons do
+		button.BackgroundColor3 = name == currentTab and Color3.fromRGB(40, 120, 255) or CARD_BG
+	end
+	if not data then
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })
+		return
+	end
+	if currentTab == "Pase" then
+		buildPassPage(data)
+	elseif currentTab == "Skins" then
+		buildSkinsPage(data)
+	else
+		buildWeaponsPage(data)
+	end
+end
+
+local function setOpen(open)
+	ClientState.MenuOpen = open
+	panel.Visible = open
+	UserInputService.MouseIconEnabled = open
+	if open then
+		refresh()
+	end
+end
+
+function Menu.Toggle()
+	setOpen(not panel.Visible)
+end
+
+function Menu.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "Menu",
+		ResetOnSpawn = false,
+		DisplayOrder = 5,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+
+	-- Botón superior (útil en móvil)
+	local open = UI.button({
+		Position = UDim2.fromOffset(16, 16),
+		Size = UDim2.fromOffset(210, 38),
+		Text = "⭐ PASE DE BATALLA",
+		BackgroundColor3 = Color3.fromRGB(255, 120, 30),
+		TextSize = 18,
+		Parent = gui,
+	}, { UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+	open.Activated:Connect(Menu.Toggle)
+
+	panel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(800, 480),
+		BackgroundColor3 = PANEL_BG,
+		Visible = false,
+		Parent = gui,
+	}, { UI.corner(16), UI.stroke(Color3.fromRGB(255, 140, 40), 3, 0), UI.padding(16) })
+	UI.new("UISizeConstraint", { MaxSize = Vector2.new(800, 480) }).Parent = panel
+
+	-- Un botón "Modal" libera el ratón en primera persona mientras el menú está abierto
+	UI.new("TextButton", {
+		Size = UDim2.fromOffset(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		Modal = true,
+		Parent = panel,
+	})
+
+	UI.label({
+		Size = UDim2.fromOffset(400, 36),
+		Text = "🎃 PASE DE BATALLA",
+		TextSize = 32,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(255, 160, 50),
+		Parent = panel,
+	})
+	headerInfo = UI.label({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -50, 0, 0),
+		Size = UDim2.fromOffset(300, 36),
+		Text = "",
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = panel,
+	})
+	local close = UI.button({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.fromOffset(36, 36),
+		Text = "✕",
+		BackgroundColor3 = Color3.fromRGB(220, 60, 60),
+		Parent = panel,
+	})
+	close.Activated:Connect(function()
+		setOpen(false)
+	end)
+
+	local tabs = UI.new("Frame", {
+		Position = UDim2.fromOffset(0, 46),
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	for i, name in { "Pase", "Skins", "Armas" } do
+		local button = UI.button({
+			LayoutOrder = i,
+			Size = UDim2.fromOffset(130, 36),
+			Text = name,
+			BackgroundColor3 = CARD_BG,
+			Parent = tabs,
+		})
+		button.Activated:Connect(function()
+			currentTab = name
+			Sounds.Play("Click")
+			refresh()
+		end)
+		tabButtons[name] = button
+	end
+
+	content = UI.new("Frame", {
+		Position = UDim2.fromOffset(0, 94),
+		Size = UDim2.new(1, 0, 1, -94),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	})
+
+	ContextActionService:BindAction("Menu", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			Menu.Toggle()
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.B, Enum.KeyCode.ButtonSelect)
+
+	ClientState.DataChanged.Event:Connect(function()
+		if panel.Visible then
+			refresh()
+		end
+	end)
+end
+
+return Menu
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="28">
+            <Properties>
+              <string name="Name">Movement</string>
+              <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Sounds = require(Shared.Sounds)
+
+local ClientState = require(script.Parent.ClientState)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local Movement = {}
+
+local humanoid, rootPart
+local sprintHeld = false
+local lastSlide = -10
+local stopSlide
+
+local function tweenCameraOffset(offset, time)
+	if humanoid then
+		TweenService:Create(humanoid, TweenInfo.new(time, Enum.EasingStyle.Quad), { CameraOffset = offset }):Play()
+	end
+end
+
+local function slide()
+	if ClientState.Sliding or ClientState.MenuOpen or not humanoid or humanoid.Health <= 0 or not rootPart then
+		return
+	end
+	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
+		return
+	end
+	local direction = humanoid.MoveDirection
+	if direction.Magnitude < 0.1 then
+		direction = camera.CFrame.LookVector
+	end
+	direction = Vector3.new(direction.X, 0, direction.Z)
+	if direction.Magnitude < 0.01 then
+		return
+	end
+	direction = direction.Unit
+
+	lastSlide = os.clock()
+	ClientState.Sliding = true
+	Sounds.Play("Slide")
+
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "SlideAttachment"
+	attachment.Parent = rootPart
+	local velocity = Instance.new("LinearVelocity")
+	velocity.Attachment0 = attachment
+	velocity.RelativeTo = Enum.ActuatorRelativeTo.World
+	-- Modo plano: solo empuja en X/Z, la gravedad sigue actuando
+	velocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	velocity.PrimaryTangentAxis = Vector3.xAxis
+	velocity.SecondaryTangentAxis = Vector3.zAxis
+	velocity.MaxForce = 80000
+	velocity.PlaneVelocity = Vector2.new(direction.X, direction.Z) * GameConfig.SlideSpeed
+	velocity.Parent = rootPart
+
+	tweenCameraOffset(Vector3.new(0, -1.8, 0), 0.12)
+
+	local start = os.clock()
+	local connection
+	local stopped = false
+	stopSlide = function()
+		if stopped then
+			return
+		end
+		stopped = true
+		connection:Disconnect()
+		velocity:Destroy()
+		attachment:Destroy()
+		ClientState.Sliding = false
+		tweenCameraOffset(Vector3.zero, 0.2)
+	end
+	connection = RunService.Heartbeat:Connect(function()
+		local alpha = (os.clock() - start) / GameConfig.SlideDuration
+		local state = humanoid:GetState()
+		if alpha >= 1 or humanoid.Health <= 0 or humanoid.Jump or state == Enum.HumanoidStateType.Jumping then
+			stopSlide()
+			return
+		end
+		local speed = GameConfig.SlideSpeed + (GameConfig.WalkSpeed - GameConfig.SlideSpeed) * alpha * alpha
+		velocity.PlaneVelocity = Vector2.new(direction.X, direction.Z) * speed
+	end)
+end
+
+local function update()
+	if not humanoid or humanoid.Health <= 0 then
+		ClientState.Sprinting = false
+		return
+	end
+	local moving = humanoid.MoveDirection.Magnitude > 0.1
+	local recentlyShot = os.clock() - ClientState.LastShotTime < 0.35
+	ClientState.Sprinting = sprintHeld
+		and moving
+		and not ClientState.Aiming
+		and not recentlyShot
+		and not ClientState.Sliding
+		and not ClientState.MenuOpen
+
+	if ClientState.Sprinting then
+		humanoid.WalkSpeed = GameConfig.SprintSpeed
+	elseif ClientState.Aiming then
+		humanoid.WalkSpeed = GameConfig.AimWalkSpeed
+	else
+		humanoid.WalkSpeed = GameConfig.WalkSpeed
+	end
+end
+
+local function onCharacter(newCharacter)
+	if stopSlide then
+		stopSlide()
+		stopSlide = nil
+	end
+	ClientState.Sliding = false
+	humanoid = newCharacter:WaitForChild("Humanoid")
+	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
+	humanoid.CameraOffset = Vector3.zero
+end
+
+function Movement.Init()
+	ContextActionService:BindAction("Sprint", function(_, state, input)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			if state == Enum.UserInputState.Begin then
+				sprintHeld = not sprintHeld
+			end
+		elseif state == Enum.UserInputState.Begin then
+			sprintHeld = true
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			sprintHeld = false
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+	ContextActionService:SetTitle("Sprint", "Correr")
+	ContextActionService:SetPosition("Sprint", UDim2.new(1, -260, 1, -160))
+
+	ContextActionService:BindAction("Slide", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			slide()
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
+	ContextActionService:SetTitle("Slide", "Deslizar")
+	ContextActionService:SetPosition("Slide", UDim2.new(1, -270, 1, -240))
+
+	-- Si la ventana pierde el foco dejamos de correr
+	UserInputService.WindowFocusReleased:Connect(function()
+		sprintHeld = false
+	end)
+
+	player.CharacterAdded:Connect(onCharacter)
+	if player.Character then
+		task.spawn(onCharacter, player.Character)
+	end
+	RunService.Heartbeat:Connect(update)
+end
+
+return Movement
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="29">
+            <Properties>
+              <string name="Name">UI</string>
+              <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
+local UI = {}
+
+UI.Font = Enum.Font.FredokaOne
+UI.FontBody = Enum.Font.GothamBold
+
+function UI.new(className, props, children)
+	local inst = Instance.new(className)
+	local parent
+	for key, value in props or {} do
+		if key == "Parent" then
+			parent = value
+		else
+			inst[key] = value
+		end
+	end
+	for _, child in children or {} do
+		child.Parent = inst
+	end
+	if parent then
+		inst.Parent = parent
+	end
+	return inst
+end
+
+function UI.corner(radius)
+	return UI.new("UICorner", { CornerRadius = UDim.new(0, radius or 8) })
+end
+
+function UI.stroke(color, thickness, transparency)
+	return UI.new("UIStroke", {
+		Color = color or Color3.new(0, 0, 0),
+		Thickness = thickness or 2,
+		Transparency = transparency or 0,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	})
+end
+
+function UI.padding(px)
+	return UI.new("UIPadding", {
+		PaddingTop = UDim.new(0, px),
+		PaddingBottom = UDim.new(0, px),
+		PaddingLeft = UDim.new(0, px),
+		PaddingRight = UDim.new(0, px),
+	})
+end
+
+-- Texto con borde negro estilo "cartoon"
+function UI.label(props, children)
+	local defaults = {
+		BackgroundTransparency = 1,
+		Font = UI.Font,
+		TextColor3 = Color3.new(1, 1, 1),
+		TextStrokeTransparency = 0.4,
+		TextSize = 18,
+	}
+	for key, value in props or {} do
+		defaults[key] = value
+	end
+	return UI.new("TextLabel", defaults, children)
+end
+
+function UI.button(props, children)
+	local defaults = {
+		Font = UI.Font,
+		TextColor3 = Color3.new(1, 1, 1),
+		TextSize = 18,
+		AutoButtonColor = true,
+		BackgroundColor3 = Color3.fromRGB(40, 120, 255),
+	}
+	for key, value in props or {} do
+		defaults[key] = value
+	end
+	local button = UI.new("TextButton", defaults, children)
+	UI.corner(8).Parent = button
+	return button
+end
+
+function UI.formatTime(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%02d:%02d", seconds // 60, seconds % 60)
+end
+
+function UI.hex(color)
+	return "#" .. color:ToHex()
+end
+
+return UI
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="30">
+            <Properties>
+              <string name="Name">WeaponController</string>
+              <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ContextActionService = game:GetService("ContextActionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Weapons = require(Shared.Weapons)
+local WeaponModels = require(Shared.WeaponModels)
+local Skins = require(Shared.Skins)
+local Sounds = require(Shared.Sounds)
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local Effects = require(script.Parent.Effects)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local WeaponController = {}
+
+-- Hombros del viewmodel (espacio de cámara, fuera de pantalla)
+local RIGHT_SHOULDER = Vector3.new(1.1, -1.5, 0.4)
+local LEFT_SHOULDER = Vector3.new(-0.7, -1.5, 0.2)
+
+local character, humanoid, rootPart
+local equippedTool, def
+local viewmodel
+local attrConnection
+
+local triggerHeld = false
+local aimHeld = false
+local lastShot = 0
+local localAmmo = 0
+local reloadStart = nil
+local equipTime = 0
+local meleeTime = -10
+local meleeWithKnife = false
+
+local recoilKick, recoilRot = 0, 0
+local camKick, camYaw = 0, 0
+local swayX, swayY = 0, 0
+local bobTime = 0
+local aimAlpha, sprintAlpha = 0, 0
+local viewmodelHidden = false
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function lerp(a, b, t)
+	return a + (b - a) * t
+end
+
+local function updateRayFilter()
+	local ignore = { camera }
+	if character then
+		table.insert(ignore, character)
+	end
+	local fx = workspace:FindFirstChild("ClientFX")
+	if fx then
+		table.insert(ignore, fx)
+	end
+	rayParams.FilterDescendantsInstances = ignore
+end
+
+---------------------------------------------------------------------------
+-- Viewmodel
+---------------------------------------------------------------------------
+
+local function skinTone()
+	local hand = character and (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm"))
+	return hand and hand.Color or Color3.fromRGB(255, 204, 153)
+end
+
+local function addArm(model, handPos, shoulderCam, weaponDef)
+	local shoulder = weaponDef.ViewOffset:PointToObjectSpace(shoulderCam)
+	local length = (shoulder - handPos).Magnitude
+	local sleeveColor = player.Team and player.TeamColor.Color or Color3.fromRGB(60, 60, 70)
+
+	local arm = Instance.new("Part")
+	arm.Name = "Arm"
+	arm.Size = Vector3.new(0.4, 0.4, length)
+	arm.CFrame = CFrame.lookAt((handPos + shoulder) / 2, handPos)
+	arm.Color = skinTone()
+	arm.Material = Enum.Material.SmoothPlastic
+	arm.Parent = model
+
+	local sleeve = Instance.new("Part")
+	sleeve.Name = "Sleeve"
+	sleeve.Size = Vector3.new(0.46, 0.46, length * 0.55)
+	sleeve.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.27), handPos)
+	sleeve.Color = sleeveColor
+	sleeve.Material = Enum.Material.Fabric
+	sleeve.Parent = model
+
+	local glove = Instance.new("Part")
+	glove.Name = "Glove"
+	glove.Size = Vector3.new(0.48, 0.48, 0.55)
+	glove.CFrame = CFrame.lookAt(handPos + (shoulder - handPos).Unit * 0.15, handPos)
+	glove.Color = Color3.fromRGB(25, 25, 28)
+	glove.Material = Enum.Material.Fabric
+	glove.Parent = model
+end
+
+local function destroyViewmodel()
+	if viewmodel then
+		viewmodel:Destroy()
+		viewmodel = nil
+	end
+	viewmodelHidden = false
+end
+
+local function createViewmodel(tool)
+	destroyViewmodel()
+	local weaponName = tool:GetAttribute("Weapon")
+	local weaponDef = Weapons.Get(weaponName)
+	local model = WeaponModels.Build(weaponName, tool:GetAttribute("Skin"))
+	if weaponDef.RightHand then
+		addArm(model, weaponDef.RightHand, RIGHT_SHOULDER, weaponDef)
+	end
+	if weaponDef.LeftHand then
+		addArm(model, weaponDef.LeftHand, LEFT_SHOULDER, weaponDef)
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.CastShadow = false
+		end
+	end
+	model.Name = "Viewmodel"
+	model.Parent = camera
+	viewmodel = model
+end
+
+local function setViewmodelHidden(hidden)
+	if not viewmodel or viewmodelHidden == hidden then
+		return
+	end
+	viewmodelHidden = hidden
+	for _, part in viewmodel:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.LocalTransparencyModifier = hidden and 1 or 0
+		end
+	end
+end
+
+---------------------------------------------------------------------------
+-- Equipar
+---------------------------------------------------------------------------
+
+local function onUnequipped()
+	if attrConnection then
+		attrConnection:Disconnect()
+		attrConnection = nil
+	end
+	destroyViewmodel()
+	equippedTool, def = nil, nil
+	triggerHeld = false
+	reloadStart = nil
+	ClientState.CurrentTool = nil
+	ClientState.CurrentDef = nil
+	ClientState.Reloading = false
+	ClientState.WeaponChanged:Fire()
+end
+
+local function onEquipped(tool)
+	if equippedTool then
+		onUnequipped()
+	end
+	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
+	if not weaponDef then
+		return
+	end
+	equippedTool, def = tool, weaponDef
+	equipTime = os.clock()
+	reloadStart = nil
+	localAmmo = tool:GetAttribute("Ammo") or 0
+
+	-- Ocultamos el Tool real en nuestra pantalla (los demás sí lo ven)
+	for _, part in tool:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.LocalTransparencyModifier = 1
+		end
+	end
+	createViewmodel(tool)
+
+	attrConnection = tool.AttributeChanged:Connect(function(attribute)
+		if attribute == "Ammo" then
+			local serverAmmo = tool:GetAttribute("Ammo") or 0
+			-- Subida = recarga; bajada = confirmación de disparos que ya predijimos
+			if serverAmmo > localAmmo then
+				localAmmo = serverAmmo
+			else
+				localAmmo = math.min(localAmmo, serverAmmo)
+			end
+		elseif attribute == "Skin" then
+			createViewmodel(tool)
+			for _, part in tool:GetDescendants() do
+				if part:IsA("BasePart") then
+					part.LocalTransparencyModifier = 1
+				end
+			end
+		elseif attribute == "Reloading" and not tool:GetAttribute("Reloading") then
+			reloadStart = nil
+		end
+	end)
+
+	ClientState.CurrentTool = tool
+	ClientState.CurrentDef = weaponDef
+	ClientState.WeaponChanged:Fire()
+end
+
+local function getTools()
+	local list = {}
+	local containers = { player:FindFirstChildOfClass("Backpack"), character }
+	for _, container in containers do
+		if container then
+			for _, tool in container:GetChildren() do
+				if tool:IsA("Tool") and tool:GetAttribute("Slot") then
+					list[tool:GetAttribute("Slot")] = tool
+				end
+			end
+		end
+	end
+	return list
+end
+WeaponController.GetTools = getTools
+
+local function equipSlot(slot)
+	if not humanoid or humanoid.Health <= 0 or ClientState.MenuOpen then
+		return
+	end
+	local tool = getTools()[slot]
+	if tool and tool ~= equippedTool then
+		humanoid:EquipTool(tool)
+	end
+end
+
+local function cycleSlot(direction)
+	local current = equippedTool and equippedTool:GetAttribute("Slot") or 1
+	local tools = getTools()
+	for i = 1, 3 do
+		local slot = (current - 1 + direction * i) % 3 + 1
+		if tools[slot] then
+			equipSlot(slot)
+			return
+		end
+	end
+end
+
+---------------------------------------------------------------------------
+-- Disparo
+---------------------------------------------------------------------------
+
+local function randomInCone(direction, degrees)
+	if degrees <= 0 then
+		return direction
+	end
+	local angle = math.rad(degrees) * math.sqrt(math.random())
+	local spin = math.random() * math.pi * 2
+	return (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(0, 0, spin) * CFrame.Angles(angle, 0, 0)).LookVector
+end
+
+local function currentSpread()
+	if not def or def.Type ~= "Gun" then
+		return 0
+	end
+	local spread = lerp(def.Spread, def.AimSpread, aimAlpha)
+	if rootPart then
+		local velocity = rootPart.AssemblyLinearVelocity
+		if Vector3.new(velocity.X, 0, velocity.Z).Magnitude > 2 then
+			spread *= 1.5
+		end
+	end
+	if humanoid and humanoid.FloorMaterial == Enum.Material.Air then
+		spread *= 2
+	end
+	return spread + ClientState.Bloom * (1 - aimAlpha * 0.7)
+end
+
+local function requestReload()
+	if not equippedTool or not def or def.Type ~= "Gun" or reloadStart then
+		return
+	end
+	local reserve = equippedTool:GetAttribute("Reserve") or 0
+	if localAmmo >= def.MagSize or reserve <= 0 then
+		return
+	end
+	reloadStart = os.clock()
+	Remotes.Reload:FireServer(equippedTool)
+	Sounds.Play("Reload")
+end
+
+local function fire()
+	local now = os.clock()
+	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.MenuOpen then
+		return
+	end
+	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < 0.25 then
+		return
+	end
+	if localAmmo <= 0 then
+		lastShot = now
+		Sounds.Play("Empty")
+		requestReload()
+		return
+	end
+
+	lastShot = now
+	localAmmo -= 1
+	ClientState.LastShotTime = now
+	ClientState.Sprinting = false
+
+	updateRayFilter()
+	local origin = camera.CFrame.Position
+	local look = camera.CFrame.LookVector
+	local muzzle = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Muzzle")
+	local muzzlePos = muzzle and muzzle.WorldPosition or origin
+	local tracerColor = Skins.Get(equippedTool:GetAttribute("Skin")).Accent
+	local spread = currentSpread()
+
+	local rays = {}
+	for _ = 1, def.Pellets do
+		local direction = randomInCone(look, spread)
+		local result = workspace:Raycast(origin, direction * def.Range, rayParams)
+		local hitPosition = result and result.Position or origin + direction * def.Range
+		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
+		Effects.Tracer(muzzlePos, hitPosition, tracerColor)
+		if result then
+			Effects.Impact(result.Position, result.Normal, result.Instance)
+		end
+	end
+	Remotes.Fire:FireServer(equippedTool, origin, rays)
+
+	Effects.MuzzleFlash(muzzle)
+	Sounds.Play((def.Pellets > 1 or def.Damage >= 80) and "ShotHeavy" or "Shot")
+
+	-- Retroceso
+	local recoil = math.rad(def.Recoil)
+	recoilKick += 0.08 + def.Recoil * 0.03
+	recoilRot += recoil * 0.6
+	camKick += recoil * (1 - aimAlpha * 0.35)
+	camYaw += (math.random() - 0.5) * recoil * 0.5
+	ClientState.Bloom = math.min(ClientState.Bloom + def.Recoil * 0.4, 6)
+	ClientState.ShotFired:Fire()
+
+	if localAmmo <= 0 then
+		task.delay(0.2, requestReload)
+	end
+end
+
+local function melee()
+	local knife = Weapons.Get(Weapons.Melee)
+	local now = os.clock()
+	if now - meleeTime < knife.Cooldown or ClientState.MenuOpen or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	if not getTools()[knife.Slot] then
+		return
+	end
+	meleeTime = now
+	meleeWithKnife = def ~= nil and def.Type == "Melee"
+	reloadStart = nil
+	Sounds.Play("Swing")
+
+	updateRayFilter()
+	local origin = camera.CFrame.Position
+	local direction = camera.CFrame.LookVector * knife.Range
+	local result = workspace:Spherecast(origin, 1.2, direction, rayParams) or workspace:Raycast(origin, direction, rayParams)
+	if result and result.Instance then
+		Remotes.Melee:FireServer(result.Instance)
+	end
+end
+
+---------------------------------------------------------------------------
+-- Animación procedural del viewmodel (cada frame)
+---------------------------------------------------------------------------
+
+local function renderStep(dt)
+	if not character or not humanoid then
+		return
+	end
+
+	-- Disparo automático
+	if triggerHeld and def and def.Type == "Gun" and def.Automatic then
+		fire()
+	end
+
+	ClientState.Bloom = math.max(0, ClientState.Bloom - dt * 8)
+	ClientState.Spread = currentSpread()
+
+	-- Recarga: tiempo límite por si el servidor la rechazó
+	if reloadStart and def and os.clock() - reloadStart > def.ReloadTime + 1 then
+		reloadStart = nil
+	end
+	ClientState.Reloading = reloadStart ~= nil
+	ClientState.ReloadProgress = (reloadStart and def) and math.clamp((os.clock() - reloadStart) / def.ReloadTime, 0, 1)
+		or 0
+	ClientState.Ammo = localAmmo
+
+	-- Apuntar
+	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.MenuOpen
+	ClientState.Aiming = canAim
+	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * 14))
+	if aimAlpha < 0.001 then
+		aimAlpha = 0
+	end
+	ClientState.AimAlpha = aimAlpha
+	sprintAlpha = lerp(sprintAlpha, (ClientState.Sprinting and not reloadStart) and 1 or 0, math.min(1, dt * 10))
+
+	-- Retroceso de cámara
+	local applyPitch = camKick * math.min(1, dt * 22)
+	local applyYaw = camYaw * math.min(1, dt * 22)
+	camKick -= applyPitch
+	camYaw -= applyYaw
+	if applyPitch ~= 0 or applyYaw ~= 0 then
+		camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
+	end
+
+	-- Campo de visión
+	local targetFov = GameConfig.FieldOfView
+	if def and def.AimFOV then
+		targetFov = lerp(GameConfig.FieldOfView, def.AimFOV, aimAlpha)
+	end
+	camera.FieldOfView = targetFov + sprintAlpha * 6
+
+	if not viewmodel or not def then
+		return
+	end
+
+	local now = os.clock()
+
+	-- Balanceo al caminar
+	local speed = 0
+	if rootPart then
+		local velocity = rootPart.AssemblyLinearVelocity
+		speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+	end
+	local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
+	if grounded and not ClientState.Sliding then
+		bobTime += dt * math.min(speed, 30) * 0.45
+	end
+	local bobAmount = math.clamp(speed / 18, 0, 1.5) * (1 - aimAlpha * 0.9)
+	if not grounded or ClientState.Sliding then
+		bobAmount = 0
+	end
+	local bob = CFrame.new(math.cos(bobTime) * 0.05 * bobAmount, -math.abs(math.sin(bobTime)) * 0.06 * bobAmount, 0)
+
+	-- Inercia al mover el ratón
+	local delta = UserInputService:GetMouseDelta()
+	swayX = lerp(swayX, math.clamp(-delta.X * 0.004, -0.12, 0.12), math.min(1, dt * 10))
+	swayY = lerp(swayY, math.clamp(-delta.Y * 0.004, -0.12, 0.12), math.min(1, dt * 10))
+	local swayScale = 1 - aimAlpha * 0.75
+	local sway = CFrame.Angles(swayY * swayScale, swayX * swayScale, swayX * 0.6 * swayScale)
+
+	-- Retroceso del arma
+	recoilKick = lerp(recoilKick, 0, math.min(1, dt * 16))
+	recoilRot = lerp(recoilRot, 0, math.min(1, dt * 14))
+	local recoilCF = CFrame.new(0, 0, recoilKick) * CFrame.Angles(recoilRot, 0, 0)
+
+	-- Cadera -> mira
+	local base = def.ViewOffset
+	if def.AimPoint then
+		local a = def.AimPoint
+		local aimCF = CFrame.new(-a.X, -a.Y, -def.AimDistance - a.Z)
+		base = def.ViewOffset:Lerp(aimCF, aimAlpha)
+	end
+
+	-- Correr
+	local s = sprintAlpha
+	local sprintCF = CFrame.new(-0.25 * s, -0.2 * s, 0.1 * s) * CFrame.Angles(math.rad(-12) * s, math.rad(35) * s, math.rad(18) * s)
+
+	-- Recarga
+	local reloadCF = CFrame.new()
+	if reloadStart then
+		local r = math.sin(ClientState.ReloadProgress * math.pi)
+		reloadCF = CFrame.new(0, -0.35 * r, 0) * CFrame.Angles(math.rad(-20) * r, 0, math.rad(35) * r)
+	end
+
+	-- Sacar arma
+	local e = 1 - math.clamp((now - equipTime) / 0.3, 0, 1)
+	local equipCF = CFrame.new(0, -0.8 * e * e, 0) * CFrame.Angles(math.rad(-40) * e, 0, 0)
+
+	-- Cuchillazo / golpe rápido
+	local meleeCF = CFrame.new()
+	local m = (now - meleeTime) / 0.35
+	if m < 1 then
+		local k = math.sin(m * math.pi)
+		if meleeWithKnife then
+			meleeCF = CFrame.new(-0.6 * k, 0.2 * k, -0.6 * k)
+				* CFrame.Angles(math.rad(-20) * k, math.rad(70) * k, math.rad(-30) * k)
+		else
+			meleeCF = CFrame.new(-0.3 * k, 0, -0.5 * k) * CFrame.Angles(0, math.rad(30) * k, math.rad(20) * k)
+		end
+	end
+
+	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * recoilCF)
+
+	-- Mira telescópica: ocultar el arma
+	setViewmodelHidden(def.Scope == true and aimAlpha > 0.85)
+end
+
+---------------------------------------------------------------------------
+-- Entrada
+---------------------------------------------------------------------------
+
+local function bindActions()
+	ContextActionService:BindAction("Fire", function(_, state)
+		if ClientState.MenuOpen then
+			triggerHeld = false
+			return Enum.ContextActionResult.Pass
+		end
+		if state == Enum.UserInputState.Begin then
+			triggerHeld = true
+			if def and def.Type == "Melee" then
+				melee()
+			else
+				fire()
+			end
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			triggerHeld = false
+		end
+		return Enum.ContextActionResult.Sink
+	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+	ContextActionService:SetTitle("Fire", "Disparar")
+	ContextActionService:SetPosition("Fire", UDim2.new(1, -110, 1, -160))
+
+	ContextActionService:BindAction("Aim", function(_, state, input)
+		if ClientState.MenuOpen then
+			aimHeld = false
+			return Enum.ContextActionResult.Pass
+		end
+		if input.UserInputType == Enum.UserInputType.Touch then
+			if state == Enum.UserInputState.Begin then
+				aimHeld = not aimHeld -- en móvil es un interruptor
+			end
+		elseif state == Enum.UserInputState.Begin then
+			aimHeld = true
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			aimHeld = false
+		end
+		return Enum.ContextActionResult.Sink
+	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
+	ContextActionService:SetTitle("Aim", "Apuntar")
+	ContextActionService:SetPosition("Aim", UDim2.new(1, -190, 1, -110))
+
+	ContextActionService:BindAction("Reload", function(_, state)
+		if state == Enum.UserInputState.Begin and not ClientState.MenuOpen then
+			requestReload()
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
+	ContextActionService:SetTitle("Reload", "R")
+	ContextActionService:SetPosition("Reload", UDim2.new(1, -200, 1, -190))
+
+	ContextActionService:BindAction("Melee", function(_, state)
+		if state == Enum.UserInputState.Begin and not ClientState.MenuOpen then
+			melee()
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
+	ContextActionService:SetTitle("Melee", "F")
+	ContextActionService:SetPosition("Melee", UDim2.new(1, -120, 1, -240))
+
+	ContextActionService:BindAction("Slots", function(_, state, input)
+		if state ~= Enum.UserInputState.Begin then
+			return Enum.ContextActionResult.Pass
+		end
+		if input.KeyCode == Enum.KeyCode.One then
+			equipSlot(1)
+		elseif input.KeyCode == Enum.KeyCode.Two then
+			equipSlot(2)
+		elseif input.KeyCode == Enum.KeyCode.Three then
+			equipSlot(3)
+		elseif input.KeyCode == Enum.KeyCode.ButtonY then
+			cycleSlot(1)
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.ButtonY)
+
+	UserInputService.InputChanged:Connect(function(input, processed)
+		if processed or ClientState.MenuOpen then
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			cycleSlot(input.Position.Z > 0 and -1 or 1)
+		end
+	end)
+end
+
+---------------------------------------------------------------------------
+-- Personaje
+---------------------------------------------------------------------------
+
+local function onCharacter(newCharacter)
+	onUnequipped()
+	character = newCharacter
+	humanoid = newCharacter:WaitForChild("Humanoid")
+	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
+	aimHeld = false
+	camKick, camYaw = 0, 0
+	updateRayFilter()
+
+	newCharacter.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") and child:GetAttribute("Weapon") then
+			onEquipped(child)
+		end
+	end)
+	newCharacter.ChildRemoved:Connect(function(child)
+		if child == equippedTool then
+			onUnequipped()
+		end
+	end)
+	local existing = newCharacter:FindFirstChildOfClass("Tool")
+	if existing and existing:GetAttribute("Weapon") then
+		onEquipped(existing)
+	end
+
+	humanoid.Died:Connect(function()
+		onUnequipped()
+		triggerHeld = false
+	end)
+end
+
+-- Efectos de los disparos de otros jugadores
+local function onShotFX(tool, endpoints)
+	if typeof(tool) ~= "Instance" or not tool.Parent or type(endpoints) ~= "table" then
+		return
+	end
+	local handle = tool:FindFirstChild("Handle")
+	local muzzle = handle and handle:FindFirstChild("Muzzle")
+	if not muzzle then
+		return
+	end
+	local color = Skins.Get(tool:GetAttribute("Skin")).Accent
+	for _, position in endpoints do
+		if typeof(position) == "Vector3" then
+			Effects.Tracer(muzzle.WorldPosition, position, color)
+		end
+	end
+	Effects.MuzzleFlash(muzzle)
+	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
+	local heavy = weaponDef and (weaponDef.Pellets > 1 or weaponDef.Damage >= 80)
+	Sounds.Play(heavy and "ShotHeavy" or "Shot", handle)
+end
+
+function WeaponController.Init()
+	UserInputService.MouseIconEnabled = false
+	bindActions()
+	player.CharacterAdded:Connect(onCharacter)
+	if player.Character then
+		task.spawn(onCharacter, player.Character)
+	end
+	Remotes.ShotFX.OnClientEvent:Connect(onShotFX)
+	RunService:BindToRenderStep("WeaponViewmodel", Enum.RenderPriority.Camera.Value + 1, renderStep)
+end
+
+return WeaponController
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Teams" referent="31">
+    <Properties>
+      <string name="Name">Teams</string>
+    </Properties>
+  </Item>
+</roblox>

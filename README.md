@@ -1,0 +1,124 @@
+# ShooterRob 🔫
+
+Un shooter en primera persona para Roblox, inspirado en juegos como *Disparo Hiper*: partidas por equipos (Rojo contra Azul), armas con skins de neón, rachas de bajas y un **pase de batalla** con niveles y recompensas.
+
+Todo está hecho con código (Luau). Incluso el mapa y las armas se generan solos, así que puedes darle a **Play** y probarlo sin tener que modelar nada.
+
+## Qué trae
+
+| Sistema | Detalles |
+|---|---|
+| **Modo de juego** | Duelo por equipos: el primer equipo que llega a 40 bajas gana (o el que más tenga cuando se acaben los 8 min). Hay calentamiento entre rondas, pantalla de victoria o derrota y un MVP. |
+| **Armas** | Rifle automático *AR-7 Hiper*, escopeta *Trueno SG*, francotirador *Halcón X* (con mira telescópica), pistola *Víbora P9* y cuchillo *Colmillo*. |
+| **Disparo** | Viewmodel en primera persona con brazos, retroceso, balanceo al caminar, apuntado (clic derecho), recarga, trazadoras, fogonazo, hitmarkers, números de daño y disparos a la cabeza. |
+| **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
+| **Movimiento** | Correr (Shift) y deslizarse (C), con impulso. |
+| **HUD** | Marcador arriba con el top 10 de jugadores (foto, puesto y bajas), munición, vida, barra de racha, killfeed, nivel/XP y aviso de controles. |
+| **Pase de batalla** | 15 niveles con una vía gratis y otra premium (GamePass), 13 skins (de común a mítica) y monedas. El progreso se guarda con DataStore. |
+| **Mapa** | Arena urbana simétrica con contenedores, edificios con azotea, pasarela elevada, plataforma central, coberturas y rascacielos de fondo. |
+| **Práctica** | Muñecos en el mapa para probar las armas aunque juegues solo en Studio. |
+
+## Cómo abrirlo (opción rápida)
+
+1. Descarga el archivo **`ShooterRob.rbxlx`** de este repositorio.
+2. Ábrelo con **Roblox Studio** (doble clic, o en Studio: *File → Open from File*).
+3. Pulsa **Play** (F5).
+
+Para que el progreso del pase de batalla se guarde mientras pruebas en Studio, ve a **Game Settings → Security** y activa **Enable Studio Access to API Services**. Antes tendrás que publicar el juego al menos una vez. Si no lo activas, todo funciona igual, solo que el progreso no se guarda.
+
+## Cómo trabajar con el código (opción recomendada: Rojo)
+
+[Rojo](https://rojo.space) sincroniza la carpeta `src/` con Studio en tiempo real, así que puedes editar el código en VS Code.
+
+```bash
+# 1. Instala Rojo (con Aftman, Rokit o descargando el ejecutable)
+aftman install
+
+# 2. Arranca el servidor de Rojo
+rojo serve
+```
+
+3. En Studio instala el plugin de Rojo, abre un *Baseplate* vacío y dale a **Connect**.
+
+Si cambias el código y quieres regenerar el archivo del juego:
+
+```bash
+rojo build -o ShooterRob.rbxlx
+```
+
+## Controles
+
+| Acción | PC | Mando |
+|---|---|---|
+| Disparar | Clic izquierdo | R2 |
+| Apuntar | Clic derecho | L2 |
+| Recargar | R | X |
+| Cuchillo rápido | F | B |
+| Correr | Shift (mantener) | L3 |
+| Deslizarse | C / Ctrl | R3 |
+| Cambiar arma | 1 / 2 / 3 / rueda del ratón | Y |
+| Pase de batalla | B | Select |
+
+En el móvil aparecen botones táctiles automáticamente.
+
+## Personalizar
+
+Todo lo importante está en `src/shared/`:
+
+- **`GameConfig.luau`**: duración de la ronda, bajas para ganar, velocidades, XP, recompensas del pase y el ID del GamePass premium.
+- **`Weapons.luau`**: daño, cadencia, cargador, retroceso, dispersión… y la forma de cada arma (piezas). Para crear un arma nueva, copia una entrada y añádela a `Weapons.Primaries`.
+- **`Skins.luau`**: colores y materiales de cada skin.
+- **`Sounds.luau`**: sonidos. Los que vienen ya incluidos en Roblox funcionan, pero para que suene mejor busca audios en el *Creator Store* y pega su `rbxassetid://`.
+
+### Usar tu propio mapa
+
+Construye tu mapa en Studio dentro de una carpeta o modelo llamado **`Map`** en `Workspace`. Si existe `workspace.Map`, el generador no crea el suyo. Pon dentro **SpawnLocations** con `TeamColor = Really red` y otras con `Really blue`, y quítales la casilla `Neutral`.
+
+## Antes de publicar
+
+1. En `GameConfig.luau`:
+   - `MinPlayers = 2` (o más).
+   - `TrainingDummies = false`.
+2. Crea un **GamePass** en el Creator Hub para el pase premium y pon su número en `PremiumPassId`.
+3. *File → Publish to Roblox*, y en **Game Settings** activa *API Services*.
+4. Ponle un icono y miniaturas llamativas (como las de la captura) para atraer jugadores.
+
+## Estructura del proyecto
+
+```
+src/
+├── shared/                 → ReplicatedStorage.Shared
+│   ├── GameConfig.luau      configuración general y pase de batalla
+│   ├── Weapons.luau         estadísticas y modelos de las armas
+│   ├── WeaponModels.luau    construye las armas a partir de piezas
+│   ├── Skins.luau           skins
+│   ├── Sounds.luau          sonidos
+│   └── Remotes.luau         RemoteEvents
+├── server/                 → ServerScriptService.Server
+│   ├── Main.server.luau     arranque
+│   └── Modules/
+│       ├── MapBuilder.luau  mapa e iluminación
+│       ├── PlayerData.luau  guardado, nivel, XP, skins, premium
+│       ├── Loadout.luau     da las armas al aparecer
+│       ├── Combat.luau      valida disparos, daño y bajas
+│       ├── Round.luau       equipos, rondas, marcador, rachas
+│       └── Dummies.luau     muñecos de práctica
+└── client/                 → StarterPlayerScripts.Client
+    ├── Main.client.luau     arranque
+    └── Modules/
+        ├── WeaponController.luau  viewmodel, disparo, recarga, apuntar
+        ├── Movement.luau          correr y deslizarse
+        ├── HUD.luau               interfaz de partida
+        ├── Menu.luau              pase de batalla, skins y armas
+        ├── Effects.luau           trazadoras e impactos
+        ├── ClientState.luau       estado compartido
+        └── UI.luau                utilidades de interfaz
+```
+
+## Ideas para seguir
+
+- **Capturar la bandera** (el modo de la captura): una bandera por equipo, recogerla al tocarla y puntuar al llevarla a tu base.
+- **Habilidades Q/E/X**: granada, dash o escudo, con tiempo de recarga.
+- **Modelos y animaciones de verdad**: importa armas con *MeshPart* desde el Toolbox y cambia `Parts` en `Weapons.luau` por el modelo.
+- **Tienda**: gastar las monedas en skins.
+- **Más mapas** con votación al final de cada ronda.
