@@ -41,7 +41,8 @@ function Map.Build()
 	local teams = GameConfig.Teams
 
 	-- Suelo de placas con líneas de neón
-	block("Floor", V(340, 2, 240), CFrame.new(0, -1, 0), FLOOR, Enum.Material.DiamondPlate)
+	-- Hormigón húmedo (con los charcos refleja el neón)
+	block("Floor", V(340, 2, 240), CFrame.new(0, -1, 0), FLOOR, Enum.Material.Concrete)
 	for _, z in { -45, 45 } do
 		deco("FloorNeon", V(250, 0.06, 0.5), CFrame.new(0, 0.04, z), C.Cyan, Enum.Material.Neon)
 	end

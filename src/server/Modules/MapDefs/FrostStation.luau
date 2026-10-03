@@ -50,7 +50,7 @@ local function pine(position, scale)
 	for i, size in { 9, 6.8, 4.4 } do
 		local y = (2.5 + i * 2.6) * scale
 		local s = size * scale
-		local tier = deco("PineTier", V(s, 2.4 * scale, s), CFrame.new(position + V(0, y, 0)) * CFrame.Angles(0, rad(45 * i), 0), RGB(40, 85, 60), Enum.Material.Grass)
+		local tier = deco("PineTier", V(s, 2.4 * scale, s), CFrame.new(position + V(0, y, 0)) * CFrame.Angles(0, rad(45 * i), 0), RGB(40, 85, 60), Enum.Material.LeafyGrass)
 		tier.CastShadow = true
 		deco("PineSnow", V(s * 0.8, 0.5 * scale, s * 0.8), CFrame.new(position + V(0, y + 1.3 * scale, 0)) * CFrame.Angles(0, rad(45 * i + 20), 0), SNOW, Enum.Material.Snow)
 	end

@@ -46,7 +46,7 @@ local function jungleTree(position, scale)
 	scale = scale or 1
 	Kit.cylinder("JungleTrunk", 16 * scale, 2.2 * scale, CFrame.new(position + V(0, 8 * scale, 0)), RGB(100, 75, 50), Enum.Material.Wood)
 	for i, spec in { { V(0, 17, 0), 12 }, { V(4, 15.5, 2), 9 }, { V(-4, 16, -2.5), 9.5 }, { V(1, 20, -1), 8 } } do
-		local leaf = Kit.ball("Canopy" .. i, spec[2] * scale, CFrame.new(position + spec[1] * scale), i % 2 == 0 and RGB(45, 120, 50) or RGB(60, 145, 55), Enum.Material.Grass, true)
+		local leaf = Kit.ball("Canopy" .. i, spec[2] * scale, CFrame.new(position + spec[1] * scale), i % 2 == 0 and RGB(45, 120, 50) or RGB(60, 145, 55), Enum.Material.LeafyGrass, true)
 		leaf.CastShadow = true
 	end
 	for i = 0, 3 do

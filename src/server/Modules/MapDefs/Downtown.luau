@@ -42,6 +42,9 @@ local function block(name, size, cf, color, material, parent)
 	part.CFrame = cf
 	part.Color = color
 	part.Material = Kit.realisticMaterial(size, color, material)
+	if part.Material == Enum.Material.Glass then
+		part.Reflectance = 0.15
+	end
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or mapFolder
@@ -54,7 +57,7 @@ local function deco(name, size, cf, color, material, parent)
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
-	part.CastShadow = false
+	part.CastShadow = size.X * size.Y * size.Z >= 20 and part.Material ~= Enum.Material.Neon and part.Material ~= Enum.Material.Glass
 	return part
 end
 

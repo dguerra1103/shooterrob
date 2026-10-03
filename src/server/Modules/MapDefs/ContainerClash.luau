@@ -29,7 +29,6 @@ local V = Vector3.new
 local RGB = Color3.fromRGB
 local C = Kit.C
 
-local CONCRETE = RGB(150, 146, 140)
 local COLORS = { RGB(210, 60, 45), RGB(45, 110, 210), RGB(240, 150, 30), RGB(60, 160, 90), RGB(130, 135, 145), RGB(230, 230, 235) }
 
 -- Contenedor ligero (pocas piezas) para muros y fondos
@@ -50,9 +49,10 @@ function Map.Build()
 	local teams = GameConfig.Teams
 
 	-- Suelo con marcas amarillas
-	block("Yard", V(340, 2, 240), CFrame.new(0, -1, 0), CONCRETE, Enum.Material.Concrete)
+	-- Asfalto de puerto con marcas amarillas gastadas
+	block("Yard", V(340, 2, 240), CFrame.new(0, -1, 0), RGB(78, 78, 82), Enum.Material.Asphalt)
 	for _, z in { -30, 30, -90, 90 } do
-		deco("LaneLine", V(260, 0.05, 0.8), CFrame.new(0, 0.03, z), C.Yellow, Enum.Material.SmoothPlastic)
+		deco("LaneLine", V(260, 0.05, 0.8), CFrame.new(0, 0.03, z), RGB(214, 178, 52), Enum.Material.Asphalt)
 	end
 	for x = -120, 120, 40 do
 		deco("CrossLine", V(0.8, 0.05, 240), CFrame.new(x, 0.03, 0), RGB(200, 190, 120), Enum.Material.SmoothPlastic)
