@@ -36,7 +36,8 @@ end
 
 local function refresh()
 	local voting = ReplicatedStorage:GetAttribute("State") == "Intermission" and ReplicatedStorage:GetAttribute("Vote1_Map") ~= nil
-	panel.Visible = voting
+	-- No tapa el menú ni la pantalla de inicio (sus tarjetas se comerían los clics)
+	panel.Visible = voting and not ClientState.MenuOpen and not ClientState.InMainMenu
 	hint.Visible = voting and not open and not ClientState.InMainMenu
 	if not voting then
 		myVote = nil

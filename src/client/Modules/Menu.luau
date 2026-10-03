@@ -973,14 +973,18 @@ local function itemName(kind, id)
 end
 
 -- Animación de apertura de caja: una tira de premios que gira y se para en el tuyo
+local crateOverlay = nil -- animación de caja en curso (el menú no se puede cerrar hasta acabar)
+
 local function crateAnimation(result)
 	local overlay = UI.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.25,
+		Active = true, -- los clics no atraviesan (no se compra otra caja sin querer)
 		ZIndex = 20,
 		Parent = gui,
 	})
+	crateOverlay = overlay
 	UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Parent = overlay })
 	local window = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1101,6 +1105,8 @@ local function crateAnimation(result)
 	}, { UI.gloss() })
 	close.Activated:Connect(function()
 		overlay:Destroy()
+		crateOverlay = nil
+		busy = false
 	end)
 end
 
@@ -1112,10 +1118,11 @@ local function openCrate(crateId, useFree)
 	local ok, success, result = pcall(function()
 		return Remotes.OpenCrate:InvokeServer(crateId, useFree)
 	end)
-	busy = false
 	if ok and success and type(result) == "table" then
+		-- busy sigue activo hasta cerrar la animación (no se puede abrir otra mientras gira)
 		crateAnimation(result)
 	else
+		busy = false
 		showToast(ok and tostring(result) or "Error de conexión", Color3.fromRGB(255, 90, 90))
 	end
 end
@@ -1132,14 +1139,21 @@ local function sectionTitle(parent, text, order)
 	})
 end
 
+-- Fila de tarjetas: si no caben (pantallas estrechas) pasan a la línea siguiente
 local function row(parent, order, height)
 	return UI.new("Frame", {
 		LayoutOrder = order,
 		Size = UDim2.new(1, -10, 0, height),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Parent = parent,
 	}, {
-		UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Wraps = true,
+			Padding = UDim.new(0, 10),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
 	})
 end
 
@@ -1503,9 +1517,17 @@ function refresh()
 	end
 end
 
+local menuModal -- botón Modal a nivel de pantalla: libera el ratón aunque el panel esté oculto
+
 local function setOpen(open)
+	if not open and crateOverlay then
+		return -- no se cierra a mitad de abrir una caja
+	end
 	ClientState.MenuOpen = open
 	panel.Visible = open
+	if menuModal then
+		menuModal.Visible = open
+	end
 	ClientState.UpdateMouse()
 	if open then
 		refresh()
@@ -1574,6 +1596,7 @@ function Menu.Init()
 		Position = UDim2.fromScale(0.5, 0.52),
 		Size = UDim2.new(0.92, 0, 0.84, 0),
 		BackgroundColor3 = PANEL_BG,
+		Active = true, -- los clics y toques no atraviesan el panel
 		Visible = false,
 		Parent = gui,
 	}, {
@@ -1588,7 +1611,18 @@ function Menu.Init()
 	})
 
 	-- Botón "Modal": libera el ratón en primera persona mientras el menú está abierto
-	UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Parent = panel })
+	menuModal = UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Visible = false, Parent = gui })
+
+	-- En pantallas pequeñas (móviles) todo el panel se escala para que quepa entero
+	local panelScale = UI.new("UIScale", { Parent = panel })
+	local function rescalePanel()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		local s = math.clamp(math.min(viewport.X / 1150, viewport.Y / 700), 0.5, 1)
+		panelScale.Scale = s
+		panel.Size = UDim2.fromScale(math.min(0.92 / s, 1 / s), math.min(0.84 / s, 0.95 / s))
+	end
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescalePanel)
+	rescalePanel()
 
 	UI.label({
 		Size = UDim2.fromOffset(400, 36),

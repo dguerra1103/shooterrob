@@ -66,6 +66,9 @@ local function bigButton(text, color, order, parent)
 	button.TextStrokeTransparency = 0.5
 	local scale = UI.new("UIScale", { Parent = button })
 	button.MouseEnter:Connect(function()
+		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+			return -- en móvil MouseLeave casi nunca llega y el botón se quedaría grande
+		end
 		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1.06 }):Play()
 	end)
 	button.MouseLeave:Connect(function()
@@ -101,15 +104,27 @@ local function refreshInfo()
 end
 
 -- Clasificación global (la publica el servidor en atributos como JSON)
+-- Escala un bloque de la pantalla de inicio según el tamaño de la pantalla (móviles)
+local function fitToScreen(frame)
+	local uiScale = UI.new("UIScale", { Parent = frame })
+	local function rescale()
+		local viewport = camera.ViewportSize
+		uiScale.Scale = math.clamp(math.min(viewport.X / 1280, viewport.Y / 720), 0.45, 1)
+	end
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+	rescale()
+end
+
 local function buildLeaderboard(parent)
 	local panel = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -60, 0, 64),
+		Position = UDim2.new(1, -20, 0, 20),
 		Size = UDim2.fromOffset(330, 282),
 		BackgroundColor3 = Color3.fromRGB(16, 18, 32),
 		BackgroundTransparency = 0.2,
 		Parent = parent,
 	}, { UI.corner(14), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.2) })
+	fitToScreen(panel)
 	UI.label({
 		Position = UDim2.fromOffset(14, 6),
 		Size = UDim2.new(1, -28, 0, 30),
@@ -284,11 +299,12 @@ function MainMenu.Init()
 
 	local left = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 70, 0.5, 0),
+		Position = UDim2.new(0, 40, 0.5, 0),
 		Size = UDim2.fromOffset(560, 520),
 		BackgroundTransparency = 1,
 		Parent = root,
 	})
+	fitToScreen(left)
 
 	-- Título con degradado y borde grueso
 	local title = UI.label({
@@ -403,12 +419,13 @@ function MainMenu.Init()
 
 	-- Escaparate del arma a la derecha (fuera del CanvasGroup para que el 3D se dibuje siempre)
 	showcase = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -60, 0.74, 0),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -30, 1, -20),
 		Size = UDim2.fromOffset(440, 260),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
+	fitToScreen(showcase)
 
 	buildLeaderboard(root)
 

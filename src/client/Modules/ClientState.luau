@@ -31,7 +31,16 @@ end
 
 -- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)
 function ClientState.UpdateMouse()
-	game:GetService("UserInputService").MouseIconEnabled = ClientState.IsBlocked()
+	local blocked = ClientState.IsBlocked()
+	game:GetService("UserInputService").MouseIconEnabled = blocked
+	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
+	local cas = game:GetService("ContextActionService")
+	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike" } do
+		local button = cas:GetButton(name)
+		if button then
+			button.Visible = not blocked
+		end
+	end
 end
 
 function ClientState.SetData(data)
