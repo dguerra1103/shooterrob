@@ -1,4 +1,4 @@
--- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes y tienda.
+-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -12,12 +12,14 @@ local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 local Mastery = require(Shared.Mastery)
+local KillEffects = require(Shared.KillEffects)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponIcon = require(script.Parent.WeaponIcon)
+local Effects = require(script.Parent.Effects)
 
 local player = Players.LocalPlayer
 
@@ -35,7 +37,7 @@ local GREEN = Color3.fromRGB(60, 170, 90)
 local BLUE = Color3.fromRGB(40, 120, 255)
 local GREY = Color3.fromRGB(70, 70, 82)
 
-local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Tienda" }
+local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Efectos", "Tienda" }
 
 local function rarityColor(rarity)
 	return Skins.RarityColors[rarity] or Color3.new(1, 1, 1)
@@ -723,6 +725,79 @@ local function buildSkinsPage(data)
 	end
 end
 
+-- Muestra un efecto de eliminación delante de la cámara (oculta el menú un momento)
+local previewing = false
+local function previewKillEffect(effectId)
+	if previewing then
+		return
+	end
+	previewing = true
+	local camera = workspace.CurrentCamera
+	local position = camera.CFrame.Position + camera.CFrame.LookVector * 16
+	panel.Visible = false
+	Effects.KillEffect(effectId, position, Color3.fromRGB(255, 200, 60))
+	task.delay(2.2, function()
+		previewing = false
+		if ClientState.MenuOpen then
+			panel.Visible = true
+		end
+	end)
+end
+
+local function buildKillEffectsPage(data)
+	local scroll = scroller(UI.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(200, 230),
+		CellPadding = UDim2.fromOffset(10, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}))
+	local owned = data.KillEffects or { Default = true }
+	for i, id in sortedIds(KillEffects.List) do
+		local effect = KillEffects.List[id]
+		local equipped = (data.EquippedKillEffect or "Default") == id
+		local card = UI.new("Frame", { LayoutOrder = i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
+			UI.corner(12),
+			UI.stroke(equipped and GOLD or rarityColor(effect.Rarity), 2, equipped and 0 or 0.4),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 62), Text = effect.Icon, TextSize = 54, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 70), Size = UDim2.new(1, 0, 0, 24), Text = effect.Name, TextSize = 20, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 94),
+			Size = UDim2.new(1, 0, 0, 16),
+			Text = effect.Rarity,
+			TextSize = 14,
+			TextColor3 = rarityColor(effect.Rarity),
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(8, 112),
+			Size = UDim2.new(1, -16, 0, 34),
+			Text = effect.Description or "",
+			TextSize = 13,
+			TextWrapped = true,
+			TextColor3 = Color3.fromRGB(190, 195, 220),
+			Font = UI.FontBody,
+			TextStrokeTransparency = 1,
+			Parent = card,
+		})
+		local preview = UI.button({
+			Position = UDim2.fromOffset(10, 150),
+			Size = UDim2.new(1, -20, 0, 26),
+			Text = "👁 Ver efecto",
+			TextSize = 15,
+			BackgroundColor3 = Color3.fromRGB(70, 60, 120),
+			Parent = card,
+		})
+		preview.Activated:Connect(function()
+			Sounds.Play("Click")
+			previewKillEffect(id)
+		end)
+		priceButton(card, "KillEffect", id, owned[id] == true, equipped, function()
+			Sounds.Play("Click")
+			Remotes.EquipKillEffect:FireServer(id)
+		end)
+	end
+end
+
 local function buildOutfitsPage(data)
 	local scroll = scroller(UI.new("UIGridLayout", {
 		CellSize = UDim2.fromOffset(200, 250),
@@ -765,6 +840,8 @@ end
 local function itemName(kind, id)
 	if kind == "Outfit" then
 		return Outfits.Get(id).Name, Outfits.Get(id).Rarity
+	elseif kind == "KillEffect" then
+		return KillEffects.Get(id).Name, KillEffects.Get(id).Rarity
 	end
 	return Skins.Get(id).Name, Skins.Get(id).Rarity
 end
@@ -980,6 +1057,8 @@ local function buildShopPage(data)
 		local owned
 		if offer.Kind == "Skin" then
 			owned = data.Skins[offer.Id] == true
+		elseif offer.Kind == "KillEffect" then
+			owned = data.KillEffects ~= nil and data.KillEffects[offer.Id] == true
 		else
 			owned = data.Outfits[offer.Id] == true
 		end
@@ -989,6 +1068,18 @@ local function buildShopPage(data)
 		})
 		if offer.Kind == "Skin" then
 			WeaponIcon.Create(data.Primary or "ARX27", offer.Id, { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(184, 80), Parent = card }, "angled", 184 / 80)
+		elseif offer.Kind == "KillEffect" then
+			local icon = UI.button({
+				Position = UDim2.fromOffset(50, 6),
+				Size = UDim2.fromOffset(100, 80),
+				Text = KillEffects.Get(offer.Id).Icon,
+				TextSize = 56,
+				BackgroundTransparency = 1,
+				Parent = card,
+			})
+			icon.Activated:Connect(function()
+				previewKillEffect(offer.Id)
+			end)
 		else
 			outfitViewport(offer.Id, { Position = UDim2.fromOffset(50, 2), Size = UDim2.fromOffset(100, 90), Parent = card })
 		end
@@ -996,7 +1087,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(0, 116),
 			Size = UDim2.new(1, 0, 0, 18),
-			Text = (offer.Kind == "Outfit" and "Traje · " or "Skin · ") .. rarity,
+			Text = (offer.Kind == "Outfit" and "Traje · " or offer.Kind == "KillEffect" and "Efecto · " or "Skin · ") .. rarity,
 			TextSize = 14,
 			TextColor3 = rarityColor(rarity),
 			Parent = card,
@@ -1005,6 +1096,8 @@ local function buildShopPage(data)
 			Sounds.Play("Click")
 			if offer.Kind == "Skin" then
 				Remotes.EquipSkin:FireServer(offer.Id)
+			elseif offer.Kind == "KillEffect" then
+				Remotes.EquipKillEffect:FireServer(offer.Id)
 			else
 				Remotes.EquipOutfit:FireServer(offer.Id)
 			end
@@ -1200,6 +1293,8 @@ local function refresh()
 		buildSkinsPage(data)
 	elseif currentTab == "Trajes" then
 		buildOutfitsPage(data)
+	elseif currentTab == "Efectos" then
+		buildKillEffectsPage(data)
 	else
 		buildShopPage(data)
 	end
@@ -1339,8 +1434,8 @@ function Menu.Init()
 	for i, name in TABS do
 		local button = UI.button({
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(130, 38),
-			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name,
+			Size = UDim2.fromOffset(118, 38),
+			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name == "Efectos" and "💥 Efectos" or name,
 			BackgroundColor3 = CARD_BG,
 			Parent = tabs,
 		})

@@ -385,4 +385,291 @@ function Effects.DeathBurst(position, color)
 	Debris:AddItem(flash, 0.4)
 end
 
+---------------------------------------------------------------------------
+-- Efectos de eliminación (ver KillEffects.luau)
+---------------------------------------------------------------------------
+
+-- Emoji o texto que flota en el mundo (BillboardGui) y se desvanece
+local function floatingText(position, text, size, rise, duration, color)
+	local anchor = fxPart({ Size = Vector3.new(0.1, 0.1, 0.1), Transparency = 1, CFrame = CFrame.new(position) })
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(size, size)
+	gui.AlwaysOnTop = false
+	gui.LightInfluence = 0
+	gui.MaxDistance = 400
+	gui.Parent = anchor
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBlack
+	label.TextColor3 = color or Color3.new(1, 1, 1)
+	label.Parent = gui
+	TweenService:Create(anchor, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(position + rise) }):Play()
+	TweenService:Create(label, TweenInfo.new(duration * 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, duration * 0.5), { TextTransparency = 1 }):Play()
+	Debris:AddItem(anchor, duration + 0.1)
+end
+
+-- Piezas sueltas que salen disparadas con física (confeti, monedas, cristales)
+local function debrisBurst(position, count, makePart, speed, lifetime)
+	for _ = 1, count do
+		local part = makePart()
+		part.Anchored = false
+		part.CanCollide = true -- rebotan en el suelo
+		part.Massless = true
+		part.CFrame = CFrame.new(position + Vector3.new(math.random() - 0.5, math.random() * 0.5, math.random() - 0.5))
+			* CFrame.Angles(math.random() * 6.28, math.random() * 6.28, math.random() * 6.28)
+		local dir = Vector3.new(math.random() - 0.5, 0.6 + math.random() * 0.8, math.random() - 0.5).Unit
+		part.AssemblyLinearVelocity = dir * speed * (0.6 + math.random() * 0.6)
+		part.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
+		TweenService:Create(part, TweenInfo.new(0.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, lifetime - 0.4), { Transparency = 1 }):Play()
+		Debris:AddItem(part, lifetime)
+	end
+end
+
+local CONFETTI_COLORS = {
+	Color3.fromRGB(255, 70, 90),
+	Color3.fromRGB(255, 210, 40),
+	Color3.fromRGB(60, 200, 255),
+	Color3.fromRGB(120, 255, 120),
+	Color3.fromRGB(200, 100, 255),
+	Color3.fromRGB(255, 140, 30),
+}
+
+local function flashBall(position, color, size, duration)
+	local flash = fxPart({ Color = color, Shape = Enum.PartType.Ball, Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(position), Transparency = 0.2 })
+	TweenService:Create(flash, TweenInfo.new(duration, Enum.EasingStyle.Quad), { Size = Vector3.one * size, Transparency = 1 }):Play()
+	Debris:AddItem(flash, duration + 0.05)
+	return flash
+end
+
+local KILL_FX = {}
+
+KILL_FX.Confeti = function(position)
+	debrisBurst(position, 36, function()
+		return fxPart({
+			Size = Vector3.new(0.35, 0.05, 0.25),
+			Color = CONFETTI_COLORS[math.random(1, #CONFETTI_COLORS)],
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end, 22, 2.2)
+	flashBall(position, Color3.fromRGB(255, 230, 120), 5, 0.3)
+	floatingText(position + Vector3.new(0, 2, 0), "🎉", 90, Vector3.new(0, 4, 0), 1.4)
+end
+
+KILL_FX.Amor = function(position)
+	for i = 1, 7 do
+		task.delay(i * 0.06, function()
+			local offset = Vector3.new((math.random() - 0.5) * 4, math.random() * 1.5, (math.random() - 0.5) * 4)
+			floatingText(position + offset, "💖", 50 + math.random(0, 30), Vector3.new(0, 6 + math.random() * 3, 0), 1.6)
+		end)
+	end
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 90, 170), Color3.fromRGB(255, 200, 230)),
+		LightEmission = 1,
+		Size = seq(0.6, 0),
+		Lifetime = NumberRange.new(0.6, 1),
+		Speed = NumberRange.new(6, 12),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+	}, 20)
+end
+
+KILL_FX.Fuego = function(position)
+	local anchor = emitterAnchor(position - Vector3.new(0, 2.5, 0), Vector3.yAxis, 2.2)
+	emit(anchor, {
+		Texture = TEX.Fire,
+		Color = ColorSequence.new(Color3.fromRGB(255, 220, 80), Color3.fromRGB(255, 60, 0)),
+		LightEmission = 1,
+		Size = seq(3, 0.5),
+		Transparency = seq(0, 1),
+		Lifetime = NumberRange.new(0.6, 1.1),
+		Speed = NumberRange.new(14, 24),
+		SpreadAngle = Vector2.new(12, 12),
+		Acceleration = Vector3.new(0, 10, 0),
+	}, 40)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(60, 50, 50)),
+		Size = seq(2, 6),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(1.2, 1.8),
+		Speed = NumberRange.new(8, 14),
+		SpreadAngle = Vector2.new(20, 20),
+	}, 10)
+	flashBall(position, Color3.fromRGB(255, 120, 20), 8, 0.35)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 120, 30)
+	light.Range = 24
+	light.Brightness = 4
+	light.Parent = anchor
+	TweenService:Create(light, TweenInfo.new(1.2), { Brightness = 0 }):Play()
+end
+
+KILL_FX.Hielo = function(position)
+	debrisBurst(position, 14, function()
+		return fxPart({
+			Size = Vector3.new(0.4, 1.2 + math.random(), 0.4),
+			Color = Color3.fromRGB(170, 230, 255),
+			Material = Enum.Material.Glass,
+			Transparency = 0.2,
+			Reflectance = 0.3,
+		})
+	end, 16, 1.8)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 255)),
+		LightEmission = 1,
+		Size = seq(0.8, 0),
+		Lifetime = NumberRange.new(0.8, 1.4),
+		Speed = NumberRange.new(4, 10),
+		SpreadAngle = Vector2.new(180, 180),
+		Acceleration = Vector3.new(0, -6, 0),
+		Drag = 2,
+	}, 30)
+	flashBall(position, Color3.fromRGB(150, 230, 255), 7, 0.4)
+	floatingText(position + Vector3.new(0, 2, 0), "❄️", 80, Vector3.new(0, 3, 0), 1.3)
+end
+
+KILL_FX.Fantasma = function(position)
+	floatingText(position, "👻", 110, Vector3.new(0, 14, 0), 2.2)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(230, 235, 255)),
+		Size = seq(1.5, 5),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(1, 1.6),
+		Speed = NumberRange.new(3, 7),
+		SpreadAngle = Vector2.new(60, 60),
+		Acceleration = Vector3.new(0, 4, 0),
+	}, 14)
+end
+
+KILL_FX.Calavera = function(position)
+	floatingText(position + Vector3.new(0, 1, 0), "💀", 150, Vector3.new(0, 5, 0), 1.8)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(200, 20, 30), Color3.fromRGB(40, 0, 0)),
+		Size = seq(2, 7),
+		Transparency = seq(0.2, 1),
+		Lifetime = NumberRange.new(1, 1.6),
+		Speed = NumberRange.new(4, 9),
+		SpreadAngle = Vector2.new(180, 180),
+	}, 18)
+	flashBall(position, Color3.fromRGB(255, 30, 40), 8, 0.35)
+end
+
+KILL_FX.Rayo = function(position)
+	-- Zigzag de neón desde el cielo
+	local top = position + Vector3.new((math.random() - 0.5) * 6, 60, (math.random() - 0.5) * 6)
+	local points = { top }
+	for i = 1, 7 do
+		local p = top:Lerp(position, i / 8) + Vector3.new((math.random() - 0.5) * 5, 0, (math.random() - 0.5) * 5)
+		table.insert(points, p)
+	end
+	table.insert(points, position)
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local seg = fxPart({
+			Size = Vector3.new(0.5, 0.5, (b - a).Magnitude),
+			CFrame = safeLookAt((a + b) / 2, b - a),
+			Color = Color3.fromRGB(190, 230, 255),
+		})
+		TweenService:Create(seg, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.1), { Transparency = 1, Size = Vector3.new(0.1, 0.1, seg.Size.Z) }):Play()
+		Debris:AddItem(seg, 0.7)
+	end
+	local flash = flashBall(position, Color3.fromRGB(200, 240, 255), 12, 0.45)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(180, 220, 255)
+	light.Range = 40
+	light.Brightness = 8
+	light.Parent = flash
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(80, 180, 255)),
+		LightEmission = 1,
+		Size = seq(1, 0),
+		Lifetime = NumberRange.new(0.3, 0.7),
+		Speed = NumberRange.new(20, 35),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 5,
+	}, 30)
+end
+
+KILL_FX.Monedas = function(position)
+	debrisBurst(position, 22, function()
+		local coin = fxPart({
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.15, 0.8, 0.8),
+			Color = Color3.fromRGB(255, 200, 50),
+			Material = Enum.Material.Foil,
+		})
+		return coin
+	end, 24, 2.4)
+	floatingText(position + Vector3.new(0, 2, 0), "+🪙", 80, Vector3.new(0, 4, 0), 1.4, Color3.fromRGB(255, 220, 80))
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 150), Color3.fromRGB(255, 180, 30)),
+		LightEmission = 1,
+		Size = seq(0.8, 0),
+		Lifetime = NumberRange.new(0.5, 1),
+		Speed = NumberRange.new(10, 18),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+	}, 24)
+end
+
+KILL_FX.AgujeroNegro = function(position)
+	local hole = fxPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.5, 0.5, 0.5),
+		CFrame = CFrame.new(position),
+		Color = Color3.fromRGB(5, 0, 10),
+		Material = Enum.Material.SmoothPlastic,
+	})
+	local ring = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 1, 1),
+		CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = Color3.fromRGB(170, 60, 255),
+	})
+	TweenService:Create(hole, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.one * 6 }):Play()
+	TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.new(0.2, 11, 11) }):Play()
+	-- Partículas que caen hacia el centro
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(200, 120, 255), Color3.fromRGB(255, 80, 200)),
+		LightEmission = 1,
+		Size = seq(0.7, 0),
+		Lifetime = NumberRange.new(0.9, 1.2),
+		Speed = NumberRange.new(-14, -10),
+		SpreadAngle = Vector2.new(180, 180),
+	}, 40)
+	task.delay(1.1, function()
+		TweenService:Create(hole, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.one * 0.1 }):Play()
+		TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.new(0.2, 0.1, 0.1), Transparency = 1 }):Play()
+	end)
+	Debris:AddItem(hole, 1.6)
+	Debris:AddItem(ring, 1.6)
+end
+
+-- Dibuja el efecto de eliminación indicado (color = color del equipo de la víctima, para el normal)
+function Effects.KillEffect(effectId, position, color)
+	local fn = KILL_FX[effectId]
+	if fn then
+		fn(position)
+	else
+		Effects.DeathBurst(position, color)
+	end
+end
+
 return Effects

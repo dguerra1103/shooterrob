@@ -73,6 +73,8 @@ local function dayNumber(time)
 end
 Shop.DayNumber = dayNumber
 
+local KillEffects = require(script.Parent.KillEffects)
+
 function Shop.GetDailyOffers(day)
 	day = day or dayNumber()
 	local pool = {}
@@ -81,6 +83,11 @@ function Shop.GetDailyOffers(day)
 	end
 	for id in Shop.OutfitPrices do
 		table.insert(pool, { Kind = "Outfit", Id = id })
+	end
+	for id, effect in KillEffects.List do
+		if effect.Price then
+			table.insert(pool, { Kind = "KillEffect", Id = id })
+		end
 	end
 	table.sort(pool, function(a, b)
 		return a.Kind .. a.Id < b.Kind .. b.Id
@@ -101,6 +108,9 @@ function Shop.GetPrice(kind, id, day)
 		base = Shop.SkinPrices[id]
 	elseif kind == "Outfit" then
 		base = Shop.OutfitPrices[id]
+	elseif kind == "KillEffect" then
+		local effect = KillEffects.List[id]
+		base = effect and effect.Price
 	end
 	if not base then
 		return nil, false

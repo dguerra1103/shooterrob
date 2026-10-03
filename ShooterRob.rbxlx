@@ -194,6 +194,34 @@ return GameConfig
       </Item>
       <Item class="ModuleScript" referent="6">
         <Properties>
+          <string name="Name">KillEffects</string>
+          <string name="Source"><![CDATA[-- Efectos de eliminación: lo que ven todos cuando eliminas a alguien (como en Arsenal).
+-- Se compran con monedas en el menú (pestaña Efectos) y se dibujan en Effects.KillEffect (cliente).
+local KillEffects = {}
+
+KillEffects.List = {
+	Default = { Name = "Estallido", Rarity = "Común", Icon = "💥", Description = "El de siempre, del color de su equipo." },
+	Confeti = { Name = "Confeti", Rarity = "Raro", Icon = "🎉", Price = 500, Description = "¡Fiesta! Una lluvia de papelitos de colores." },
+	Amor = { Name = "Amor", Rarity = "Raro", Icon = "💖", Price = 600, Description = "Corazones que suben flotando." },
+	Fuego = { Name = "Llamarada", Rarity = "Épico", Icon = "🔥", Price = 800, Description = "Una columna de fuego." },
+	Hielo = { Name = "Congelado", Rarity = "Épico", Icon = "❄️", Price = 800, Description = "Estalla en cristales de hielo." },
+	Fantasma = { Name = "Fantasma", Rarity = "Épico", Icon = "👻", Price = 900, Description = "Su fantasma sale volando." },
+	Calavera = { Name = "Calavera", Rarity = "Legendario", Icon = "💀", Price = 1200, Description = "Calavera gigante y humo rojo." },
+	Rayo = { Name = "Rayo", Rarity = "Legendario", Icon = "⚡", Price = 1500, Description = "Un rayo cae del cielo." },
+	Monedas = { Name = "Lluvia de monedas", Rarity = "Legendario", Icon = "🪙", Price = 1500, Description = "Revienta en monedas de oro." },
+	AgujeroNegro = { Name = "Agujero negro", Rarity = "Mítico", Icon = "🌀", Price = 3000, Description = "Se lo traga un agujero negro." },
+}
+
+function KillEffects.Get(id)
+	return KillEffects.List[id] or KillEffects.List.Default
+end
+
+return KillEffects
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="7">
+        <Properties>
           <string name="Name">Mastery</string>
           <string name="Source"><![CDATA[-- Maestría de armas: las bajas con cada arma desbloquean camuflajes exclusivos para ESA arma
 -- (y monedas). Los camuflajes son skins con Mastery = true (ver Skins.luau): no se venden ni salen en cajas.
@@ -236,7 +264,7 @@ return Mastery
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="7">
+      <Item class="ModuleScript" referent="8">
         <Properties>
           <string name="Name">Outfits</string>
           <string name="Source"><![CDATA[-- Trajes de operador: armadura hecha con piezas que se sueldan al personaje R15.
@@ -496,7 +524,7 @@ return Outfits
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="ModuleScript" referent="9">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Crea (servidor) o espera (cliente) todos los RemoteEvents/RemoteFunctions del juego.
@@ -514,6 +542,8 @@ local EVENTS = {
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
+	"EquipKillEffect", -- cliente -> servidor: equipar efecto de eliminación
+	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
@@ -565,7 +595,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="9">
+      <Item class="ModuleScript" referent="10">
         <Properties>
           <string name="Name">Shop</string>
           <string name="Source"><![CDATA[-- Catálogo de la tienda: precios en monedas, packs de Robux, VIP, recompensas diarias y cajas.
@@ -643,6 +673,8 @@ local function dayNumber(time)
 end
 Shop.DayNumber = dayNumber
 
+local KillEffects = require(script.Parent.KillEffects)
+
 function Shop.GetDailyOffers(day)
 	day = day or dayNumber()
 	local pool = {}
@@ -651,6 +683,11 @@ function Shop.GetDailyOffers(day)
 	end
 	for id in Shop.OutfitPrices do
 		table.insert(pool, { Kind = "Outfit", Id = id })
+	end
+	for id, effect in KillEffects.List do
+		if effect.Price then
+			table.insert(pool, { Kind = "KillEffect", Id = id })
+		end
 	end
 	table.sort(pool, function(a, b)
 		return a.Kind .. a.Id < b.Kind .. b.Id
@@ -671,6 +708,9 @@ function Shop.GetPrice(kind, id, day)
 		base = Shop.SkinPrices[id]
 	elseif kind == "Outfit" then
 		base = Shop.OutfitPrices[id]
+	elseif kind == "KillEffect" then
+		local effect = KillEffects.List[id]
+		base = effect and effect.Price
 	end
 	if not base then
 		return nil, false
@@ -687,7 +727,7 @@ return Shop
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="10">
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">Skins</string>
           <string name="Source"><![CDATA[-- Skins de armas. Cada skin pinta las piezas del arma según su "Role":
@@ -918,7 +958,7 @@ return Skins
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[-- Sonidos del juego. Los "rbxasset://" vienen incluidos con Roblox y funcionan sin subir nada.
@@ -994,7 +1034,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">WeaponDesigns</string>
           <string name="Source"><![CDATA[-- Diseño 3D (hecho con piezas) de cada arma, inspirado en el arte conceptual del juego.
@@ -1950,7 +1990,7 @@ return Designs
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="13">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">WeaponModels</string>
           <string name="Source"><![CDATA[-- Construye los modelos de las armas a partir de las piezas de WeaponDesigns.
@@ -2177,7 +2217,7 @@ return WeaponModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="14">
+      <Item class="ModuleScript" referent="15">
         <Properties>
           <string name="Name">Weapons</string>
           <string name="Source"><![CDATA[-- Arsenal: estadísticas, paleta de fábrica, desbloqueo y posiciones (manos, mira, cañón) de cada arma.
@@ -2780,15 +2820,15 @@ return Weapons
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="15">
+  <Item class="ServerScriptService" referent="16">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="16">
+    <Item class="Folder" referent="17">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Script" referent="17">
+      <Item class="Script" referent="18">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -2817,11 +2857,11 @@ Hazards.Init()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="18">
+      <Item class="Folder" referent="19">
         <Properties>
           <string name="Name">Modules</string>
         </Properties>
-        <Item class="ModuleScript" referent="19">
+        <Item class="ModuleScript" referent="20">
           <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Validación de disparos y daño en el servidor (anti-trampas básico).
@@ -2835,7 +2875,7 @@ local Remotes = require(Shared.Remotes)
 
 local Combat = {}
 
--- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot)
+-- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
 
 local lastShot = setmetatable({}, { __mode = "k" })
@@ -2985,11 +3025,14 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 		end
 		local weaponName = humanoid:GetAttribute("LastWeapon")
 		local headshot = humanoid:GetAttribute("LastHeadshot") == true
+		local character = humanoid.Parent
+		local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head"))
+		local position = root and root.Position
 		if victimPlayer then
 			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName)
 		end
 		if Combat.OnKill then
-			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot)
+			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position)
 		end
 	end)
 end
@@ -3224,7 +3267,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="20">
+        <Item class="ModuleScript" referent="21">
           <Properties>
             <string name="Name">Dummies</string>
             <string name="Source"><![CDATA[-- Muñecos de práctica para probar las armas en Studio (desactívalos en GameConfig.TrainingDummies).
@@ -3317,7 +3360,7 @@ return Dummies
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="21">
+        <Item class="ModuleScript" referent="22">
           <Properties>
             <string name="Name">Flags</string>
             <string name="Source"><![CDATA[-- Modo Captura la bandera.
@@ -3721,7 +3764,7 @@ return Flags
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">Hardpoint</string>
             <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
@@ -3940,7 +3983,7 @@ return Hardpoint
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="23">
+        <Item class="ModuleScript" referent="24">
           <Properties>
             <string name="Name">Hazards</string>
             <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava quita vida cada cuarto de segundo.
@@ -4007,7 +4050,7 @@ return Hazards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="24">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -4191,7 +4234,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -4243,11 +4286,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="26">
+        <Item class="Folder" referent="27">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="27">
+          <Item class="ModuleScript" referent="28">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -4451,7 +4494,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="28">
+          <Item class="ModuleScript" referent="29">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -5145,7 +5188,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="29">
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -5396,7 +5439,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="31">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -5606,7 +5649,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -6336,7 +6379,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -6357,6 +6400,7 @@ local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 local Challenges = require(Shared.Challenges)
 local Mastery = require(Shared.Mastery)
+local KillEffects = require(Shared.KillEffects)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = {}
@@ -6414,6 +6458,8 @@ local function defaults()
 		LastDailyDay = -1,
 		FreeCrates = 0,
 		Purchases = {},
+		KillEffects = { Default = true }, -- efectos de eliminación comprados
+		EquippedKillEffect = "Default",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
@@ -6504,6 +6550,8 @@ local function publicView(player, data)
 		Day = Shop.DayNumber(),
 		WeaponKills = data.WeaponKills,
 		WeaponCamos = data.WeaponCamos,
+		KillEffects = data.KillEffects,
+		EquippedKillEffect = data.EquippedKillEffect,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -6640,6 +6688,12 @@ local function load(player)
 	end
 	if type(merged.WeaponCamos) ~= "table" then
 		merged.WeaponCamos = {}
+	end
+	if type(merged.KillEffects) ~= "table" then
+		merged.KillEffects = { Default = true }
+	end
+	if not KillEffects.List[merged.EquippedKillEffect] or not merged.KillEffects[merged.EquippedKillEffect] then
+		merged.EquippedKillEffect = "Default"
 	end
 	-- Nombres de armas antiguos -> nuevos
 	merged.Primary = Weapons.Legacy[merged.Primary] or merged.Primary
@@ -6887,6 +6941,14 @@ local function buyItem(player, kind, id)
 			return false, "Ya lo tienes"
 		end
 		price = Shop.GetPrice("Outfit", id)
+	elseif kind == "KillEffect" then
+		if not KillEffects.List[id] then
+			return false, "No existe"
+		end
+		if data.KillEffects[id] then
+			return false, "Ya lo tienes"
+		end
+		price = Shop.GetPrice("KillEffect", id)
 	end
 	if not price then
 		return false, "No está a la venta"
@@ -6899,6 +6961,9 @@ local function buyItem(player, kind, id)
 		data.OwnedWeapons[id] = true
 	elseif kind == "Skin" then
 		data.Skins[id] = true
+	elseif kind == "KillEffect" then
+		data.KillEffects[id] = true
+		data.EquippedKillEffect = id -- se equipa al comprarlo
 	else
 		data.Outfits[id] = true
 	end
@@ -7150,6 +7215,15 @@ function PlayerData.Init()
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
 	end)
 
+	Remotes.EquipKillEffect.OnServerEvent:Connect(function(player, effectId)
+		local data = profiles[player]
+		if not data or type(effectId) ~= "string" or not KillEffects.List[effectId] or not data.KillEffects[effectId] then
+			return
+		end
+		data.EquippedKillEffect = effectId
+		sendUpdate(player)
+	end)
+
 	-- Camuflaje de maestría para un arma ("Default" = usar la skin general)
 	Remotes.SetCamo.OnServerEvent:Connect(function(player, weaponName, camoId)
 		local data = profiles[player]
@@ -7224,7 +7298,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -7436,7 +7510,7 @@ end
 -- Bajas
 ---------------------------------------------------------------------------
 
-function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
+function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position)
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		victim:SetAttribute("Streak", 0)
@@ -7484,6 +7558,16 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
 		end
+	end
+
+	-- Efecto de eliminación: el que tenga equipado quien ha hecho la baja (o el normal)
+	if typeof(position) == "Vector3" then
+		local effect = "Default"
+		local killerData = killer and killer ~= victim and PlayerData.Get(killer)
+		if killerData and killerData.EquippedKillEffect then
+			effect = killerData.EquippedKillEffect
+		end
+		Remotes.KillFX:FireAllClients(position, effect, victimColor)
 	end
 
 	local weapon = weaponName and Weapons.Get(weaponName)
@@ -7856,21 +7940,21 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="34">
+  <Item class="StarterPlayer" referent="35">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="35">
+    <Item class="StarterPlayerScripts" referent="36">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="36">
+      <Item class="Folder" referent="37">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="37">
+        <Item class="LocalScript" referent="38">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -7908,11 +7992,11 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="38">
+        <Item class="Folder" referent="39">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="39">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -7961,7 +8045,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -8351,11 +8435,298 @@ function Effects.DeathBurst(position, color)
 	Debris:AddItem(flash, 0.4)
 end
 
+---------------------------------------------------------------------------
+-- Efectos de eliminación (ver KillEffects.luau)
+---------------------------------------------------------------------------
+
+-- Emoji o texto que flota en el mundo (BillboardGui) y se desvanece
+local function floatingText(position, text, size, rise, duration, color)
+	local anchor = fxPart({ Size = Vector3.new(0.1, 0.1, 0.1), Transparency = 1, CFrame = CFrame.new(position) })
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(size, size)
+	gui.AlwaysOnTop = false
+	gui.LightInfluence = 0
+	gui.MaxDistance = 400
+	gui.Parent = anchor
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBlack
+	label.TextColor3 = color or Color3.new(1, 1, 1)
+	label.Parent = gui
+	TweenService:Create(anchor, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(position + rise) }):Play()
+	TweenService:Create(label, TweenInfo.new(duration * 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, duration * 0.5), { TextTransparency = 1 }):Play()
+	Debris:AddItem(anchor, duration + 0.1)
+end
+
+-- Piezas sueltas que salen disparadas con física (confeti, monedas, cristales)
+local function debrisBurst(position, count, makePart, speed, lifetime)
+	for _ = 1, count do
+		local part = makePart()
+		part.Anchored = false
+		part.CanCollide = true -- rebotan en el suelo
+		part.Massless = true
+		part.CFrame = CFrame.new(position + Vector3.new(math.random() - 0.5, math.random() * 0.5, math.random() - 0.5))
+			* CFrame.Angles(math.random() * 6.28, math.random() * 6.28, math.random() * 6.28)
+		local dir = Vector3.new(math.random() - 0.5, 0.6 + math.random() * 0.8, math.random() - 0.5).Unit
+		part.AssemblyLinearVelocity = dir * speed * (0.6 + math.random() * 0.6)
+		part.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
+		TweenService:Create(part, TweenInfo.new(0.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, lifetime - 0.4), { Transparency = 1 }):Play()
+		Debris:AddItem(part, lifetime)
+	end
+end
+
+local CONFETTI_COLORS = {
+	Color3.fromRGB(255, 70, 90),
+	Color3.fromRGB(255, 210, 40),
+	Color3.fromRGB(60, 200, 255),
+	Color3.fromRGB(120, 255, 120),
+	Color3.fromRGB(200, 100, 255),
+	Color3.fromRGB(255, 140, 30),
+}
+
+local function flashBall(position, color, size, duration)
+	local flash = fxPart({ Color = color, Shape = Enum.PartType.Ball, Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(position), Transparency = 0.2 })
+	TweenService:Create(flash, TweenInfo.new(duration, Enum.EasingStyle.Quad), { Size = Vector3.one * size, Transparency = 1 }):Play()
+	Debris:AddItem(flash, duration + 0.05)
+	return flash
+end
+
+local KILL_FX = {}
+
+KILL_FX.Confeti = function(position)
+	debrisBurst(position, 36, function()
+		return fxPart({
+			Size = Vector3.new(0.35, 0.05, 0.25),
+			Color = CONFETTI_COLORS[math.random(1, #CONFETTI_COLORS)],
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end, 22, 2.2)
+	flashBall(position, Color3.fromRGB(255, 230, 120), 5, 0.3)
+	floatingText(position + Vector3.new(0, 2, 0), "🎉", 90, Vector3.new(0, 4, 0), 1.4)
+end
+
+KILL_FX.Amor = function(position)
+	for i = 1, 7 do
+		task.delay(i * 0.06, function()
+			local offset = Vector3.new((math.random() - 0.5) * 4, math.random() * 1.5, (math.random() - 0.5) * 4)
+			floatingText(position + offset, "💖", 50 + math.random(0, 30), Vector3.new(0, 6 + math.random() * 3, 0), 1.6)
+		end)
+	end
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 90, 170), Color3.fromRGB(255, 200, 230)),
+		LightEmission = 1,
+		Size = seq(0.6, 0),
+		Lifetime = NumberRange.new(0.6, 1),
+		Speed = NumberRange.new(6, 12),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+	}, 20)
+end
+
+KILL_FX.Fuego = function(position)
+	local anchor = emitterAnchor(position - Vector3.new(0, 2.5, 0), Vector3.yAxis, 2.2)
+	emit(anchor, {
+		Texture = TEX.Fire,
+		Color = ColorSequence.new(Color3.fromRGB(255, 220, 80), Color3.fromRGB(255, 60, 0)),
+		LightEmission = 1,
+		Size = seq(3, 0.5),
+		Transparency = seq(0, 1),
+		Lifetime = NumberRange.new(0.6, 1.1),
+		Speed = NumberRange.new(14, 24),
+		SpreadAngle = Vector2.new(12, 12),
+		Acceleration = Vector3.new(0, 10, 0),
+	}, 40)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(60, 50, 50)),
+		Size = seq(2, 6),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(1.2, 1.8),
+		Speed = NumberRange.new(8, 14),
+		SpreadAngle = Vector2.new(20, 20),
+	}, 10)
+	flashBall(position, Color3.fromRGB(255, 120, 20), 8, 0.35)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 120, 30)
+	light.Range = 24
+	light.Brightness = 4
+	light.Parent = anchor
+	TweenService:Create(light, TweenInfo.new(1.2), { Brightness = 0 }):Play()
+end
+
+KILL_FX.Hielo = function(position)
+	debrisBurst(position, 14, function()
+		return fxPart({
+			Size = Vector3.new(0.4, 1.2 + math.random(), 0.4),
+			Color = Color3.fromRGB(170, 230, 255),
+			Material = Enum.Material.Glass,
+			Transparency = 0.2,
+			Reflectance = 0.3,
+		})
+	end, 16, 1.8)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 255)),
+		LightEmission = 1,
+		Size = seq(0.8, 0),
+		Lifetime = NumberRange.new(0.8, 1.4),
+		Speed = NumberRange.new(4, 10),
+		SpreadAngle = Vector2.new(180, 180),
+		Acceleration = Vector3.new(0, -6, 0),
+		Drag = 2,
+	}, 30)
+	flashBall(position, Color3.fromRGB(150, 230, 255), 7, 0.4)
+	floatingText(position + Vector3.new(0, 2, 0), "❄️", 80, Vector3.new(0, 3, 0), 1.3)
+end
+
+KILL_FX.Fantasma = function(position)
+	floatingText(position, "👻", 110, Vector3.new(0, 14, 0), 2.2)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(230, 235, 255)),
+		Size = seq(1.5, 5),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(1, 1.6),
+		Speed = NumberRange.new(3, 7),
+		SpreadAngle = Vector2.new(60, 60),
+		Acceleration = Vector3.new(0, 4, 0),
+	}, 14)
+end
+
+KILL_FX.Calavera = function(position)
+	floatingText(position + Vector3.new(0, 1, 0), "💀", 150, Vector3.new(0, 5, 0), 1.8)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(200, 20, 30), Color3.fromRGB(40, 0, 0)),
+		Size = seq(2, 7),
+		Transparency = seq(0.2, 1),
+		Lifetime = NumberRange.new(1, 1.6),
+		Speed = NumberRange.new(4, 9),
+		SpreadAngle = Vector2.new(180, 180),
+	}, 18)
+	flashBall(position, Color3.fromRGB(255, 30, 40), 8, 0.35)
+end
+
+KILL_FX.Rayo = function(position)
+	-- Zigzag de neón desde el cielo
+	local top = position + Vector3.new((math.random() - 0.5) * 6, 60, (math.random() - 0.5) * 6)
+	local points = { top }
+	for i = 1, 7 do
+		local p = top:Lerp(position, i / 8) + Vector3.new((math.random() - 0.5) * 5, 0, (math.random() - 0.5) * 5)
+		table.insert(points, p)
+	end
+	table.insert(points, position)
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local seg = fxPart({
+			Size = Vector3.new(0.5, 0.5, (b - a).Magnitude),
+			CFrame = safeLookAt((a + b) / 2, b - a),
+			Color = Color3.fromRGB(190, 230, 255),
+		})
+		TweenService:Create(seg, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.1), { Transparency = 1, Size = Vector3.new(0.1, 0.1, seg.Size.Z) }):Play()
+		Debris:AddItem(seg, 0.7)
+	end
+	local flash = flashBall(position, Color3.fromRGB(200, 240, 255), 12, 0.45)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(180, 220, 255)
+	light.Range = 40
+	light.Brightness = 8
+	light.Parent = flash
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(80, 180, 255)),
+		LightEmission = 1,
+		Size = seq(1, 0),
+		Lifetime = NumberRange.new(0.3, 0.7),
+		Speed = NumberRange.new(20, 35),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 5,
+	}, 30)
+end
+
+KILL_FX.Monedas = function(position)
+	debrisBurst(position, 22, function()
+		local coin = fxPart({
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.15, 0.8, 0.8),
+			Color = Color3.fromRGB(255, 200, 50),
+			Material = Enum.Material.Foil,
+		})
+		return coin
+	end, 24, 2.4)
+	floatingText(position + Vector3.new(0, 2, 0), "+🪙", 80, Vector3.new(0, 4, 0), 1.4, Color3.fromRGB(255, 220, 80))
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 150), Color3.fromRGB(255, 180, 30)),
+		LightEmission = 1,
+		Size = seq(0.8, 0),
+		Lifetime = NumberRange.new(0.5, 1),
+		Speed = NumberRange.new(10, 18),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+	}, 24)
+end
+
+KILL_FX.AgujeroNegro = function(position)
+	local hole = fxPart({
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.5, 0.5, 0.5),
+		CFrame = CFrame.new(position),
+		Color = Color3.fromRGB(5, 0, 10),
+		Material = Enum.Material.SmoothPlastic,
+	})
+	local ring = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 1, 1),
+		CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = Color3.fromRGB(170, 60, 255),
+	})
+	TweenService:Create(hole, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.one * 6 }):Play()
+	TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Size = Vector3.new(0.2, 11, 11) }):Play()
+	-- Partículas que caen hacia el centro
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(200, 120, 255), Color3.fromRGB(255, 80, 200)),
+		LightEmission = 1,
+		Size = seq(0.7, 0),
+		Lifetime = NumberRange.new(0.9, 1.2),
+		Speed = NumberRange.new(-14, -10),
+		SpreadAngle = Vector2.new(180, 180),
+	}, 40)
+	task.delay(1.1, function()
+		TweenService:Create(hole, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.one * 0.1 }):Play()
+		TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = Vector3.new(0.2, 0.1, 0.1), Transparency = 1 }):Play()
+	end)
+	Debris:AddItem(hole, 1.6)
+	Debris:AddItem(ring, 1.6)
+end
+
+-- Dibuja el efecto de eliminación indicado (color = color del equipo de la víctima, para el normal)
+function Effects.KillEffect(effectId, position, color)
+	local fn = KILL_FX[effectId]
+	if fn then
+		fn(position)
+	else
+		Effects.DeathBurst(position, color)
+	end
+end
+
 return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -9629,7 +10000,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -9962,10 +10333,10 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="43">
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">Menu</string>
-              <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes y tienda.
+              <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -9979,12 +10350,14 @@ local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 local Mastery = require(Shared.Mastery)
+local KillEffects = require(Shared.KillEffects)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponIcon = require(script.Parent.WeaponIcon)
+local Effects = require(script.Parent.Effects)
 
 local player = Players.LocalPlayer
 
@@ -10002,7 +10375,7 @@ local GREEN = Color3.fromRGB(60, 170, 90)
 local BLUE = Color3.fromRGB(40, 120, 255)
 local GREY = Color3.fromRGB(70, 70, 82)
 
-local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Tienda" }
+local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Efectos", "Tienda" }
 
 local function rarityColor(rarity)
 	return Skins.RarityColors[rarity] or Color3.new(1, 1, 1)
@@ -10690,6 +11063,79 @@ local function buildSkinsPage(data)
 	end
 end
 
+-- Muestra un efecto de eliminación delante de la cámara (oculta el menú un momento)
+local previewing = false
+local function previewKillEffect(effectId)
+	if previewing then
+		return
+	end
+	previewing = true
+	local camera = workspace.CurrentCamera
+	local position = camera.CFrame.Position + camera.CFrame.LookVector * 16
+	panel.Visible = false
+	Effects.KillEffect(effectId, position, Color3.fromRGB(255, 200, 60))
+	task.delay(2.2, function()
+		previewing = false
+		if ClientState.MenuOpen then
+			panel.Visible = true
+		end
+	end)
+end
+
+local function buildKillEffectsPage(data)
+	local scroll = scroller(UI.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(200, 230),
+		CellPadding = UDim2.fromOffset(10, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}))
+	local owned = data.KillEffects or { Default = true }
+	for i, id in sortedIds(KillEffects.List) do
+		local effect = KillEffects.List[id]
+		local equipped = (data.EquippedKillEffect or "Default") == id
+		local card = UI.new("Frame", { LayoutOrder = i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
+			UI.corner(12),
+			UI.stroke(equipped and GOLD or rarityColor(effect.Rarity), 2, equipped and 0 or 0.4),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 62), Text = effect.Icon, TextSize = 54, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 70), Size = UDim2.new(1, 0, 0, 24), Text = effect.Name, TextSize = 20, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 94),
+			Size = UDim2.new(1, 0, 0, 16),
+			Text = effect.Rarity,
+			TextSize = 14,
+			TextColor3 = rarityColor(effect.Rarity),
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(8, 112),
+			Size = UDim2.new(1, -16, 0, 34),
+			Text = effect.Description or "",
+			TextSize = 13,
+			TextWrapped = true,
+			TextColor3 = Color3.fromRGB(190, 195, 220),
+			Font = UI.FontBody,
+			TextStrokeTransparency = 1,
+			Parent = card,
+		})
+		local preview = UI.button({
+			Position = UDim2.fromOffset(10, 150),
+			Size = UDim2.new(1, -20, 0, 26),
+			Text = "👁 Ver efecto",
+			TextSize = 15,
+			BackgroundColor3 = Color3.fromRGB(70, 60, 120),
+			Parent = card,
+		})
+		preview.Activated:Connect(function()
+			Sounds.Play("Click")
+			previewKillEffect(id)
+		end)
+		priceButton(card, "KillEffect", id, owned[id] == true, equipped, function()
+			Sounds.Play("Click")
+			Remotes.EquipKillEffect:FireServer(id)
+		end)
+	end
+end
+
 local function buildOutfitsPage(data)
 	local scroll = scroller(UI.new("UIGridLayout", {
 		CellSize = UDim2.fromOffset(200, 250),
@@ -10732,6 +11178,8 @@ end
 local function itemName(kind, id)
 	if kind == "Outfit" then
 		return Outfits.Get(id).Name, Outfits.Get(id).Rarity
+	elseif kind == "KillEffect" then
+		return KillEffects.Get(id).Name, KillEffects.Get(id).Rarity
 	end
 	return Skins.Get(id).Name, Skins.Get(id).Rarity
 end
@@ -10947,6 +11395,8 @@ local function buildShopPage(data)
 		local owned
 		if offer.Kind == "Skin" then
 			owned = data.Skins[offer.Id] == true
+		elseif offer.Kind == "KillEffect" then
+			owned = data.KillEffects ~= nil and data.KillEffects[offer.Id] == true
 		else
 			owned = data.Outfits[offer.Id] == true
 		end
@@ -10956,6 +11406,18 @@ local function buildShopPage(data)
 		})
 		if offer.Kind == "Skin" then
 			WeaponIcon.Create(data.Primary or "ARX27", offer.Id, { Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(184, 80), Parent = card }, "angled", 184 / 80)
+		elseif offer.Kind == "KillEffect" then
+			local icon = UI.button({
+				Position = UDim2.fromOffset(50, 6),
+				Size = UDim2.fromOffset(100, 80),
+				Text = KillEffects.Get(offer.Id).Icon,
+				TextSize = 56,
+				BackgroundTransparency = 1,
+				Parent = card,
+			})
+			icon.Activated:Connect(function()
+				previewKillEffect(offer.Id)
+			end)
 		else
 			outfitViewport(offer.Id, { Position = UDim2.fromOffset(50, 2), Size = UDim2.fromOffset(100, 90), Parent = card })
 		end
@@ -10963,7 +11425,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(0, 116),
 			Size = UDim2.new(1, 0, 0, 18),
-			Text = (offer.Kind == "Outfit" and "Traje · " or "Skin · ") .. rarity,
+			Text = (offer.Kind == "Outfit" and "Traje · " or offer.Kind == "KillEffect" and "Efecto · " or "Skin · ") .. rarity,
 			TextSize = 14,
 			TextColor3 = rarityColor(rarity),
 			Parent = card,
@@ -10972,6 +11434,8 @@ local function buildShopPage(data)
 			Sounds.Play("Click")
 			if offer.Kind == "Skin" then
 				Remotes.EquipSkin:FireServer(offer.Id)
+			elseif offer.Kind == "KillEffect" then
+				Remotes.EquipKillEffect:FireServer(offer.Id)
 			else
 				Remotes.EquipOutfit:FireServer(offer.Id)
 			end
@@ -11167,6 +11631,8 @@ local function refresh()
 		buildSkinsPage(data)
 	elseif currentTab == "Trajes" then
 		buildOutfitsPage(data)
+	elseif currentTab == "Efectos" then
+		buildKillEffectsPage(data)
 	else
 		buildShopPage(data)
 	end
@@ -11306,8 +11772,8 @@ function Menu.Init()
 	for i, name in TABS do
 		local button = UI.button({
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(130, 38),
-			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name,
+			Size = UDim2.fromOffset(118, 38),
+			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name == "Efectos" and "💥 Efectos" or name,
 			BackgroundColor3 = CARD_BG,
 			Parent = tabs,
 		})
@@ -11365,7 +11831,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="44">
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -11543,7 +12009,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="45">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -11645,7 +12111,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -11796,7 +12262,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -12569,7 +13035,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -12626,7 +13092,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -12638,6 +13104,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local Effects = require(script.Parent.Effects)
+local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local player = Players.LocalPlayer
 
@@ -12729,23 +13196,7 @@ local function styleCharacter(other, character)
 	end
 end
 
-local function watchDeath(character, color)
-	local humanoid = character:WaitForChild("Humanoid", 10)
-	if not humanoid then
-		return
-	end
-	humanoid.Died:Connect(function()
-		local root = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
-		if root then
-			Effects.DeathBurst(root.Position, typeof(color) == "function" and color() or color)
-		end
-	end)
-end
-
 local function onCharacter(other, character)
-	task.spawn(watchDeath, character, function()
-		return teamColorOf(other)
-	end)
 	character:WaitForChild("Humanoid", 10)
 	styleCharacter(other, character)
 end
@@ -12787,22 +13238,10 @@ function WorldFX.Init()
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
 
-	-- Muñecos de práctica
-	local function watchDummies(folder)
-		for _, dummy in folder:GetChildren() do
-			task.spawn(watchDeath, dummy, Color3.fromRGB(255, 200, 60))
-		end
-		folder.ChildAdded:Connect(function(dummy)
-			task.spawn(watchDeath, dummy, Color3.fromRGB(255, 200, 60))
-		end)
-	end
-	local dummies = workspace:FindFirstChild("Dummies")
-	if dummies then
-		watchDummies(dummies)
-	end
-	workspace.ChildAdded:Connect(function(child)
-		if child.Name == "Dummies" then
-			watchDummies(child)
+	-- Efecto de eliminación (lo decide el servidor: el que tenga equipado quien hizo la baja)
+	Remotes.KillFX.OnClientEvent:Connect(function(position, effectId, color)
+		if typeof(position) == "Vector3" and type(effectId) == "string" then
+			Effects.KillEffect(effectId, position, typeof(color) == "Color3" and color or nil)
 		end
 	end)
 end
@@ -12815,12 +13254,12 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="50">
+  <Item class="Teams" referent="51">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="51">
+  <Item class="Workspace" referent="52">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

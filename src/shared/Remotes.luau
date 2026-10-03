@@ -13,6 +13,8 @@ local EVENTS = {
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
+	"EquipKillEffect", -- cliente -> servidor: equipar efecto de eliminación
+	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas

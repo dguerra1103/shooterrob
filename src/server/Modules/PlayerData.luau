@@ -16,6 +16,7 @@ local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 local Challenges = require(Shared.Challenges)
 local Mastery = require(Shared.Mastery)
+local KillEffects = require(Shared.KillEffects)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = {}
@@ -73,6 +74,8 @@ local function defaults()
 		LastDailyDay = -1,
 		FreeCrates = 0,
 		Purchases = {},
+		KillEffects = { Default = true }, -- efectos de eliminación comprados
+		EquippedKillEffect = "Default",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
@@ -163,6 +166,8 @@ local function publicView(player, data)
 		Day = Shop.DayNumber(),
 		WeaponKills = data.WeaponKills,
 		WeaponCamos = data.WeaponCamos,
+		KillEffects = data.KillEffects,
+		EquippedKillEffect = data.EquippedKillEffect,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -299,6 +304,12 @@ local function load(player)
 	end
 	if type(merged.WeaponCamos) ~= "table" then
 		merged.WeaponCamos = {}
+	end
+	if type(merged.KillEffects) ~= "table" then
+		merged.KillEffects = { Default = true }
+	end
+	if not KillEffects.List[merged.EquippedKillEffect] or not merged.KillEffects[merged.EquippedKillEffect] then
+		merged.EquippedKillEffect = "Default"
 	end
 	-- Nombres de armas antiguos -> nuevos
 	merged.Primary = Weapons.Legacy[merged.Primary] or merged.Primary
@@ -546,6 +557,14 @@ local function buyItem(player, kind, id)
 			return false, "Ya lo tienes"
 		end
 		price = Shop.GetPrice("Outfit", id)
+	elseif kind == "KillEffect" then
+		if not KillEffects.List[id] then
+			return false, "No existe"
+		end
+		if data.KillEffects[id] then
+			return false, "Ya lo tienes"
+		end
+		price = Shop.GetPrice("KillEffect", id)
 	end
 	if not price then
 		return false, "No está a la venta"
@@ -558,6 +577,9 @@ local function buyItem(player, kind, id)
 		data.OwnedWeapons[id] = true
 	elseif kind == "Skin" then
 		data.Skins[id] = true
+	elseif kind == "KillEffect" then
+		data.KillEffects[id] = true
+		data.EquippedKillEffect = id -- se equipa al comprarlo
 	else
 		data.Outfits[id] = true
 	end
@@ -807,6 +829,15 @@ function PlayerData.Init()
 	end)
 	Remotes.SetSecondary.OnServerEvent:Connect(function(player, weaponName)
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
+	end)
+
+	Remotes.EquipKillEffect.OnServerEvent:Connect(function(player, effectId)
+		local data = profiles[player]
+		if not data or type(effectId) ~= "string" or not KillEffects.List[effectId] or not data.KillEffects[effectId] then
+			return
+		end
+		data.EquippedKillEffect = effectId
+		sendUpdate(player)
 	end)
 
 	-- Camuflaje de maestría para un arma ("Default" = usar la skin general)

@@ -9,7 +9,7 @@ local Remotes = require(Shared.Remotes)
 
 local Combat = {}
 
--- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot)
+-- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
 
 local lastShot = setmetatable({}, { __mode = "k" })
@@ -159,11 +159,14 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 		end
 		local weaponName = humanoid:GetAttribute("LastWeapon")
 		local headshot = humanoid:GetAttribute("LastHeadshot") == true
+		local character = humanoid.Parent
+		local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head"))
+		local position = root and root.Position
 		if victimPlayer then
 			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName)
 		end
 		if Combat.OnKill then
-			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot)
+			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position)
 		end
 	end)
 end

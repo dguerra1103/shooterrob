@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local Effects = require(script.Parent.Effects)
+local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local player = Players.LocalPlayer
 
@@ -98,23 +99,7 @@ local function styleCharacter(other, character)
 	end
 end
 
-local function watchDeath(character, color)
-	local humanoid = character:WaitForChild("Humanoid", 10)
-	if not humanoid then
-		return
-	end
-	humanoid.Died:Connect(function()
-		local root = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
-		if root then
-			Effects.DeathBurst(root.Position, typeof(color) == "function" and color() or color)
-		end
-	end)
-end
-
 local function onCharacter(other, character)
-	task.spawn(watchDeath, character, function()
-		return teamColorOf(other)
-	end)
 	character:WaitForChild("Humanoid", 10)
 	styleCharacter(other, character)
 end
@@ -156,22 +141,10 @@ function WorldFX.Init()
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
 
-	-- Muñecos de práctica
-	local function watchDummies(folder)
-		for _, dummy in folder:GetChildren() do
-			task.spawn(watchDeath, dummy, Color3.fromRGB(255, 200, 60))
-		end
-		folder.ChildAdded:Connect(function(dummy)
-			task.spawn(watchDeath, dummy, Color3.fromRGB(255, 200, 60))
-		end)
-	end
-	local dummies = workspace:FindFirstChild("Dummies")
-	if dummies then
-		watchDummies(dummies)
-	end
-	workspace.ChildAdded:Connect(function(child)
-		if child.Name == "Dummies" then
-			watchDummies(child)
+	-- Efecto de eliminación (lo decide el servidor: el que tenga equipado quien hizo la baja)
+	Remotes.KillFX.OnClientEvent:Connect(function(position, effectId, color)
+		if typeof(position) == "Vector3" and type(effectId) == "string" then
+			Effects.KillEffect(effectId, position, typeof(color) == "Color3" and color or nil)
 		end
 	end)
 end

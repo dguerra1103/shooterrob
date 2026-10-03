@@ -207,7 +207,7 @@ end
 -- Bajas
 ---------------------------------------------------------------------------
 
-function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
+function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position)
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		victim:SetAttribute("Streak", 0)
@@ -255,6 +255,16 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot)
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
 		end
+	end
+
+	-- Efecto de eliminación: el que tenga equipado quien ha hecho la baja (o el normal)
+	if typeof(position) == "Vector3" then
+		local effect = "Default"
+		local killerData = killer and killer ~= victim and PlayerData.Get(killer)
+		if killerData and killerData.EquippedKillEffect then
+			effect = killerData.EquippedKillEffect
+		end
+		Remotes.KillFX:FireAllClients(position, effect, victimColor)
 	end
 
 	local weapon = weaponName and Weapons.Get(weaponName)
