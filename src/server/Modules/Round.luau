@@ -255,10 +255,10 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				PlayerData.Track(killer, "Headshot", 1, weaponName)
 			end
 
-			Killstreaks.OnStreak(killer, streak)
 			if STREAK_ANNOUNCE[streak] then
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
+			Killstreaks.OnStreak(killer, streak)
 		end
 	end
 

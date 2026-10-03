@@ -747,7 +747,7 @@ local function onNotify(kind, text)
 			local data = ClientState.Data
 			local free, premium = describe(tier.Free), describe(tier.Premium)
 			local line = free and ("Recompensa: " .. free) or ""
-			if premium then
+			if premium and (GameConfig.PremiumPassId ~= 0 or (data and data.Premium)) then
 				if data and data.Premium then
 					line ..= (line ~= "" and "   ·   " or "") .. "👑 " .. premium
 				else
@@ -755,8 +755,9 @@ local function onNotify(kind, text)
 				end
 			end
 			if line ~= "" then
+				-- En el aviso inferior (el banner superior lo usan las rachas y banderas)
 				task.delay(0.6, function()
-					timedLabel(refs.Banner, line, 4)
+					timedLabel(refs.Toast, line, 4)
 				end)
 			end
 		end

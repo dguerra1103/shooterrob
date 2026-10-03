@@ -36,9 +36,16 @@ local function isEnemy(other)
 	return true
 end
 
--- Pone o quita el contorno rojo del radar en los enemigos
+-- Pone o quita el contorno rojo del radar en los enemigos.
+-- Roblox dibuja como mucho 31 Highlights: con el radar activo se apagan los de los compañeros.
 local function updateRadar()
 	local active = radarActive()
+	for _, other in Players:GetPlayers() do
+		local teamHighlight = other.Character and other.Character:FindFirstChild("TeamHighlight")
+		if teamHighlight and teamHighlight:IsA("Highlight") then
+			teamHighlight.Enabled = not active
+		end
+	end
 	for _, other in Players:GetPlayers() do
 		local character = other.Character
 		if character then

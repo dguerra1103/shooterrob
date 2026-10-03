@@ -120,7 +120,7 @@ function Map.Build()
 		for _, x in { -91, -49 } do
 			deco("HangarStripe", V(2.2, 1, 34.2), m * CFrame.new(x, 13.6, hz), C.Yellow, Enum.Material.SmoothPlastic)
 		end
-		Kit.neonSign(m * CFrame.new(-70, 9, hz + 16.4) * CFrame.Angles(0, math.pi, 0), 10, 3, side == "A" and "HANGAR A" or "HANGAR B", teamColor, C.White)
+		Kit.neonSign(m * CFrame.new(-70, 12, hz + 16.4) * CFrame.Angles(0, math.pi, 0), 10, 3, side == "A" and "HANGAR A" or "HANGAR B", teamColor, C.White)
 		for _, x in { -82, -70, -58 } do
 			local lamp = deco("HangarLamp", V(3, 0.3, 3), m * CFrame.new(x, 13.8, hz), RGB(255, 235, 200), Enum.Material.Neon)
 			Kit.light(lamp, "SpotLight", RGB(255, 225, 180), 22, 1.6, Enum.NormalId.Bottom).Angle = 110
@@ -183,11 +183,12 @@ function Map.Build()
 		Kit.metalCrate(m * CFrame.new(-92, 0, 62), 5, RGB(90, 96, 110), teamColor)
 
 		-- Montículos de nieve (terreno)
-		snowMound(m * V(-42, -3.5, 26), 6)
-		snowMound(m * V(-28, -4, -48), 7)
-		snowMound(m * V(-106, -3.5, -6), 6)
-		snowMound(m * V(-115, -3.5, 46), 5.5)
-		snowMound(m * V(-20, -4.5, 82), 7)
+		-- Montículos de unos 4,5 studs de alto: tapan a un jugador agachado o deslizándose
+		snowMound(m * V(-42, -1.5, 26), 6)
+		snowMound(m * V(-28, -2.5, -48), 7)
+		snowMound(m * V(-108, -1.5, -2), 6)
+		snowMound(m * V(-115, -1.5, 46), 5.5)
+		snowMound(m * V(-20, -2.5, 82), 7)
 
 		-- Antena de comunicaciones con baliza
 		local mast = m * CFrame.new(-128, 0, 88)
@@ -258,7 +259,7 @@ function Map.Build()
 
 	-- Modos
 	for _, p in {
-		V(-130, 0.5, 45), V(-100, 0.5, -10), V(-72, 8.6, 45), V(-70, 0.5, -62), V(-45, 0.5, 8),
+		V(-130, 0.5, 45), V(-100, 0.5, -10), V(-62.5, 8.6, 45), V(-70, 0.5, -62), V(-45, 0.5, 8),
 		V(-20, 0.5, -60), V(-110, 0.5, 80), V(-60, 0.5, -15), V(-12, 0.5, 52), V(-125, 0.5, -90),
 	} do
 		Kit.ffaSpawn(p)

@@ -1088,7 +1088,10 @@ local function buildShopPage(data)
 			Parent = card,
 		}, { UI.gloss() })
 		buyStarter.Activated:Connect(function()
-			if starter.ProductId ~= 0 and buyStarter.Active then
+			if not buyStarter.Active then
+				return
+			end
+			if starter.ProductId ~= 0 then
 				Sounds.Play("Click")
 				-- Un solo intento hasta que llegue la respuesta del servidor (la página se rehace)
 				buyStarter.Active = false
@@ -1554,6 +1557,13 @@ function Menu.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.B, Enum.KeyCode.ButtonSelect)
+
+	-- Si se cancela la compra del pack de inicio, el botón vuelve a estar disponible
+	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
+		if userId == player.UserId and productId == Shop.StarterPack.ProductId and not purchased and ClientState.MenuOpen then
+			refresh()
+		end
+	end)
 
 	-- Una baja puede mandar varias actualizaciones seguidas: se agrupan en una sola reconstrucción
 	local refreshQueued = false

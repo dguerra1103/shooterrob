@@ -35,9 +35,12 @@ local function activateRadar(player)
 	local untilTime = now() + RADAR_TIME
 	for _, other in Players:GetPlayers() do
 		local ally = other == player or (player.Team ~= nil and other.Team == player.Team and ReplicatedStorage:GetAttribute("TeamMode") ~= false)
-		if ally then
+		if other == player then
 			other:SetAttribute("RadarUntil", untilTime)
-			Remotes.Notify:FireClient(other, "Streak", "📡 Radar activado por " .. player.Name)
+			Remotes.Notify:FireClient(other, "Big", "📡 ¡RADAR ACTIVADO!")
+		elseif ally then
+			other:SetAttribute("RadarUntil", untilTime)
+			Remotes.Notify:FireClient(other, "Info", "📡 Radar activado por " .. player.Name)
 		else
 			Remotes.Notify:FireClient(other, "Info", "📡 ¡El enemigo tiene radar!")
 		end
@@ -87,7 +90,8 @@ local function ground(position)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = ignore
-	local result = workspace:Raycast(position + Vector3.new(0, 80, 0), Vector3.new(0, -200, 0), params)
+	-- Desde una altura fija: las bombas siempre caen sobre el primer techo (no dentro de edificios)
+	local result = workspace:Raycast(Vector3.new(position.X, 200, position.Z), Vector3.new(0, -260, 0), params)
 	return result and result.Position + Vector3.new(0, 1, 0) or position
 end
 
@@ -98,6 +102,9 @@ local function callAirstrike(player, target)
 	if not enabled() or player:GetAttribute("InMenu") or (player:GetAttribute("Airstrikes") or 0) <= 0 then
 		return
 	end
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+		return
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -105,7 +112,7 @@ local function callAirstrike(player, target)
 		return
 	end
 	local offset = target - root.Position
-	if offset.Magnitude > MAX_RANGE then
+	if offset.Magnitude > MAX_RANGE or offset.Y < -100 or offset.Y > 150 then
 		return
 	end
 	player:SetAttribute("Airstrikes", player:GetAttribute("Airstrikes") - 1)
@@ -123,6 +130,9 @@ local function callAirstrike(player, target)
 
 	task.delay(STRIKE_DELAY, function()
 		for _, point in points do
+			if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+				return -- la ronda terminó durante el aviso
+			end
 			Remotes.ExplosionFX:FireAllClients(point, Weapons.Airstrike.Explosive.Radius)
 			if player.Parent then
 				Combat.Explode(player, point, Weapons.Airstrike, "Airstrike")

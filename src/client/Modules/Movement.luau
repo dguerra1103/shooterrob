@@ -91,11 +91,26 @@ local function slide()
 	end)
 end
 
-local function update()
-	if not humanoid or humanoid.Health <= 0 then
+-- Hielo: el Humanoid ignora la fricción del suelo, así que el deslizamiento se hace a mano.
+-- Sobre material Ice la velocidad cambia despacio hacia donde quieres ir (patinas).
+local iceVelocity = Vector3.zero
+local function iceSlide(dt)
+	local velocity = rootPart.AssemblyLinearVelocity
+	if humanoid.FloorMaterial == Enum.Material.Ice and not ClientState.Sliding then
+		local wanted = humanoid.MoveDirection * humanoid.WalkSpeed
+		iceVelocity = iceVelocity:Lerp(Vector3.new(wanted.X, 0, wanted.Z), math.min(1, dt * 1.5))
+		rootPart.AssemblyLinearVelocity = Vector3.new(iceVelocity.X, velocity.Y, iceVelocity.Z)
+	else
+		iceVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+	end
+end
+
+local function update(dt)
+	if not humanoid or humanoid.Health <= 0 or not rootPart then
 		ClientState.Sprinting = false
 		return
 	end
+	iceSlide(dt)
 	local moving = humanoid.MoveDirection.Magnitude > 0.1
 	local recentlyShot = os.clock() - ClientState.LastShotTime < 0.35
 	ClientState.Sprinting = sprintHeld
