@@ -12,7 +12,10 @@ local Combat = {}
 -- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
 
-local lastShot = setmetatable({}, { __mode = "k" })
+-- Cadencia: "cubo" de disparos por arma. Se rellena a FireRate por segundo y guarda hasta 3, así los
+-- disparos legítimos que llegan juntos (lag) no se pierden, pero no se puede disparar más rápido.
+local fireBudget = setmetatable({}, { __mode = "k" })
+local FIRE_BURST_ALLOWANCE = 3
 local reloadTokens = setmetatable({}, { __mode = "k" })
 local lastMelee = {}
 
@@ -45,11 +48,20 @@ local function isHeadshot(part, character, position)
 	if part.Name == "Head" then
 		return true
 	end
-	if part.Parent and part.Parent:IsA("Accessory") then
-		local head = character:FindFirstChild("Head")
-		return head ~= nil and (head.Position - position).Magnitude < 1.6
-	end
 	return false
+end
+
+-- Los accesorios del avatar (sombreros, alas, mochilas) no reciben disparos: ni escudo ni cabeza gigante
+local function ignoreAccessories(character)
+	local function apply(inst)
+		if inst:IsA("BasePart") and inst:FindFirstAncestorOfClass("Accessory") then
+			inst.CanQuery = false
+		end
+	end
+	for _, inst in character:GetDescendants() do
+		apply(inst)
+	end
+	character.DescendantAdded:Connect(apply)
 end
 
 local function hasLineOfSight(origin, target, ignore)
@@ -194,13 +206,23 @@ local function onFire(player, tool, origin, rays)
 		return
 	end
 	local now = os.clock()
-	if now - (lastShot[tool] or 0) < (1 / def.FireRate) * 0.75 then
+	-- Armas lentas (escopetas, francotiradores) no acumulan: 1 disparo; las rápidas hasta 3
+	local cap = math.clamp(def.FireRate * 0.2, 1, FIRE_BURST_ALLOWANCE)
+	local budget = fireBudget[tool]
+	if not budget then
+		budget = { Time = now, Shots = cap }
+		fireBudget[tool] = budget
+	end
+	budget.Shots = math.min(cap, budget.Shots + (now - budget.Time) * def.FireRate * 1.15)
+	budget.Time = now
+	if budget.Shots < 1 then
 		return
 	end
-	if (head.Position - origin).Magnitude > 12 then
+	-- El origen del disparo tiene que estar cerca de la cabeza y SIN pared en medio
+	if (head.Position - origin).Magnitude > 12 or not hasLineOfSight(head.Position, origin, { character }) then
 		return
 	end
-	lastShot[tool] = now
+	budget.Shots -= 1
 	tool:SetAttribute("Ammo", ammo - 1)
 	removeSpawnShield(character)
 
@@ -381,10 +403,12 @@ function Combat.Init()
 
 	local function onPlayer(player)
 		player.CharacterAdded:Connect(function(character)
+			ignoreAccessories(character)
 			local humanoid = character:WaitForChild("Humanoid")
 			Combat.WatchHumanoid(humanoid, player, player.Name)
 		end)
 		if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+			ignoreAccessories(player.Character)
 			Combat.WatchHumanoid(player.Character:FindFirstChildOfClass("Humanoid"), player, player.Name)
 		end
 	end

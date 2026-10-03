@@ -91,17 +91,54 @@ local function slide()
 	end)
 end
 
--- Hielo: el Humanoid ignora la fricción del suelo, así que el deslizamiento se hace a mano.
--- Sobre material Ice la velocidad cambia despacio hacia donde quieres ir (patinas).
+-- Hielo: el Humanoid ignora la fricción del suelo, así que el patinaje se hace con una LinearVelocity
+-- (dentro del paso de física, como el deslizamiento): la velocidad cambia despacio hacia donde quieres ir.
 local iceVelocity = Vector3.zero
+local iceMover: LinearVelocity? = nil
+
+local function stopIce()
+	if iceMover then
+		local attachment = iceMover.Attachment0
+		iceMover:Destroy()
+		if attachment then
+			attachment:Destroy()
+		end
+		iceMover = nil
+	end
+end
+
 local function iceSlide(dt)
-	local velocity = rootPart.AssemblyLinearVelocity
-	if humanoid.FloorMaterial == Enum.Material.Ice and not ClientState.Sliding then
-		local wanted = humanoid.MoveDirection * humanoid.WalkSpeed
-		iceVelocity = iceVelocity:Lerp(Vector3.new(wanted.X, 0, wanted.Z), math.min(1, dt * 1.5))
-		rootPart.AssemblyLinearVelocity = Vector3.new(iceVelocity.X, velocity.Y, iceVelocity.Z)
-	else
+	local state = humanoid:GetState()
+	local onIce = humanoid.FloorMaterial == Enum.Material.Ice
+		and not ClientState.Sliding
+		and state ~= Enum.HumanoidStateType.Jumping
+		and state ~= Enum.HumanoidStateType.Freefall
+	if not onIce then
+		stopIce()
+		local velocity = rootPart.AssemblyLinearVelocity
 		iceVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+		return
+	end
+	if not iceMover or iceMover.Parent ~= rootPart then
+		stopIce()
+		local attachment = Instance.new("Attachment")
+		attachment.Name = "IceAttachment"
+		attachment.Parent = rootPart
+		local mover = Instance.new("LinearVelocity")
+		mover.Name = "IceVelocity"
+		mover.Attachment0 = attachment
+		mover.RelativeTo = Enum.ActuatorRelativeTo.World
+		mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+		mover.PrimaryTangentAxis = Vector3.xAxis
+		mover.SecondaryTangentAxis = Vector3.zAxis
+		mover.MaxForce = 30000
+		mover.Parent = rootPart
+		iceMover = mover
+	end
+	local wanted = humanoid.MoveDirection * humanoid.WalkSpeed
+	iceVelocity = iceVelocity:Lerp(Vector3.new(wanted.X, 0, wanted.Z), math.min(1, dt * 1.5))
+	if iceMover then
+		iceMover.PlaneVelocity = Vector2.new(iceVelocity.X, iceVelocity.Z)
 	end
 end
 
@@ -142,6 +179,7 @@ local function onCharacter(newCharacter)
 		stopSlide = nil
 	end
 	ClientState.Sliding = false
+	iceMover = nil -- era del personaje anterior
 	humanoid = newCharacter:WaitForChild("Humanoid")
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero

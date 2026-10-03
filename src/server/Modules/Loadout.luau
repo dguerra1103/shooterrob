@@ -54,6 +54,14 @@ local function giveLoadout(player, character)
 	-- Traje de operador (solo R15)
 	if data and data.EquippedOutfit ~= "Default" then
 		character:WaitForChild("UpperTorso", 5)
+		-- Espera a que cargue la ropa del avatar: si no, sus BodyColors y camisa taparían el traje
+		local started = os.clock()
+		while not player:HasAppearanceLoaded() and os.clock() - started < 5 do
+			task.wait(0.1)
+		end
+		if player.Character ~= character then
+			return
+		end
 		Outfits.Apply(character, data.EquippedOutfit)
 	end
 

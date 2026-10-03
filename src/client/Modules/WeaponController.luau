@@ -135,6 +135,8 @@ local function hideToolLocally(tool)
 			inst.LocalTransparencyModifier = 1
 		elseif inst:IsA("ParticleEmitter") then
 			inst.Enabled = false
+		elseif inst:IsA("SurfaceGui") or inst:IsA("BillboardGui") then
+			inst.Enabled = false -- los rótulos del arma se verían flotando
 		end
 	end
 end
@@ -192,6 +194,8 @@ local function setViewmodelHidden(hidden)
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
 		elseif part:IsA("ParticleEmitter") then
+			part.Enabled = not hidden
+		elseif part:IsA("SurfaceGui") then
 			part.Enabled = not hidden
 		end
 	end
@@ -697,6 +701,16 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.ButtonY)
 
+	-- Cambiar de arma: tecla Q (siguiente) y botón táctil en móvil (no hay barra de inventario)
+	ContextActionService:BindAction("SwapWeapon", function(_, state)
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
+			cycleSlot(1)
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.Q)
+	ContextActionService:SetTitle("SwapWeapon", "⇄")
+	ContextActionService:SetPosition("SwapWeapon", UDim2.new(1, -280, 1, -100))
+
 	UserInputService.InputChanged:Connect(function(input, processed)
 		if processed or ClientState.IsBlocked() then
 			return
@@ -711,7 +725,14 @@ end
 -- Personaje
 ---------------------------------------------------------------------------
 
+local characterConnections = {}
+
 local function onCharacter(newCharacter)
+	-- Las conexiones del personaje anterior se cortan (si no, el personaje viejo queda en memoria)
+	for _, connection in characterConnections do
+		connection:Disconnect()
+	end
+	table.clear(characterConnections)
 	onUnequipped()
 	character = newCharacter
 	humanoid = newCharacter:WaitForChild("Humanoid")
@@ -720,25 +741,25 @@ local function onCharacter(newCharacter)
 	camKick, camYaw = 0, 0
 	updateRayFilter()
 
-	newCharacter.ChildAdded:Connect(function(child)
+	table.insert(characterConnections, newCharacter.ChildAdded:Connect(function(child)
 		if child:IsA("Tool") and child:GetAttribute("Weapon") then
 			onEquipped(child)
 		end
-	end)
-	newCharacter.ChildRemoved:Connect(function(child)
+	end))
+	table.insert(characterConnections, newCharacter.ChildRemoved:Connect(function(child)
 		if child == equippedTool then
 			onUnequipped()
 		end
-	end)
+	end))
 	local existing = newCharacter:FindFirstChildOfClass("Tool")
 	if existing and existing:GetAttribute("Weapon") then
 		onEquipped(existing)
 	end
 
-	humanoid.Died:Connect(function()
+	table.insert(characterConnections, humanoid.Died:Connect(function()
 		onUnequipped()
 		triggerHeld = false
-	end)
+	end))
 end
 
 -- Efectos de los disparos de otros jugadores

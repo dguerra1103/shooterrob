@@ -15,7 +15,8 @@
     "StarterPlayer": {
       "$properties": {
         "CameraMode": "LockFirstPerson",
-        "CharacterWalkSpeed": 18
+        "CharacterWalkSpeed": 18,
+        "EnableMouseLockOption": false
       },
       "StarterPlayerScripts": {
         "Client": {
@@ -41,7 +42,8 @@
     },
     "Workspace": {
       "$properties": {
-        "StreamingEnabled": false
+        "StreamingEnabled": false,
+        "PlayerCharacterDestroyBehavior": "Enabled"
       },
       "Terrain": {
         "$className": "Terrain",

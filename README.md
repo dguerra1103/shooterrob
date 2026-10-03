@@ -69,11 +69,11 @@ rojo build -o ShooterRob.rbxlx
 | Ataque aéreo (racha de 5) | T | Cruceta derecha |
 | Correr | Shift (mantener) | L3 |
 | Deslizarse | C / Ctrl | R3 |
-| Cambiar arma | 1 / 2 / 3 / rueda del ratón | Y |
+| Cambiar arma | 1 / 2 / 3 / rueda del ratón / Q | Y |
 | Menú (pase, retos, armas, skins, trajes, efectos, tienda) | B | Select |
 | Votar mapa (en el descanso) | V | Cruceta arriba |
 
-En el móvil aparecen botones táctiles automáticamente.
+En el móvil aparecen botones táctiles automáticamente (disparar, apuntar, recargar, cuchillo, correr, deslizar, granada, cambiar arma ⇄ y ataque aéreo).
 
 ## Personalizar
 

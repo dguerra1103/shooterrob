@@ -2937,7 +2937,10 @@ local Combat = {}
 -- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
 
-local lastShot = setmetatable({}, { __mode = "k" })
+-- Cadencia: "cubo" de disparos por arma. Se rellena a FireRate por segundo y guarda hasta 3, así los
+-- disparos legítimos que llegan juntos (lag) no se pierden, pero no se puede disparar más rápido.
+local fireBudget = setmetatable({}, { __mode = "k" })
+local FIRE_BURST_ALLOWANCE = 3
 local reloadTokens = setmetatable({}, { __mode = "k" })
 local lastMelee = {}
 
@@ -2970,11 +2973,20 @@ local function isHeadshot(part, character, position)
 	if part.Name == "Head" then
 		return true
 	end
-	if part.Parent and part.Parent:IsA("Accessory") then
-		local head = character:FindFirstChild("Head")
-		return head ~= nil and (head.Position - position).Magnitude < 1.6
-	end
 	return false
+end
+
+-- Los accesorios del avatar (sombreros, alas, mochilas) no reciben disparos: ni escudo ni cabeza gigante
+local function ignoreAccessories(character)
+	local function apply(inst)
+		if inst:IsA("BasePart") and inst:FindFirstAncestorOfClass("Accessory") then
+			inst.CanQuery = false
+		end
+	end
+	for _, inst in character:GetDescendants() do
+		apply(inst)
+	end
+	character.DescendantAdded:Connect(apply)
 end
 
 local function hasLineOfSight(origin, target, ignore)
@@ -3119,13 +3131,23 @@ local function onFire(player, tool, origin, rays)
 		return
 	end
 	local now = os.clock()
-	if now - (lastShot[tool] or 0) < (1 / def.FireRate) * 0.75 then
+	-- Armas lentas (escopetas, francotiradores) no acumulan: 1 disparo; las rápidas hasta 3
+	local cap = math.clamp(def.FireRate * 0.2, 1, FIRE_BURST_ALLOWANCE)
+	local budget = fireBudget[tool]
+	if not budget then
+		budget = { Time = now, Shots = cap }
+		fireBudget[tool] = budget
+	end
+	budget.Shots = math.min(cap, budget.Shots + (now - budget.Time) * def.FireRate * 1.15)
+	budget.Time = now
+	if budget.Shots < 1 then
 		return
 	end
-	if (head.Position - origin).Magnitude > 12 then
+	-- El origen del disparo tiene que estar cerca de la cabeza y SIN pared en medio
+	if (head.Position - origin).Magnitude > 12 or not hasLineOfSight(head.Position, origin, { character }) then
 		return
 	end
-	lastShot[tool] = now
+	budget.Shots -= 1
 	tool:SetAttribute("Ammo", ammo - 1)
 	removeSpawnShield(character)
 
@@ -3306,10 +3328,12 @@ function Combat.Init()
 
 	local function onPlayer(player)
 		player.CharacterAdded:Connect(function(character)
+			ignoreAccessories(character)
 			local humanoid = character:WaitForChild("Humanoid")
 			Combat.WatchHumanoid(humanoid, player, player.Name)
 		end)
 		if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+			ignoreAccessories(player.Character)
 			Combat.WatchHumanoid(player.Character:FindFirstChildOfClass("Humanoid"), player, player.Name)
 		end
 	end
@@ -4591,6 +4615,14 @@ local function giveLoadout(player, character)
 	-- Traje de operador (solo R15)
 	if data and data.EquippedOutfit ~= "Default" then
 		character:WaitForChild("UpperTorso", 5)
+		-- Espera a que cargue la ropa del avatar: si no, sus BodyColors y camisa taparían el traje
+		local started = os.clock()
+		while not player:HasAppearanceLoaded() and os.clock() - started < 5 do
+			task.wait(0.1)
+		end
+		if player.Character ~= character then
+			return
+		end
 		Outfits.Apply(character, data.EquippedOutfit)
 	end
 
@@ -9141,6 +9173,7 @@ return Round
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
+      <bool name="EnableMouseLockOption">false</bool>
     </Properties>
     <Item class="StarterPlayerScripts" referent="41">
       <Properties>
@@ -13877,17 +13910,54 @@ local function slide()
 	end)
 end
 
--- Hielo: el Humanoid ignora la fricción del suelo, así que el deslizamiento se hace a mano.
--- Sobre material Ice la velocidad cambia despacio hacia donde quieres ir (patinas).
+-- Hielo: el Humanoid ignora la fricción del suelo, así que el patinaje se hace con una LinearVelocity
+-- (dentro del paso de física, como el deslizamiento): la velocidad cambia despacio hacia donde quieres ir.
 local iceVelocity = Vector3.zero
+local iceMover: LinearVelocity? = nil
+
+local function stopIce()
+	if iceMover then
+		local attachment = iceMover.Attachment0
+		iceMover:Destroy()
+		if attachment then
+			attachment:Destroy()
+		end
+		iceMover = nil
+	end
+end
+
 local function iceSlide(dt)
-	local velocity = rootPart.AssemblyLinearVelocity
-	if humanoid.FloorMaterial == Enum.Material.Ice and not ClientState.Sliding then
-		local wanted = humanoid.MoveDirection * humanoid.WalkSpeed
-		iceVelocity = iceVelocity:Lerp(Vector3.new(wanted.X, 0, wanted.Z), math.min(1, dt * 1.5))
-		rootPart.AssemblyLinearVelocity = Vector3.new(iceVelocity.X, velocity.Y, iceVelocity.Z)
-	else
+	local state = humanoid:GetState()
+	local onIce = humanoid.FloorMaterial == Enum.Material.Ice
+		and not ClientState.Sliding
+		and state ~= Enum.HumanoidStateType.Jumping
+		and state ~= Enum.HumanoidStateType.Freefall
+	if not onIce then
+		stopIce()
+		local velocity = rootPart.AssemblyLinearVelocity
 		iceVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+		return
+	end
+	if not iceMover or iceMover.Parent ~= rootPart then
+		stopIce()
+		local attachment = Instance.new("Attachment")
+		attachment.Name = "IceAttachment"
+		attachment.Parent = rootPart
+		local mover = Instance.new("LinearVelocity")
+		mover.Name = "IceVelocity"
+		mover.Attachment0 = attachment
+		mover.RelativeTo = Enum.ActuatorRelativeTo.World
+		mover.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+		mover.PrimaryTangentAxis = Vector3.xAxis
+		mover.SecondaryTangentAxis = Vector3.zAxis
+		mover.MaxForce = 30000
+		mover.Parent = rootPart
+		iceMover = mover
+	end
+	local wanted = humanoid.MoveDirection * humanoid.WalkSpeed
+	iceVelocity = iceVelocity:Lerp(Vector3.new(wanted.X, 0, wanted.Z), math.min(1, dt * 1.5))
+	if iceMover then
+		iceMover.PlaneVelocity = Vector2.new(iceVelocity.X, iceVelocity.Z)
 	end
 end
 
@@ -13928,6 +13998,7 @@ local function onCharacter(newCharacter)
 		stopSlide = nil
 	end
 	ClientState.Sliding = false
+	iceMover = nil -- era del personaje anterior
 	humanoid = newCharacter:WaitForChild("Humanoid")
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
@@ -14519,6 +14590,8 @@ local function hideToolLocally(tool)
 			inst.LocalTransparencyModifier = 1
 		elseif inst:IsA("ParticleEmitter") then
 			inst.Enabled = false
+		elseif inst:IsA("SurfaceGui") or inst:IsA("BillboardGui") then
+			inst.Enabled = false -- los rótulos del arma se verían flotando
 		end
 	end
 end
@@ -14576,6 +14649,8 @@ local function setViewmodelHidden(hidden)
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
 		elseif part:IsA("ParticleEmitter") then
+			part.Enabled = not hidden
+		elseif part:IsA("SurfaceGui") then
 			part.Enabled = not hidden
 		end
 	end
@@ -15081,6 +15156,16 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.ButtonY)
 
+	-- Cambiar de arma: tecla Q (siguiente) y botón táctil en móvil (no hay barra de inventario)
+	ContextActionService:BindAction("SwapWeapon", function(_, state)
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
+			cycleSlot(1)
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.Q)
+	ContextActionService:SetTitle("SwapWeapon", "⇄")
+	ContextActionService:SetPosition("SwapWeapon", UDim2.new(1, -280, 1, -100))
+
 	UserInputService.InputChanged:Connect(function(input, processed)
 		if processed or ClientState.IsBlocked() then
 			return
@@ -15095,7 +15180,14 @@ end
 -- Personaje
 ---------------------------------------------------------------------------
 
+local characterConnections = {}
+
 local function onCharacter(newCharacter)
+	-- Las conexiones del personaje anterior se cortan (si no, el personaje viejo queda en memoria)
+	for _, connection in characterConnections do
+		connection:Disconnect()
+	end
+	table.clear(characterConnections)
 	onUnequipped()
 	character = newCharacter
 	humanoid = newCharacter:WaitForChild("Humanoid")
@@ -15104,25 +15196,25 @@ local function onCharacter(newCharacter)
 	camKick, camYaw = 0, 0
 	updateRayFilter()
 
-	newCharacter.ChildAdded:Connect(function(child)
+	table.insert(characterConnections, newCharacter.ChildAdded:Connect(function(child)
 		if child:IsA("Tool") and child:GetAttribute("Weapon") then
 			onEquipped(child)
 		end
-	end)
-	newCharacter.ChildRemoved:Connect(function(child)
+	end))
+	table.insert(characterConnections, newCharacter.ChildRemoved:Connect(function(child)
 		if child == equippedTool then
 			onUnequipped()
 		end
-	end)
+	end))
 	local existing = newCharacter:FindFirstChildOfClass("Tool")
 	if existing and existing:GetAttribute("Weapon") then
 		onEquipped(existing)
 	end
 
-	humanoid.Died:Connect(function()
+	table.insert(characterConnections, humanoid.Died:Connect(function()
 		onUnequipped()
 		triggerHeld = false
-	end)
+	end))
 end
 
 -- Efectos de los disparos de otros jugadores
@@ -15393,6 +15485,7 @@ return WorldFX
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
+      <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
     <Item class="Terrain" referent="61">
