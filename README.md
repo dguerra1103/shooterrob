@@ -83,13 +83,47 @@ Construye tu mapa en Studio dentro de una carpeta o modelo llamado **`Map`** en 
 - **SpawnLocations** con `TeamColor = Really red` y otras con `Really blue`, y quítales la casilla `Neutral`.
 - Para Captura la bandera, una pieza llamada **`FlagBase`** por equipo, con un atributo **`Team`** (texto) igual a `Rojo` o `Azul`. La bandera aparece encima de esa pieza. Si faltan, el modo se salta automáticamente.
 
-## Antes de publicar
+## Publicar en Roblox
+
+### 1. Primera vez (desde Roblox Studio, unos 2 minutos)
+
+1. Abre `ShooterRob.rbxlx` en Roblox Studio.
+2. **File → Publish to Roblox → Create new experience**. Ponle nombre y descripción.
+3. En **Game Settings → Security**, activa **Enable Studio Access to API Services** (para que se guarde el progreso).
+4. Mientras lo pruebas, deja la experiencia en **Private**. En el Creator Hub puedes invitar a amigos para probar con más gente.
+
+### 2. Publicación automática (cada cambio sube solo)
+
+El workflow `.github/workflows/publish.yml` construye el juego con Rojo y lo publica en cada push. Para activarlo:
+
+1. En [create.roblox.com](https://create.roblox.com/dashboard/creations), abre tu experiencia y copia:
+   - el **Universe ID**: en la URL o en *⋯ → Copy Universe ID*.
+   - el **Place ID**: en *Places → ⋯ → Copy Place ID*.
+2. En [Credenciales → API Keys](https://create.roblox.com/dashboard/credentials), crea una clave:
+   - Añade la API **universe-places**, elige tu experiencia y marca **write**.
+   - En *Accepted IP Addresses* pon `0.0.0.0/0`, porque GitHub cambia de IP.
+3. En GitHub, abre el repositorio y ve a **Settings → Secrets and variables → Actions**:
+   - Pestaña **Secrets**: crea `ROBLOX_API_KEY` con la clave.
+   - Pestaña **Variables**: crea `ROBLOX_UNIVERSE_ID` y `ROBLOX_PLACE_ID`.
+
+A partir de ahí, cada cambio que se suba aparece en Roblox en un par de minutos. En la pestaña **Actions** de GitHub ves si se publicó bien.
+
+También puedes publicar a mano desde tu ordenador:
+
+```bash
+rojo build -o ShooterRob.rbxlx
+ROBLOX_API_KEY=... ROBLOX_UNIVERSE_ID=... ROBLOX_PLACE_ID=... scripts/publish.sh
+```
+
+> ⚠️ Cada publicación sustituye lo que haya en Roblox. Si cambias cosas a mano en Studio (por ejemplo el mapa), cópialas también al código, o se perderán en la siguiente publicación automática.
+
+## Antes de abrirlo al público
 
 1. En `GameConfig.luau`:
    - `MinPlayers = 2` (o más).
    - `TrainingDummies = false`.
 2. Crea un **GamePass** en el Creator Hub para el pase premium y pon su número en `PremiumPassId`.
-3. *File → Publish to Roblox*, y en **Game Settings** activa *API Services*.
+3. Cambia la experiencia a **Public** en el Creator Hub.
 4. Ponle un icono y miniaturas llamativas (como las de la captura) para atraer jugadores.
 
 ## Estructura del proyecto
