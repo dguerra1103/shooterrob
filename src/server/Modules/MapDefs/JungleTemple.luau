@@ -50,6 +50,13 @@ local function jungleTree(position, scale)
 		local leaf = Kit.ball("Canopy" .. i, spec[2] * scale, CFrame.new(position + spec[1] * scale), i % 2 == 0 and RGB(45, 120, 50) or RGB(60, 145, 55), Enum.Material.LeafyGrass, true)
 		leaf.CastShadow = true
 	end
+	-- Lianas que cuelgan de la copa
+	for i = 0, 2 do
+		local angle = i * 2.1 + position.X * 0.13
+		local length = (4 + (i * 1.7 + position.Z * 0.1) % 3) * scale
+		local top = position + V(math.cos(angle) * 3.4, 12.5, math.sin(angle) * 3.4) * scale
+		Kit.deco("Liana", V(0.25, length, 0.25) * V(scale, 1, scale), CFrame.new(top - V(0, length / 2, 0)), RGB(62, 105, 48), Enum.Material.LeafyGrass)
+	end
 	for i = 0, 3 do
 		local angle = i * math.pi / 2 + 0.4
 		Kit.deco("Root", V(1, 1.4, 4.5) * scale, CFrame.new(position + V(math.cos(angle) * 2.2, 0.5, math.sin(angle) * 2.2) * scale) * CFrame.Angles(0, -angle + math.pi / 2, rad(-15)), RGB(90, 68, 45), Enum.Material.Wood)
