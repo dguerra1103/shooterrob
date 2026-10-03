@@ -9,6 +9,9 @@ local EVENTS = {
 	"EquipSkin", -- cliente -> servidor: equipar skin
 	"SetPrimary", -- cliente -> servidor: elegir arma principal
 	"LeaveMenu", -- cliente -> servidor: ha salido de la pantalla de inicio
+	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
+	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
+	"VoteMap", -- cliente -> servidor: voto de mapa/modo
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
@@ -19,6 +22,9 @@ local EVENTS = {
 }
 local FUNCTIONS = {
 	"GetData",
+	"BuyItem", -- comprar arma/skin/traje con monedas
+	"ClaimDaily", -- recoger la recompensa diaria
+	"OpenCrate", -- abrir una caja
 }
 
 local Remotes = {}

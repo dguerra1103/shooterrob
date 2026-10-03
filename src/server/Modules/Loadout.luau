@@ -6,10 +6,14 @@ local Shared = ReplicatedStorage.Shared
 local Weapons = require(Shared.Weapons)
 local WeaponModels = require(Shared.WeaponModels)
 local Remotes = require(Shared.Remotes)
+local Outfits = require(Shared.Outfits)
 
 local PlayerData = require(script.Parent.PlayerData)
 
 local Loadout = {}
+
+-- Los modos de juego pueden cambiar las armas: function(player) -> { "Arma1", "Arma2", ... } o nil
+Loadout.Override = nil
 
 function Loadout.MakeTool(weaponName, skinId)
 	local def = Weapons.Get(weaponName)
@@ -46,21 +50,63 @@ local function giveLoadout(player, character)
 		return
 	end
 	local skin = data and data.EquippedSkin or "Default"
-	local primary = data and data.Primary or "Rifle"
-
-	local backpack = player:WaitForChild("Backpack")
-	backpack:ClearAllChildren()
-
-	local first
-	for _, weaponName in { primary, Weapons.Secondary, Weapons.Melee } do
-		local tool = Loadout.MakeTool(weaponName, skin)
-		tool.Parent = backpack
-		first = first or tool
+	local list = Loadout.Override and Loadout.Override(player)
+	if not list then
+		local primary = data and data.Primary or "ARX27"
+		local secondary = data and data.Secondary or Weapons.Secondary
+		list = { primary, secondary, Weapons.Melee }
 	end
 
-	local humanoid = character:WaitForChild("Humanoid")
-	if humanoid.Health > 0 then
+	-- Traje de operador (solo R15)
+	if data and data.EquippedOutfit ~= "Default" then
+		character:WaitForChild("UpperTorso", 5)
+		Outfits.Apply(character, data.EquippedOutfit)
+	end
+
+	Loadout.Give(player, list, skin)
+end
+
+-- Da al jugador exactamente estas armas (y equipa la primera)
+function Loadout.Give(player, list, skin)
+	local character = player.Character
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not character or not backpack then
+		return
+	end
+	if not skin then
+		local data = PlayerData.Get(player)
+		skin = data and data.EquippedSkin or "Default"
+	end
+	for _, container in { backpack, character } do
+		for _, child in container:GetChildren() do
+			if child:IsA("Tool") then
+				child:Destroy()
+			end
+		end
+	end
+	local first
+	for _, weaponName in list do
+		if Weapons.Get(weaponName) then
+			local tool = Loadout.MakeTool(weaponName, skin)
+			tool.Parent = backpack
+			first = first or tool
+		end
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if first and humanoid and humanoid.Health > 0 then
 		humanoid:EquipTool(first)
+	end
+end
+
+local function onOutfitChanged(player, outfitId)
+	local character = player.Character
+	if character then
+		if outfitId == "Default" then
+			-- Para quitar el traje del todo hay que reaparecer (recupera la ropa original)
+			Outfits.Remove(character)
+		else
+			Outfits.Apply(character, outfitId)
+		end
 	end
 end
 
@@ -102,6 +148,7 @@ end
 
 function Loadout.Init()
 	PlayerData.OnSkinChanged = onSkinChanged
+	PlayerData.OnOutfitChanged = onOutfitChanged
 	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
 		player:SetAttribute("InMenu", false)
 		local shield = player.Character and player.Character:FindFirstChild("MenuShield")

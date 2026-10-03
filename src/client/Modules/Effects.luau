@@ -232,6 +232,123 @@ function Effects.ShellCasing(attachment, cameraCFrame, color)
 	Debris:AddItem(casing, 1.5)
 end
 
+-- Explosión del cohete
+function Effects.Explosion(position, radius, color)
+	radius = radius or 12
+	color = color or Color3.fromRGB(255, 140, 30)
+	local fireball = fxPart({
+		Color = Color3.fromRGB(255, 200, 80),
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(2, 2, 2),
+		CFrame = CFrame.new(position),
+		Transparency = 0,
+	})
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = radius * 2.5
+	light.Brightness = 6
+	light.Parent = fireball
+	TweenService:Create(fireball, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = Vector3.one * radius * 1.2, Transparency = 1, Color = color }):Play()
+	TweenService:Create(light, TweenInfo.new(0.5), { Brightness = 0 }):Play()
+	Debris:AddItem(fireball, 0.55)
+
+	-- Onda expansiva en el suelo
+	local ring = fxPart({
+		Color = color:Lerp(Color3.new(1, 1, 1), 0.4),
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 2, 2),
+		CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.pi / 2),
+		Transparency = 0.2,
+	})
+	TweenService:Create(ring, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { Size = Vector3.new(0.1, radius * 2.4, radius * 2.4), Transparency = 1 }):Play()
+	Debris:AddItem(ring, 0.45)
+
+	local anchor = emitterAnchor(position, Vector3.yAxis, 3)
+	emit(anchor, {
+		Texture = TEX.Fire,
+		Color = ColorSequence.new(Color3.fromRGB(255, 230, 150), color),
+		LightEmission = 1,
+		Size = seq(3, 0.5),
+		Transparency = seq(0, 1),
+		Lifetime = NumberRange.new(0.3, 0.6),
+		Speed = NumberRange.new(10, 22),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+	}, 30)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(70, 65, 60)),
+		Size = seq(2, 7),
+		Transparency = seq(0.2, 1),
+		Lifetime = NumberRange.new(1.2, 2.2),
+		Speed = NumberRange.new(3, 8),
+		SpreadAngle = Vector2.new(180, 180),
+		Acceleration = Vector3.new(0, 3, 0),
+	}, 14)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 220, 120)),
+		LightEmission = 1,
+		Size = seq(0.3, 0),
+		Lifetime = NumberRange.new(0.5, 1),
+		Speed = NumberRange.new(25, 45),
+		SpreadAngle = Vector2.new(180, 180),
+		Acceleration = Vector3.new(0, -60, 0),
+	}, 20)
+end
+
+-- Cohete que vuela hasta `to` y explota al llegar
+function Effects.Rocket(from, to, speed, color, radius)
+	local distance = (to - from).Magnitude
+	if distance < 0.5 then
+		Effects.Explosion(to, radius, color)
+		return
+	end
+	local direction = safeLookAt(from, to - from)
+	local rocket = fxPart({
+		Color = Color3.fromRGB(230, 230, 235),
+		Material = Enum.Material.SmoothPlastic,
+		Size = Vector3.new(0.35, 0.35, 1.3),
+		CFrame = direction,
+	})
+	local tip = fxPart({
+		Color = Color3.fromRGB(220, 40, 40),
+		Material = Enum.Material.SmoothPlastic,
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.38, 0.38, 0.38),
+		CFrame = direction * CFrame.new(0, 0, -0.65),
+	})
+	local flame = fxPart({
+		Color = color or Color3.fromRGB(255, 160, 40),
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.45, 0.45, 0.45),
+		CFrame = direction * CFrame.new(0, 0, 0.7),
+	})
+	local trail = Instance.new("ParticleEmitter")
+	trail.Texture = TEX.Smoke
+	trail.Color = ColorSequence.new(Color3.fromRGB(200, 200, 200))
+	trail.Size = seq(0.4, 1.6)
+	trail.Transparency = seq(0.3, 1)
+	trail.Lifetime = NumberRange.new(0.5, 0.9)
+	trail.Speed = NumberRange.new(0.5, 1)
+	trail.Rate = 80
+	trail.Parent = flame
+	local duration = distance / speed
+	for _, part in { rocket, tip, flame } do
+		local offset = direction:ToObjectSpace(part.CFrame)
+		local finalCF = direction * CFrame.new(0, 0, -distance) * offset
+		TweenService:Create(part, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = finalCF }):Play()
+	end
+	task.delay(duration, function()
+		trail.Enabled = false
+		rocket:Destroy()
+		tip:Destroy()
+		flame.Transparency = 1
+		Debris:AddItem(flame, 1)
+		Effects.Explosion(to, radius, color)
+	end)
+end
+
 -- Explosión de partículas cuando alguien es eliminado
 function Effects.DeathBurst(position, color)
 	color = color or Color3.new(1, 1, 1)

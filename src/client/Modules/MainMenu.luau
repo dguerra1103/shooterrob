@@ -22,7 +22,7 @@ local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase
+local gui, root, infoLabel, showcase, dailyButton
 local blur
 local orbitAngle = 0
 local controls
@@ -75,6 +75,9 @@ end
 
 local function refreshInfo()
 	local data = ClientState.Data
+	if dailyButton then
+		dailyButton.Visible = data ~= nil and data.DailyAvailable == true
+	end
 	if infoLabel then
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
 			or "Cargando..."
@@ -205,7 +208,7 @@ function MainMenu.Init()
 
 	local buttons = UI.new("Frame", {
 		Position = UDim2.fromOffset(0, 175),
-		Size = UDim2.fromOffset(300, 220),
+		Size = UDim2.fromOffset(300, 380),
 		BackgroundTransparency = 1,
 		Parent = left,
 	}, {
@@ -219,13 +222,37 @@ function MainMenu.Init()
 		Sounds.Play("Click")
 		Menu.Open("Pase")
 	end)
-	bigButton("🔫  ARMAS Y SKINS", Color3.fromRGB(50, 130, 255), 3, buttons).Activated:Connect(function()
+	bigButton("🔫  ARMAS Y TRAJES", Color3.fromRGB(50, 130, 255), 3, buttons).Activated:Connect(function()
 		Sounds.Play("Click")
-		Menu.Open("Skins")
+		Menu.Open("Armas")
+	end)
+	bigButton("🛒  TIENDA", Color3.fromRGB(190, 70, 255), 4, buttons).Activated:Connect(function()
+		Sounds.Play("Click")
+		Menu.Open("Tienda")
+	end)
+
+	-- Recompensa diaria (late mientras está disponible)
+	dailyButton = bigButton("🎁  RECOMPENSA DIARIA", Color3.fromRGB(60, 200, 90), 5, buttons)
+	dailyButton.Visible = false
+	dailyButton.Activated:Connect(function()
+		if Menu.ClaimDaily() then
+			dailyButton.Visible = false
+		end
+	end)
+	task.spawn(function()
+		local scale = dailyButton:FindFirstChildOfClass("UIScale")
+		while gui.Parent and ClientState.InMainMenu do
+			if dailyButton.Visible and scale then
+				TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
+				task.wait(0.5)
+				TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+			end
+			task.wait(0.5)
+		end
 	end)
 
 	infoLabel = UI.label({
-		Position = UDim2.fromOffset(2, 420),
+		Position = UDim2.fromOffset(330, 175),
 		Size = UDim2.new(1, 0, 0, 26),
 		Text = "Cargando...",
 		TextSize = 22,
@@ -234,7 +261,7 @@ function MainMenu.Init()
 		Parent = left,
 	})
 	UI.label({
-		Position = UDim2.fromOffset(2, 452),
+		Position = UDim2.fromOffset(4, 150),
 		Size = UDim2.new(1, 0, 0, 22),
 		Text = "Clic izq. disparar · Clic der. apuntar · Shift correr · C deslizar · B pase",
 		TextSize = 16,

@@ -111,6 +111,10 @@ local function update()
 	elseif ClientState.Aiming then
 		speed = GameConfig.AimWalkSpeed
 	end
+	local weaponDef = ClientState.CurrentDef
+	if weaponDef and weaponDef.WalkSpeedMultiplier then
+		speed *= weaponDef.WalkSpeedMultiplier
+	end
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier
 	end

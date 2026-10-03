@@ -715,6 +715,9 @@ local function onNotify(kind, text)
 		popup(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "LevelUp" then
+		bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
+		Sounds.Play("Kill")
 	elseif kind == "Flag" then
 		timedLabel(refs.Banner, "🚩 " .. text, 3)
 		Sounds.Play("Flag")

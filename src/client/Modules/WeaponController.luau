@@ -8,13 +8,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
 local WeaponModels = require(Shared.WeaponModels)
-local Skins = require(Shared.Skins)
 local Sounds = require(Shared.Sounds)
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
+local Outfits = require(Shared.Outfits)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -82,6 +82,11 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	local shoulder = weaponDef.ViewOffset:PointToObjectSpace(shoulderCam)
 	local length = (shoulder - handPos).Magnitude
 	local sleeveColor = player.Team and player.TeamColor.Color or Color3.fromRGB(60, 60, 70)
+	-- Con traje de operador, los brazos llevan sus colores
+	local outfitColors = Outfits.ArmColors(ClientState.Data and ClientState.Data.EquippedOutfit)
+	if outfitColors then
+		sleeveColor = outfitColors.Sleeve
+	end
 
 	local arm = Instance.new("Part")
 	arm.Name = "Arm"
@@ -103,7 +108,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	glove.Name = "Glove"
 	glove.Size = Vector3.new(0.48, 0.48, 0.55)
 	glove.CFrame = CFrame.lookAt(handPos + (shoulder - handPos).Unit * 0.15, handPos)
-	glove.Color = Color3.fromRGB(25, 25, 28)
+	glove.Color = outfitColors and outfitColors.Glove or Color3.fromRGB(25, 25, 28)
 	glove.Material = Enum.Material.Fabric
 	glove.Parent = model
 
@@ -112,8 +117,8 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	cuff.Name = "Cuff"
 	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
 	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
-	cuff.Color = Color3.fromRGB(245, 245, 250)
-	cuff.Material = Enum.Material.Fabric
+	cuff.Color = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250)
+	cuff.Material = outfitColors and Enum.Material.Neon or Enum.Material.Fabric
 	cuff.Parent = model
 end
 
@@ -162,7 +167,7 @@ local function createViewmodel(tool)
 
 	-- Skins con "Pulse": los detalles de neón laten
 	table.clear(pulseParts)
-	pulseSkin = Skins.Get(tool:GetAttribute("Skin"))
+	pulseSkin = WeaponModels.GetPalette(weaponName, tool:GetAttribute("Skin"))
 	if pulseSkin.Pulse then
 		for _, part in model:GetDescendants() do
 			if part:IsA("BasePart") and part:GetAttribute("Role") == "Accent" then
@@ -349,11 +354,19 @@ local function fire()
 	local look = camera.CFrame.LookVector
 	local muzzle = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Muzzle")
 	local muzzlePos = muzzle and muzzle.WorldPosition or origin
-	local tracerColor = Skins.Get(equippedTool:GetAttribute("Skin")).Accent
+	local tracerColor = WeaponModels.GetPalette(equippedTool:GetAttribute("Weapon"), equippedTool:GetAttribute("Skin")).Accent
 	local spread = currentSpread()
 
 	local rays = {}
-	for _ = 1, def.Pellets do
+	if def.Explosive then
+		-- Cohete: viaja hasta el impacto y explota
+		local direction = randomInCone(look, spread)
+		local result = workspace:Raycast(origin, direction * def.Range, rayParams)
+		local hitPosition = result and result.Position or origin + direction * def.Range
+		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
+		Effects.Rocket(muzzlePos, hitPosition, def.ProjectileSpeed or 200, tracerColor, def.Explosive.Radius)
+	end
+	for _ = 1, def.Explosive and 0 or def.Pellets do
 		local direction = randomInCone(look, spread)
 		local result = workspace:Raycast(origin, direction * def.Range, rayParams)
 		local hitPosition = result and result.Position or origin + direction * def.Range
@@ -367,7 +380,9 @@ local function fire()
 
 	Effects.MuzzleFlash(muzzle)
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
-	Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
+	if not def.Explosive then
+		Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
+	end
 	Sounds.Play((def.Pellets > 1 or def.Damage >= 80) and "ShotHeavy" or "Shot")
 	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
 
@@ -383,6 +398,33 @@ local function fire()
 	if localAmmo <= 0 then
 		task.delay(0.2, requestReload)
 	end
+end
+
+-- Ráfaga (Vortex BR): varios disparos seguidos con una pausa entre ráfagas
+local bursting = false
+local lastBurstEnd = 0
+local function startBurst()
+	if bursting or not def or not def.Burst then
+		return
+	end
+	if os.clock() - lastBurstEnd < (def.BurstCooldown or 0.3) then
+		return
+	end
+	bursting = true
+	local burstDef = def
+	task.spawn(function()
+		for i = 1, burstDef.Burst do
+			if def ~= burstDef or localAmmo <= 0 or reloadStart then
+				break
+			end
+			fire()
+			if i < burstDef.Burst then
+				task.wait(1 / burstDef.FireRate + 0.01)
+			end
+		end
+		lastBurstEnd = os.clock()
+		bursting = false
+	end)
 end
 
 local function melee()
@@ -570,6 +612,8 @@ local function bindActions()
 			triggerHeld = true
 			if def and def.Type == "Melee" then
 				melee()
+			elseif def and def.Burst then
+				startBurst()
 			else
 				fire()
 			end
@@ -688,14 +732,18 @@ local function onShotFX(tool, endpoints)
 	if not muzzle then
 		return
 	end
-	local color = Skins.Get(tool:GetAttribute("Skin")).Accent
+	local color = WeaponModels.GetPalette(tool:GetAttribute("Weapon"), tool:GetAttribute("Skin")).Accent
+	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
 	for _, position in endpoints do
 		if typeof(position) == "Vector3" then
-			Effects.Tracer(muzzle.WorldPosition, position, color)
+			if weaponDef and weaponDef.Explosive then
+				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
+			else
+				Effects.Tracer(muzzle.WorldPosition, position, color)
+			end
 		end
 	end
 	Effects.MuzzleFlash(muzzle)
-	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
 	local heavy = weaponDef and (weaponDef.Pellets > 1 or weaponDef.Damage >= 80)
 	Sounds.Play(heavy and "ShotHeavy" or "Shot", handle)
 end

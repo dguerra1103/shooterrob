@@ -103,6 +103,45 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 	return dealt, humanoid.Health <= 0
 end
 
+-- Daño en área (cohetes). Afecta a enemigos y muñecos con línea de visión desde la explosión.
+function Combat.Explode(attacker, position, def, weaponName)
+	local info = def.Explosive
+	local candidates = {}
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(candidates, p.Character)
+		end
+	end
+	local dummies = workspace:FindFirstChild("Dummies")
+	if dummies then
+		for _, d in dummies:GetChildren() do
+			table.insert(candidates, d)
+		end
+	end
+	local totalDealt, anyKill = 0, false
+	local attackerChar = attacker.Character
+	for _, targetChar in candidates do
+		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
+		local root = targetChar:FindFirstChild("HumanoidRootPart")
+		if humanoid and root and humanoid.Health > 0 and targetChar ~= attackerChar then
+			local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
+			local distance = (root.Position - position).Magnitude
+			if distance <= info.Radius and isEnemy(attacker, targetPlayer) then
+				if hasLineOfSight(position, root.Position, { targetChar, attackerChar }) then
+					local alpha = distance / info.Radius
+					local damage = info.Damage + (info.MinDamage - info.Damage) * alpha
+					local dealt, killed = applyDamage(attacker, humanoid, damage, weaponName, false)
+					totalDealt += dealt
+					anyKill = anyKill or killed
+				end
+			end
+		end
+	end
+	if totalDealt > 0 then
+		Remotes.HitConfirm:FireClient(attacker, math.floor(totalDealt + 0.5), false, anyKill)
+	end
+end
+
 -- Detecta la muerte de un Humanoid y avisa a quien corresponda
 function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 	humanoid.Died:Connect(function()
@@ -155,6 +194,29 @@ local function onFire(player, tool, origin, rays)
 	lastShot[tool] = now
 	tool:SetAttribute("Ammo", ammo - 1)
 	removeSpawnShield(character)
+
+	if def.Explosive then
+		local ray = rays[1]
+		if type(ray) ~= "table" or typeof(ray.Position) ~= "Vector3" then
+			return
+		end
+		local position = ray.Position
+		if (position - origin).Magnitude > def.Range + 5 then
+			return
+		end
+		-- El cohete no puede atravesar paredes hasta el punto de impacto
+		local back = (origin - position).Unit * 1.5
+		if not hasLineOfSight(origin, position + back, { character }) then
+			return
+		end
+		Combat.Explode(player, position + back * 0.5, def, tool:GetAttribute("Weapon"))
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				Remotes.ShotFX:FireClient(other, tool, { position })
+			end
+		end
+		return
+	end
 
 	local endpoints = {}
 	local perTarget = {}
