@@ -24,7 +24,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Movimiento** | Correr (Shift) y deslizarse (C), con impulso. |
 | **Pase de batalla** | Niveles con vía gratis y premium (GamePass), skins de común a mítica y monedas. El progreso se guarda con DataStore. |
 | **Tienda** | Packs de monedas con Robux, pase **VIP** (x2 XP y monedas), skins y trajes con monedas, **ofertas del día** con descuento, **recompensa diaria** (7 días, con caja el 7.º) y **Caja Neón** (solo monedas, con las probabilidades a la vista; si toca algo repetido te devuelve parte). En los países donde las cajas aleatorias no están permitidas se ocultan solas. |
-| **Gráficos** | Iluminación "Future", hierba 3D animada en el terreno (Jungle Temple), agua con reflejos y olas propias de cada mapa, cielo estrellado de noche, atmósfera, nubes, rayos de sol, bloom y corrección de color distinta por mapa, agua de Terrain, neón con luces, partículas (humo, chispas, lava), armas con skins de dos colores y efectos (destellos, llamas). |
+| **Gráficos** | Iluminación "Future", hierba 3D animada en el terreno (Jungle Temple), agua con reflejos y olas propias de cada mapa, cielo estrellado de noche, atmósfera, nubes, rayos de sol, bloom y corrección de color distinta por mapa, agua de Terrain, neón con luces, partículas (humo, chispas, lava), armas con skins de dos colores y efectos (destellos, llamas). Realismo: materiales PBR 2022 (yeso, ladrillo, hormigón, asfalto), colinas de terreno irregulares con roca, viento que mueve hierba, nubes y partículas, sombras de contacto bajo los objetos, óxido en contenedores, alcantarillas, grietas, aceite, rodadas y juntas en los suelos, charcos que reflejan, vapor, conos de luz, coches aparcados, pinos nevados, sotobosque en la jungla, algas en el canal, impactos de bala según el material (chispas, astillas, polvo, salpicaduras), huellas en nieve y barro y polvo al deslizarse. |
 | **Interfaz** | Pantalla de inicio, menú con pestañas (Pase, Armas, Skins, Trajes, Tienda), iconos 3D de las armas, killfeed, rachas, marcador, aviso de zona/bandera y pantalla de victoria con MVP. |
 | **Ajustes** | Pestaña ⚙ del menú: calidad gráfica **Baja / Media / Alta / Ultra** (sombras, brillo, rayos de sol, nubes, partículas del mapa y desenfoque de distancia en Ultra), **campo de visión** (70–100°), **sensibilidad** y **sensibilidad al apuntar** (baja en proporción al zoom). Se guardan con el progreso. |
 | **Práctica** | Muñecos en el mapa para probar las armas aunque juegues solo en Studio. |
@@ -206,6 +206,7 @@ src/
         ├── KillstreakController.luau radar y ataque aéreo (tecla T)
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
+        ├── Footprints.luau        huellas en nieve, arena y barro
         ├── Effects.luau           fogonazo, balas, impactos, cohetes y explosiones
         ├── Settings.luau          ajustes: calidad gráfica, FOV, sensibilidad
         ├── ClientState.luau       estado compartido
