@@ -170,6 +170,17 @@ local function createViewmodel(tool)
 		end
 	end
 	model.Name = "Viewmodel"
+	-- Brillo suave del neón del arma sobre las manos (se nota mucho en mapas oscuros)
+	local glowPalette = WeaponModels.GetPalette(weaponName, tool:GetAttribute("Skin"))
+	if model.PrimaryPart then
+		local glow = Instance.new("PointLight")
+		glow.Name = "NeonGlow"
+		glow.Color = glowPalette.Accent
+		glow.Range = 4.5
+		glow.Brightness = 0.7
+		glow.Shadows = false
+		glow.Parent = model.PrimaryPart
+	end
 	model.Parent = camera
 	viewmodel = model
 
@@ -195,7 +206,7 @@ local function setViewmodelHidden(hidden)
 			part.LocalTransparencyModifier = hidden and 1 or 0
 		elseif part:IsA("ParticleEmitter") then
 			part.Enabled = not hidden
-		elseif part:IsA("SurfaceGui") then
+		elseif part:IsA("SurfaceGui") or part:IsA("PointLight") then
 			part.Enabled = not hidden
 		end
 	end
@@ -529,6 +540,10 @@ local function renderStep(dt)
 		local color = pulseSkin.Accent:Lerp(pulseSkin.Accent2 or Color3.new(1, 1, 1), t)
 		for _, part in pulseParts do
 			part.Color = color
+		end
+		local glow = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("NeonGlow")
+		if glow and glow:IsA("PointLight") then
+			glow.Color = color
 		end
 	end
 
