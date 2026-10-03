@@ -1619,10 +1619,16 @@ function Menu.Init()
 		setOpen(false)
 	end)
 
-	local tabs = UI.new("Frame", {
+	-- Barra de pestañas con desplazamiento horizontal (en pantallas estrechas no caben todas)
+	local tabs = UI.new("ScrollingFrame", {
 		Position = UDim2.fromOffset(0, 46),
-		Size = UDim2.new(1, 0, 0, 38),
+		Size = UDim2.new(1, 0, 0, 42),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollingDirection = Enum.ScrollingDirection.X,
+		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		CanvasSize = UDim2.new(),
+		ScrollBarThickness = 3,
 		Parent = panel,
 	}, {
 		UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
