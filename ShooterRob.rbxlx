@@ -5020,6 +5020,22 @@ function Map.Build()
 		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1)
 	end
 	Kit.dustMotes(CFrame.new(0, 7, 0), Vector3.new(220, 12, 40), Color3.fromRGB(255, 215, 160), 30)
+	-- Realismo: suelo de puerto usado (alcantarillas, desagües, grietas, aceite y rodadas de la carretilla)
+	Kit.symmetric(function(m)
+		for _, p in { V(-50, 0, -10), V(-85, 0, 70), V(-12, 0, 10) } do
+			Kit.manhole(m * p)
+		end
+		for _, p in { V(-30, 0, -88), V(-70, 0, 92) } do
+			Kit.drain(m * CFrame.new(p))
+		end
+		for i, spec in { { V(-80, 0, -5), 8 }, { V(-25, 0, -45), 10 }, { V(-110, 0, 70), 9 }, { V(-60, 0, 82), 7 } } do
+			Kit.crack(m * spec[1], spec[2], i * 17)
+		end
+		for _, p in { V(-73, 0, 56), V(-41, 0, 4), V(-98, 0, -27) } do
+			Kit.oilStain(m * p, 3)
+		end
+		Kit.tireMarks(m * CFrame.new(-70, 0, 68) * CFrame.Angles(0, math.rad(30), 0), 22, 0.6)
+	end)
 	return folder
 end
 
@@ -5750,6 +5766,26 @@ function Map.Build()
 	end
 	Kit.dustMotes(CFrame.new(0, 6, 0), Vector3.new(60, 10, 60), Color3.fromRGB(255, 240, 210), 14)
 
+	-- Realismo: losas de acera, alcantarillas, desagües junto al bordillo, grietas, aceite y rodadas
+	for _, side in { -1, 1 } do
+		Kit.floorJoints(CFrame.new(0, 0.4, side * (WIDTH / 2 - 8)), LENGTH, 16, 6, Color3.fromRGB(118, 116, 112))
+	end
+	symmetric(function(m)
+		for _, p in { Vector3.new(-100, 0, 46), Vector3.new(-20, 0, -48), Vector3.new(-128, 0, -10) } do
+			Kit.manhole(m * p)
+		end
+		for _, p in { Vector3.new(-80, 0, 92.4), Vector3.new(-20, 0, -92.4), Vector3.new(-130, 0, 92.4) } do
+			Kit.drain(m * CFrame.new(p))
+		end
+		for i, spec in { { Vector3.new(-70, 0, 30), 9 }, { Vector3.new(-130, 0, -55), 8 }, { Vector3.new(-30, 0, 58), 10 }, { Vector3.new(-90, 0, -20), 7 } } do
+			Kit.crack(m * spec[1], spec[2], i * 23)
+		end
+		for _, p in { Vector3.new(-108, 0, 54), Vector3.new(-62, 0, -50), Vector3.new(-25, 0, 30) } do
+			Kit.oilStain(m * p, 2.6)
+		end
+		Kit.tireMarks(m * CFrame.new(-58, 0, 52) * CFrame.Angles(0, math.rad(80), 0), 26, -0.5)
+	end)
+
 	return mapFolder
 end
 
@@ -5785,6 +5821,7 @@ Map.Lighting = {
 	Clouds = 0.8,
 	CloudColor = Color3.fromRGB(228, 234, 245),
 	SunRays = 0.12,
+	Wind = Vector3.new(8, 0, 3), -- viento polar: la nieve cae en diagonal y las nubes corren
 	TerrainColors = {
 		Snow = Color3.fromRGB(232, 238, 248),
 		Glacier = Color3.fromRGB(150, 200, 235),
@@ -5804,18 +5841,23 @@ local ORANGE = RGB(255, 140, 40)
 local WALL = RGB(196, 202, 212)
 local DARK = RGB(60, 66, 78)
 
--- Pino nevado: tronco y tres pisos de ramas con nieve encima
+-- Pino nevado: tronco y siete pisos redondos de ramas, cada vez más estrechos y muy juntos para
+-- que la silueta sea un cono; nieve sobre pisos alternos y verdes algo distintos
 local function pine(position, scale)
 	scale = scale or 1
-	local deco, cylinder = Kit.deco, Kit.cylinder
-	cylinder("PineTrunk", 4 * scale, 1.1 * scale, CFrame.new(position + V(0, 2 * scale, 0)), RGB(95, 65, 45), Enum.Material.Wood)
-	for i, size in { 9, 6.8, 4.4 } do
-		local y = (2.5 + i * 2.6) * scale
-		local s = size * scale
-		local tier = deco("PineTier", V(s, 2.4 * scale, s), CFrame.new(position + V(0, y, 0)) * CFrame.Angles(0, rad(45 * i), 0), RGB(40, 85, 60), Enum.Material.LeafyGrass)
-		tier.CastShadow = true
-		deco("PineSnow", V(s * 0.8, 0.5 * scale, s * 0.8), CFrame.new(position + V(0, y + 1.3 * scale, 0)) * CFrame.Angles(0, rad(45 * i + 20), 0), SNOW, Enum.Material.Snow)
+	local cylinder = Kit.cylinder
+	cylinder("PineTrunk", 5 * scale, 1.1 * scale, CFrame.new(position + V(0, 2.5 * scale, 0)), RGB(88, 62, 44), Enum.Material.Wood)
+	for i = 1, 7 do
+		local d = (10 - (i - 1) * 1.35) * scale
+		local y = (3 + (i - 1) * 1.65) * scale
+		local green = RGB(34, 74, 52):Lerp(RGB(50, 98, 66), (i % 2) * 0.6)
+		local branches = cylinder("PineTier", 2.2 * scale, d, CFrame.new(position + V(0, y, 0)), green, Enum.Material.LeafyGrass, nil, true)
+		branches.CastShadow = true
+		if i % 2 == 1 then
+			cylinder("PineSnow", 0.4 * scale, d * 0.78, CFrame.new(position + V(0, y + 1.1 * scale, 0)), SNOW, Enum.Material.Snow, nil, true)
+		end
 	end
+	cylinder("PineTip", 1.8 * scale, 0.9 * scale, CFrame.new(position + V(0, 14.2 * scale, 0)), RGB(40, 84, 58), Enum.Material.LeafyGrass, nil, true)
 end
 
 -- Montículo de nieve (terreno) que sirve de cobertura
@@ -5958,6 +6000,12 @@ function Map.Build()
 		snowMound(m * V(-115, -1.5, 46), 5.5)
 		snowMound(m * V(-20, -2.5, 82), 7)
 
+		-- Rocas que asoman entre la nieve
+		Kit.rockCluster(m * V(-150, 0, -70), 4, Enum.Material.Rock)
+		Kit.rockCluster(m * V(-75, 0, 104), 4.5, Enum.Material.Slate)
+		Kit.rockCluster(m * V(-135, 0, -104), 4, Enum.Material.Rock)
+		Kit.rockCluster(m * V(-40, 0, -104), 5, Enum.Material.Slate)
+
 		-- Antena de comunicaciones con baliza
 		local mast = m * CFrame.new(-128, 0, 88)
 		Kit.cylinder("CommsMast", 32, 1, mast * CFrame.new(0, 16, 0), RGB(200, 70, 55), Enum.Material.Metal)
@@ -5992,7 +6040,8 @@ function Map.Build()
 	snow.Lifetime = NumberRange.new(7, 9)
 	snow.Speed = NumberRange.new(6, 9)
 	snow.SpreadAngle = Vector2.new(15, 15)
-	snow.Acceleration = V(1.5, 0, 0.6)
+	snow.Acceleration = V(0.4, 0, 0.2)
+	snow.WindAffectsDrift = true
 	snow.RotSpeed = NumberRange.new(-60, 60)
 	snow.Rate = 140
 	snow.EmissionDirection = Enum.NormalId.Bottom
@@ -6009,13 +6058,22 @@ function Map.Build()
 	Kit.bounds(320, 220, 60)
 	for x = -240, 240, 60 do
 		for _, z in { -1, 1 } do
-			workspace.Terrain:FillBall(V(x + z * 15, -18, z * (175 + (math.abs(x) % 50))), 55 + (math.abs(x) % 4) * 8, Enum.Material.Snow)
-			workspace.Terrain:FillBall(V(x + 25, -30, z * 230), 60, Enum.Material.Rock)
+			-- Laderas nevadas irregulares con roca a la vista y, detrás, picos de roca con nieve en la cima
+			Kit.naturalHill(V(x + z * 15, -18, z * (175 + (math.abs(x) % 50))), 55 + (math.abs(x) % 4) * 8, Enum.Material.Snow, {
+				Inward = V(0, 0, -z),
+				RockCount = 4,
+			})
+			Kit.naturalHill(V(x + 25, -30, z * 230), 60, Enum.Material.Rock, {
+				Inward = V(0, 0, -z),
+				Rock = Enum.Material.Slate,
+				Top = Enum.Material.Snow,
+				TopCount = 4,
+			})
 		end
 	end
 	for z = -150, 150, 60 do
 		for _, sx in { -1, 1 } do
-			workspace.Terrain:FillBall(V(sx * 230, -20, z), 60, Enum.Material.Snow)
+			Kit.naturalHill(V(sx * 230, -20, z), 60, Enum.Material.Snow, { Inward = V(-sx, 0, 0), RockCount = 3 })
 		end
 	end
 	-- Pinos fuera del mapa (bosque de fondo)
@@ -6363,6 +6421,7 @@ Map.Lighting = {
 	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 	Clouds = 0.6,
 	SunRays = 0.14,
+	Wind = Vector3.new(3, 0, 1.5),
 	Water = { Color = Color3.fromRGB(40, 115, 95), Reflectance = 0.6, Transparency = 0.55, WaveSize = 0.05, WaveSpeed = 6 },
 	TerrainColors = {
 		Grass = Color3.fromRGB(88, 140, 58),
@@ -6535,6 +6594,24 @@ function Map.Build()
 		end
 		Kit.palm(m * CFrame.new(-50, 0, 80), 15)
 		Kit.palm(m * CFrame.new(-128, 0, -95), 13)
+		-- Sotobosque: arbustos densos junto a los bordes y las ruinas, más helechos, troncos caídos
+		-- (cobertura baja) y rocas medio enterradas
+		for i, p in {
+			V(-140, 0, 100), V(-118, 0, 101), V(-78, 0, 101), V(-40, 0, 99), V(-8, 0, 101),
+			V(-150, 0, -100), V(-100, 0, -101), V(-70, 0, -99), V(-48, 0, -101),
+			V(-155, 0, 62), V(-155, 0, -62), V(-31, 0, 41), V(-96, 0, -64), V(-60, 0, -67), V(-84, 0, 42),
+		} do
+			Kit.bush(m * p, 0.9 + (i % 3) * 0.2)
+		end
+		for _, p in { V(-130, 0, 62), V(-82, 0, -30), V(-52, 0, 66), V(-8, 0, -84), V(-138, 0, -74), V(-92, 0, 84) } do
+			fern(m * p)
+		end
+		Kit.log(m * CFrame.new(-90, 0, -38) * CFrame.Angles(0, rad(30), 0), 10, 2.2)
+		Kit.log(m * CFrame.new(-36, 0, 70) * CFrame.Angles(0, rad(-20), 0), 9, 2)
+		Kit.rockCluster(m * V(-150, 0, -82), 4)
+		Kit.rockCluster(m * V(-62, 0, -102), 5)
+		Kit.rockCluster(m * V(-132, 0, 104), 4)
+		Kit.rockCluster(m * V(-26, 0, 101), 4)
 
 		-- Cascada al fondo con poza
 		local fall = m * CFrame.new(-20, 0, -108)
@@ -6575,9 +6652,10 @@ function Map.Build()
 	leaves.Speed = NumberRange.new(2.5, 4)
 	leaves.SpreadAngle = Vector2.new(25, 25)
 	leaves.RotSpeed = NumberRange.new(-90, 90)
-	leaves.Acceleration = V(0.8, 0, 0.4)
+	leaves.Acceleration = V(0.3, 0, 0.15)
 	leaves.Rate = 20
 	leaves.EmissionDirection = Enum.NormalId.Bottom
+	leaves.WindAffectsDrift = true
 	leaves.Parent = sky
 
 	-- Spawns y banderas
@@ -6591,12 +6669,18 @@ function Map.Build()
 	Kit.bounds(320, 220, 60)
 	for x = -240, 240, 60 do
 		for _, z in { -1, 1 } do
-			workspace.Terrain:FillBall(V(x - z * 20, -22, z * (170 + (math.abs(x) % 40))), 55 + (math.abs(x) % 3) * 10, Enum.Material.Grass)
+			-- Colinas irregulares con salientes de roca y manchas de selva (LeafyGrass) en la cima
+			Kit.naturalHill(V(x - z * 20, -22, z * (170 + (math.abs(x) % 40))), 55 + (math.abs(x) % 3) * 10, Enum.Material.Grass, {
+				Inward = V(0, 0, -z),
+				Top = Enum.Material.LeafyGrass,
+				TopCount = 6,
+				RockCount = 2,
+			})
 		end
 	end
 	for z = -150, 150, 60 do
 		for _, sx in { -1, 1 } do
-			workspace.Terrain:FillBall(V(sx * 225, -20, z), 58, Enum.Material.Grass)
+			Kit.naturalHill(V(sx * 225, -20, z), 58, Enum.Material.Grass, { Inward = V(-sx, 0, 0), Top = Enum.Material.LeafyGrass, RockCount = 2 })
 		end
 	end
 	for x = -150, 150, 24 do
@@ -6845,6 +6929,17 @@ function Map.Build()
 		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1.4)
 	end
 	Kit.dustMotes(CFrame.new(0, 12, 0), Vector3.new(70, 22, 70), Color3.fromRGB(255, 150, 60), 25)
+	-- Losas de hormigón industrial con juntas, grietas y manchas de aceite de la maquinaria
+	Kit.floorJoints(CFrame.new(), 300, 210, 12, Color3.fromRGB(38, 38, 42))
+	Kit.symmetric(function(m)
+		for i, spec in { { Vector3.new(-84, 0, -8), 9 }, { Vector3.new(-35, 0, -30), 8 }, { Vector3.new(-115, 0, 66), 10 } } do
+			Kit.crack(m * spec[1], spec[2], i * 31)
+		end
+		for _, p in { Vector3.new(-66, 0, -34), Vector3.new(-100, 0, 30), Vector3.new(-30, 0, 80) } do
+			Kit.oilStain(m * p, 3.2)
+		end
+		Kit.manhole(m * Vector3.new(-48, 0, -12))
+	end)
 	return folder
 end
 
@@ -7076,6 +7171,13 @@ function Kit.container(cf, color, labelText)
 		deco("LockBar", V(0.3, 7.6, 0.25), cf * CFrame.new(10.3, 4.25, z), RGB(200, 200, 205), Enum.Material.Metal, model)
 	end
 	deco("DoorSplit", V(0.35, 8, 0.15), cf * CFrame.new(10.3, 4.25, 0), RGB(30, 30, 30), Enum.Material.Metal, model)
+	-- Desgaste: chorretones de óxido que bajan desde el techo en los dos laterales largos
+	local rust = color:Lerp(RGB(105, 58, 34), 0.6)
+	for i, x in { -7.7, 3.3, 5.5 } do
+		local side = i % 2 == 0 and 1 or -1
+		local length = 2 + ((cargoIndex + i) % 3) * 1.4
+		deco("RustStreak", V(0.9, length, 0.06), cf * CFrame.new(x, 8.45 - length / 2, side * 4.04), rust, Enum.Material.CorrodedMetal, model)
+	end
 	cargoIndex = cargoIndex % #CARGO_NAMES + 1
 	local text = labelText or CARGO_NAMES[cargoIndex]
 	sign(body, Enum.NormalId.Front, text, Color3.new(1, 1, 1), dark)
@@ -7474,12 +7576,13 @@ function Kit.steamVent(cf, strength)
 	steam.Lifetime = NumberRange.new(2.5, 4)
 	steam.Speed = NumberRange.new(3, 6)
 	steam.SpreadAngle = Vector2.new(12, 12)
-	steam.Acceleration = V(0.6, 0.8, 0)
+	steam.Acceleration = V(0, 0.8, 0)
 	steam.RotSpeed = NumberRange.new(-20, 20)
 	steam.Rotation = NumberRange.new(0, 360)
 	steam.Rate = 6 * strength
 	steam.LightInfluence = 1
 	steam.EmissionDirection = Enum.NormalId.Top
+	steam.WindAffectsDrift = true
 	steam.Parent = grate
 	return grate
 end
@@ -7501,10 +7604,158 @@ function Kit.dustMotes(cf, size, color, rate)
 	dust.SpreadAngle = Vector2.new(180, 180)
 	dust.RotSpeed = NumberRange.new(-30, 30)
 	dust.Rate = rate or 12
+	dust.WindAffectsDrift = true
 	dust.Shape = Enum.ParticleEmitterShape.Box
 	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 	dust.Parent = volume
 	return volume
+end
+
+-- Colina natural de fondo (terreno): una bola grande deformada con bultos, salientes de roca y,
+-- si se pide, manchas de otro material por encima (selva, nieve...). Nada de bolas perfectas.
+-- `inward` (vector horizontal hacia el centro del mapa) evita que los bultos invadan la zona de juego.
+function Kit.naturalHill(center, radius, material, options)
+	options = options or {}
+	local terrain = workspace.Terrain
+	local rng = Random.new(options.Seed or math.floor(center.X * 3 + center.Z * 7))
+	local inward = options.Inward
+	local function away(offset)
+		if inward and offset:Dot(inward) > 0 then
+			return offset - inward * (2 * offset:Dot(inward))
+		end
+		return offset
+	end
+	-- Dirección sobre la superficie que queda por encima del suelo (y > 3)
+	local function surfaceDir(minUp, maxUp)
+		local low = math.asin(math.clamp((3 - center.Y) / radius, -1, 1))
+		local elevation = math.max(low, minUp) + rng:NextNumber(0, 1) * math.max(0, maxUp - math.max(low, minUp))
+		local angle = rng:NextNumber(0, math.pi * 2)
+		return V(math.cos(angle) * math.cos(elevation), math.sin(elevation), math.sin(angle) * math.cos(elevation))
+	end
+	terrain:FillBall(center, radius, material)
+	for _ = 1, 4 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local dist = rng:NextNumber(0.35, 0.7) * radius
+		local offset = away(V(math.cos(angle) * dist, rng:NextNumber(-0.25, 0.05) * radius, math.sin(angle) * dist))
+		terrain:FillBall(center + offset, radius * rng:NextNumber(0.45, 0.65), material)
+	end
+	-- Salientes de roca en la ladera
+	for _ = 1, options.RockCount or 3 do
+		local dir = surfaceDir(0.15, 1.1)
+		terrain:FillBall(center + dir * radius * 0.94, radius * rng:NextNumber(0.1, 0.18), options.Rock or Enum.Material.Rock)
+	end
+	-- Manchas en la cima (copas de árboles con LeafyGrass, nieve en una montaña de roca...)
+	if options.Top then
+		for _ = 1, options.TopCount or 5 do
+			local dir = surfaceDir(0.5, 1.4)
+			terrain:FillBall(center + dir * radius * 0.92, radius * rng:NextNumber(0.18, 0.3), options.Top)
+		end
+	end
+end
+
+-- Grupo de rocas de terreno medio enterradas (una grande y dos pequeñas al lado)
+function Kit.rockCluster(position, size, material, seed)
+	local rng = Random.new(seed or math.floor(position.X * 5 + position.Z * 11))
+	material = material or Enum.Material.Rock
+	local terrain = workspace.Terrain
+	terrain:FillBall(position - V(0, size * 0.35, 0), size, material)
+	for _ = 1, 2 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local r = size * rng:NextNumber(0.45, 0.65)
+		terrain:FillBall(position + V(math.cos(angle) * size * 0.9, -r * 0.4, math.sin(angle) * size * 0.9), r, material)
+	end
+end
+
+-- Arbusto: tres bolas de hojas con tonos distintos (decorativo: se atraviesa)
+function Kit.bush(position, scale, color)
+	scale = scale or 1
+	local rng = Random.new(math.floor(position.X * 11 + position.Z * 5))
+	local base = color or RGB(58, 112, 46)
+	for _ = 1, 3 do
+		local d = scale * rng:NextNumber(2.4, 3.6)
+		local offset = V(rng:NextNumber(-1, 1) * scale, d * 0.3, rng:NextNumber(-1, 1) * scale)
+		local leaf = Kit.ball("Bush", d, CFrame.new(position + offset), base:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.25)), Enum.Material.LeafyGrass, true)
+		leaf.CastShadow = d >= 3
+	end
+end
+
+-- Tronco caído con musgo por encima y los cortes claros (sirve de cobertura baja)
+function Kit.log(cf, length, diameter)
+	local y = diameter * 0.42
+	Kit.pipe("Log", length, diameter, cf * CFrame.new(0, y, 0), RGB(92, 70, 50), Enum.Material.Wood)
+	Kit.deco("LogMoss", V(length * 0.7, 0.2, diameter * 0.5), cf * CFrame.new(length * 0.05, y + diameter * 0.42, 0), RGB(78, 118, 52), Enum.Material.LeafyGrass)
+	for _, side in { -1, 1 } do
+		Kit.pipe("LogEnd", 0.1, diameter * 0.9, cf * CFrame.new(side * length / 2, y, 0), RGB(168, 132, 92), Enum.Material.Wood, true)
+	end
+end
+
+-- Tapa de alcantarilla de hierro fundido
+function Kit.manhole(position)
+	Kit.cylinder("ManholeRim", 0.05, 3.5, CFrame.new(position + V(0, 0.025, 0)), RGB(72, 70, 66), Enum.Material.Metal, nil, true)
+	Kit.cylinder("Manhole", 0.07, 3, CFrame.new(position + V(0, 0.035, 0)), RGB(46, 44, 42), Enum.Material.DiamondPlate, nil, true)
+end
+
+-- Rejilla de desagüe junto a un bordillo
+function Kit.drain(cf)
+	Kit.deco("DrainFrame", V(3.2, 0.06, 1.6), cf * CFrame.new(0, 0.03, 0), RGB(60, 58, 55), Enum.Material.Metal)
+	for i = -3, 3 do
+		Kit.deco("DrainSlot", V(0.18, 0.07, 1.2), cf * CFrame.new(i * 0.4, 0.036, 0), RGB(14, 14, 16), Enum.Material.Metal)
+	end
+end
+
+-- Mancha de aceite: discos oscuros semitransparentes con un brillo leve
+function Kit.oilStain(position, size, seed)
+	local rng = Random.new(seed or math.floor(position.X * 13 + position.Z * 3))
+	for i = 1, 3 do
+		local d = size * (i == 1 and 1 or rng:NextNumber(0.4, 0.7))
+		local offset = i == 1 and V(0, 0, 0) or V(rng:NextNumber(-0.35, 0.35) * size, 0, rng:NextNumber(-0.35, 0.35) * size)
+		local stain = Kit.cylinder("OilStain", 0.02, d, CFrame.new(position + offset + V(0, 0.012 + i * 0.002, 0)), RGB(18, 18, 20), Enum.Material.SmoothPlastic, nil, true)
+		stain.Transparency = 0.55 + i * 0.08
+		stain.Reflectance = 0.08
+	end
+end
+
+-- Grieta en el suelo: segmentos finos en zigzag
+function Kit.crack(position, length, seed)
+	local rng = Random.new(seed or math.floor(position.X * 7 + position.Z * 17))
+	local heading = rng:NextNumber(0, math.pi * 2)
+	local point = position
+	local segments = math.max(3, math.floor(length / 2.5))
+	for i = 1, segments do
+		heading += rng:NextNumber(-0.7, 0.7)
+		local seg = length / segments
+		local dir = V(math.cos(heading), 0, math.sin(heading))
+		local width = 0.16 * (1 - i / (segments + 1)) + 0.05
+		Kit.deco("Crack", V(seg + 0.1, 0.03, width), CFrame.lookAt(point + dir * (seg / 2) + V(0, 0.015, 0), point + dir * seg + V(0, 0.015, 0)) * CFrame.Angles(0, math.pi / 2, 0), RGB(28, 28, 30), Enum.Material.SmoothPlastic)
+		point += dir * seg
+	end
+end
+
+-- Juntas de dilatación de una losa de hormigón o asfalto: líneas oscuras cada `spacing` studs
+function Kit.floorJoints(cf, length, width, spacing, color)
+	color = color or RGB(40, 40, 42)
+	for x = -length / 2 + spacing, length / 2 - spacing / 2, spacing do
+		Kit.deco("Joint", V(0.15, 0.03, width), cf * CFrame.new(x, 0.015, 0), color, Enum.Material.SmoothPlastic)
+	end
+	for z = -width / 2 + spacing, width / 2 - spacing / 2, spacing do
+		Kit.deco("Joint", V(length, 0.03, 0.15), cf * CFrame.new(0, 0.015, z), color, Enum.Material.SmoothPlastic)
+	end
+end
+
+-- Marcas de neumático: dos franjas oscuras paralelas que hacen una curva suave
+function Kit.tireMarks(cf, length, bend)
+	bend = bend or 0.3
+	local segments = 6
+	local seg = length / segments
+	local pose = cf
+	for _ = 1, segments do
+		pose = pose * CFrame.Angles(0, bend / segments, 0)
+		for _, side in { -1.1, 1.1 } do
+			local mark = Kit.deco("TireMark", V(0.7, 0.02, seg + 0.05), pose * CFrame.new(side, 0.011, -seg / 2), RGB(20, 20, 22), Enum.Material.SmoothPlastic)
+			mark.Transparency = 0.6
+		end
+		pose = pose * CFrame.new(0, 0, -seg)
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -7652,6 +7903,8 @@ function Kit.applyLighting(preset)
 	Lighting.ShadowSoftness = preset.ShadowSoftness or 0.12 -- sombras de sol nítidas pero no duras
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
+	-- Viento: mueve la hierba del terreno, las nubes y las partículas con WindAffectsDrift
+	workspace.GlobalWind = preset.Wind or V(4, 0, 2)
 
 	local a = preset.Atmosphere or {}
 	local atmosphere = ensure("Atmosphere")

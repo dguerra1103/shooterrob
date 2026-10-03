@@ -211,6 +211,17 @@ function Map.Build()
 		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1.4)
 	end
 	Kit.dustMotes(CFrame.new(0, 12, 0), Vector3.new(70, 22, 70), Color3.fromRGB(255, 150, 60), 25)
+	-- Losas de hormigón industrial con juntas, grietas y manchas de aceite de la maquinaria
+	Kit.floorJoints(CFrame.new(), 300, 210, 12, Color3.fromRGB(38, 38, 42))
+	Kit.symmetric(function(m)
+		for i, spec in { { Vector3.new(-84, 0, -8), 9 }, { Vector3.new(-35, 0, -30), 8 }, { Vector3.new(-115, 0, 66), 10 } } do
+			Kit.crack(m * spec[1], spec[2], i * 31)
+		end
+		for _, p in { Vector3.new(-66, 0, -34), Vector3.new(-100, 0, 30), Vector3.new(-30, 0, 80) } do
+			Kit.oilStain(m * p, 3.2)
+		end
+		Kit.manhole(m * Vector3.new(-48, 0, -12))
+	end)
 	return folder
 end
 

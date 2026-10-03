@@ -718,6 +718,26 @@ function Map.Build()
 	end
 	Kit.dustMotes(CFrame.new(0, 6, 0), Vector3.new(60, 10, 60), Color3.fromRGB(255, 240, 210), 14)
 
+	-- Realismo: losas de acera, alcantarillas, desagües junto al bordillo, grietas, aceite y rodadas
+	for _, side in { -1, 1 } do
+		Kit.floorJoints(CFrame.new(0, 0.4, side * (WIDTH / 2 - 8)), LENGTH, 16, 6, Color3.fromRGB(118, 116, 112))
+	end
+	symmetric(function(m)
+		for _, p in { Vector3.new(-100, 0, 46), Vector3.new(-20, 0, -48), Vector3.new(-128, 0, -10) } do
+			Kit.manhole(m * p)
+		end
+		for _, p in { Vector3.new(-80, 0, 92.4), Vector3.new(-20, 0, -92.4), Vector3.new(-130, 0, 92.4) } do
+			Kit.drain(m * CFrame.new(p))
+		end
+		for i, spec in { { Vector3.new(-70, 0, 30), 9 }, { Vector3.new(-130, 0, -55), 8 }, { Vector3.new(-30, 0, 58), 10 }, { Vector3.new(-90, 0, -20), 7 } } do
+			Kit.crack(m * spec[1], spec[2], i * 23)
+		end
+		for _, p in { Vector3.new(-108, 0, 54), Vector3.new(-62, 0, -50), Vector3.new(-25, 0, 30) } do
+			Kit.oilStain(m * p, 2.6)
+		end
+		Kit.tireMarks(m * CFrame.new(-58, 0, 52) * CFrame.Angles(0, math.rad(80), 0), 26, -0.5)
+	end)
+
 	return mapFolder
 end
 

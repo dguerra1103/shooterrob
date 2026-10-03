@@ -205,6 +205,22 @@ function Map.Build()
 		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1)
 	end
 	Kit.dustMotes(CFrame.new(0, 7, 0), Vector3.new(220, 12, 40), Color3.fromRGB(255, 215, 160), 30)
+	-- Realismo: suelo de puerto usado (alcantarillas, desagües, grietas, aceite y rodadas de la carretilla)
+	Kit.symmetric(function(m)
+		for _, p in { V(-50, 0, -10), V(-85, 0, 70), V(-12, 0, 10) } do
+			Kit.manhole(m * p)
+		end
+		for _, p in { V(-30, 0, -88), V(-70, 0, 92) } do
+			Kit.drain(m * CFrame.new(p))
+		end
+		for i, spec in { { V(-80, 0, -5), 8 }, { V(-25, 0, -45), 10 }, { V(-110, 0, 70), 9 }, { V(-60, 0, 82), 7 } } do
+			Kit.crack(m * spec[1], spec[2], i * 17)
+		end
+		for _, p in { V(-73, 0, 56), V(-41, 0, 4), V(-98, 0, -27) } do
+			Kit.oilStain(m * p, 3)
+		end
+		Kit.tireMarks(m * CFrame.new(-70, 0, 68) * CFrame.Angles(0, math.rad(30), 0), 22, 0.6)
+	end)
 	return folder
 end
 

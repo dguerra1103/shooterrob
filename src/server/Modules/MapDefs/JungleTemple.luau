@@ -21,6 +21,7 @@ Map.Lighting = {
 	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 	Clouds = 0.6,
 	SunRays = 0.14,
+	Wind = Vector3.new(3, 0, 1.5),
 	Water = { Color = Color3.fromRGB(40, 115, 95), Reflectance = 0.6, Transparency = 0.55, WaveSize = 0.05, WaveSpeed = 6 },
 	TerrainColors = {
 		Grass = Color3.fromRGB(88, 140, 58),
@@ -193,6 +194,24 @@ function Map.Build()
 		end
 		Kit.palm(m * CFrame.new(-50, 0, 80), 15)
 		Kit.palm(m * CFrame.new(-128, 0, -95), 13)
+		-- Sotobosque: arbustos densos junto a los bordes y las ruinas, más helechos, troncos caídos
+		-- (cobertura baja) y rocas medio enterradas
+		for i, p in {
+			V(-140, 0, 100), V(-118, 0, 101), V(-78, 0, 101), V(-40, 0, 99), V(-8, 0, 101),
+			V(-150, 0, -100), V(-100, 0, -101), V(-70, 0, -99), V(-48, 0, -101),
+			V(-155, 0, 62), V(-155, 0, -62), V(-31, 0, 41), V(-96, 0, -64), V(-60, 0, -67), V(-84, 0, 42),
+		} do
+			Kit.bush(m * p, 0.9 + (i % 3) * 0.2)
+		end
+		for _, p in { V(-130, 0, 62), V(-82, 0, -30), V(-52, 0, 66), V(-8, 0, -84), V(-138, 0, -74), V(-92, 0, 84) } do
+			fern(m * p)
+		end
+		Kit.log(m * CFrame.new(-90, 0, -38) * CFrame.Angles(0, rad(30), 0), 10, 2.2)
+		Kit.log(m * CFrame.new(-36, 0, 70) * CFrame.Angles(0, rad(-20), 0), 9, 2)
+		Kit.rockCluster(m * V(-150, 0, -82), 4)
+		Kit.rockCluster(m * V(-62, 0, -102), 5)
+		Kit.rockCluster(m * V(-132, 0, 104), 4)
+		Kit.rockCluster(m * V(-26, 0, 101), 4)
 
 		-- Cascada al fondo con poza
 		local fall = m * CFrame.new(-20, 0, -108)
@@ -233,9 +252,10 @@ function Map.Build()
 	leaves.Speed = NumberRange.new(2.5, 4)
 	leaves.SpreadAngle = Vector2.new(25, 25)
 	leaves.RotSpeed = NumberRange.new(-90, 90)
-	leaves.Acceleration = V(0.8, 0, 0.4)
+	leaves.Acceleration = V(0.3, 0, 0.15)
 	leaves.Rate = 20
 	leaves.EmissionDirection = Enum.NormalId.Bottom
+	leaves.WindAffectsDrift = true
 	leaves.Parent = sky
 
 	-- Spawns y banderas
@@ -249,12 +269,18 @@ function Map.Build()
 	Kit.bounds(320, 220, 60)
 	for x = -240, 240, 60 do
 		for _, z in { -1, 1 } do
-			workspace.Terrain:FillBall(V(x - z * 20, -22, z * (170 + (math.abs(x) % 40))), 55 + (math.abs(x) % 3) * 10, Enum.Material.Grass)
+			-- Colinas irregulares con salientes de roca y manchas de selva (LeafyGrass) en la cima
+			Kit.naturalHill(V(x - z * 20, -22, z * (170 + (math.abs(x) % 40))), 55 + (math.abs(x) % 3) * 10, Enum.Material.Grass, {
+				Inward = V(0, 0, -z),
+				Top = Enum.Material.LeafyGrass,
+				TopCount = 6,
+				RockCount = 2,
+			})
 		end
 	end
 	for z = -150, 150, 60 do
 		for _, sx in { -1, 1 } do
-			workspace.Terrain:FillBall(V(sx * 225, -20, z), 58, Enum.Material.Grass)
+			Kit.naturalHill(V(sx * 225, -20, z), 58, Enum.Material.Grass, { Inward = V(-sx, 0, 0), Top = Enum.Material.LeafyGrass, RockCount = 2 })
 		end
 	end
 	for x = -150, 150, 24 do

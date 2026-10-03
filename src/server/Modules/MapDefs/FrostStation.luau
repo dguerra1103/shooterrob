@@ -23,6 +23,7 @@ Map.Lighting = {
 	Clouds = 0.8,
 	CloudColor = Color3.fromRGB(228, 234, 245),
 	SunRays = 0.12,
+	Wind = Vector3.new(8, 0, 3), -- viento polar: la nieve cae en diagonal y las nubes corren
 	TerrainColors = {
 		Snow = Color3.fromRGB(232, 238, 248),
 		Glacier = Color3.fromRGB(150, 200, 235),
@@ -42,18 +43,23 @@ local ORANGE = RGB(255, 140, 40)
 local WALL = RGB(196, 202, 212)
 local DARK = RGB(60, 66, 78)
 
--- Pino nevado: tronco y tres pisos de ramas con nieve encima
+-- Pino nevado: tronco y siete pisos redondos de ramas, cada vez más estrechos y muy juntos para
+-- que la silueta sea un cono; nieve sobre pisos alternos y verdes algo distintos
 local function pine(position, scale)
 	scale = scale or 1
-	local deco, cylinder = Kit.deco, Kit.cylinder
-	cylinder("PineTrunk", 4 * scale, 1.1 * scale, CFrame.new(position + V(0, 2 * scale, 0)), RGB(95, 65, 45), Enum.Material.Wood)
-	for i, size in { 9, 6.8, 4.4 } do
-		local y = (2.5 + i * 2.6) * scale
-		local s = size * scale
-		local tier = deco("PineTier", V(s, 2.4 * scale, s), CFrame.new(position + V(0, y, 0)) * CFrame.Angles(0, rad(45 * i), 0), RGB(40, 85, 60), Enum.Material.LeafyGrass)
-		tier.CastShadow = true
-		deco("PineSnow", V(s * 0.8, 0.5 * scale, s * 0.8), CFrame.new(position + V(0, y + 1.3 * scale, 0)) * CFrame.Angles(0, rad(45 * i + 20), 0), SNOW, Enum.Material.Snow)
+	local cylinder = Kit.cylinder
+	cylinder("PineTrunk", 5 * scale, 1.1 * scale, CFrame.new(position + V(0, 2.5 * scale, 0)), RGB(88, 62, 44), Enum.Material.Wood)
+	for i = 1, 7 do
+		local d = (10 - (i - 1) * 1.35) * scale
+		local y = (3 + (i - 1) * 1.65) * scale
+		local green = RGB(34, 74, 52):Lerp(RGB(50, 98, 66), (i % 2) * 0.6)
+		local branches = cylinder("PineTier", 2.2 * scale, d, CFrame.new(position + V(0, y, 0)), green, Enum.Material.LeafyGrass, nil, true)
+		branches.CastShadow = true
+		if i % 2 == 1 then
+			cylinder("PineSnow", 0.4 * scale, d * 0.78, CFrame.new(position + V(0, y + 1.1 * scale, 0)), SNOW, Enum.Material.Snow, nil, true)
+		end
 	end
+	cylinder("PineTip", 1.8 * scale, 0.9 * scale, CFrame.new(position + V(0, 14.2 * scale, 0)), RGB(40, 84, 58), Enum.Material.LeafyGrass, nil, true)
 end
 
 -- Montículo de nieve (terreno) que sirve de cobertura
@@ -196,6 +202,12 @@ function Map.Build()
 		snowMound(m * V(-115, -1.5, 46), 5.5)
 		snowMound(m * V(-20, -2.5, 82), 7)
 
+		-- Rocas que asoman entre la nieve
+		Kit.rockCluster(m * V(-150, 0, -70), 4, Enum.Material.Rock)
+		Kit.rockCluster(m * V(-75, 0, 104), 4.5, Enum.Material.Slate)
+		Kit.rockCluster(m * V(-135, 0, -104), 4, Enum.Material.Rock)
+		Kit.rockCluster(m * V(-40, 0, -104), 5, Enum.Material.Slate)
+
 		-- Antena de comunicaciones con baliza
 		local mast = m * CFrame.new(-128, 0, 88)
 		Kit.cylinder("CommsMast", 32, 1, mast * CFrame.new(0, 16, 0), RGB(200, 70, 55), Enum.Material.Metal)
@@ -230,7 +242,8 @@ function Map.Build()
 	snow.Lifetime = NumberRange.new(7, 9)
 	snow.Speed = NumberRange.new(6, 9)
 	snow.SpreadAngle = Vector2.new(15, 15)
-	snow.Acceleration = V(1.5, 0, 0.6)
+	snow.Acceleration = V(0.4, 0, 0.2)
+	snow.WindAffectsDrift = true
 	snow.RotSpeed = NumberRange.new(-60, 60)
 	snow.Rate = 140
 	snow.EmissionDirection = Enum.NormalId.Bottom
@@ -247,13 +260,22 @@ function Map.Build()
 	Kit.bounds(320, 220, 60)
 	for x = -240, 240, 60 do
 		for _, z in { -1, 1 } do
-			workspace.Terrain:FillBall(V(x + z * 15, -18, z * (175 + (math.abs(x) % 50))), 55 + (math.abs(x) % 4) * 8, Enum.Material.Snow)
-			workspace.Terrain:FillBall(V(x + 25, -30, z * 230), 60, Enum.Material.Rock)
+			-- Laderas nevadas irregulares con roca a la vista y, detrás, picos de roca con nieve en la cima
+			Kit.naturalHill(V(x + z * 15, -18, z * (175 + (math.abs(x) % 50))), 55 + (math.abs(x) % 4) * 8, Enum.Material.Snow, {
+				Inward = V(0, 0, -z),
+				RockCount = 4,
+			})
+			Kit.naturalHill(V(x + 25, -30, z * 230), 60, Enum.Material.Rock, {
+				Inward = V(0, 0, -z),
+				Rock = Enum.Material.Slate,
+				Top = Enum.Material.Snow,
+				TopCount = 4,
+			})
 		end
 	end
 	for z = -150, 150, 60 do
 		for _, sx in { -1, 1 } do
-			workspace.Terrain:FillBall(V(sx * 230, -20, z), 60, Enum.Material.Snow)
+			Kit.naturalHill(V(sx * 230, -20, z), 60, Enum.Material.Snow, { Inward = V(-sx, 0, 0), RockCount = 3 })
 		end
 	end
 	-- Pinos fuera del mapa (bosque de fondo)
