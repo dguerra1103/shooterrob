@@ -11,13 +11,13 @@ local Map = {
 
 Map.Lighting = {
 	ClockTime = 0.3,
-	Brightness = 1.5,
-	Exposure = 0.3,
-	Ambient = Color3.fromRGB(70, 55, 95),
-	OutdoorAmbient = Color3.fromRGB(85, 70, 120),
-	Atmosphere = { Density = 0.36, Offset = 0.1, Color = Color3.fromRGB(120, 80, 170), Decay = Color3.fromRGB(70, 40, 110), Glare = 0, Haze = 2.6 },
-	Color = { Saturation = 0.35, Contrast = 0.15, Brightness = 0.04, Tint = Color3.fromRGB(240, 228, 255) },
-	Bloom = { Intensity = 1.3, Size = 30, Threshold = 1.1 },
+	Brightness = 1,
+	Exposure = 0.2,
+	Ambient = Color3.fromRGB(35, 30, 50),
+	OutdoorAmbient = Color3.fromRGB(55, 50, 80),
+	Atmosphere = { Density = 0.4, Offset = 0.1, Color = Color3.fromRGB(90, 70, 130), Decay = Color3.fromRGB(50, 30, 80), Glare = 0, Haze = 2.8 },
+	Color = { Saturation = 0.2, Contrast = 0.2, Brightness = 0.02, Tint = Color3.fromRGB(240, 232, 255) },
+	Bloom = { Intensity = 1, Size = 28, Threshold = 1.3 },
 	Clouds = 0.35,
 	CloudColor = Color3.fromRGB(80, 60, 110),
 	SunRays = 0,
@@ -199,6 +199,16 @@ function Map.Build()
 	Kit.zone(V(62, 8, 60), 9, 3)
 	Kit.zone(V(0, 0, -25), 9, 4)
 	Kit.zone(V(-50, 0, 25), 10, 5)
+	-- Realismo: suelo mojado con charcos que reflejan el neón, vapor y brasas en el aire
+	for _, p in { Vector3.new(-56, 0, 24), Vector3.new(-40, 0, 34), Vector3.new(-11, 0, 64), Vector3.new(-16, 0, -56), Vector3.new(-121, 0, -76), Vector3.new(-126, 0, 49) } do
+		Kit.puddle(p, 5.5)
+		Kit.puddle(Kit.MIRROR * p, 5.5)
+	end
+	for _, p in { Vector3.new(-26, 0, -66), Vector3.new(-105, 0, -20), Vector3.new(-90, 0, 40) } do
+		Kit.steamVent(CFrame.new(p), 1.4)
+		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1.4)
+	end
+	Kit.dustMotes(CFrame.new(0, 12, 0), Vector3.new(70, 22, 70), Color3.fromRGB(255, 150, 60), 25)
 	return folder
 end
 

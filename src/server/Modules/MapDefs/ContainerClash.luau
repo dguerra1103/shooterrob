@@ -11,13 +11,13 @@ local Map = {
 
 Map.Lighting = {
 	ClockTime = 17.6,
-	Brightness = 2.8,
-	Exposure = 0.1,
-	Ambient = Color3.fromRGB(110, 80, 75),
-	OutdoorAmbient = Color3.fromRGB(175, 125, 105),
-	Atmosphere = { Density = 0.33, Offset = 0.15, Color = Color3.fromRGB(255, 190, 140), Decay = Color3.fromRGB(190, 95, 90), Glare = 0.8, Haze = 2 },
-	Color = { Saturation = 0.35, Contrast = 0.12, Brightness = 0.02, Tint = Color3.fromRGB(255, 228, 205) },
-	Bloom = { Intensity = 1, Size = 28, Threshold = 1.4 },
+	Brightness = 2.6,
+	Exposure = 0,
+	Ambient = Color3.fromRGB(70, 55, 55),
+	OutdoorAmbient = Color3.fromRGB(150, 110, 95),
+	Atmosphere = { Density = 0.35, Offset = 0.15, Color = Color3.fromRGB(255, 190, 140), Decay = Color3.fromRGB(170, 90, 85), Glare = 0.9, Haze = 2 },
+	Color = { Saturation = 0.15, Contrast = 0.18, Brightness = 0, Tint = Color3.fromRGB(255, 232, 212) },
+	Bloom = { Intensity = 0.6, Size = 26, Threshold = 1.8 },
 	Clouds = 0.5,
 	CloudColor = Color3.fromRGB(255, 200, 170),
 	SunRays = 0.12,
@@ -194,6 +194,16 @@ function Map.Build()
 	Kit.zone(V(60, 0, 62), 10, 3)
 	Kit.zone(V(0, 0, -30), 10, 4)
 	Kit.zone(V(-75, 0, 10), 10, 5)
+	-- Realismo: charcos que reflejan el atardecer, vapor y polvo dorado en el carril central
+	for _, p in { Vector3.new(-66, 0, 14), Vector3.new(-35, 0, 45), Vector3.new(-10, 0, -26), Vector3.new(-95, 0, -41), Vector3.new(-55, 0, -95) } do
+		Kit.puddle(p, 5)
+		Kit.puddle(Kit.MIRROR * p, 5)
+	end
+	for _, p in { Vector3.new(-30, 0, -64), Vector3.new(-86, 0, 86) } do
+		Kit.steamVent(CFrame.new(p), 1)
+		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1)
+	end
+	Kit.dustMotes(CFrame.new(0, 7, 0), Vector3.new(220, 12, 40), Color3.fromRGB(255, 215, 160), 30)
 	return folder
 end
 

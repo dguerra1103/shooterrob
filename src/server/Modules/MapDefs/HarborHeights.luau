@@ -10,17 +10,19 @@ local Map = {
 }
 
 Map.Lighting = {
-	ClockTime = 13.5,
-	Brightness = 3.4,
-	Exposure = 0.15,
-	Ambient = Color3.fromRGB(95, 95, 110),
-	OutdoorAmbient = Color3.fromRGB(150, 150, 165),
-	Atmosphere = { Density = 0.22, Offset = 0.2, Color = Color3.fromRGB(190, 220, 255), Decay = Color3.fromRGB(120, 150, 190), Glare = 0.4, Haze = 1 },
-	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(255, 248, 238) },
+	ClockTime = 14.2,
+	Brightness = 3.2,
+	Exposure = 0,
+	Ambient = Color3.fromRGB(60, 62, 72),
+	OutdoorAmbient = Color3.fromRGB(125, 128, 140),
+	Atmosphere = { Density = 0.3, Offset = 0.25, Color = Color3.fromRGB(199, 215, 235), Decay = Color3.fromRGB(106, 130, 160), Glare = 0.5, Haze = 1.6 },
+	Color = { Saturation = 0.12, Contrast = 0.16, Brightness = 0.01, Tint = Color3.fromRGB(255, 250, 242) },
 	Clouds = 0.6,
-	SunRays = 0.08,
+	SunRays = 0.06,
 	-- Agua de puerto: verde azulada, con reflejos y oleaje suave
 	Water = { Color = Color3.fromRGB(20, 110, 135), Reflectance = 0.8, Transparency = 0.45, WaveSize = 0.12, WaveSpeed = 8 },
+	Latitude = 38,
+	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 }
 
 local V = Vector3.new
@@ -241,6 +243,8 @@ function Map.Build()
 	Kit.zone(V(60, 10, -55), 10, 3)
 	Kit.zone(V(-40, 0, -45), 12, 4)
 	Kit.zone(V(40, 0, 45), 12, 5)
+	-- Realismo: polvo y polen flotando a contraluz sobre el mercado y el puente
+	Kit.dustMotes(CFrame.new(0, 7, 0), Vector3.new(120, 12, 60), Color3.fromRGB(255, 245, 215), 16)
 	return folder
 end
 

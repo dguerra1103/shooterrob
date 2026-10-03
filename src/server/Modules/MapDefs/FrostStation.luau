@@ -15,11 +15,11 @@ Map.Lighting = {
 	Latitude = 70, -- sol bajo: sombras largas y azules sobre la nieve
 	Brightness = 2.4,
 	Exposure = 0.05,
-	Ambient = Color3.fromRGB(115, 130, 165),
-	OutdoorAmbient = Color3.fromRGB(150, 170, 210),
+	Ambient = Color3.fromRGB(75, 85, 105),
+	OutdoorAmbient = Color3.fromRGB(130, 145, 170),
 	Atmosphere = { Density = 0.4, Offset = 0.15, Color = Color3.fromRGB(210, 225, 245), Decay = Color3.fromRGB(140, 160, 205), Glare = 0.45, Haze = 2.2 },
-	Color = { Saturation = 0.12, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(235, 243, 255) },
-	Bloom = { Intensity = 0.7, Size = 26, Threshold = 1.7 },
+	Color = { Saturation = 0.05, Contrast = 0.15, Brightness = 0.02, Tint = Color3.fromRGB(235, 243, 255) },
+	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 	Clouds = 0.8,
 	CloudColor = Color3.fromRGB(228, 234, 245),
 	SunRays = 0.12,
@@ -275,6 +275,41 @@ function Map.Build()
 	Kit.zone(V(70, 0, 62), 9, 3)
 	Kit.zone(V(-45, 0, 0), 9, 4)
 	Kit.zone(V(45, 0, 0), 9, 5)
+	-- Realismo: carámbanos en los tejados y ventisca rasante (nieve que arrastra el viento por el suelo)
+	local function icicles(a, b, top, count, seed)
+		local rng = Random.new(seed)
+		for i = 0, count do
+			local p = a:Lerp(b, i / count) + Vector3.new(rng:NextNumber(-0.3, 0.3), 0, rng:NextNumber(-0.2, 0.2))
+			local length = rng:NextNumber(0.8, 2.6)
+			local ice = Kit.deco("Icicle", Vector3.new(0.35, length, 0.35), CFrame.new(p.X, top - length / 2, p.Z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), Color3.fromRGB(205, 235, 255), Enum.Material.Ice)
+			ice.Transparency = 0.15
+			Kit.deco("IcicleTip", Vector3.new(0.18, length * 0.5, 0.18), CFrame.new(p.X, top - length - length * 0.2, p.Z), Color3.fromRGB(220, 242, 255), Enum.Material.Ice).Transparency = 0.2
+		end
+	end
+	Kit.symmetric(function(m, side)
+		local seed = side == "A" and 11 or 29
+		-- Borde del tejado del hangar (mirando al centro) y del laboratorio
+		local a, b = m * Vector3.new(-92, 0, -45.2), m * Vector3.new(-48, 0, -45.2)
+		icicles(a, b, 14, 22, seed)
+		local c, d = m * Vector3.new(-82, 0, 50.6), m * Vector3.new(-66, 0, 50.6)
+		icicles(c, d, 16.5, 8, seed + 1)
+	end)
+	local drift = Kit.deco("SnowDrift", Vector3.new(300, 2, 200), CFrame.new(0, 1.2, 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+	drift.Transparency = 1
+	local blow = Instance.new("ParticleEmitter")
+	blow.Name = "Spindrift"
+	blow.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	blow.Color = ColorSequence.new(Color3.fromRGB(245, 248, 255))
+	blow.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.5), NumberSequenceKeypoint.new(1, 4) })
+	blow.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.82), NumberSequenceKeypoint.new(1, 1) })
+	blow.Lifetime = NumberRange.new(3, 5)
+	blow.Speed = NumberRange.new(10, 16)
+	blow.SpreadAngle = Vector2.new(10, 4)
+	blow.EmissionDirection = Enum.NormalId.Right
+	blow.Shape = Enum.ParticleEmitterShape.Box
+	blow.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	blow.Rate = 18
+	blow.Parent = drift
 	return folder
 end
 

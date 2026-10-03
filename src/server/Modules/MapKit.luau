@@ -35,6 +35,26 @@ Kit.C = {
 }
 local C = Kit.C
 
+-- Realismo: el plástico liso parece de juguete. Las piezas grandes pasan a materiales PBR reales
+-- (yeso pintado si tienen color, hormigón si son oscuras o son suelos); lo pequeño (conos, flores,
+-- carteles) se queda como está. Lo usan Kit.block y los mapas con su propia función de piezas.
+function Kit.realisticMaterial(size, color, material)
+	material = material or Enum.Material.SmoothPlastic
+	if material ~= Enum.Material.SmoothPlastic and material ~= Enum.Material.Plastic then
+		return material
+	end
+	local volume = size.X * size.Y * size.Z
+	local flatFloor = size.Y <= 0.6 and size.X * size.Z >= 60
+	if volume < 30 and not flatFloor then
+		return material
+	end
+	local luminance = color.R * 0.3 + color.G * 0.59 + color.B * 0.11
+	if flatFloor or luminance < 0.22 then
+		return Enum.Material.Concrete
+	end
+	return Enum.Material.Plaster
+end
+
 function Kit.block(name, size, cf, color, material, parent)
 	local part = Instance.new("Part")
 	part.Name = name
@@ -42,7 +62,7 @@ function Kit.block(name, size, cf, color, material, parent)
 	part.Size = size
 	part.CFrame = cf
 	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
+	part.Material = Kit.realisticMaterial(size, color, material)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or Kit.folder
@@ -114,6 +134,11 @@ function Kit.light(part, kind, color, range, brightness, face)
 	light.Brightness = brightness or 1.5
 	if face and (light:IsA("SpotLight") or light:IsA("SurfaceLight")) then
 		light.Face = face
+	end
+	-- Los focos (farolas, lámparas) proyectan sombras reales; el menú Ajustes las apaga en Baja/Media
+	if light:IsA("SpotLight") then
+		light.Shadows = true
+		light:SetAttribute("QualityShadow", true)
 	end
 	light.Parent = part
 	return light
@@ -540,6 +565,72 @@ function Kit.boat(cf)
 end
 
 ---------------------------------------------------------------------------
+-- Detalles realistas
+---------------------------------------------------------------------------
+
+-- Charco: manchas planas de agua que reflejan el cielo y las luces (formas irregulares)
+function Kit.puddle(position, size, seed)
+	local rng = Random.new(seed or math.floor(position.X * 7 + position.Z * 13))
+	for i = 1, 3 do
+		local d = size * (i == 1 and 1 or rng:NextNumber(0.45, 0.75))
+		local offset = i == 1 and V(0, 0, 0) or V(rng:NextNumber(-0.4, 0.4) * size, 0, rng:NextNumber(-0.4, 0.4) * size)
+		local water = deco("Puddle", V(0.04, d, d), CFrame.new(position + offset + V(0, 0.03 + i * 0.002, 0)) * CFrame.Angles(0, 0, math.pi / 2), RGB(38, 44, 52), Enum.Material.Glass)
+		water.Shape = Enum.PartType.Cylinder
+		water.Transparency = 0.25
+		water.Reflectance = 0.45
+	end
+end
+
+-- Vapor que sale de una rejilla del suelo
+function Kit.steamVent(cf, strength)
+	strength = strength or 1
+	local grate = deco("VentGrate", V(3, 0.1, 3), cf * CFrame.new(0, 0.05, 0), RGB(40, 42, 48), Enum.Material.DiamondPlate)
+	for i = -1, 1 do
+		deco("VentSlot", V(2.6, 0.12, 0.25), cf * CFrame.new(0, 0.06, i * 0.8), RGB(15, 15, 18), Enum.Material.Metal)
+	end
+	local steam = Instance.new("ParticleEmitter")
+	steam.Name = "Steam"
+	steam.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	steam.Color = ColorSequence.new(RGB(235, 238, 245))
+	steam.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 6) })
+	steam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.75), NumberSequenceKeypoint.new(0.3, 0.6), NumberSequenceKeypoint.new(1, 1) })
+	steam.Lifetime = NumberRange.new(2.5, 4)
+	steam.Speed = NumberRange.new(3, 6)
+	steam.SpreadAngle = Vector2.new(12, 12)
+	steam.Acceleration = V(0.6, 0.8, 0)
+	steam.RotSpeed = NumberRange.new(-20, 20)
+	steam.Rotation = NumberRange.new(0, 360)
+	steam.Rate = 6 * strength
+	steam.LightInfluence = 1
+	steam.EmissionDirection = Enum.NormalId.Top
+	steam.Parent = grate
+	return grate
+end
+
+-- Polvo flotando en el aire (se ve a contraluz): una caja invisible que emite motas lentas
+function Kit.dustMotes(cf, size, color, rate)
+	local volume = deco("DustVolume", size, cf, RGB(255, 255, 255), Enum.Material.SmoothPlastic)
+	volume.Transparency = 1
+	local dust = Instance.new("ParticleEmitter")
+	dust.Name = "Dust"
+	dust.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	dust.Color = ColorSequence.new(color or RGB(255, 245, 220))
+	dust.LightEmission = 0.4
+	dust.LightInfluence = 0.6
+	dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.12), NumberSequenceKeypoint.new(1, 0) })
+	dust.Transparency = NumberSequence.new(0.3)
+	dust.Lifetime = NumberRange.new(5, 8)
+	dust.Speed = NumberRange.new(0.2, 0.6)
+	dust.SpreadAngle = Vector2.new(180, 180)
+	dust.RotSpeed = NumberRange.new(-30, 30)
+	dust.Rate = rate or 12
+	dust.Shape = Enum.ParticleEmitterShape.Box
+	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	dust.Parent = volume
+	return volume
+end
+
+---------------------------------------------------------------------------
 -- Puntos especiales del modo de juego
 ---------------------------------------------------------------------------
 
@@ -678,8 +769,8 @@ function Kit.applyLighting(preset)
 	Lighting.GeographicLatitude = preset.Latitude or 35
 	Lighting.Brightness = preset.Brightness or 3
 	Lighting.ExposureCompensation = preset.Exposure or 0
-	Lighting.Ambient = preset.Ambient or RGB(80, 85, 105)
-	Lighting.OutdoorAmbient = preset.OutdoorAmbient or RGB(140, 145, 170)
+	Lighting.Ambient = preset.Ambient or RGB(60, 62, 72)
+	Lighting.OutdoorAmbient = preset.OutdoorAmbient or RGB(125, 128, 140)
 	Lighting.GlobalShadows = true
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
@@ -695,8 +786,8 @@ function Kit.applyLighting(preset)
 
 	local c = preset.Color or {}
 	local cc = ensure("ColorCorrectionEffect")
-	cc.Saturation = c.Saturation or 0.25
-	cc.Contrast = c.Contrast or 0.1
+	cc.Saturation = c.Saturation or 0.1
+	cc.Contrast = c.Contrast or 0.15
 	cc.Brightness = c.Brightness or 0.02
 	cc.TintColor = c.Tint or RGB(255, 250, 245)
 
@@ -704,7 +795,7 @@ function Kit.applyLighting(preset)
 	local bloom = ensure("BloomEffect")
 	bloom.Intensity = b.Intensity or 0.8
 	bloom.Size = b.Size or 24
-	bloom.Threshold = b.Threshold or 1.6
+	bloom.Threshold = b.Threshold or 2
 
 	local rays = ensure("SunRaysEffect")
 	rays.Intensity = preset.SunRays or 0.06

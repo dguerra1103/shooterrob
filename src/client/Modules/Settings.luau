@@ -41,6 +41,13 @@ local function scaleEmitter(emitter)
 	emitter.Enabled = factor > 0
 end
 
+-- Focos con sombras reales: solo en calidad Alta y Ultra
+local function applyLightShadow(inst)
+	if inst:IsA("Light") and inst:GetAttribute("QualityShadow") then
+		inst.Shadows = current.Quality == "Alta" or current.Quality == "Ultra"
+	end
+end
+
 local function applyQuality()
 	local q = current.Quality
 	local low = q == "Baja"
@@ -77,6 +84,7 @@ local function applyQuality()
 	if map then
 		for _, d in map:GetDescendants() do
 			scaleEmitter(d)
+			applyLightShadow(d)
 		end
 	end
 end
@@ -138,6 +146,8 @@ function Settings.Init()
 	workspace.DescendantAdded:Connect(function(inst)
 		if inst:IsA("ParticleEmitter") then
 			task.defer(scaleEmitter, inst)
+		elseif inst:IsA("Light") then
+			task.defer(applyLightShadow, inst)
 		end
 	end)
 	applyQuality()

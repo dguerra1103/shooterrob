@@ -14,13 +14,13 @@ Map.Lighting = {
 	ClockTime = 13.2,
 	Brightness = 2.8,
 	Exposure = 0.05,
-	Ambient = Color3.fromRGB(95, 110, 80),
-	OutdoorAmbient = Color3.fromRGB(140, 160, 120),
+	Ambient = Color3.fromRGB(55, 62, 48),
+	OutdoorAmbient = Color3.fromRGB(115, 128, 100),
 	Atmosphere = { Density = 0.36, Offset = 0.2, Color = Color3.fromRGB(195, 220, 185), Decay = Color3.fromRGB(110, 140, 100), Glare = 0.3, Haze = 2 },
-	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.02, Tint = Color3.fromRGB(255, 252, 235) },
-	Bloom = { Intensity = 0.8, Size = 24, Threshold = 1.6 },
+	Color = { Saturation = 0.14, Contrast = 0.16, Brightness = 0.01, Tint = Color3.fromRGB(255, 250, 235) },
+	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 	Clouds = 0.6,
-	SunRays = 0.18,
+	SunRays = 0.14,
 	Water = { Color = Color3.fromRGB(40, 115, 95), Reflectance = 0.6, Transparency = 0.55, WaveSize = 0.05, WaveSpeed = 6 },
 	TerrainColors = {
 		Grass = Color3.fromRGB(88, 140, 58),
@@ -278,6 +278,8 @@ function Map.Build()
 	Kit.zone(V(78, 1, 55), 9, 3)
 	Kit.zone(V(-45, 0, 32), 9, 4)
 	Kit.zone(V(45, 0, -32), 9, 5)
+	-- Realismo: motas de polen en la luz alrededor de la pirámide
+	Kit.dustMotes(CFrame.new(0, 10, 0), Vector3.new(90, 18, 90), Color3.fromRGB(240, 255, 200), 18)
 	return folder
 end
 

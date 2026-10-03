@@ -41,7 +41,7 @@ local function block(name, size, cf, color, material, parent)
 	part.Size = size
 	part.CFrame = cf
 	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
+	part.Material = Kit.realisticMaterial(size, color, material)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or mapFolder
@@ -206,6 +206,8 @@ local function streetLamp(cf)
 	light.Angle = 100
 	light.Brightness = 1.5
 	light.Color = Color3.fromRGB(255, 235, 200)
+	light.Shadows = true
+	light:SetAttribute("QualityShadow", true)
 	light.Parent = bulb
 	return head
 end
@@ -434,9 +436,15 @@ end
 ---------------------------------------------------------------------------
 
 Map.Lighting = {
-	ClockTime = 15,
-	Brightness = 3.2,
-	Exposure = 0.1,
+	ClockTime = 16.4,
+	Brightness = 3,
+	Exposure = 0,
+	Ambient = Color3.fromRGB(60, 62, 72),
+	OutdoorAmbient = Color3.fromRGB(125, 128, 140),
+	Atmosphere = { Density = 0.3, Offset = 0.2, Color = Color3.fromRGB(200, 215, 235), Decay = Color3.fromRGB(110, 130, 160), Glare = 0.4, Haze = 1.6 },
+	Color = { Saturation = 0.1, Contrast = 0.16, Brightness = 0, Tint = Color3.fromRGB(255, 246, 235) },
+	Bloom = { Intensity = 0.7, Size = 24, Threshold = 1.6 },
+	SunRays = 0.08,
 }
 
 function Map.Build()
@@ -681,6 +689,17 @@ function Map.Build()
 	Kit.zone(Vector3.new(75, 12.4, -68), 10, 3)
 	Kit.zone(Vector3.new(-60, 0, -40), 12, 4)
 	Kit.zone(Vector3.new(60, 0, 40), 12, 5)
+
+	-- Realismo: charcos en el asfalto, alcantarillas con vapor y polvo en la plaza
+	for _, p in { Vector3.new(-116, 0, -76), Vector3.new(-56, 0, 44), Vector3.new(-86, 0, 4), Vector3.new(-16, 0, -56), Vector3.new(-126, 0, 44) } do
+		Kit.puddle(p, 4.5)
+		Kit.puddle(Vector3.new(-p.X, p.Y, -p.Z), 4.5)
+	end
+	for _, p in { Vector3.new(-110, 0.05, -30), Vector3.new(-50, 0.05, 70) } do
+		Kit.steamVent(CFrame.new(p), 0.8)
+		Kit.steamVent(CFrame.new(-p.X, p.Y, -p.Z), 0.8)
+	end
+	Kit.dustMotes(CFrame.new(0, 6, 0), Vector3.new(60, 10, 60), Color3.fromRGB(255, 240, 210), 14)
 
 	return mapFolder
 end

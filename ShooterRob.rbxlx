@@ -4820,13 +4820,13 @@ local Map = {
 
 Map.Lighting = {
 	ClockTime = 17.6,
-	Brightness = 2.8,
-	Exposure = 0.1,
-	Ambient = Color3.fromRGB(110, 80, 75),
-	OutdoorAmbient = Color3.fromRGB(175, 125, 105),
-	Atmosphere = { Density = 0.33, Offset = 0.15, Color = Color3.fromRGB(255, 190, 140), Decay = Color3.fromRGB(190, 95, 90), Glare = 0.8, Haze = 2 },
-	Color = { Saturation = 0.35, Contrast = 0.12, Brightness = 0.02, Tint = Color3.fromRGB(255, 228, 205) },
-	Bloom = { Intensity = 1, Size = 28, Threshold = 1.4 },
+	Brightness = 2.6,
+	Exposure = 0,
+	Ambient = Color3.fromRGB(70, 55, 55),
+	OutdoorAmbient = Color3.fromRGB(150, 110, 95),
+	Atmosphere = { Density = 0.35, Offset = 0.15, Color = Color3.fromRGB(255, 190, 140), Decay = Color3.fromRGB(170, 90, 85), Glare = 0.9, Haze = 2 },
+	Color = { Saturation = 0.15, Contrast = 0.18, Brightness = 0, Tint = Color3.fromRGB(255, 232, 212) },
+	Bloom = { Intensity = 0.6, Size = 26, Threshold = 1.8 },
 	Clouds = 0.5,
 	CloudColor = Color3.fromRGB(255, 200, 170),
 	SunRays = 0.12,
@@ -5003,6 +5003,16 @@ function Map.Build()
 	Kit.zone(V(60, 0, 62), 10, 3)
 	Kit.zone(V(0, 0, -30), 10, 4)
 	Kit.zone(V(-75, 0, 10), 10, 5)
+	-- Realismo: charcos que reflejan el atardecer, vapor y polvo dorado en el carril central
+	for _, p in { Vector3.new(-66, 0, 14), Vector3.new(-35, 0, 45), Vector3.new(-10, 0, -26), Vector3.new(-95, 0, -41), Vector3.new(-55, 0, -95) } do
+		Kit.puddle(p, 5)
+		Kit.puddle(Kit.MIRROR * p, 5)
+	end
+	for _, p in { Vector3.new(-30, 0, -64), Vector3.new(-86, 0, 86) } do
+		Kit.steamVent(CFrame.new(p), 1)
+		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1)
+	end
+	Kit.dustMotes(CFrame.new(0, 7, 0), Vector3.new(220, 12, 40), Color3.fromRGB(255, 215, 160), 30)
 	return folder
 end
 
@@ -5056,7 +5066,7 @@ local function block(name, size, cf, color, material, parent)
 	part.Size = size
 	part.CFrame = cf
 	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
+	part.Material = Kit.realisticMaterial(size, color, material)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or mapFolder
@@ -5221,6 +5231,8 @@ local function streetLamp(cf)
 	light.Angle = 100
 	light.Brightness = 1.5
 	light.Color = Color3.fromRGB(255, 235, 200)
+	light.Shadows = true
+	light:SetAttribute("QualityShadow", true)
 	light.Parent = bulb
 	return head
 end
@@ -5449,9 +5461,15 @@ end
 ---------------------------------------------------------------------------
 
 Map.Lighting = {
-	ClockTime = 15,
-	Brightness = 3.2,
-	Exposure = 0.1,
+	ClockTime = 16.4,
+	Brightness = 3,
+	Exposure = 0,
+	Ambient = Color3.fromRGB(60, 62, 72),
+	OutdoorAmbient = Color3.fromRGB(125, 128, 140),
+	Atmosphere = { Density = 0.3, Offset = 0.2, Color = Color3.fromRGB(200, 215, 235), Decay = Color3.fromRGB(110, 130, 160), Glare = 0.4, Haze = 1.6 },
+	Color = { Saturation = 0.1, Contrast = 0.16, Brightness = 0, Tint = Color3.fromRGB(255, 246, 235) },
+	Bloom = { Intensity = 0.7, Size = 24, Threshold = 1.6 },
+	SunRays = 0.08,
 }
 
 function Map.Build()
@@ -5697,6 +5715,17 @@ function Map.Build()
 	Kit.zone(Vector3.new(-60, 0, -40), 12, 4)
 	Kit.zone(Vector3.new(60, 0, 40), 12, 5)
 
+	-- Realismo: charcos en el asfalto, alcantarillas con vapor y polvo en la plaza
+	for _, p in { Vector3.new(-116, 0, -76), Vector3.new(-56, 0, 44), Vector3.new(-86, 0, 4), Vector3.new(-16, 0, -56), Vector3.new(-126, 0, 44) } do
+		Kit.puddle(p, 4.5)
+		Kit.puddle(Vector3.new(-p.X, p.Y, -p.Z), 4.5)
+	end
+	for _, p in { Vector3.new(-110, 0.05, -30), Vector3.new(-50, 0.05, 70) } do
+		Kit.steamVent(CFrame.new(p), 0.8)
+		Kit.steamVent(CFrame.new(-p.X, p.Y, -p.Z), 0.8)
+	end
+	Kit.dustMotes(CFrame.new(0, 6, 0), Vector3.new(60, 10, 60), Color3.fromRGB(255, 240, 210), 14)
+
 	return mapFolder
 end
 
@@ -5724,11 +5753,11 @@ Map.Lighting = {
 	Latitude = 70, -- sol bajo: sombras largas y azules sobre la nieve
 	Brightness = 2.4,
 	Exposure = 0.05,
-	Ambient = Color3.fromRGB(115, 130, 165),
-	OutdoorAmbient = Color3.fromRGB(150, 170, 210),
+	Ambient = Color3.fromRGB(75, 85, 105),
+	OutdoorAmbient = Color3.fromRGB(130, 145, 170),
 	Atmosphere = { Density = 0.4, Offset = 0.15, Color = Color3.fromRGB(210, 225, 245), Decay = Color3.fromRGB(140, 160, 205), Glare = 0.45, Haze = 2.2 },
-	Color = { Saturation = 0.12, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(235, 243, 255) },
-	Bloom = { Intensity = 0.7, Size = 26, Threshold = 1.7 },
+	Color = { Saturation = 0.05, Contrast = 0.15, Brightness = 0.02, Tint = Color3.fromRGB(235, 243, 255) },
+	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 	Clouds = 0.8,
 	CloudColor = Color3.fromRGB(228, 234, 245),
 	SunRays = 0.12,
@@ -5984,6 +6013,41 @@ function Map.Build()
 	Kit.zone(V(70, 0, 62), 9, 3)
 	Kit.zone(V(-45, 0, 0), 9, 4)
 	Kit.zone(V(45, 0, 0), 9, 5)
+	-- Realismo: carámbanos en los tejados y ventisca rasante (nieve que arrastra el viento por el suelo)
+	local function icicles(a, b, top, count, seed)
+		local rng = Random.new(seed)
+		for i = 0, count do
+			local p = a:Lerp(b, i / count) + Vector3.new(rng:NextNumber(-0.3, 0.3), 0, rng:NextNumber(-0.2, 0.2))
+			local length = rng:NextNumber(0.8, 2.6)
+			local ice = Kit.deco("Icicle", Vector3.new(0.35, length, 0.35), CFrame.new(p.X, top - length / 2, p.Z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), Color3.fromRGB(205, 235, 255), Enum.Material.Ice)
+			ice.Transparency = 0.15
+			Kit.deco("IcicleTip", Vector3.new(0.18, length * 0.5, 0.18), CFrame.new(p.X, top - length - length * 0.2, p.Z), Color3.fromRGB(220, 242, 255), Enum.Material.Ice).Transparency = 0.2
+		end
+	end
+	Kit.symmetric(function(m, side)
+		local seed = side == "A" and 11 or 29
+		-- Borde del tejado del hangar (mirando al centro) y del laboratorio
+		local a, b = m * Vector3.new(-92, 0, -45.2), m * Vector3.new(-48, 0, -45.2)
+		icicles(a, b, 14, 22, seed)
+		local c, d = m * Vector3.new(-82, 0, 50.6), m * Vector3.new(-66, 0, 50.6)
+		icicles(c, d, 16.5, 8, seed + 1)
+	end)
+	local drift = Kit.deco("SnowDrift", Vector3.new(300, 2, 200), CFrame.new(0, 1.2, 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+	drift.Transparency = 1
+	local blow = Instance.new("ParticleEmitter")
+	blow.Name = "Spindrift"
+	blow.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	blow.Color = ColorSequence.new(Color3.fromRGB(245, 248, 255))
+	blow.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.5), NumberSequenceKeypoint.new(1, 4) })
+	blow.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.82), NumberSequenceKeypoint.new(1, 1) })
+	blow.Lifetime = NumberRange.new(3, 5)
+	blow.Speed = NumberRange.new(10, 16)
+	blow.SpreadAngle = Vector2.new(10, 4)
+	blow.EmissionDirection = Enum.NormalId.Right
+	blow.Shape = Enum.ParticleEmitterShape.Box
+	blow.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	blow.Rate = 18
+	blow.Parent = drift
 	return folder
 end
 
@@ -6006,17 +6070,19 @@ local Map = {
 }
 
 Map.Lighting = {
-	ClockTime = 13.5,
-	Brightness = 3.4,
-	Exposure = 0.15,
-	Ambient = Color3.fromRGB(95, 95, 110),
-	OutdoorAmbient = Color3.fromRGB(150, 150, 165),
-	Atmosphere = { Density = 0.22, Offset = 0.2, Color = Color3.fromRGB(190, 220, 255), Decay = Color3.fromRGB(120, 150, 190), Glare = 0.4, Haze = 1 },
-	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.03, Tint = Color3.fromRGB(255, 248, 238) },
+	ClockTime = 14.2,
+	Brightness = 3.2,
+	Exposure = 0,
+	Ambient = Color3.fromRGB(60, 62, 72),
+	OutdoorAmbient = Color3.fromRGB(125, 128, 140),
+	Atmosphere = { Density = 0.3, Offset = 0.25, Color = Color3.fromRGB(199, 215, 235), Decay = Color3.fromRGB(106, 130, 160), Glare = 0.5, Haze = 1.6 },
+	Color = { Saturation = 0.12, Contrast = 0.16, Brightness = 0.01, Tint = Color3.fromRGB(255, 250, 242) },
 	Clouds = 0.6,
-	SunRays = 0.08,
+	SunRays = 0.06,
 	-- Agua de puerto: verde azulada, con reflejos y oleaje suave
 	Water = { Color = Color3.fromRGB(20, 110, 135), Reflectance = 0.8, Transparency = 0.45, WaveSize = 0.12, WaveSpeed = 8 },
+	Latitude = 38,
+	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 }
 
 local V = Vector3.new
@@ -6237,6 +6303,8 @@ function Map.Build()
 	Kit.zone(V(60, 10, -55), 10, 3)
 	Kit.zone(V(-40, 0, -45), 12, 4)
 	Kit.zone(V(40, 0, 45), 12, 5)
+	-- Realismo: polvo y polen flotando a contraluz sobre el mercado y el puente
+	Kit.dustMotes(CFrame.new(0, 7, 0), Vector3.new(120, 12, 60), Color3.fromRGB(255, 245, 215), 16)
 	return folder
 end
 
@@ -6263,13 +6331,13 @@ Map.Lighting = {
 	ClockTime = 13.2,
 	Brightness = 2.8,
 	Exposure = 0.05,
-	Ambient = Color3.fromRGB(95, 110, 80),
-	OutdoorAmbient = Color3.fromRGB(140, 160, 120),
+	Ambient = Color3.fromRGB(55, 62, 48),
+	OutdoorAmbient = Color3.fromRGB(115, 128, 100),
 	Atmosphere = { Density = 0.36, Offset = 0.2, Color = Color3.fromRGB(195, 220, 185), Decay = Color3.fromRGB(110, 140, 100), Glare = 0.3, Haze = 2 },
-	Color = { Saturation = 0.3, Contrast = 0.12, Brightness = 0.02, Tint = Color3.fromRGB(255, 252, 235) },
-	Bloom = { Intensity = 0.8, Size = 24, Threshold = 1.6 },
+	Color = { Saturation = 0.14, Contrast = 0.16, Brightness = 0.01, Tint = Color3.fromRGB(255, 250, 235) },
+	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 	Clouds = 0.6,
-	SunRays = 0.18,
+	SunRays = 0.14,
 	Water = { Color = Color3.fromRGB(40, 115, 95), Reflectance = 0.6, Transparency = 0.55, WaveSize = 0.05, WaveSpeed = 6 },
 	TerrainColors = {
 		Grass = Color3.fromRGB(88, 140, 58),
@@ -6527,6 +6595,8 @@ function Map.Build()
 	Kit.zone(V(78, 1, 55), 9, 3)
 	Kit.zone(V(-45, 0, 32), 9, 4)
 	Kit.zone(V(45, 0, -32), 9, 5)
+	-- Realismo: motas de polen en la luz alrededor de la pirámide
+	Kit.dustMotes(CFrame.new(0, 10, 0), Vector3.new(90, 18, 90), Color3.fromRGB(240, 255, 200), 18)
 	return folder
 end
 
@@ -6550,13 +6620,13 @@ local Map = {
 
 Map.Lighting = {
 	ClockTime = 0.3,
-	Brightness = 1.5,
-	Exposure = 0.3,
-	Ambient = Color3.fromRGB(70, 55, 95),
-	OutdoorAmbient = Color3.fromRGB(85, 70, 120),
-	Atmosphere = { Density = 0.36, Offset = 0.1, Color = Color3.fromRGB(120, 80, 170), Decay = Color3.fromRGB(70, 40, 110), Glare = 0, Haze = 2.6 },
-	Color = { Saturation = 0.35, Contrast = 0.15, Brightness = 0.04, Tint = Color3.fromRGB(240, 228, 255) },
-	Bloom = { Intensity = 1.3, Size = 30, Threshold = 1.1 },
+	Brightness = 1,
+	Exposure = 0.2,
+	Ambient = Color3.fromRGB(35, 30, 50),
+	OutdoorAmbient = Color3.fromRGB(55, 50, 80),
+	Atmosphere = { Density = 0.4, Offset = 0.1, Color = Color3.fromRGB(90, 70, 130), Decay = Color3.fromRGB(50, 30, 80), Glare = 0, Haze = 2.8 },
+	Color = { Saturation = 0.2, Contrast = 0.2, Brightness = 0.02, Tint = Color3.fromRGB(240, 232, 255) },
+	Bloom = { Intensity = 1, Size = 28, Threshold = 1.3 },
 	Clouds = 0.35,
 	CloudColor = Color3.fromRGB(80, 60, 110),
 	SunRays = 0,
@@ -6738,6 +6808,16 @@ function Map.Build()
 	Kit.zone(V(62, 8, 60), 9, 3)
 	Kit.zone(V(0, 0, -25), 9, 4)
 	Kit.zone(V(-50, 0, 25), 10, 5)
+	-- Realismo: suelo mojado con charcos que reflejan el neón, vapor y brasas en el aire
+	for _, p in { Vector3.new(-56, 0, 24), Vector3.new(-40, 0, 34), Vector3.new(-11, 0, 64), Vector3.new(-16, 0, -56), Vector3.new(-121, 0, -76), Vector3.new(-126, 0, 49) } do
+		Kit.puddle(p, 5.5)
+		Kit.puddle(Kit.MIRROR * p, 5.5)
+	end
+	for _, p in { Vector3.new(-26, 0, -66), Vector3.new(-105, 0, -20), Vector3.new(-90, 0, 40) } do
+		Kit.steamVent(CFrame.new(p), 1.4)
+		Kit.steamVent(Kit.MIRROR * CFrame.new(p), 1.4)
+	end
+	Kit.dustMotes(CFrame.new(0, 12, 0), Vector3.new(70, 22, 70), Color3.fromRGB(255, 150, 60), 25)
 	return folder
 end
 
@@ -6786,6 +6866,26 @@ Kit.C = {
 }
 local C = Kit.C
 
+-- Realismo: el plástico liso parece de juguete. Las piezas grandes pasan a materiales PBR reales
+-- (yeso pintado si tienen color, hormigón si son oscuras o son suelos); lo pequeño (conos, flores,
+-- carteles) se queda como está. Lo usan Kit.block y los mapas con su propia función de piezas.
+function Kit.realisticMaterial(size, color, material)
+	material = material or Enum.Material.SmoothPlastic
+	if material ~= Enum.Material.SmoothPlastic and material ~= Enum.Material.Plastic then
+		return material
+	end
+	local volume = size.X * size.Y * size.Z
+	local flatFloor = size.Y <= 0.6 and size.X * size.Z >= 60
+	if volume < 30 and not flatFloor then
+		return material
+	end
+	local luminance = color.R * 0.3 + color.G * 0.59 + color.B * 0.11
+	if flatFloor or luminance < 0.22 then
+		return Enum.Material.Concrete
+	end
+	return Enum.Material.Plaster
+end
+
 function Kit.block(name, size, cf, color, material, parent)
 	local part = Instance.new("Part")
 	part.Name = name
@@ -6793,7 +6893,7 @@ function Kit.block(name, size, cf, color, material, parent)
 	part.Size = size
 	part.CFrame = cf
 	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
+	part.Material = Kit.realisticMaterial(size, color, material)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or Kit.folder
@@ -6865,6 +6965,11 @@ function Kit.light(part, kind, color, range, brightness, face)
 	light.Brightness = brightness or 1.5
 	if face and (light:IsA("SpotLight") or light:IsA("SurfaceLight")) then
 		light.Face = face
+	end
+	-- Los focos (farolas, lámparas) proyectan sombras reales; el menú Ajustes las apaga en Baja/Media
+	if light:IsA("SpotLight") then
+		light.Shadows = true
+		light:SetAttribute("QualityShadow", true)
 	end
 	light.Parent = part
 	return light
@@ -7291,6 +7396,72 @@ function Kit.boat(cf)
 end
 
 ---------------------------------------------------------------------------
+-- Detalles realistas
+---------------------------------------------------------------------------
+
+-- Charco: manchas planas de agua que reflejan el cielo y las luces (formas irregulares)
+function Kit.puddle(position, size, seed)
+	local rng = Random.new(seed or math.floor(position.X * 7 + position.Z * 13))
+	for i = 1, 3 do
+		local d = size * (i == 1 and 1 or rng:NextNumber(0.45, 0.75))
+		local offset = i == 1 and V(0, 0, 0) or V(rng:NextNumber(-0.4, 0.4) * size, 0, rng:NextNumber(-0.4, 0.4) * size)
+		local water = deco("Puddle", V(0.04, d, d), CFrame.new(position + offset + V(0, 0.03 + i * 0.002, 0)) * CFrame.Angles(0, 0, math.pi / 2), RGB(38, 44, 52), Enum.Material.Glass)
+		water.Shape = Enum.PartType.Cylinder
+		water.Transparency = 0.25
+		water.Reflectance = 0.45
+	end
+end
+
+-- Vapor que sale de una rejilla del suelo
+function Kit.steamVent(cf, strength)
+	strength = strength or 1
+	local grate = deco("VentGrate", V(3, 0.1, 3), cf * CFrame.new(0, 0.05, 0), RGB(40, 42, 48), Enum.Material.DiamondPlate)
+	for i = -1, 1 do
+		deco("VentSlot", V(2.6, 0.12, 0.25), cf * CFrame.new(0, 0.06, i * 0.8), RGB(15, 15, 18), Enum.Material.Metal)
+	end
+	local steam = Instance.new("ParticleEmitter")
+	steam.Name = "Steam"
+	steam.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	steam.Color = ColorSequence.new(RGB(235, 238, 245))
+	steam.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 6) })
+	steam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.75), NumberSequenceKeypoint.new(0.3, 0.6), NumberSequenceKeypoint.new(1, 1) })
+	steam.Lifetime = NumberRange.new(2.5, 4)
+	steam.Speed = NumberRange.new(3, 6)
+	steam.SpreadAngle = Vector2.new(12, 12)
+	steam.Acceleration = V(0.6, 0.8, 0)
+	steam.RotSpeed = NumberRange.new(-20, 20)
+	steam.Rotation = NumberRange.new(0, 360)
+	steam.Rate = 6 * strength
+	steam.LightInfluence = 1
+	steam.EmissionDirection = Enum.NormalId.Top
+	steam.Parent = grate
+	return grate
+end
+
+-- Polvo flotando en el aire (se ve a contraluz): una caja invisible que emite motas lentas
+function Kit.dustMotes(cf, size, color, rate)
+	local volume = deco("DustVolume", size, cf, RGB(255, 255, 255), Enum.Material.SmoothPlastic)
+	volume.Transparency = 1
+	local dust = Instance.new("ParticleEmitter")
+	dust.Name = "Dust"
+	dust.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	dust.Color = ColorSequence.new(color or RGB(255, 245, 220))
+	dust.LightEmission = 0.4
+	dust.LightInfluence = 0.6
+	dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.12), NumberSequenceKeypoint.new(1, 0) })
+	dust.Transparency = NumberSequence.new(0.3)
+	dust.Lifetime = NumberRange.new(5, 8)
+	dust.Speed = NumberRange.new(0.2, 0.6)
+	dust.SpreadAngle = Vector2.new(180, 180)
+	dust.RotSpeed = NumberRange.new(-30, 30)
+	dust.Rate = rate or 12
+	dust.Shape = Enum.ParticleEmitterShape.Box
+	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	dust.Parent = volume
+	return volume
+end
+
+---------------------------------------------------------------------------
 -- Puntos especiales del modo de juego
 ---------------------------------------------------------------------------
 
@@ -7429,8 +7600,8 @@ function Kit.applyLighting(preset)
 	Lighting.GeographicLatitude = preset.Latitude or 35
 	Lighting.Brightness = preset.Brightness or 3
 	Lighting.ExposureCompensation = preset.Exposure or 0
-	Lighting.Ambient = preset.Ambient or RGB(80, 85, 105)
-	Lighting.OutdoorAmbient = preset.OutdoorAmbient or RGB(140, 145, 170)
+	Lighting.Ambient = preset.Ambient or RGB(60, 62, 72)
+	Lighting.OutdoorAmbient = preset.OutdoorAmbient or RGB(125, 128, 140)
 	Lighting.GlobalShadows = true
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
@@ -7446,8 +7617,8 @@ function Kit.applyLighting(preset)
 
 	local c = preset.Color or {}
 	local cc = ensure("ColorCorrectionEffect")
-	cc.Saturation = c.Saturation or 0.25
-	cc.Contrast = c.Contrast or 0.1
+	cc.Saturation = c.Saturation or 0.1
+	cc.Contrast = c.Contrast or 0.15
 	cc.Brightness = c.Brightness or 0.02
 	cc.TintColor = c.Tint or RGB(255, 250, 245)
 
@@ -7455,7 +7626,7 @@ function Kit.applyLighting(preset)
 	local bloom = ensure("BloomEffect")
 	bloom.Intensity = b.Intensity or 0.8
 	bloom.Size = b.Size or 24
-	bloom.Threshold = b.Threshold or 1.6
+	bloom.Threshold = b.Threshold or 2
 
 	local rays = ensure("SunRaysEffect")
 	rays.Intensity = preset.SunRays or 0.06
@@ -14091,6 +14262,13 @@ local function scaleEmitter(emitter)
 	emitter.Enabled = factor > 0
 end
 
+-- Focos con sombras reales: solo en calidad Alta y Ultra
+local function applyLightShadow(inst)
+	if inst:IsA("Light") and inst:GetAttribute("QualityShadow") then
+		inst.Shadows = current.Quality == "Alta" or current.Quality == "Ultra"
+	end
+end
+
 local function applyQuality()
 	local q = current.Quality
 	local low = q == "Baja"
@@ -14127,6 +14305,7 @@ local function applyQuality()
 	if map then
 		for _, d in map:GetDescendants() do
 			scaleEmitter(d)
+			applyLightShadow(d)
 		end
 	end
 end
@@ -14188,6 +14367,8 @@ function Settings.Init()
 	workspace.DescendantAdded:Connect(function(inst)
 		if inst:IsA("ParticleEmitter") then
 			task.defer(scaleEmitter, inst)
+		elseif inst:IsA("Light") then
+			task.defer(applyLightShadow, inst)
 		end
 	end)
 	applyQuality()
