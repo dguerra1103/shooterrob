@@ -306,6 +306,59 @@ function Effects.Explosion(position, radius, color)
 		SpreadAngle = Vector2.new(180, 180),
 		Acceleration = Vector3.new(0, -60, 0),
 	}, 20)
+
+	-- Columna de humo negro que se queda unos segundos
+	local smokeAnchor = emitterAnchor(position + Vector3.new(0, 1, 0), Vector3.yAxis, 6)
+	emit(smokeAnchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(40, 38, 36), Color3.fromRGB(90, 88, 85)),
+		Size = seq(3, 10),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.5),
+			NumberSequenceKeypoint.new(0.6, 0.7),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Lifetime = NumberRange.new(3, 5),
+		Speed = NumberRange.new(2, 4),
+		SpreadAngle = Vector2.new(25, 25),
+		Acceleration = Vector3.new(0.5, 2.5, 0),
+		RotSpeed = NumberRange.new(-25, 25),
+		Rotation = NumberRange.new(0, 360),
+	}, 10)
+
+	-- Escombros que salen despedidos
+	for _ = 1, 8 do
+		local chunk = fxPart({
+			Size = Vector3.new(0.3 + math.random() * 0.4, 0.2 + math.random() * 0.3, 0.3 + math.random() * 0.4),
+			Color = Color3.fromRGB(70, 66, 62),
+			Material = Enum.Material.Slate,
+			CFrame = CFrame.new(position + Vector3.new(0, 0.5, 0)) * CFrame.Angles(math.random() * 6, math.random() * 6, 0),
+		})
+		chunk.Anchored = false
+		local dir = Vector3.new(math.random() - 0.5, 0.7 + math.random() * 0.6, math.random() - 0.5).Unit
+		chunk.AssemblyLinearVelocity = dir * (25 + math.random() * 20)
+		chunk.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 25
+		TweenService:Create(chunk, TweenInfo.new(0.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 1.4), { Transparency = 1 }):Play()
+		Debris:AddItem(chunk, 1.9)
+	end
+
+	-- Marca de quemado en el suelo (si hay suelo cerca)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { folder }
+	local ground = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -8, 0), params)
+	if ground and ground.Instance then
+		local scorch = fxPart({
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.05, radius * 0.9, radius * 0.9),
+			Color = Color3.fromRGB(22, 20, 18),
+			Material = Enum.Material.Slate,
+			CFrame = safeLookAt(ground.Position + ground.Normal * 0.04, ground.Normal) * CFrame.Angles(0, math.pi / 2, 0),
+			Transparency = 0.25,
+		})
+		TweenService:Create(scorch, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 6), { Transparency = 1 }):Play()
+		Debris:AddItem(scorch, 10.2)
+	end
 end
 
 -- Cohete que vuela hasta `to` y explota al llegar

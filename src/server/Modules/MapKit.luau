@@ -776,6 +776,7 @@ function Kit.applyLighting(preset)
 	Lighting.Ambient = preset.Ambient or RGB(60, 62, 72)
 	Lighting.OutdoorAmbient = preset.OutdoorAmbient or RGB(125, 128, 140)
 	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = preset.ShadowSoftness or 0.12 -- sombras de sol nítidas pero no duras
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
 
