@@ -8,7 +8,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 
 | Sistema | Detalles |
 |---|---|
-| **Mapas** | **Harbor Heights** (puerto de día: canal con agua, puente central, torre de control, azoteas A y callejón B), **Container Clash** (puerto al atardecer: pila central de contenedores, pasarelas, grúas y pasillos de flanqueo), **Neon Foundry** (fundición de noche: lava que quema, horno, cintas transportadoras, letreros de neón y chispas) y **Downtown** (arena urbana). Cada mapa trae spawns por equipo, puntos para todos contra todos, 5 zonas de control y 2 bases de bandera. |
+| **Mapas** | **Harbor Heights** (puerto de día: canal con agua, puente central, torre de control, azoteas A y callejón B), **Container Clash** (puerto al atardecer: pila central de contenedores, pasarelas, grúas y pasillos de flanqueo), **Neon Foundry** (fundición de noche: lava que quema, horno, cintas transportadoras, letreros de neón y chispas), **Frost Station** (base polar: lago helado resbaladizo bajo la torre del radar, hangares, laboratorios sobre pilotes, montículos de nieve y nieve cayendo) y **Downtown** (arena urbana). Cada mapa trae spawns por equipo, puntos para todos contra todos, 5 zonas de control y 2 bases de bandera. |
 | **Modos** | **Duelo por equipos** (40 bajas), **Captura la bandera** (3 capturas), **Zona de control** (150 puntos, la zona cambia cada minuto), **Todos contra todos** (25 bajas) y **Escalada de armas** (subes de arma con cada baja; gana quien la complete con el cuchillo). |
 | **Votación** | En el descanso entre rondas salen 3 opciones de mapa + modo. Pulsa **V** para votar con el ratón. |
 | **Armas** | Principales: **ARX-27 Pulse** (fusil), **Havoc Pump** (escopeta), **Specter-9** (subfusil), **Signal-7** (francotirador, nivel 3), **Vortex AR-9** (fusil de energía con ráfagas de 3, nivel 4), **Nova Drift** (subfusil ágil, nivel 5), **Raptor DMR** (tirador, nivel 7), **Breach Hammer** (escopeta semiautomática, nivel 8), **Titan Grind** (ametralladora pesada, nivel 10), **Ghostline XR** (francotirador con supresor, nivel 12) y **Tempest Core** (lanzacohetes con explosión, nivel 14). Secundarias: **Viper P9**, **Hand Cannon** (nivel 6) y **Phantom Sidewind** (pistola de ráfagas de 2 con mira de punto, nivel 9). Cuerpo a cuerpo: **Colmillo**. Las armas bloqueadas se pueden comprar antes con monedas. |
@@ -177,7 +177,7 @@ src/
 │   └── Modules/
 │       ├── MapBuilder.luau  registro de mapas e iluminación
 │       ├── MapKit.luau      piezas para construir mapas
-│       ├── MapDefs/         HarborHeights, ContainerClash, NeonFoundry, Downtown
+│       ├── MapDefs/         HarborHeights, ContainerClash, NeonFoundry, FrostStation, Downtown
 │       ├── PlayerData.luau  guardado, nivel, XP, monedas, compras
 │       ├── Loadout.luau     armas y traje al aparecer
 │       ├── Combat.luau      valida disparos, daño, explosiones y bajas
