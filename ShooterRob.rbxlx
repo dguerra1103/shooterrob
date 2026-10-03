@@ -5046,9 +5046,9 @@ local C = {
 	Curb = Color3.fromRGB(240, 240, 245),
 	LineWhite = Color3.fromRGB(245, 245, 250),
 	LineYellow = Color3.fromRGB(255, 205, 50),
-	WallBlue = Color3.fromRGB(163, 196, 230),
+	WallBlue = Color3.fromRGB(150, 98, 78), -- ladrillo (el nombre se mantiene por compatibilidad)
 	WallTrim = Color3.fromRGB(240, 244, 250),
-	Window = Color3.fromRGB(120, 190, 255),
+	Window = Color3.fromRGB(70, 96, 118), -- cristal oscuro que refleja
 	Metal = Color3.fromRGB(60, 62, 70),
 	Ramp = Color3.fromRGB(150, 152, 165),
 	Pink = Color3.fromRGB(255, 80, 170),
@@ -5272,38 +5272,52 @@ local SHOP_SIGNS = {
 }
 local signIndex = 0
 
+local brickToggle = false
+
 local function building(cf, size, color)
 	local model = Instance.new("Model")
 	model.Name = "Building"
 	model.Parent = mapFolder
 	local trim = color:Lerp(Color3.new(0, 0, 0), 0.15)
-	block("Block", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.Concrete, model)
+	-- La mitad de los edificios son de ladrillo visto (más realista que todo hormigón)
+	brickToggle = not brickToggle
+	local wallMaterial = brickToggle and Enum.Material.Brick or Enum.Material.Concrete
+	block("Block", size, cf * CFrame.new(0, size.Y / 2, 0), color, wallMaterial, model)
 	-- Zócalo y cornisa
 	deco("Base", Vector3.new(size.X + 0.4, 1.2, size.Z + 0.4), cf * CFrame.new(0, 0.6, 0), trim, Enum.Material.Concrete, model)
-	deco("Cornice", Vector3.new(size.X + 0.6, 0.8, size.Z + 0.6), cf * CFrame.new(0, size.Y - 0.4, 0), C.WallTrim, Enum.Material.SmoothPlastic, model)
-	deco("Stripe", Vector3.new(size.X + 0.3, 0.6, size.Z + 0.3), cf * CFrame.new(0, size.Y - 1.6, 0), Color3.fromRGB(255, 196, 0), Enum.Material.SmoothPlastic, model)
+	deco("Cornice", Vector3.new(size.X + 0.6, 0.8, size.Z + 0.6), cf * CFrame.new(0, size.Y - 0.4, 0), C.WallTrim, Enum.Material.Concrete, model)
+	deco("Stripe", Vector3.new(size.X + 0.3, 0.6, size.Z + 0.3), cf * CFrame.new(0, size.Y - 1.6, 0), C.WallTrim:Lerp(Color3.new(0, 0, 0), 0.2), Enum.Material.Concrete, model)
 
-	-- Ventanas en las cuatro fachadas
+	-- Ventanas en las cuatro fachadas: una fila por planta, con marco y alféizar
+	local floors = math.max(1, math.floor((size.Y - 3) / 7))
 	local function windowsOnFace(axis, sign_, count, span, skip)
-		for i = 1, count do
-			if i == skip then
-				continue
+		for row = 1, floors do
+			local y = 4.2 + (row - 1) * 7
+			for i = 1, count do
+				if i == skip and row == 1 then
+					continue
+				end
+				local t = (i - 0.5) / count - 0.5
+				local pos, glassSize, frameSize, sillSize, sillOffset
+				if axis == "Z" then
+					pos = CFrame.new(t * span, y, sign_ * (size.Z / 2 + 0.1))
+					glassSize = Vector3.new(2.6, 3.6, 0.2)
+					frameSize = Vector3.new(3.2, 4.2, 0.15)
+					sillSize = Vector3.new(3.6, 0.3, 0.6)
+					sillOffset = CFrame.new(0, -2.2, sign_ * 0.25)
+				else
+					pos = CFrame.new(sign_ * (size.X / 2 + 0.1), y, t * span)
+					glassSize = Vector3.new(0.2, 3.6, 2.6)
+					frameSize = Vector3.new(0.15, 4.2, 3.2)
+					sillSize = Vector3.new(0.6, 0.3, 3.6)
+					sillOffset = CFrame.new(sign_ * 0.25, -2.2, 0)
+				end
+				deco("WindowFrame", frameSize, cf * pos, C.WallTrim, Enum.Material.Concrete, model)
+				deco("WindowSill", sillSize, cf * pos * sillOffset, C.WallTrim, Enum.Material.Concrete, model)
+				local glass = deco("Window", glassSize, cf * pos, C.Window, Enum.Material.Glass, model)
+				glass.Transparency = 0.15
+				glass.Reflectance = 0.25
 			end
-			local t = (i - 0.5) / count - 0.5
-			local pos, glassSize, frameSize
-			if axis == "Z" then
-				pos = CFrame.new(t * span, size.Y * 0.5, sign_ * (size.Z / 2 + 0.1))
-				glassSize = Vector3.new(2.6, 3.6, 0.2)
-				frameSize = Vector3.new(3.2, 4.2, 0.15)
-			else
-				pos = CFrame.new(sign_ * (size.X / 2 + 0.1), size.Y * 0.5, t * span)
-				glassSize = Vector3.new(0.2, 3.6, 2.6)
-				frameSize = Vector3.new(0.15, 4.2, 3.2)
-			end
-			deco("WindowFrame", frameSize, cf * pos, C.WallTrim, Enum.Material.SmoothPlastic, model)
-			local glass = deco("Window", glassSize, cf * pos, C.Window, Enum.Material.Glass, model)
-			glass.Transparency = 0.15
-			glass.Reflectance = 0.2
 		end
 	end
 	windowsOnFace("Z", -1, 4, size.X - 6, 1) -- sin la primera: ahí va la puerta
@@ -5447,7 +5461,7 @@ local function facade(center, length, alongX, inward)
 			local pos = alongX and Vector3.new(t, y, center.Z + inward * 0.3) or Vector3.new(center.X + inward * 0.3, y, t)
 			local frameSize = alongX and Vector3.new(5, 5, 0.3) or Vector3.new(0.3, 5, 5)
 			local glassSize = alongX and Vector3.new(4.2, 4.2, 0.35) or Vector3.new(0.35, 4.2, 4.2)
-			deco("FacadeFrame", frameSize, CFrame.new(pos), C.WallTrim, Enum.Material.SmoothPlastic)
+			deco("FacadeFrame", frameSize, CFrame.new(pos), C.WallTrim, Enum.Material.Concrete)
 			local glass = deco("FacadeWindow", glassSize, CFrame.new(pos), C.Window, Enum.Material.Glass)
 			glass.Transparency = 0.1
 			glass.Reflectance = 0.25
@@ -5455,10 +5469,10 @@ local function facade(center, length, alongX, inward)
 	end
 	-- Cornisa y franja inferior
 	local trimSize = alongX and Vector3.new(length, 1.2, 1.2) or Vector3.new(1.2, 1.2, length)
-	deco("WallCornice", trimSize, CFrame.new(center + Vector3.new(0, WALL_HEIGHT / 2 + 0.3, 0)), C.WallTrim, Enum.Material.SmoothPlastic)
+	deco("WallCornice", trimSize, CFrame.new(center + Vector3.new(0, WALL_HEIGHT / 2 + 0.3, 0)), C.WallTrim, Enum.Material.Concrete)
 	local baseSize = alongX and Vector3.new(length, 3, 0.6) or Vector3.new(0.6, 3, length)
 	local basePos = alongX and Vector3.new(center.X, 1.5, center.Z + inward * 0.3) or Vector3.new(center.X + inward * 0.3, 1.5, center.Z)
-	deco("WallBase", baseSize, CFrame.new(basePos), Color3.fromRGB(120, 150, 190), Enum.Material.Concrete)
+	deco("WallBase", baseSize, CFrame.new(basePos), Color3.fromRGB(110, 108, 104), Enum.Material.Concrete)
 end
 
 ---------------------------------------------------------------------------
@@ -5512,10 +5526,10 @@ function Map.Build()
 	end
 
 	-- Muros exteriores con fachadas
-	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, WIDTH / 2 + 2), C.WallBlue, Enum.Material.Concrete)
-	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, -WIDTH / 2 - 2), C.WallBlue, Enum.Material.Concrete)
-	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(LENGTH / 2 + 2, WALL_HEIGHT / 2, 0), C.WallBlue, Enum.Material.Concrete)
-	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(-LENGTH / 2 - 2, WALL_HEIGHT / 2, 0), C.WallBlue, Enum.Material.Concrete)
+	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, WIDTH / 2 + 2), C.WallBlue, Enum.Material.Brick)
+	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, -WIDTH / 2 - 2), C.WallBlue, Enum.Material.Brick)
+	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(LENGTH / 2 + 2, WALL_HEIGHT / 2, 0), C.WallBlue, Enum.Material.Brick)
+	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(-LENGTH / 2 - 2, WALL_HEIGHT / 2, 0), C.WallBlue, Enum.Material.Brick)
 	facade(Vector3.new(0, WALL_HEIGHT / 2, WIDTH / 2), LENGTH, true, -1)
 	facade(Vector3.new(0, WALL_HEIGHT / 2, -WIDTH / 2), LENGTH, true, 1)
 	facade(Vector3.new(LENGTH / 2, WALL_HEIGHT / 2, 0), WIDTH, false, -1)
