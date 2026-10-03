@@ -585,9 +585,20 @@ Weapons.Grenade = {
 	ThrowSpeed = 80,
 }
 
+-- Ataque aéreo (recompensa por racha de 5 bajas, ver Killstreaks)
+Weapons.Airstrike = {
+	DisplayName = "Ataque aéreo",
+	Type = "Streak",
+	Pellets = 1,
+	Damage = 95,
+	Explosive = { Radius = 13, Damage = 95, MinDamage = 30 },
+}
+
 function Weapons.Get(name)
 	if name == "Grenade" then
 		return Weapons.Grenade
+	elseif name == "Airstrike" then
+		return Weapons.Airstrike
 	end
 	return Weapons.List[name] or Weapons.List[Weapons.Legacy[name] or ""]
 end

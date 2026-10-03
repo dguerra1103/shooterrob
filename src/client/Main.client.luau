@@ -13,6 +13,7 @@ local MainMenu = require(Modules.MainMenu)
 local WorldFX = require(Modules.WorldFX)
 local VoteUI = require(Modules.VoteUI)
 local GrenadeController = require(Modules.GrenadeController)
+local KillstreakController = require(Modules.KillstreakController)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -31,4 +32,5 @@ WeaponController.Init()
 WorldFX.Init()
 VoteUI.Init()
 GrenadeController.Init()
+KillstreakController.Init()
 MainMenu.Init() -- la última: muestra la pantalla de inicio

@@ -21,6 +21,7 @@ local Flags = require(script.Parent.Flags)
 local Hardpoint = require(script.Parent.Hardpoint)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
+local Killstreaks = require(script.Parent.Killstreaks)
 
 local Round = {}
 
@@ -162,6 +163,7 @@ local function resetStats()
 		player:SetAttribute("Score", 0)
 		player:SetAttribute("GunLevel", 1)
 	end
+	Killstreaks.Reset()
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -251,6 +253,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				PlayerData.Track(killer, "Headshot", 1, weaponName)
 			end
 
+			Killstreaks.OnStreak(killer, streak)
 			if STREAK_ANNOUNCE[streak] then
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end

@@ -16,6 +16,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Maestría de armas** | Cada arma cuenta sus bajas y desbloquea camuflajes exclusivos para ella: **Carbono** (25), **Oro** (75), **Diamante** (150) y **Materia oscura** (300), más monedas. El camuflaje se equipa solo al ganarlo y se puede cambiar en la pestaña **Armas**. No se venden ni salen en cajas. |
 | **Granadas** | Tecla **G**: granada de fragmentación que rebota y explota a los 2 s (daño en área). Una por jugador, se recarga en 15 s y vuelve al reaparecer. No hay en Escalada de armas. |
 | **Efectos de eliminación** | Lo que ven todos cuando eliminas a alguien: Confeti, Amor, Llamarada, Congelado, Fantasma, Calavera, Rayo, Lluvia de monedas y Agujero negro. Se compran con monedas en la pestaña **Efectos** (con botón para verlos antes). |
+| **Rachas** | 3 bajas seguidas: **Radar** (tu equipo ve a los enemigos a través de las paredes 12 s). 5 bajas seguidas: **Ataque aéreo** (tecla T: marcas rojas y 5 bombas en línea donde apuntas). No hay en Escalada de armas. |
 | **Clasificación global** | Top 10 mundial de bajas y de victorias (todos los servidores) en la pantalla de inicio. Se actualiza cada 90 s; tu fila se resalta si estás dentro. |
 | **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue y Golden Ace. Se ven en la partida sobre tu avatar. |
 | **Disparo** | Viewmodel con brazos, retroceso, balanceo, apuntado (clic derecho), mira telescópica, recarga, trazadoras, fogonazo, hitmarkers, números de daño, disparos a la cabeza y cohetes con explosión. |
@@ -64,6 +65,7 @@ rojo build -o ShooterRob.rbxlx
 | Recargar | R | X |
 | Cuchillo rápido | F | B |
 | Granada | G | L1 |
+| Ataque aéreo (racha de 5) | T | Cruceta derecha |
 | Correr | Shift (mantener) | L3 |
 | Deslizarse | C / Ctrl | R3 |
 | Cambiar arma | 1 / 2 / 3 / rueda del ratón | Y |
@@ -187,6 +189,7 @@ src/
 │       ├── Hazards.luau     lava
 │       ├── Grenades.luau    granadas
 │       ├── Leaderboard.luau clasificación global
+│       ├── Killstreaks.luau recompensas por racha (radar y ataque aéreo)
 │       └── Dummies.luau     muñecos de práctica
 └── client/                 → StarterPlayerScripts.Client
     ├── Main.client.luau     arranque
@@ -198,6 +201,7 @@ src/
         ├── MainMenu.luau          pantalla de inicio
         ├── VoteUI.luau            votación de mapa y modo
         ├── GrenadeController.luau granada (tecla G) e indicador
+        ├── KillstreakController.luau radar y ataque aéreo (tecla T)
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
         ├── Effects.luau           fogonazo, balas, impactos, cohetes y explosiones

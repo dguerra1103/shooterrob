@@ -355,6 +355,7 @@ local function buildWeaponPanel()
 		for i, pair in {
 			{ "Menú y tienda", "B" },
 			{ "Granada", "G" },
+			{ "Ataque aéreo (racha 5)", "T" },
 			{ "Deslizar", "C" },
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },

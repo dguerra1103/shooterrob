@@ -17,6 +17,8 @@ local EVENTS = {
 	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
 	"ThrowGrenade", -- cliente -> servidor: lanzar granada (dirección)
 	"ExplosionFX", -- servidor -> clientes: explosión de granada (posición, radio)
+	"CallAirstrike", -- cliente -> servidor: pedir el ataque aéreo (punto objetivo)
+	"AirstrikeMark", -- servidor -> clientes: marcas rojas donde va a caer el ataque aéreo
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
