@@ -4956,6 +4956,7 @@ function Map.Build()
 		end
 		for _, z in { -20, 20 } do
 			local lamp = deco("WarehouseLamp", V(1.4, 0.6, 3), m * CFrame.new(-128.5, 15.6, z), RGB(255, 220, 160), Enum.Material.Neon)
+			Kit.lightCone((m * CFrame.new(-128.5, 15.2, z)).Position, 14, 1, 6, RGB(255, 215, 160))
 			Kit.light(lamp, "SpotLight", RGB(255, 210, 150), 30, 2, Enum.NormalId.Bottom).Angle = 110
 		end
 	end)
@@ -5889,6 +5890,7 @@ function Map.Build()
 		Kit.neonSign(m * CFrame.new(-70, 12, hz + 16.4) * CFrame.Angles(0, math.pi, 0), 10, 3, side == "A" and "HANGAR A" or "HANGAR B", teamColor, C.White)
 		for _, x in { -82, -70, -58 } do
 			local lamp = deco("HangarLamp", V(3, 0.3, 3), m * CFrame.new(x, 13.8, hz), RGB(255, 235, 200), Enum.Material.Neon)
+			Kit.lightCone((m * CFrame.new(x, 13.6, hz)).Position, 12, 1.4, 5.5, RGB(255, 230, 190))
 			Kit.light(lamp, "SpotLight", RGB(255, 225, 180), 22, 1.6, Enum.NormalId.Bottom).Angle = 110
 		end
 		-- Moto de nieve (snowcat) y cajas dentro del hangar
@@ -6786,6 +6788,7 @@ function Map.Build()
 		for x = -45, 45, 30 do
 			deco("LampCable", V(0.15, 6, 0.15), CFrame.new(x, 20, z), RGB(20, 20, 20), Enum.Material.Metal)
 			local lamp = deco("HangingLamp", V(2.4, 0.8, 2.4), CFrame.new(x, 16.6, z), RGB(255, 210, 150), Enum.Material.Neon)
+			Kit.lightCone(V(x, 16.2, z), 15, 1.2, 6, RGB(255, 205, 140))
 			Kit.light(lamp, "SpotLight", RGB(255, 200, 140), 28, 2, Enum.NormalId.Bottom).Angle = 100
 		end
 	end
@@ -7437,6 +7440,21 @@ function Kit.puddle(position, size, seed)
 		water.Shape = Enum.PartType.Cylinder
 		water.Transparency = 0.25
 		water.Reflectance = 0.45
+	end
+end
+
+-- Cono de luz volumétrica bajo una lámpara: discos casi transparentes cada vez más anchos (se ve
+-- el haz en el aire, sobre todo con niebla). `top` es la posición de la lámpara.
+function Kit.lightCone(top, height, topRadius, bottomRadius, color)
+	local segments = 5
+	local step = height / segments
+	for i = 1, segments do
+		local t = (i - 0.5) / segments
+		local radius = topRadius + (bottomRadius - topRadius) * t
+		local disc = deco("LightCone", V(step, radius * 2, radius * 2), CFrame.new(top - V(0, step * (i - 0.5), 0)) * CFrame.Angles(0, 0, math.pi / 2), color, Enum.Material.Neon)
+		disc.Shape = Enum.PartType.Cylinder
+		disc.Transparency = 0.93 + 0.01 * i
+		disc.CastShadow = false
 	end
 end
 

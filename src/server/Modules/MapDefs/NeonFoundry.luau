@@ -154,6 +154,7 @@ function Map.Build()
 		for x = -45, 45, 30 do
 			deco("LampCable", V(0.15, 6, 0.15), CFrame.new(x, 20, z), RGB(20, 20, 20), Enum.Material.Metal)
 			local lamp = deco("HangingLamp", V(2.4, 0.8, 2.4), CFrame.new(x, 16.6, z), RGB(255, 210, 150), Enum.Material.Neon)
+			Kit.lightCone(V(x, 16.2, z), 15, 1.2, 6, RGB(255, 205, 140))
 			Kit.light(lamp, "SpotLight", RGB(255, 200, 140), 28, 2, Enum.NormalId.Bottom).Angle = 100
 		end
 	end

@@ -585,6 +585,21 @@ function Kit.puddle(position, size, seed)
 	end
 end
 
+-- Cono de luz volumétrica bajo una lámpara: discos casi transparentes cada vez más anchos (se ve
+-- el haz en el aire, sobre todo con niebla). `top` es la posición de la lámpara.
+function Kit.lightCone(top, height, topRadius, bottomRadius, color)
+	local segments = 5
+	local step = height / segments
+	for i = 1, segments do
+		local t = (i - 0.5) / segments
+		local radius = topRadius + (bottomRadius - topRadius) * t
+		local disc = deco("LightCone", V(step, radius * 2, radius * 2), CFrame.new(top - V(0, step * (i - 0.5), 0)) * CFrame.Angles(0, 0, math.pi / 2), color, Enum.Material.Neon)
+		disc.Shape = Enum.PartType.Cylinder
+		disc.Transparency = 0.93 + 0.01 * i
+		disc.CastShadow = false
+	end
+end
+
 -- Vapor que sale de una rejilla del suelo
 function Kit.steamVent(cf, strength)
 	strength = strength or 1

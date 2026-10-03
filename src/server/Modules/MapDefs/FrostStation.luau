@@ -128,6 +128,7 @@ function Map.Build()
 		Kit.neonSign(m * CFrame.new(-70, 12, hz + 16.4) * CFrame.Angles(0, math.pi, 0), 10, 3, side == "A" and "HANGAR A" or "HANGAR B", teamColor, C.White)
 		for _, x in { -82, -70, -58 } do
 			local lamp = deco("HangarLamp", V(3, 0.3, 3), m * CFrame.new(x, 13.8, hz), RGB(255, 235, 200), Enum.Material.Neon)
+			Kit.lightCone((m * CFrame.new(x, 13.6, hz)).Position, 12, 1.4, 5.5, RGB(255, 230, 190))
 			Kit.light(lamp, "SpotLight", RGB(255, 225, 180), 22, 1.6, Enum.NormalId.Bottom).Angle = 110
 		end
 		-- Moto de nieve (snowcat) y cajas dentro del hangar

@@ -141,6 +141,7 @@ function Map.Build()
 		end
 		for _, z in { -20, 20 } do
 			local lamp = deco("WarehouseLamp", V(1.4, 0.6, 3), m * CFrame.new(-128.5, 15.6, z), RGB(255, 220, 160), Enum.Material.Neon)
+			Kit.lightCone((m * CFrame.new(-128.5, 15.2, z)).Position, 14, 1, 6, RGB(255, 215, 160))
 			Kit.light(lamp, "SpotLight", RGB(255, 210, 150), 30, 2, Enum.NormalId.Bottom).Angle = 110
 		end
 	end)
