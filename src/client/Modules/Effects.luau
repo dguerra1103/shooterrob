@@ -154,8 +154,43 @@ function Effects.MuzzleFlash(attachment, color)
 	}, 2)
 end
 
--- Impacto: chispas, polvo del color de la superficie y marca de bala
-function Effects.Impact(position, normal, hitPart)
+-- Tipo de superficie según el material: cambia la reacción al impacto (chispas en metal, astillas
+-- en madera, polvo y esquirlas en piedra, tierra o nieve que saltan, salpicadura en agua)
+local SURFACE = {}
+for kind, materials in {
+	Metal = { "Metal", "CorrodedMetal", "DiamondPlate", "Foil" },
+	Wood = { "Wood", "WoodPlanks" },
+	Stone = {
+		"Concrete", "Brick", "Cobblestone", "Slate", "Granite", "Marble", "Pebble", "Rock", "Basalt", "Limestone",
+		"Pavement", "Asphalt", "Plaster", "Sandstone", "CeramicTiles", "ClayRoofTiles", "CrackedLava",
+	},
+	Dirt = { "Grass", "LeafyGrass", "Ground", "Mud", "Sand" },
+	Snow = { "Snow", "Ice", "Glacier" },
+	Water = { "Water" },
+	Glass = { "Glass" },
+} do
+	for _, name in materials do
+		local ok, material = pcall(function()
+			return (Enum.Material :: any)[name]
+		end)
+		if ok and material then
+			SURFACE[material] = kind
+		end
+	end
+end
+
+local function surfaceColor(hitPart, material)
+	if hitPart and hitPart:IsA("Terrain") then
+		local ok, color = pcall(function()
+			return workspace.Terrain:GetMaterialColor(material)
+		end)
+		return ok and color or Color3.fromRGB(150, 140, 120)
+	end
+	return hitPart and hitPart.Color or Color3.fromRGB(200, 200, 200)
+end
+
+-- Impacto: reacción según la superficie, polvo del color del material y marca de bala
+function Effects.Impact(position, normal, hitPart, material)
 	local isCharacter = hitPart ~= nil
 		and hitPart.Parent ~= nil
 		and (hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil or hitPart.Parent:IsA("Accessory"))
@@ -176,35 +211,112 @@ function Effects.Impact(position, normal, hitPart)
 		return
 	end
 
-	emit(anchor, {
-		Texture = TEX.Sparkle,
-		Color = ColorSequence.new(Color3.fromRGB(255, 230, 150)),
-		LightEmission = 1,
-		Size = seq(0.18, 0),
-		Lifetime = NumberRange.new(0.15, 0.35),
-		Speed = NumberRange.new(8, 16),
-		SpreadAngle = Vector2.new(45, 45),
-		Acceleration = Vector3.new(0, -40, 0),
-	}, 6)
-	local dustColor = hitPart and hitPart.Color:Lerp(Color3.new(1, 1, 1), 0.3) or Color3.fromRGB(200, 200, 200)
-	emit(anchor, {
-		Texture = TEX.Smoke,
-		Color = ColorSequence.new(dustColor),
-		Size = seq(0.3, 1.4),
-		Transparency = seq(0.3, 1),
-		Lifetime = NumberRange.new(0.4, 0.7),
-		Speed = NumberRange.new(1.5, 3),
-		SpreadAngle = Vector2.new(30, 30),
-	}, 3)
+	material = material or (hitPart and hitPart.Material) or Enum.Material.Plastic
+	local kind = SURFACE[material] or "Plastic"
+	local baseColor = surfaceColor(hitPart, material)
 
+	if kind == "Water" then
+		-- Salpicadura: gotas hacia arriba que caen y un poco de espuma
+		emit(anchor, {
+			Texture = TEX.Sparkle,
+			Color = ColorSequence.new(Color3.fromRGB(220, 240, 255)),
+			LightEmission = 0.3,
+			Size = seq(0.25, 0.05),
+			Lifetime = NumberRange.new(0.4, 0.7),
+			Speed = NumberRange.new(10, 18),
+			SpreadAngle = Vector2.new(18, 18),
+			Acceleration = Vector3.new(0, -50, 0),
+		}, 12)
+		emit(anchor, {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(240, 248, 255)),
+			Size = seq(0.6, 2),
+			Transparency = seq(0.4, 1),
+			Lifetime = NumberRange.new(0.4, 0.6),
+			Speed = NumberRange.new(1, 2),
+			SpreadAngle = Vector2.new(70, 70),
+		}, 3)
+		return
+	end
+
+	-- Chispas: muchas en metal, pocas en piedra y cristal, ninguna en materiales blandos
+	local sparks = (kind == "Metal" and 12) or ((kind == "Stone" or kind == "Glass" or kind == "Plastic") and 4) or 0
+	if sparks > 0 then
+		emit(anchor, {
+			Texture = TEX.Sparkle,
+			Color = ColorSequence.new(Color3.fromRGB(255, 230, 150), Color3.fromRGB(255, 150, 60)),
+			LightEmission = 1,
+			Size = seq(kind == "Metal" and 0.22 or 0.16, 0),
+			Lifetime = NumberRange.new(0.15, kind == "Metal" and 0.5 or 0.3),
+			Speed = NumberRange.new(10, 20),
+			SpreadAngle = Vector2.new(50, 50),
+			Acceleration = Vector3.new(0, -45, 0),
+		}, sparks)
+	end
+
+	-- Esquirlas que saltan y caen (astillas de madera, trozos de piedra, terrones, cristal)
+	if kind == "Wood" or kind == "Stone" or kind == "Dirt" or kind == "Glass" or kind == "Snow" then
+		local chipColor = kind == "Glass" and Color3.fromRGB(220, 240, 255) or baseColor:Lerp(Color3.new(0, 0, 0), kind == "Wood" and 0.25 or 0.1)
+		emit(anchor, {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(chipColor),
+			LightInfluence = 1,
+			Size = seq(kind == "Snow" and 0.35 or 0.22, 0.12),
+			Lifetime = NumberRange.new(0.35, 0.6),
+			Speed = NumberRange.new(8, 15),
+			SpreadAngle = Vector2.new(40, 40),
+			Acceleration = Vector3.new(0, -55, 0),
+			Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-300, 300),
+		}, kind == "Wood" and 6 or 5)
+	end
+
+	-- Nube de polvo del color de la superficie (más grande en tierra y nieve)
+	local soft = kind == "Dirt" or kind == "Snow"
+	local dustColor = baseColor:Lerp(Color3.new(1, 1, 1), kind == "Snow" and 0.5 or 0.3)
+	if kind ~= "Metal" and kind ~= "Glass" then
+		emit(anchor, {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(dustColor),
+			LightInfluence = 1,
+			Size = seq(soft and 0.6 or 0.3, soft and 2.4 or 1.5),
+			Transparency = seq(soft and 0.2 or 0.3, 1),
+			Lifetime = NumberRange.new(soft and 0.7 or 0.45, soft and 1.1 or 0.8),
+			Speed = NumberRange.new(soft and 3 or 1.5, soft and 6 or 3),
+			SpreadAngle = Vector2.new(30, 30),
+			Acceleration = Vector3.new(0, soft and -6 or 0.5, 0),
+			WindAffectsDrag = true,
+		}, soft and 5 or 3)
+	end
+
+	-- Marca de bala (no queda en nieve ni en tierra blanda)
+	if soft then
+		return
+	end
+	local markColor = (kind == "Metal" and Color3.fromRGB(70, 70, 76))
+		or (kind == "Wood" and Color3.fromRGB(45, 30, 20))
+		or (kind == "Glass" and Color3.fromRGB(230, 240, 250))
+		or Color3.fromRGB(25, 25, 28)
 	local mark = fxPart({
-		Color = Color3.fromRGB(25, 25, 28),
-		Material = Enum.Material.SmoothPlastic,
-		Size = Vector3.new(0.22, 0.22, 0.02),
+		Color = markColor,
+		Material = kind == "Metal" and Enum.Material.Metal or Enum.Material.SmoothPlastic,
+		Size = Vector3.new(0.22, 0.22, 0.03),
 		Shape = Enum.PartType.Block,
-		CFrame = safeLookAt(position, normal or Vector3.yAxis),
-		Transparency = 0.15,
+		CFrame = safeLookAt(position, normal or Vector3.yAxis) * CFrame.Angles(0, 0, math.random() * math.pi),
+		Transparency = kind == "Glass" and 0.4 or 0.15,
 	})
+	if kind == "Stone" then
+		-- Desconchón claro alrededor del agujero
+		local chip = fxPart({
+			Color = baseColor:Lerp(Color3.new(1, 1, 1), 0.25),
+			Material = Enum.Material.SmoothPlastic,
+			Size = Vector3.new(0.45, 0.45, 0.012),
+			CFrame = mark.CFrame * CFrame.new(0, 0, -0.003) * CFrame.Angles(0, 0, 0.6),
+			Transparency = 0.35,
+		})
+		TweenService:Create(chip, TweenInfo.new(5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
+		Debris:AddItem(chip, 5.2)
+	end
 	TweenService:Create(mark, TweenInfo.new(5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
 	Debris:AddItem(mark, 5.2)
 end

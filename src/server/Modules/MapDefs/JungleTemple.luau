@@ -255,7 +255,7 @@ function Map.Build()
 	leaves.Acceleration = V(0.3, 0, 0.15)
 	leaves.Rate = 20
 	leaves.EmissionDirection = Enum.NormalId.Bottom
-	leaves.WindAffectsDrift = true
+	leaves.WindAffectsDrag = true
 	leaves.Parent = sky
 
 	-- Spawns y banderas

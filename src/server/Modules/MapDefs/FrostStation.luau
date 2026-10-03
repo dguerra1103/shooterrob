@@ -243,7 +243,7 @@ function Map.Build()
 	snow.Speed = NumberRange.new(6, 9)
 	snow.SpreadAngle = Vector2.new(15, 15)
 	snow.Acceleration = V(0.4, 0, 0.2)
-	snow.WindAffectsDrift = true
+	snow.WindAffectsDrag = true
 	snow.RotSpeed = NumberRange.new(-60, 60)
 	snow.Rate = 140
 	snow.EmissionDirection = Enum.NormalId.Bottom

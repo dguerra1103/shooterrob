@@ -34,7 +34,7 @@ local function paint(part, role, pal)
 		part.Material = pal.Accent2Material or Enum.Material.Neon
 	elseif role == "Panel" then
 		part.Color = pal.Panel or (pal.Accent2 or pal.Body:Lerp(WHITE, 0.6))
-		part.Material = pal.PanelMaterial or Enum.Material.SmoothPlastic
+		part.Material = pal.PanelMaterial or Enum.Material.Plastic
 	elseif role == "Dark" then
 		part.Color = pal.Dark
 		part.Material = Enum.Material.Metal
@@ -44,7 +44,7 @@ local function paint(part, role, pal)
 		part.Reflectance = 0.15
 	elseif role == "Rubber" then
 		part.Color = pal.Rubber or Color3.fromRGB(28, 28, 32)
-		part.Material = Enum.Material.Fabric
+		part.Material = Enum.Material.Rubber -- empuñaduras y culatas de goma
 	elseif role == "Gold" then
 		part.Color = Color3.fromRGB(240, 180, 60)
 		part.Material = Enum.Material.Foil
@@ -62,7 +62,8 @@ local function paint(part, role, pal)
 		part.Reflectance = 0.3
 	else
 		part.Color = pal.Body
-		part.Material = pal.BodyMaterial or Enum.Material.SmoothPlastic
+		-- Polímero con textura fina (el plástico liso parecía de juguete)
+		part.Material = pal.BodyMaterial or Enum.Material.Plastic
 	end
 end
 

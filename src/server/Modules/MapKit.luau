@@ -629,7 +629,7 @@ function Kit.steamVent(cf, strength)
 	steam.Rate = 6 * strength
 	steam.LightInfluence = 1
 	steam.EmissionDirection = Enum.NormalId.Top
-	steam.WindAffectsDrift = true
+	steam.WindAffectsDrag = true
 	steam.Parent = grate
 	return grate
 end
@@ -651,7 +651,7 @@ function Kit.dustMotes(cf, size, color, rate)
 	dust.SpreadAngle = Vector2.new(180, 180)
 	dust.RotSpeed = NumberRange.new(-30, 30)
 	dust.Rate = rate or 12
-	dust.WindAffectsDrift = true
+	dust.WindAffectsDrag = true
 	dust.Shape = Enum.ParticleEmitterShape.Box
 	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 	dust.Parent = volume
@@ -950,7 +950,7 @@ function Kit.applyLighting(preset)
 	Lighting.ShadowSoftness = preset.ShadowSoftness or 0.12 -- sombras de sol nítidas pero no duras
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
-	-- Viento: mueve la hierba del terreno, las nubes y las partículas con WindAffectsDrift
+	-- Viento: mueve la hierba del terreno, las nubes y las partículas con WindAffectsDrag
 	workspace.GlobalWind = preset.Wind or V(4, 0, 2)
 
 	local a = preset.Atmosphere or {}
