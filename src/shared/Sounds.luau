@@ -15,15 +15,16 @@ local Sounds = {
 }
 
 -- Reproduce un sonido. Si parent es nil, suena en 2D (para el jugador local).
-function Sounds.Play(name, parent)
+-- pitch y volume (opcionales) multiplican los valores del sonido: así cada arma suena distinta.
+function Sounds.Play(name, parent, pitch, volume)
 	local info = Sounds[name]
 	if type(info) ~= "table" then
 		return
 	end
 	local sound = Instance.new("Sound")
 	sound.SoundId = info.Id
-	sound.Volume = info.Volume
-	sound.PlaybackSpeed = info.Pitch * (0.95 + math.random() * 0.1)
+	sound.Volume = info.Volume * (volume or 1)
+	sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
 	sound.RollOffMaxDistance = 300
 	sound.Parent = parent or workspace.CurrentCamera or workspace
 	sound:Play()
@@ -36,6 +37,34 @@ function Sounds.Play(name, parent)
 		end
 	end)
 	return sound
+end
+
+-- Sonido de disparo de cada arma: { sonido, tono, volumen }
+Sounds.WeaponShots = {
+	ARX27 = { "Shot", 0.95, 1 },
+	VortexBR = { "Shot", 1.15, 0.9 },
+	Specter9 = { "Shot", 1.2, 0.8 },
+	NovaDrift = { "Shot", 1.3, 0.75 },
+	Signal7 = { "ShotHeavy", 0.75, 1.1 },
+	GhostlineXR = { "Shot", 0.55, 0.55 }, -- con supresor: grave y apagado
+	RaptorDMR = { "ShotHeavy", 1.05, 0.9 },
+	HavocPump = { "ShotHeavy", 0.85, 1.1 },
+	BreachHammer = { "ShotHeavy", 0.7, 1.2 },
+	TitanLMG = { "ShotHeavy", 1.2, 0.7 },
+	NovaLauncher = { "ShotHeavy", 0.5, 1.3 },
+	Viper = { "Shot", 1.1, 0.8 },
+	HandCannon = { "ShotHeavy", 0.9, 1 },
+	PhantomSidewind = { "Shot", 1.35, 0.8 },
+}
+
+-- Disparo de un arma (con su sonido propio si lo tiene)
+function Sounds.PlayShot(weaponName, def, parent)
+	local profile = weaponName and Sounds.WeaponShots[weaponName]
+	if profile then
+		return Sounds.Play(profile[1], parent, profile[2], profile[3])
+	end
+	local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 80)
+	return Sounds.Play(heavy and "ShotHeavy" or "Shot", parent)
 end
 
 return Sounds

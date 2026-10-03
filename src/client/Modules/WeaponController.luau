@@ -383,7 +383,7 @@ local function fire()
 	if not def.Explosive then
 		Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
 	end
-	Sounds.Play((def.Pellets > 1 or def.Damage >= 80) and "ShotHeavy" or "Shot")
+	Sounds.PlayShot(equippedTool and equippedTool:GetAttribute("Weapon"), def)
 	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
 
 	-- Retroceso
@@ -744,8 +744,7 @@ local function onShotFX(tool, endpoints)
 		end
 	end
 	Effects.MuzzleFlash(muzzle)
-	local heavy = weaponDef and (weaponDef.Pellets > 1 or weaponDef.Damage >= 80)
-	Sounds.Play(heavy and "ShotHeavy" or "Shot", handle)
+	Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle)
 end
 
 function WeaponController.Init()
