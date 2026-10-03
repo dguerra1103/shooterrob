@@ -9673,6 +9673,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
 local GameConfig = require(Shared.GameConfig)
+local Skins = require(Shared.Skins)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
@@ -10389,6 +10390,39 @@ local function onNotify(kind, text)
 	elseif kind == "LevelUp" then
 		bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
 		Sounds.Play("Kill")
+		-- Qué da este nivel del pase (y qué daría el premium, si no lo tiene)
+		local tier = type(text) == "number" and GameConfig.BattlePass[text]
+		if tier then
+			local function describe(reward)
+				if not reward then
+					return nil
+				elseif reward.Type == "Coins" then
+					return "🪙 +" .. tostring(reward.Amount)
+				elseif reward.Type == "Skin" then
+					return "🎨 Skin " .. Skins.Get(reward.Id).Name
+				elseif reward.Type == "Crate" then
+					return "🎁 Caja"
+				elseif reward.Type == "Outfit" then
+					return "👕 Traje nuevo"
+				end
+				return reward.Type
+			end
+			local data = ClientState.Data
+			local free, premium = describe(tier.Free), describe(tier.Premium)
+			local line = free and ("Recompensa: " .. free) or ""
+			if premium then
+				if data and data.Premium then
+					line ..= (line ~= "" and "   ·   " or "") .. "👑 " .. premium
+				else
+					line ..= (line ~= "" and "   ·   " or "") .. "👑 Con el pase premium: " .. premium
+				end
+			end
+			if line ~= "" then
+				task.delay(0.6, function()
+					timedLabel(refs.Banner, line, 4)
+				end)
+			end
+		end
 	elseif kind == "Flag" then
 		timedLabel(refs.Banner, "🚩 " .. text, 3)
 		Sounds.Play("Flag")
