@@ -23,7 +23,7 @@ local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase, dailyButton
+local gui, root, infoLabel, showcase, dailyButton, starterButton
 local blur
 local orbitAngle = 0
 local controls
@@ -80,6 +80,9 @@ local function refreshInfo()
 	local data = ClientState.Data
 	if dailyButton then
 		dailyButton.Visible = data ~= nil and data.DailyAvailable == true
+	end
+	if starterButton then
+		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
 	end
 	if infoLabel then
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
@@ -321,7 +324,7 @@ function MainMenu.Init()
 
 	local buttons = UI.new("Frame", {
 		Position = UDim2.fromOffset(0, 175),
-		Size = UDim2.fromOffset(300, 380),
+		Size = UDim2.fromOffset(300, 440),
 		BackgroundTransparency = 1,
 		Parent = left,
 	}, {
@@ -352,13 +355,28 @@ function MainMenu.Init()
 			dailyButton.Visible = false
 		end
 	end)
+	-- Pack de inicio para jugadores nuevos
+	starterButton = bigButton("🔥  PACK DE INICIO", Color3.fromRGB(230, 70, 60), 6, buttons)
+	starterButton.Visible = false
+	starterButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		Menu.Open("Tienda")
+	end)
+	-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scale = dailyButton:FindFirstChildOfClass("UIScale")
+		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
+		local buttonsList = { dailyButton, starterButton }
 		while gui.Parent and ClientState.InMainMenu do
-			if dailyButton.Visible and scale then
-				TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
-				task.wait(0.5)
-				TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+			for i, button in buttonsList do
+				if button.Visible and scales[i] then
+					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
+				end
+			end
+			task.wait(0.5)
+			for i in buttonsList do
+				if scales[i] then
+					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+				end
 			end
 			task.wait(0.5)
 		end

@@ -1020,6 +1020,66 @@ end
 local function buildShopPage(data)
 	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
 
+	-- Pack de inicio (solo jugadores nuevos, una vez)
+	local starter = Shop.StarterPack
+	if data.StarterPackAvailable then
+		local card = UI.new("Frame", {
+			LayoutOrder = 0,
+			Size = UDim2.new(1, -10, 0, 130),
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			Parent = scroll,
+		}, {
+			UI.corner(14),
+			UI.stroke(GOLD, 3, 0),
+			UI.new("UIGradient", {
+				Color = ColorSequence.new(Color3.fromRGB(255, 90, 40), Color3.fromRGB(150, 40, 200)),
+				Rotation = 0,
+			}),
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 8),
+			Size = UDim2.new(1, -280, 0, 36),
+			Text = "🔥 PACK DE INICIO  ·  solo una vez",
+			TextSize = 28,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 48),
+			Size = UDim2.new(1, -280, 0, 72),
+			Text = string.format(
+				"🪙 %d monedas  ·  👕 Traje %s  ·  🎨 Skin %s  ·  %s Efecto %s\n¡Vale más de 4 veces su precio!",
+				starter.Coins,
+				Outfits.Get(starter.Outfit).Name,
+				Skins.Get(starter.Skin).Name,
+				KillEffects.Get(starter.KillEffect).Icon,
+				KillEffects.Get(starter.KillEffect).Name
+			),
+			TextSize = 18,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Parent = card,
+		})
+		local buyStarter = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -18, 0.5, 0),
+			Size = UDim2.fromOffset(230, 60),
+			Text = starter.ProductId ~= 0 and ("R$ " .. starter.Robux .. "  ¡COMPRAR!") or "Próximamente",
+			TextSize = 24,
+			BackgroundColor3 = starter.ProductId ~= 0 and GREEN or GREY,
+			Parent = card,
+		}, { UI.gloss() })
+		buyStarter.Activated:Connect(function()
+			if starter.ProductId ~= 0 then
+				Sounds.Play("Click")
+				MarketplaceService:PromptProductPurchase(player, starter.ProductId)
+			else
+				showToast("Próximamente")
+			end
+		end)
+	end
+
 	-- Recompensa diaria
 	local daily = UI.new("Frame", {
 		LayoutOrder = 1,

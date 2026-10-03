@@ -14,6 +14,18 @@ Shop.CoinPacks = {
 	{ Name = "Bóveda", Coins = 8000, Robux = 449, ProductId = 0, Tag = "MEJOR VALOR" },
 }
 
+-- Pack de inicio (Developer Product de compra única): solo se ofrece a jugadores nuevos.
+-- Vale mucho más que su precio en Robux para que sea la primera compra fácil.
+Shop.StarterPack = {
+	ProductId = 0, -- pega aquí el ID del Developer Product
+	Robux = 99,
+	MaxLevel = 15, -- se deja de ofrecer a partir de este nivel
+	Coins = 1500,
+	Outfit = "BlazeRunner",
+	Skin = "Sakura",
+	KillEffect = "Confeti",
+}
+
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra
 Shop.VIPPassId = 0
 Shop.VIPRobux = 299

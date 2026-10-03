@@ -79,6 +79,7 @@ local function defaults()
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
+		StarterPack = false, -- ya compró el pack de inicio
 	}
 end
 
@@ -168,6 +169,7 @@ local function publicView(player, data)
 		WeaponCamos = data.WeaponCamos,
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
+		StarterPackAvailable = not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -705,28 +707,63 @@ local function processReceipt(receipt)
 	if table.find(data.Purchases, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
-	local pack
-	for _, p in Shop.CoinPacks do
-		if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
-			pack = p
+	-- Qué se entrega: un pack de monedas o el pack de inicio
+	local grant, undo, message
+	local starter = Shop.StarterPack
+	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
+		local had = {
+			Coins = data.Coins,
+			Outfit = data.Outfits[starter.Outfit],
+			Skin = data.Skins[starter.Skin],
+			Effect = data.KillEffects[starter.KillEffect],
+			Bought = data.StarterPack,
+		}
+		grant = function()
+			data.Coins += starter.Coins
+			data.Outfits[starter.Outfit] = true
+			data.Skins[starter.Skin] = true
+			data.KillEffects[starter.KillEffect] = true
+			data.StarterPack = true
 		end
+		undo = function()
+			data.Coins = had.Coins
+			data.Outfits[starter.Outfit] = had.Outfit
+			data.Skins[starter.Skin] = had.Skin
+			data.KillEffects[starter.KillEffect] = had.Effect
+			data.StarterPack = had.Bought
+		end
+		message = "¡PACK DE INICIO DESBLOQUEADO!"
+	else
+		local pack
+		for _, p in Shop.CoinPacks do
+			if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
+				pack = p
+			end
+		end
+		if not pack then
+			warn("[PlayerData] Producto desconocido:", receipt.ProductId)
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		grant = function()
+			data.Coins += pack.Coins
+		end
+		undo = function()
+			data.Coins -= pack.Coins
+		end
+		message = "+" .. pack.Coins .. " MONEDAS"
 	end
-	if not pack then
-		warn("[PlayerData] Producto desconocido:", receipt.ProductId)
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-	data.Coins += pack.Coins
+	grant()
 	table.insert(data.Purchases, receipt.PurchaseId)
 	while #data.Purchases > MAX_PURCHASE_LOG do
 		table.remove(data.Purchases, 1)
 	end
 	if not store or noSave[player] or not save(player) then
 		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
-		data.Coins -= pack.Coins
+		undo()
 		table.remove(data.Purchases)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	Remotes.Notify:FireClient(player, "Big", "+" .. pack.Coins .. " MONEDAS")
+	Remotes.Notify:FireClient(player, "Big", message)
 	sendUpdate(player)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end

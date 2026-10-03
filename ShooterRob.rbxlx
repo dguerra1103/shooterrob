@@ -617,6 +617,18 @@ Shop.CoinPacks = {
 	{ Name = "Bóveda", Coins = 8000, Robux = 449, ProductId = 0, Tag = "MEJOR VALOR" },
 }
 
+-- Pack de inicio (Developer Product de compra única): solo se ofrece a jugadores nuevos.
+-- Vale mucho más que su precio en Robux para que sea la primera compra fácil.
+Shop.StarterPack = {
+	ProductId = 0, -- pega aquí el ID del Developer Product
+	Robux = 99,
+	MaxLevel = 15, -- se deja de ofrecer a partir de este nivel
+	Coins = 1500,
+	Outfit = "BlazeRunner",
+	Skin = "Sakura",
+	KillEffect = "Confeti",
+}
+
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra
 Shop.VIPPassId = 0
 Shop.VIPRobux = 299
@@ -6735,6 +6747,7 @@ local function defaults()
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
+		StarterPack = false, -- ya compró el pack de inicio
 	}
 end
 
@@ -6824,6 +6837,7 @@ local function publicView(player, data)
 		WeaponCamos = data.WeaponCamos,
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
+		StarterPackAvailable = not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -7361,28 +7375,63 @@ local function processReceipt(receipt)
 	if table.find(data.Purchases, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
-	local pack
-	for _, p in Shop.CoinPacks do
-		if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
-			pack = p
+	-- Qué se entrega: un pack de monedas o el pack de inicio
+	local grant, undo, message
+	local starter = Shop.StarterPack
+	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
+		local had = {
+			Coins = data.Coins,
+			Outfit = data.Outfits[starter.Outfit],
+			Skin = data.Skins[starter.Skin],
+			Effect = data.KillEffects[starter.KillEffect],
+			Bought = data.StarterPack,
+		}
+		grant = function()
+			data.Coins += starter.Coins
+			data.Outfits[starter.Outfit] = true
+			data.Skins[starter.Skin] = true
+			data.KillEffects[starter.KillEffect] = true
+			data.StarterPack = true
 		end
+		undo = function()
+			data.Coins = had.Coins
+			data.Outfits[starter.Outfit] = had.Outfit
+			data.Skins[starter.Skin] = had.Skin
+			data.KillEffects[starter.KillEffect] = had.Effect
+			data.StarterPack = had.Bought
+		end
+		message = "¡PACK DE INICIO DESBLOQUEADO!"
+	else
+		local pack
+		for _, p in Shop.CoinPacks do
+			if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
+				pack = p
+			end
+		end
+		if not pack then
+			warn("[PlayerData] Producto desconocido:", receipt.ProductId)
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		grant = function()
+			data.Coins += pack.Coins
+		end
+		undo = function()
+			data.Coins -= pack.Coins
+		end
+		message = "+" .. pack.Coins .. " MONEDAS"
 	end
-	if not pack then
-		warn("[PlayerData] Producto desconocido:", receipt.ProductId)
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-	data.Coins += pack.Coins
+	grant()
 	table.insert(data.Purchases, receipt.PurchaseId)
 	while #data.Purchases > MAX_PURCHASE_LOG do
 		table.remove(data.Purchases, 1)
 	end
 	if not store or noSave[player] or not save(player) then
 		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
-		data.Coins -= pack.Coins
+		undo()
 		table.remove(data.Purchases)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	Remotes.Notify:FireClient(player, "Big", "+" .. pack.Coins .. " MONEDAS")
+	Remotes.Notify:FireClient(player, "Big", message)
 	sendUpdate(player)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
@@ -10433,7 +10482,7 @@ local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase, dailyButton
+local gui, root, infoLabel, showcase, dailyButton, starterButton
 local blur
 local orbitAngle = 0
 local controls
@@ -10490,6 +10539,9 @@ local function refreshInfo()
 	local data = ClientState.Data
 	if dailyButton then
 		dailyButton.Visible = data ~= nil and data.DailyAvailable == true
+	end
+	if starterButton then
+		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
 	end
 	if infoLabel then
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
@@ -10731,7 +10783,7 @@ function MainMenu.Init()
 
 	local buttons = UI.new("Frame", {
 		Position = UDim2.fromOffset(0, 175),
-		Size = UDim2.fromOffset(300, 380),
+		Size = UDim2.fromOffset(300, 440),
 		BackgroundTransparency = 1,
 		Parent = left,
 	}, {
@@ -10762,13 +10814,28 @@ function MainMenu.Init()
 			dailyButton.Visible = false
 		end
 	end)
+	-- Pack de inicio para jugadores nuevos
+	starterButton = bigButton("🔥  PACK DE INICIO", Color3.fromRGB(230, 70, 60), 6, buttons)
+	starterButton.Visible = false
+	starterButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		Menu.Open("Tienda")
+	end)
+	-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scale = dailyButton:FindFirstChildOfClass("UIScale")
+		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
+		local buttonsList = { dailyButton, starterButton }
 		while gui.Parent and ClientState.InMainMenu do
-			if dailyButton.Visible and scale then
-				TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
-				task.wait(0.5)
-				TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+			for i, button in buttonsList do
+				if button.Visible and scales[i] then
+					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
+				end
+			end
+			task.wait(0.5)
+			for i in buttonsList do
+				if scales[i] then
+					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+				end
 			end
 			task.wait(0.5)
 		end
@@ -11874,6 +11941,66 @@ end
 
 local function buildShopPage(data)
 	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
+
+	-- Pack de inicio (solo jugadores nuevos, una vez)
+	local starter = Shop.StarterPack
+	if data.StarterPackAvailable then
+		local card = UI.new("Frame", {
+			LayoutOrder = 0,
+			Size = UDim2.new(1, -10, 0, 130),
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			Parent = scroll,
+		}, {
+			UI.corner(14),
+			UI.stroke(GOLD, 3, 0),
+			UI.new("UIGradient", {
+				Color = ColorSequence.new(Color3.fromRGB(255, 90, 40), Color3.fromRGB(150, 40, 200)),
+				Rotation = 0,
+			}),
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 8),
+			Size = UDim2.new(1, -280, 0, 36),
+			Text = "🔥 PACK DE INICIO  ·  solo una vez",
+			TextSize = 28,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 48),
+			Size = UDim2.new(1, -280, 0, 72),
+			Text = string.format(
+				"🪙 %d monedas  ·  👕 Traje %s  ·  🎨 Skin %s  ·  %s Efecto %s\n¡Vale más de 4 veces su precio!",
+				starter.Coins,
+				Outfits.Get(starter.Outfit).Name,
+				Skins.Get(starter.Skin).Name,
+				KillEffects.Get(starter.KillEffect).Icon,
+				KillEffects.Get(starter.KillEffect).Name
+			),
+			TextSize = 18,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Parent = card,
+		})
+		local buyStarter = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -18, 0.5, 0),
+			Size = UDim2.fromOffset(230, 60),
+			Text = starter.ProductId ~= 0 and ("R$ " .. starter.Robux .. "  ¡COMPRAR!") or "Próximamente",
+			TextSize = 24,
+			BackgroundColor3 = starter.ProductId ~= 0 and GREEN or GREY,
+			Parent = card,
+		}, { UI.gloss() })
+		buyStarter.Activated:Connect(function()
+			if starter.ProductId ~= 0 then
+				Sounds.Play("Click")
+				MarketplaceService:PromptProductPurchase(player, starter.ProductId)
+			else
+				showToast("Próximamente")
+			end
+		end)
+	end
 
 	-- Recompensa diaria
 	local daily = UI.new("Frame", {
