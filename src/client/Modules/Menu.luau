@@ -1,7 +1,6 @@
 -- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
-local UserInputService = game:GetService("UserInputService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1164,10 +1163,19 @@ end
 
 ---------------------------------------------------------------------------
 
+local lastBuiltTab = nil
+
 local function refresh()
 	if not content then
 		return
 	end
+	-- Si se reconstruye la misma pestaña, se mantiene la posición del scroll
+	local keepScroll = nil
+	if lastBuiltTab == currentTab then
+		local old = content:FindFirstChildOfClass("ScrollingFrame")
+		keepScroll = old and old.CanvasPosition
+	end
+	lastBuiltTab = currentTab
 	for _, child in content:GetChildren() do
 		child:Destroy()
 	end
@@ -1195,13 +1203,20 @@ local function refresh()
 	else
 		buildShopPage(data)
 	end
+	if keepScroll then
+		local scroll = content:FindFirstChildOfClass("ScrollingFrame")
+		if scroll then
+			task.defer(function()
+				scroll.CanvasPosition = keepScroll
+			end)
+		end
+	end
 end
 
 local function setOpen(open)
 	ClientState.MenuOpen = open
 	panel.Visible = open
-	-- En la pantalla de inicio el ratón siempre se ve
-	UserInputService.MouseIconEnabled = open or ClientState.InMainMenu
+	ClientState.UpdateMouse()
 	if open then
 		refresh()
 	end
@@ -1363,10 +1378,19 @@ function Menu.Init()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.B, Enum.KeyCode.ButtonSelect)
 
+	-- Una baja puede mandar varias actualizaciones seguidas: se agrupan en una sola reconstrucción
+	local refreshQueued = false
 	ClientState.DataChanged.Event:Connect(function()
-		if panel.Visible then
-			refresh()
+		if not panel.Visible or refreshQueued then
+			return
 		end
+		refreshQueued = true
+		task.delay(0.4, function()
+			refreshQueued = false
+			if panel.Visible then
+				refresh()
+			end
+		end)
 	end)
 end
 

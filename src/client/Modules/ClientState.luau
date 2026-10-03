@@ -1,7 +1,8 @@
 -- Estado compartido entre los módulos del cliente.
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
-	MenuOpen = false,
+	MenuOpen = false, -- menú del pase/tienda abierto
+	VoteOpen = false, -- panel de votación con el ratón libre
 	InMainMenu = true, -- pantalla de inicio visible
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
@@ -23,7 +24,12 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.InMainMenu
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
+end
+
+-- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)
+function ClientState.UpdateMouse()
+	game:GetService("UserInputService").MouseIconEnabled = ClientState.IsBlocked()
 end
 
 function ClientState.SetData(data)

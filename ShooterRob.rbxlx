@@ -2881,6 +2881,12 @@ end
 local function hasLineOfSight(origin, target, ignore)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
+	ignore = table.clone(ignore)
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary) -- muros invisibles del borde del mapa
+	end
 	params.FilterDescendantsInstances = ignore
 	local offset = target - origin
 	local distance = offset.Magnitude - 1.5
@@ -3178,6 +3184,10 @@ local function onMelee(player, part)
 		return
 	end
 	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar)) then
+		return
+	end
+	-- Nada de cuchillazos a través de paredes
+	if not hasLineOfSight(root.Position, targetRoot.Position, { character, targetChar }) then
 		return
 	end
 	removeSpawnShield(character)
@@ -3513,6 +3523,12 @@ end
 local function groundBelow(position, ignore)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
+	ignore = table.clone(ignore)
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
 	params.FilterDescendantsInstances = ignore
 	local result = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -60, 0), params)
 	return result and result.Position or position - Vector3.new(0, 3, 0)
@@ -3640,7 +3656,8 @@ local function step()
 				returnHome(flag, nil)
 			end
 			for _, player in Players:GetPlayers() do
-				if player.Team and flag.State ~= "Carried" then
+				-- Quien sigue en la pantalla de inicio (invulnerable) no puede coger ni devolver banderas
+				if player.Team and flag.State ~= "Carried" and not player:GetAttribute("InMenu") then
 					local character, root = aliveCharacter(player)
 					if character and isNear(root.Position, flag.Position, SETTINGS.PickupRadius) then
 						if player.Team == flag.Team then
@@ -3833,7 +3850,7 @@ local function playersInZone(zone)
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if player.Team and humanoid and humanoid.Health > 0 and root then
+		if player.Team and humanoid and humanoid.Health > 0 and root and not player:GetAttribute("InMenu") then
 			local offset = root.Position - center
 			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -3 and offset.Y < 10 then
 				byTeam[player.Team] = byTeam[player.Team] or {}
@@ -3926,21 +3943,57 @@ return Hardpoint
         <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">Hazards</string>
-            <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava (material CrackedLava) quita vida cada cuarto de segundo.
+            <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava quita vida cada cuarto de segundo.
+-- Se detecta de dos formas, por si una falla en el servidor: el material del suelo (CrackedLava)
+-- y un rayo hacia abajo contra las piezas marcadas con el atributo Hazard = "Lava".
 local Players = game:GetService("Players")
 
 local Hazards = {}
 
 local LAVA_DAMAGE = 10 -- por cada 0.25 s
+local RAY_LENGTH = 4.5 -- desde el centro del personaje hasta un poco por debajo de los pies
+
+local cachedMap, lavaParts = nil, {}
+local params = RaycastParams.new()
+params.FilterType = Enum.RaycastFilterType.Include
+
+local function refreshLava()
+	local map = workspace:FindFirstChild("Map")
+	if map == cachedMap then
+		return
+	end
+	cachedMap = map
+	lavaParts = {}
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("Hazard") == "Lava" then
+				table.insert(lavaParts, d)
+			end
+		end
+	end
+	params.FilterDescendantsInstances = lavaParts
+end
+
+local function onLava(humanoid, root)
+	if humanoid.FloorMaterial == Enum.Material.CrackedLava then
+		return true
+	end
+	if #lavaParts == 0 then
+		return false
+	end
+	return workspace:Raycast(root.Position, Vector3.new(0, -RAY_LENGTH, 0), params) ~= nil
+end
 
 function Hazards.Init()
 	task.spawn(function()
 		while true do
 			task.wait(0.25)
+			refreshLava()
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-				if humanoid and humanoid.Health > 0 and humanoid.FloorMaterial == Enum.Material.CrackedLava then
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				if humanoid and root and humanoid.Health > 0 and onLava(humanoid, root) then
 					humanoid:SetAttribute("LastAttacker", nil)
 					humanoid:SetAttribute("LastWeapon", nil)
 					humanoid:TakeDamage(LAVA_DAMAGE)
@@ -4008,12 +4061,7 @@ local function giveLoadout(player, character)
 	if player.Character ~= character then
 		return
 	end
-	local list = Loadout.Override and Loadout.Override(player)
-	if not list then
-		local primary = data and data.Primary or "ARX27"
-		local secondary = data and data.Secondary or Weapons.Secondary
-		list = { primary, secondary, Weapons.Melee }
-	end
+	local list = Loadout.Override and Loadout.Override(player) or Loadout.DefaultList(data)
 
 	-- Traje de operador (solo R15)
 	if data and data.EquippedOutfit ~= "Default" then
@@ -4022,6 +4070,21 @@ local function giveLoadout(player, character)
 	end
 
 	Loadout.Give(player, list)
+end
+
+-- Armas elegidas por el jugador (principal, secundaria y cuchillo)
+function Loadout.DefaultList(data)
+	local primary = data and data.Primary or "ARX27"
+	local secondary = data and data.Secondary or Weapons.Secondary
+	return { primary, secondary, Weapons.Melee }
+end
+
+-- Devuelve sus armas de siempre a un jugador vivo (por ejemplo al acabar la Escalada)
+function Loadout.GiveDefault(player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		Loadout.Give(player, Loadout.DefaultList(PlayerData.Get(player)))
+	end
 end
 
 -- Da al jugador exactamente estas armas (y equipa la primera).
@@ -4881,8 +4944,12 @@ function Map.Build()
 	-- Techo invisible para que nadie salga del mapa
 	local ceiling = block("Ceiling", Vector3.new(LENGTH, 1, WIDTH), CFrame.new(0, WALL_HEIGHT + 12, 0), Color3.new(1, 1, 1))
 	ceiling.Transparency = 1
-	ceiling.CanQuery = false
 	ceiling.CastShadow = false
+	-- Los disparos ignoran la carpeta Boundary
+	local boundary = Instance.new("Folder")
+	boundary.Name = "Boundary"
+	boundary.Parent = ceiling.Parent
+	ceiling.Parent = boundary
 
 	-- Carteles gigantes con el nombre del juego sobre los muros largos
 	for _, side in { -1, 1 } do
@@ -5981,7 +6048,6 @@ end
 function Kit.lava(size, cf)
 	local lava = block("Lava", size, cf, RGB(255, 100, 20), Enum.Material.CrackedLava)
 	lava:SetAttribute("Hazard", "Lava")
-	lava.CanQuery = false
 	local glow = deco("LavaGlow", V(size.X, 0.1, size.Z), cf * CFrame.new(0, size.Y / 2 + 0.05, 0), RGB(255, 140, 30), Enum.Material.Neon)
 	glow.Transparency = 0.4
 	Kit.light(glow, "SurfaceLight", RGB(255, 120, 30), 16, 1.2, Enum.NormalId.Top)
@@ -6172,11 +6238,15 @@ function Kit.zone(position, radius, order)
 end
 
 -- Muros exteriores invisibles (y techo) para que nadie se salga
+-- Muros y techo invisibles. Van en la carpeta Map.Boundary, que los disparos ignoran
+-- (CanQuery = false no sirve en piezas que colisionan, así que se excluyen en cada raycast).
 function Kit.bounds(length, width, height)
+	local folder = Kit.folder:FindFirstChild("Boundary") or Instance.new("Folder")
+	folder.Name = "Boundary"
+	folder.Parent = Kit.folder
 	local function wall(size, cf)
-		local w = block("Boundary", size, cf, Color3.new(1, 1, 1))
+		local w = block("Boundary", size, cf, Color3.new(1, 1, 1), nil, folder)
 		w.Transparency = 1
-		w.CanQuery = false
 		w.CastShadow = false
 	end
 	wall(V(length, height, 4), CFrame.new(0, height / 2, width / 2 + 2))
@@ -6313,6 +6383,15 @@ local cratesRestricted = {} -- países donde no se permiten objetos aleatorios d
 
 local STARTING_COINS = 250
 local MAX_PURCHASE_LOG = 60
+-- Bloqueo de sesión: un servidor "reserva" los datos del jugador mientras está dentro, para que otro
+-- servidor no lea datos viejos y los sobrescriba (por ejemplo al cambiar rápido de servidor).
+local LOCK_TIMEOUT = 600 -- si el servidor que tenía el bloqueo se cayó, a los 10 min se puede quitar
+local LOCK_WAIT = 25 -- segundos máximos esperando a que el otro servidor suelte los datos
+local SAVE_COOLDOWN = 7 -- Roblox permite ~1 escritura por clave cada 6 s
+
+local saving = {} -- jugadores con un guardado en curso
+local dirty = {} -- jugadores con cambios pendientes de guardar
+local saveScheduled = {}
 
 local function defaults()
 	return {
@@ -6512,14 +6591,31 @@ local function load(player)
 	local data
 	if store then
 		local loaded, result = false, nil
-		for attempt = 1, 3 do
+		local started = os.clock()
+		local attempt = 0
+		while player.Parent do
+			attempt += 1
+			local locked = false
+			local force = os.clock() - started > LOCK_WAIT
 			loaded, result = pcall(function()
-				return store:GetAsync(key(player))
+				return store:UpdateAsync(key(player), function(old)
+					local lock = type(old) == "table" and old.SessionLock
+					if type(lock) == "table" and lock.Job ~= game.JobId and not force and os.time() - (lock.Time or 0) < LOCK_TIMEOUT then
+						locked = true
+						return nil -- otro servidor aún tiene los datos: no tocamos nada
+					end
+					old = type(old) == "table" and old or {}
+					old.SessionLock = { Job = game.JobId, Time = os.time() }
+					return old
+				end)
 			end)
-			if loaded then
+			if loaded and not locked then
 				break
 			end
-			task.wait(attempt)
+			if not loaded and attempt >= 3 then
+				break
+			end
+			task.wait(loaded and 3 or attempt)
 		end
 		if loaded then
 			data = result
@@ -6530,7 +6626,7 @@ local function load(player)
 	end
 
 	local merged = defaults()
-	local isNew = type(data) ~= "table"
+	local isNew = type(data) ~= "table" or data.Level == nil
 	if not isNew then
 		for k, v in data do
 			merged[k] = v
@@ -6565,6 +6661,8 @@ local function load(player)
 	checkPolicy(player)
 
 	if not player.Parent then
+		noSave[player] = nil
+		cratesRestricted[player] = nil
 		return
 	end
 	profiles[player] = merged
@@ -6573,18 +6671,57 @@ local function load(player)
 	sendUpdate(player)
 end
 
-local function save(player)
+-- Guarda los datos. release = true al salir el jugador: suelta el bloqueo de sesión.
+local function save(player, release)
 	local data = profiles[player]
 	if not data or not store or noSave[player] then
 		return false
 	end
+	-- Espera a que acabe otro guardado de este jugador (no pisar escrituras)
+	local waited = 0
+	while saving[player] and waited < 15 do
+		task.wait(0.5)
+		waited += 0.5
+	end
+	saving[player] = true
+	dirty[player] = nil
+	local stolen = false
 	local ok, err = pcall(function()
-		store:SetAsync(key(player), data)
+		store:UpdateAsync(key(player), function(old)
+			local lock = type(old) == "table" and old.SessionLock
+			if type(lock) == "table" and lock.Job ~= game.JobId then
+				stolen = true
+				return nil -- otro servidor tiene ahora los datos: no los sobrescribimos
+			end
+			data.SessionLock = if release then nil else { Job = game.JobId, Time = os.time() }
+			return data
+		end)
 	end)
+	saving[player] = nil
 	if not ok then
 		warn("[PlayerData] Error al guardar", player.Name, err)
+		dirty[player] = true
+	elseif stolen then
+		warn("[PlayerData] Otro servidor tiene los datos de", player.Name, "- no se guardan aquí")
+		noSave[player] = true
+		return false
 	end
 	return ok
+end
+
+-- Pide un guardado pronto, agrupando varios cambios seguidos en una sola escritura
+local function requestSave(player)
+	dirty[player] = true
+	if saveScheduled[player] then
+		return
+	end
+	saveScheduled[player] = true
+	task.delay(SAVE_COOLDOWN, function()
+		saveScheduled[player] = nil
+		if dirty[player] and player.Parent then
+			save(player)
+		end
+	end)
 end
 
 function PlayerData.Get(player)
@@ -6766,7 +6903,7 @@ local function buyItem(player, kind, id)
 		data.Outfits[id] = true
 	end
 	sendUpdate(player)
-	task.spawn(save, player)
+	requestSave(player)
 	return true, "¡Comprado!"
 end
 
@@ -6870,7 +7007,7 @@ local function openCrate(player, crateId, useFree)
 		data.Outfits[prize.Id] = true
 	end
 	sendUpdate(player)
-	task.spawn(save, player)
+	requestSave(player)
 	return true, { Kind = prize.Kind, Id = prize.Id, Rarity = rarity, Duplicate = owned, Refund = refund }
 end
 
@@ -6902,8 +7039,8 @@ local function processReceipt(receipt)
 	while #data.Purchases > MAX_PURCHASE_LOG do
 		table.remove(data.Purchases, 1)
 	end
-	if store and not noSave[player] and not save(player) then
-		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde
+	if not store or noSave[player] or not save(player) then
+		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
 		data.Coins -= pack.Coins
 		table.remove(data.Purchases)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
@@ -6925,18 +7062,31 @@ function PlayerData.Init()
 		task.spawn(load, player)
 	end
 
+	local pending = 0
 	Players.PlayerRemoving:Connect(function(player)
-		save(player)
+		pending += 1
+		save(player, true)
+		pending -= 1
 		profiles[player] = nil
 		noSave[player] = nil
 		cratesRestricted[player] = nil
+		dirty[player] = nil
+		saveScheduled[player] = nil
 	end)
 
+	-- Al cerrar el servidor espera a que terminen todos los guardados (máx. ~25 s)
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
-			task.spawn(save, player)
+			pending += 1
+			task.spawn(function()
+				save(player, true)
+				pending -= 1
+			end)
 		end
-		task.wait(3)
+		local start = os.clock()
+		while pending > 0 and os.clock() - start < 25 do
+			task.wait(0.2)
+		end
 	end)
 
 	-- Autoguardado
@@ -7156,11 +7306,11 @@ local function addScore(team, amount)
 end
 
 -- Líder individual (modos sin equipos)
-local function updateLeader()
+local function updateLeader(leaving)
 	local best, bestScore = nil, -1
 	for _, player in Players:GetPlayers() do
 		local score = player:GetAttribute("Score") or 0
-		if score > bestScore then
+		if player ~= leaving and score > bestScore then
 			best, bestScore = player, score
 		end
 	end
@@ -7508,7 +7658,11 @@ local function endRound()
 		end
 	end
 
+	-- Premios solo para quien ha jugado (no para quien sigue en la pantalla de inicio)
 	for _, player in Players:GetPlayers() do
+		if player:GetAttribute("InMenu") then
+			continue
+		end
 		local won
 		if teamMode then
 			won = winner ~= nil and player.Team == winner
@@ -7523,14 +7677,12 @@ local function endRound()
 		else
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
 		end
-		if not player:GetAttribute("InMenu") then
-			PlayerData.Track(player, "Match", 1)
-		end
+		PlayerData.Track(player, "Match", 1)
 	end
 
 	Remotes.RoundEnd:FireAllClients({
 		TeamMode = teamMode,
-		Winner = teamMode and (winner and winner.Name) or (leader and leader.Name),
+		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
 		WinnerColor = winner and winner.TeamColor.Color or Color3.fromRGB(255, 200, 60),
 		ScoreA = scoreA,
 		ScoreB = scoreB,
@@ -7556,8 +7708,9 @@ local function startMode(mode)
 	Loadout.Override = mode == "GUN" and gunGameWeapons or nil
 end
 
-local function gameLoop()
-	while true do
+-- Una ronda completa: descanso con votación, partida y pantalla final
+local function playRound()
+	do
 		-- Descanso con votación
 		setState("Intermission")
 		table.clear(votes)
@@ -7569,15 +7722,20 @@ local function gameLoop()
 			task.wait(1)
 		end
 
-		-- Resultado de la votación (empate = al azar)
+		-- Resultado de la votación (empate = al azar entre los empatados)
 		local counts = publishVotes()
-		local bestIndex, bestCount = math.random(1, #voteOptions), -1
-		for i, c in counts do
-			if c > bestCount or (c == bestCount and math.random() < 0.5) then
-				bestIndex, bestCount = i, c
+		local bestCount = -1
+		local ties = {}
+		for i = 1, #voteOptions do
+			local c = counts[i] or 0
+			if c > bestCount then
+				bestCount = c
+				ties = { i }
+			elseif c == bestCount then
+				table.insert(ties, i)
 			end
 		end
-		local choice = voteOptions[bestIndex]
+		local choice = voteOptions[ties[math.random(1, #ties)]]
 		clearVotes()
 
 		local mode = choice.Mode
@@ -7621,7 +7779,28 @@ local function gameLoop()
 		Flags.Stop()
 		Hardpoint.Stop()
 		Loadout.Override = nil
+		if mode == "GUN" then
+			-- Fuera de la Escalada cada uno recupera sus armas
+			for _, player in Players:GetPlayers() do
+				Loadout.GiveDefault(player)
+			end
+		end
 		endRound()
+	end
+end
+
+local function gameLoop()
+	while true do
+		-- Si algo falla en una ronda, el servidor no se queda colgado: se limpia y empieza otra
+		local ok, err = xpcall(playRound, debug.traceback)
+		if not ok then
+			warn("[Round] Error en la ronda, se reinicia:", err)
+			pcall(Flags.Stop)
+			pcall(Hardpoint.Stop)
+			Loadout.Override = nil
+			roundOver = true
+			task.wait(3)
+		end
 	end
 end
 
@@ -7658,7 +7837,7 @@ function Round.Init()
 	Players.PlayerAdded:Connect(onPlayer)
 	Players.PlayerRemoving:Connect(function(player)
 		votes[player] = nil
-		updateLeader()
+		updateLeader(player)
 	end)
 	for _, player in Players:GetPlayers() do
 		if not player.Team then
@@ -7739,7 +7918,8 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
-	MenuOpen = false,
+	MenuOpen = false, -- menú del pase/tienda abierto
+	VoteOpen = false, -- panel de votación con el ratón libre
 	InMainMenu = true, -- pantalla de inicio visible
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
@@ -7761,7 +7941,12 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.InMainMenu
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
+end
+
+-- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)
+function ClientState.UpdateMouse()
+	game:GetService("UserInputService").MouseIconEnabled = ClientState.IsBlocked()
 end
 
 function ClientState.SetData(data)
@@ -9522,6 +9707,8 @@ local function bigButton(text, color, order, parent)
 	return button
 end
 
+local shownWeapon = nil
+
 local function refreshInfo()
 	local data = ClientState.Data
 	if dailyButton then
@@ -9531,11 +9718,13 @@ local function refreshInfo()
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
 			or "Cargando..."
 	end
-	-- Arma principal con la skin equipada, a la derecha
-	if showcase then
-		showcase:ClearAllChildren()
-		if data then
-			local primary = data.Primary or "ARX27"
+	-- Arma principal con la skin equipada, a la derecha (solo se rehace si cambia)
+	if showcase and data and ClientState.InMainMenu then
+		local primary = data.Primary or "ARX27"
+		local key = primary .. "/" .. tostring(Menu.SkinFor(data, primary))
+		if key ~= shownWeapon then
+			shownWeapon = key
+			showcase:ClearAllChildren()
 			WeaponIcon.Create(primary, Menu.SkinFor(data, primary), { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
 		end
 	end
@@ -9570,9 +9759,7 @@ local function play()
 		if ctrl then
 			ctrl:Enable()
 		end
-		if not Menu.IsOpen() then
-			UserInputService.MouseIconEnabled = false
-		end
+		ClientState.UpdateMouse()
 	end)
 end
 
@@ -9781,7 +9968,6 @@ return MainMenu
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
-local UserInputService = game:GetService("UserInputService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10944,10 +11130,19 @@ end
 
 ---------------------------------------------------------------------------
 
+local lastBuiltTab = nil
+
 local function refresh()
 	if not content then
 		return
 	end
+	-- Si se reconstruye la misma pestaña, se mantiene la posición del scroll
+	local keepScroll = nil
+	if lastBuiltTab == currentTab then
+		local old = content:FindFirstChildOfClass("ScrollingFrame")
+		keepScroll = old and old.CanvasPosition
+	end
+	lastBuiltTab = currentTab
 	for _, child in content:GetChildren() do
 		child:Destroy()
 	end
@@ -10975,13 +11170,20 @@ local function refresh()
 	else
 		buildShopPage(data)
 	end
+	if keepScroll then
+		local scroll = content:FindFirstChildOfClass("ScrollingFrame")
+		if scroll then
+			task.defer(function()
+				scroll.CanvasPosition = keepScroll
+			end)
+		end
+	end
 end
 
 local function setOpen(open)
 	ClientState.MenuOpen = open
 	panel.Visible = open
-	-- En la pantalla de inicio el ratón siempre se ve
-	UserInputService.MouseIconEnabled = open or ClientState.InMainMenu
+	ClientState.UpdateMouse()
 	if open then
 		refresh()
 	end
@@ -11143,10 +11345,19 @@ function Menu.Init()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.B, Enum.KeyCode.ButtonSelect)
 
+	-- Una baja puede mandar varias actualizaciones seguidas: se agrupan en una sola reconstrucción
+	local refreshQueued = false
 	ClientState.DataChanged.Event:Connect(function()
-		if panel.Visible then
-			refresh()
+		if not panel.Visible or refreshQueued then
+			return
 		end
+		refreshQueued = true
+		task.delay(0.4, function()
+			refreshQueued = false
+			if panel.Visible then
+				refresh()
+			end
+		end)
 	end)
 end
 
@@ -11440,7 +11651,6 @@ return UI
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -11470,8 +11680,8 @@ local MODE_ICONS = {
 local function setOpen(value)
 	open = value
 	modal.Visible = value
-	ClientState.MenuOpen = value
-	UserInputService.MouseIconEnabled = value or ClientState.InMainMenu
+	ClientState.VoteOpen = value
+	ClientState.UpdateMouse()
 end
 
 local function refresh()
@@ -11656,6 +11866,12 @@ local function updateRayFilter()
 	local fx = workspace:FindFirstChild("ClientFX")
 	if fx then
 		table.insert(ignore, fx)
+	end
+	-- Muros y techo invisibles del borde del mapa: las balas los atraviesan
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
 	end
 	rayParams.FilterDescendantsInstances = ignore
 end

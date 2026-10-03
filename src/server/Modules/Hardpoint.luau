@@ -124,7 +124,7 @@ local function playersInZone(zone)
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if player.Team and humanoid and humanoid.Health > 0 and root then
+		if player.Team and humanoid and humanoid.Health > 0 and root and not player:GetAttribute("InMenu") then
 			local offset = root.Position - center
 			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -3 and offset.Y < 10 then
 				byTeam[player.Team] = byTeam[player.Team] or {}

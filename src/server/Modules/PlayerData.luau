@@ -42,6 +42,15 @@ local cratesRestricted = {} -- países donde no se permiten objetos aleatorios d
 
 local STARTING_COINS = 250
 local MAX_PURCHASE_LOG = 60
+-- Bloqueo de sesión: un servidor "reserva" los datos del jugador mientras está dentro, para que otro
+-- servidor no lea datos viejos y los sobrescriba (por ejemplo al cambiar rápido de servidor).
+local LOCK_TIMEOUT = 600 -- si el servidor que tenía el bloqueo se cayó, a los 10 min se puede quitar
+local LOCK_WAIT = 25 -- segundos máximos esperando a que el otro servidor suelte los datos
+local SAVE_COOLDOWN = 7 -- Roblox permite ~1 escritura por clave cada 6 s
+
+local saving = {} -- jugadores con un guardado en curso
+local dirty = {} -- jugadores con cambios pendientes de guardar
+local saveScheduled = {}
 
 local function defaults()
 	return {
@@ -241,14 +250,31 @@ local function load(player)
 	local data
 	if store then
 		local loaded, result = false, nil
-		for attempt = 1, 3 do
+		local started = os.clock()
+		local attempt = 0
+		while player.Parent do
+			attempt += 1
+			local locked = false
+			local force = os.clock() - started > LOCK_WAIT
 			loaded, result = pcall(function()
-				return store:GetAsync(key(player))
+				return store:UpdateAsync(key(player), function(old)
+					local lock = type(old) == "table" and old.SessionLock
+					if type(lock) == "table" and lock.Job ~= game.JobId and not force and os.time() - (lock.Time or 0) < LOCK_TIMEOUT then
+						locked = true
+						return nil -- otro servidor aún tiene los datos: no tocamos nada
+					end
+					old = type(old) == "table" and old or {}
+					old.SessionLock = { Job = game.JobId, Time = os.time() }
+					return old
+				end)
 			end)
-			if loaded then
+			if loaded and not locked then
 				break
 			end
-			task.wait(attempt)
+			if not loaded and attempt >= 3 then
+				break
+			end
+			task.wait(loaded and 3 or attempt)
 		end
 		if loaded then
 			data = result
@@ -259,7 +285,7 @@ local function load(player)
 	end
 
 	local merged = defaults()
-	local isNew = type(data) ~= "table"
+	local isNew = type(data) ~= "table" or data.Level == nil
 	if not isNew then
 		for k, v in data do
 			merged[k] = v
@@ -294,6 +320,8 @@ local function load(player)
 	checkPolicy(player)
 
 	if not player.Parent then
+		noSave[player] = nil
+		cratesRestricted[player] = nil
 		return
 	end
 	profiles[player] = merged
@@ -302,18 +330,57 @@ local function load(player)
 	sendUpdate(player)
 end
 
-local function save(player)
+-- Guarda los datos. release = true al salir el jugador: suelta el bloqueo de sesión.
+local function save(player, release)
 	local data = profiles[player]
 	if not data or not store or noSave[player] then
 		return false
 	end
+	-- Espera a que acabe otro guardado de este jugador (no pisar escrituras)
+	local waited = 0
+	while saving[player] and waited < 15 do
+		task.wait(0.5)
+		waited += 0.5
+	end
+	saving[player] = true
+	dirty[player] = nil
+	local stolen = false
 	local ok, err = pcall(function()
-		store:SetAsync(key(player), data)
+		store:UpdateAsync(key(player), function(old)
+			local lock = type(old) == "table" and old.SessionLock
+			if type(lock) == "table" and lock.Job ~= game.JobId then
+				stolen = true
+				return nil -- otro servidor tiene ahora los datos: no los sobrescribimos
+			end
+			data.SessionLock = if release then nil else { Job = game.JobId, Time = os.time() }
+			return data
+		end)
 	end)
+	saving[player] = nil
 	if not ok then
 		warn("[PlayerData] Error al guardar", player.Name, err)
+		dirty[player] = true
+	elseif stolen then
+		warn("[PlayerData] Otro servidor tiene los datos de", player.Name, "- no se guardan aquí")
+		noSave[player] = true
+		return false
 	end
 	return ok
+end
+
+-- Pide un guardado pronto, agrupando varios cambios seguidos en una sola escritura
+local function requestSave(player)
+	dirty[player] = true
+	if saveScheduled[player] then
+		return
+	end
+	saveScheduled[player] = true
+	task.delay(SAVE_COOLDOWN, function()
+		saveScheduled[player] = nil
+		if dirty[player] and player.Parent then
+			save(player)
+		end
+	end)
 end
 
 function PlayerData.Get(player)
@@ -495,7 +562,7 @@ local function buyItem(player, kind, id)
 		data.Outfits[id] = true
 	end
 	sendUpdate(player)
-	task.spawn(save, player)
+	requestSave(player)
 	return true, "¡Comprado!"
 end
 
@@ -599,7 +666,7 @@ local function openCrate(player, crateId, useFree)
 		data.Outfits[prize.Id] = true
 	end
 	sendUpdate(player)
-	task.spawn(save, player)
+	requestSave(player)
 	return true, { Kind = prize.Kind, Id = prize.Id, Rarity = rarity, Duplicate = owned, Refund = refund }
 end
 
@@ -631,8 +698,8 @@ local function processReceipt(receipt)
 	while #data.Purchases > MAX_PURCHASE_LOG do
 		table.remove(data.Purchases, 1)
 	end
-	if store and not noSave[player] and not save(player) then
-		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde
+	if not store or noSave[player] or not save(player) then
+		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
 		data.Coins -= pack.Coins
 		table.remove(data.Purchases)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
@@ -654,18 +721,31 @@ function PlayerData.Init()
 		task.spawn(load, player)
 	end
 
+	local pending = 0
 	Players.PlayerRemoving:Connect(function(player)
-		save(player)
+		pending += 1
+		save(player, true)
+		pending -= 1
 		profiles[player] = nil
 		noSave[player] = nil
 		cratesRestricted[player] = nil
+		dirty[player] = nil
+		saveScheduled[player] = nil
 	end)
 
+	-- Al cerrar el servidor espera a que terminen todos los guardados (máx. ~25 s)
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
-			task.spawn(save, player)
+			pending += 1
+			task.spawn(function()
+				save(player, true)
+				pending -= 1
+			end)
 		end
-		task.wait(3)
+		local start = os.clock()
+		while pending > 0 and os.clock() - start < 25 do
+			task.wait(0.2)
+		end
 	end)
 
 	-- Autoguardado

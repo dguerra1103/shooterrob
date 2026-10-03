@@ -77,11 +77,11 @@ local function addScore(team, amount)
 end
 
 -- Líder individual (modos sin equipos)
-local function updateLeader()
+local function updateLeader(leaving)
 	local best, bestScore = nil, -1
 	for _, player in Players:GetPlayers() do
 		local score = player:GetAttribute("Score") or 0
-		if score > bestScore then
+		if player ~= leaving and score > bestScore then
 			best, bestScore = player, score
 		end
 	end
@@ -429,7 +429,11 @@ local function endRound()
 		end
 	end
 
+	-- Premios solo para quien ha jugado (no para quien sigue en la pantalla de inicio)
 	for _, player in Players:GetPlayers() do
+		if player:GetAttribute("InMenu") then
+			continue
+		end
 		local won
 		if teamMode then
 			won = winner ~= nil and player.Team == winner
@@ -444,14 +448,12 @@ local function endRound()
 		else
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
 		end
-		if not player:GetAttribute("InMenu") then
-			PlayerData.Track(player, "Match", 1)
-		end
+		PlayerData.Track(player, "Match", 1)
 	end
 
 	Remotes.RoundEnd:FireAllClients({
 		TeamMode = teamMode,
-		Winner = teamMode and (winner and winner.Name) or (leader and leader.Name),
+		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
 		WinnerColor = winner and winner.TeamColor.Color or Color3.fromRGB(255, 200, 60),
 		ScoreA = scoreA,
 		ScoreB = scoreB,
@@ -477,8 +479,9 @@ local function startMode(mode)
 	Loadout.Override = mode == "GUN" and gunGameWeapons or nil
 end
 
-local function gameLoop()
-	while true do
+-- Una ronda completa: descanso con votación, partida y pantalla final
+local function playRound()
+	do
 		-- Descanso con votación
 		setState("Intermission")
 		table.clear(votes)
@@ -490,15 +493,20 @@ local function gameLoop()
 			task.wait(1)
 		end
 
-		-- Resultado de la votación (empate = al azar)
+		-- Resultado de la votación (empate = al azar entre los empatados)
 		local counts = publishVotes()
-		local bestIndex, bestCount = math.random(1, #voteOptions), -1
-		for i, c in counts do
-			if c > bestCount or (c == bestCount and math.random() < 0.5) then
-				bestIndex, bestCount = i, c
+		local bestCount = -1
+		local ties = {}
+		for i = 1, #voteOptions do
+			local c = counts[i] or 0
+			if c > bestCount then
+				bestCount = c
+				ties = { i }
+			elseif c == bestCount then
+				table.insert(ties, i)
 			end
 		end
-		local choice = voteOptions[bestIndex]
+		local choice = voteOptions[ties[math.random(1, #ties)]]
 		clearVotes()
 
 		local mode = choice.Mode
@@ -542,7 +550,28 @@ local function gameLoop()
 		Flags.Stop()
 		Hardpoint.Stop()
 		Loadout.Override = nil
+		if mode == "GUN" then
+			-- Fuera de la Escalada cada uno recupera sus armas
+			for _, player in Players:GetPlayers() do
+				Loadout.GiveDefault(player)
+			end
+		end
 		endRound()
+	end
+end
+
+local function gameLoop()
+	while true do
+		-- Si algo falla en una ronda, el servidor no se queda colgado: se limpia y empieza otra
+		local ok, err = xpcall(playRound, debug.traceback)
+		if not ok then
+			warn("[Round] Error en la ronda, se reinicia:", err)
+			pcall(Flags.Stop)
+			pcall(Hardpoint.Stop)
+			Loadout.Override = nil
+			roundOver = true
+			task.wait(3)
+		end
 	end
 end
 
@@ -579,7 +608,7 @@ function Round.Init()
 	Players.PlayerAdded:Connect(onPlayer)
 	Players.PlayerRemoving:Connect(function(player)
 		votes[player] = nil
-		updateLeader()
+		updateLeader(player)
 	end)
 	for _, player in Players:GetPlayers() do
 		if not player.Team then

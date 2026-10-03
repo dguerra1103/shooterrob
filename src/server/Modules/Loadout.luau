@@ -49,12 +49,7 @@ local function giveLoadout(player, character)
 	if player.Character ~= character then
 		return
 	end
-	local list = Loadout.Override and Loadout.Override(player)
-	if not list then
-		local primary = data and data.Primary or "ARX27"
-		local secondary = data and data.Secondary or Weapons.Secondary
-		list = { primary, secondary, Weapons.Melee }
-	end
+	local list = Loadout.Override and Loadout.Override(player) or Loadout.DefaultList(data)
 
 	-- Traje de operador (solo R15)
 	if data and data.EquippedOutfit ~= "Default" then
@@ -63,6 +58,21 @@ local function giveLoadout(player, character)
 	end
 
 	Loadout.Give(player, list)
+end
+
+-- Armas elegidas por el jugador (principal, secundaria y cuchillo)
+function Loadout.DefaultList(data)
+	local primary = data and data.Primary or "ARX27"
+	local secondary = data and data.Secondary or Weapons.Secondary
+	return { primary, secondary, Weapons.Melee }
+end
+
+-- Devuelve sus armas de siempre a un jugador vivo (por ejemplo al acabar la Escalada)
+function Loadout.GiveDefault(player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		Loadout.Give(player, Loadout.DefaultList(PlayerData.Get(player)))
+	end
 end
 
 -- Da al jugador exactamente estas armas (y equipa la primera).

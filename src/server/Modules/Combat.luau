@@ -55,6 +55,12 @@ end
 local function hasLineOfSight(origin, target, ignore)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
+	ignore = table.clone(ignore)
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary) -- muros invisibles del borde del mapa
+	end
 	params.FilterDescendantsInstances = ignore
 	local offset = target - origin
 	local distance = offset.Magnitude - 1.5
@@ -352,6 +358,10 @@ local function onMelee(player, part)
 		return
 	end
 	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar)) then
+		return
+	end
+	-- Nada de cuchillazos a través de paredes
+	if not hasLineOfSight(root.Position, targetRoot.Position, { character, targetChar }) then
 		return
 	end
 	removeSpawnShield(character)

@@ -488,8 +488,12 @@ function Map.Build()
 	-- Techo invisible para que nadie salga del mapa
 	local ceiling = block("Ceiling", Vector3.new(LENGTH, 1, WIDTH), CFrame.new(0, WALL_HEIGHT + 12, 0), Color3.new(1, 1, 1))
 	ceiling.Transparency = 1
-	ceiling.CanQuery = false
 	ceiling.CastShadow = false
+	-- Los disparos ignoran la carpeta Boundary
+	local boundary = Instance.new("Folder")
+	boundary.Name = "Boundary"
+	boundary.Parent = ceiling.Parent
+	ceiling.Parent = boundary
 
 	-- Carteles gigantes con el nombre del juego sobre los muros largos
 	for _, side in { -1, 1 } do

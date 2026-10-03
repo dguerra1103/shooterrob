@@ -201,6 +201,12 @@ end
 local function groundBelow(position, ignore)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
+	ignore = table.clone(ignore)
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
 	params.FilterDescendantsInstances = ignore
 	local result = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -60, 0), params)
 	return result and result.Position or position - Vector3.new(0, 3, 0)
@@ -328,7 +334,8 @@ local function step()
 				returnHome(flag, nil)
 			end
 			for _, player in Players:GetPlayers() do
-				if player.Team and flag.State ~= "Carried" then
+				-- Quien sigue en la pantalla de inicio (invulnerable) no puede coger ni devolver banderas
+				if player.Team and flag.State ~= "Carried" and not player:GetAttribute("InMenu") then
 					local character, root = aliveCharacter(player)
 					if character and isNear(root.Position, flag.Position, SETTINGS.PickupRadius) then
 						if player.Team == flag.Team then

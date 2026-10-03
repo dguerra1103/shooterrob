@@ -73,6 +73,8 @@ local function bigButton(text, color, order, parent)
 	return button
 end
 
+local shownWeapon = nil
+
 local function refreshInfo()
 	local data = ClientState.Data
 	if dailyButton then
@@ -82,11 +84,13 @@ local function refreshInfo()
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
 			or "Cargando..."
 	end
-	-- Arma principal con la skin equipada, a la derecha
-	if showcase then
-		showcase:ClearAllChildren()
-		if data then
-			local primary = data.Primary or "ARX27"
+	-- Arma principal con la skin equipada, a la derecha (solo se rehace si cambia)
+	if showcase and data and ClientState.InMainMenu then
+		local primary = data.Primary or "ARX27"
+		local key = primary .. "/" .. tostring(Menu.SkinFor(data, primary))
+		if key ~= shownWeapon then
+			shownWeapon = key
+			showcase:ClearAllChildren()
 			WeaponIcon.Create(primary, Menu.SkinFor(data, primary), { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
 		end
 	end
@@ -121,9 +125,7 @@ local function play()
 		if ctrl then
 			ctrl:Enable()
 		end
-		if not Menu.IsOpen() then
-			UserInputService.MouseIconEnabled = false
-		end
+		ClientState.UpdateMouse()
 	end)
 end
 

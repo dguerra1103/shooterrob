@@ -1,7 +1,6 @@
 -- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -31,8 +30,8 @@ local MODE_ICONS = {
 local function setOpen(value)
 	open = value
 	modal.Visible = value
-	ClientState.MenuOpen = value
-	UserInputService.MouseIconEnabled = value or ClientState.InMainMenu
+	ClientState.VoteOpen = value
+	ClientState.UpdateMouse()
 end
 
 local function refresh()

@@ -437,7 +437,6 @@ end
 function Kit.lava(size, cf)
 	local lava = block("Lava", size, cf, RGB(255, 100, 20), Enum.Material.CrackedLava)
 	lava:SetAttribute("Hazard", "Lava")
-	lava.CanQuery = false
 	local glow = deco("LavaGlow", V(size.X, 0.1, size.Z), cf * CFrame.new(0, size.Y / 2 + 0.05, 0), RGB(255, 140, 30), Enum.Material.Neon)
 	glow.Transparency = 0.4
 	Kit.light(glow, "SurfaceLight", RGB(255, 120, 30), 16, 1.2, Enum.NormalId.Top)
@@ -628,11 +627,15 @@ function Kit.zone(position, radius, order)
 end
 
 -- Muros exteriores invisibles (y techo) para que nadie se salga
+-- Muros y techo invisibles. Van en la carpeta Map.Boundary, que los disparos ignoran
+-- (CanQuery = false no sirve en piezas que colisionan, así que se excluyen en cada raycast).
 function Kit.bounds(length, width, height)
+	local folder = Kit.folder:FindFirstChild("Boundary") or Instance.new("Folder")
+	folder.Name = "Boundary"
+	folder.Parent = Kit.folder
 	local function wall(size, cf)
-		local w = block("Boundary", size, cf, Color3.new(1, 1, 1))
+		local w = block("Boundary", size, cf, Color3.new(1, 1, 1), nil, folder)
 		w.Transparency = 1
-		w.CanQuery = false
 		w.CastShadow = false
 	end
 	wall(V(length, height, 4), CFrame.new(0, height / 2, width / 2 + 2))

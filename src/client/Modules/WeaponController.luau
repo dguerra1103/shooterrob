@@ -66,6 +66,12 @@ local function updateRayFilter()
 	if fx then
 		table.insert(ignore, fx)
 	end
+	-- Muros y techo invisibles del borde del mapa: las balas los atraviesan
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
 	rayParams.FilterDescendantsInstances = ignore
 end
 
