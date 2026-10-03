@@ -17,7 +17,25 @@ local SPOTS = {
 
 local folder
 
+-- Un punto libre del mapa actual (puntos FFASpawn) o uno de los fijos si no hay
+local function randomSpot(fallback)
+	local map = workspace:FindFirstChild("Map")
+	local points = {}
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "FFASpawn" then
+				table.insert(points, d.Position + Vector3.new(0, 3, 0))
+			end
+		end
+	end
+	if #points > 0 then
+		return points[math.random(1, #points)]
+	end
+	return fallback
+end
+
 local function spawnDummy(position)
+	position = randomSpot(position)
 	local description = Instance.new("HumanoidDescription")
 	description.HeadColor = Color3.fromRGB(255, 200, 80)
 	description.TorsoColor = Color3.fromRGB(80, 80, 90)

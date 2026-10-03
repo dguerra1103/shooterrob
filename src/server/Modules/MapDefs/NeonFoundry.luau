@@ -59,6 +59,19 @@ function Map.Build()
 	for _, s in { -1, 1 } do
 		local pour = deco("MoltenPour", V(3, 14, 1.2), CFrame.new(0, 7, s * 10.6), RGB(255, 150, 40), Enum.Material.Neon)
 		Kit.light(pour, "PointLight", ORANGE, 30, 3)
+		-- Chispas del metal fundido
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		sparks.Color = ColorSequence.new(RGB(255, 230, 150), ORANGE)
+		sparks.LightEmission = 1
+		sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+		sparks.Lifetime = NumberRange.new(0.6, 1.2)
+		sparks.Speed = NumberRange.new(8, 16)
+		sparks.SpreadAngle = Vector2.new(70, 70)
+		sparks.Acceleration = V(0, -35, 0)
+		sparks.Rate = 25
+		sparks.EmissionDirection = Enum.NormalId.Top
+		sparks.Parent = pour
 		Kit.lava(V(12, 1, 6), CFrame.new(0, -0.3, s * 14))
 		Kit.railing(V(-7, 0, s * 17.5), V(7, 0, s * 17.5), 3, ORANGE)
 	end
@@ -127,6 +140,21 @@ function Map.Build()
 		beam:SetAttribute("Sweep", 18)
 	end)
 
+	-- Pórticos de neón sobre los carriles con lámparas colgantes
+	for _, z in { -45, 45 } do
+		block("NeonGantry", V(2, 2, 2), CFrame.new(-60, 1, z), RGB(45, 45, 55), Enum.Material.Metal)
+		block("NeonGantry", V(2, 2, 2), CFrame.new(60, 1, z), RGB(45, 45, 55), Enum.Material.Metal)
+		deco("GantryPostA", V(1.4, 24, 1.4), CFrame.new(-60, 12, z), RGB(50, 50, 60), Enum.Material.Metal)
+		deco("GantryPostB", V(1.4, 24, 1.4), CFrame.new(60, 12, z), RGB(50, 50, 60), Enum.Material.Metal)
+		deco("GantryBeam", V(122, 1.6, 1.6), CFrame.new(0, 24, z), RGB(50, 50, 60), Enum.Material.Metal)
+		deco("GantryNeon", V(122, 0.4, 1.7), CFrame.new(0, 23, z), z < 0 and C.Pink or C.Cyan, Enum.Material.Neon)
+		for x = -45, 45, 30 do
+			deco("LampCable", V(0.15, 6, 0.15), CFrame.new(x, 20, z), RGB(20, 20, 20), Enum.Material.Metal)
+			local lamp = deco("HangingLamp", V(2.4, 0.8, 2.4), CFrame.new(x, 16.6, z), RGB(255, 210, 150), Enum.Material.Neon)
+			Kit.light(lamp, "SpotLight", RGB(255, 200, 140), 28, 2, Enum.NormalId.Bottom).Angle = 100
+		end
+	end
+
 	-- Spawns y banderas
 	local spawnStyle = { Floor = RGB(50, 52, 62), FloorMaterial = Enum.Material.DiamondPlate, Roof = RGB(45, 46, 56), RoofMaterial = Enum.Material.Metal }
 	Kit.spawnArea(teams[1], CFrame.new(-145, 0, 0), spawnStyle)
@@ -142,6 +170,9 @@ function Map.Build()
 			block("BackFactory", V(30, h, 12), CFrame.new(x, h / 2, z * 117), WALL:Lerp(Color3.new(0, 0, 0), (math.abs(x) % 2) * 0.15), Enum.Material.CorrodedMetal)
 			local stripe = deco("BackStripe", V(30.2, 0.6, 0.3), CFrame.new(x, h - 3, z * 110.9), (x / 30) % 2 == 0 and C.Cyan or C.Pink, Enum.Material.Neon)
 			stripe.Transparency = 0.1
+			deco("BackVertical", V(0.6, h - 6, 0.3), CFrame.new(x + 14, (h - 6) / 2, z * 110.9), (x / 30) % 2 == 0 and C.Pink or C.Cyan, Enum.Material.Neon)
+			local window = deco("BackWindow", V(10, 4, 0.3), CFrame.new(x - 5, h * 0.45, z * 110.9), RGB(255, 180, 80), Enum.Material.Neon)
+			window.Transparency = 0.35
 		end
 	end
 	for z = -90, 90, 30 do

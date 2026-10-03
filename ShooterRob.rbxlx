@@ -2528,7 +2528,25 @@ local SPOTS = {
 
 local folder
 
+-- Un punto libre del mapa actual (puntos FFASpawn) o uno de los fijos si no hay
+local function randomSpot(fallback)
+	local map = workspace:FindFirstChild("Map")
+	local points = {}
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "FFASpawn" then
+				table.insert(points, d.Position + Vector3.new(0, 3, 0))
+			end
+		end
+	end
+	if #points > 0 then
+		return points[math.random(1, #points)]
+	end
+	return fallback
+end
+
 local function spawnDummy(position)
+	position = randomSpot(position)
 	local description = Instance.new("HumanoidDescription")
 	description.HeadColor = Color3.fromRGB(255, 200, 80)
 	description.TorsoColor = Color3.fromRGB(80, 80, 90)
@@ -4482,13 +4500,21 @@ function Map.Build()
 		Kit.stairs(m * V(-32, 0, -3.5), m * V(-8.5, 11, -3.5), 4, STONE)
 
 		-- Casas con azoteas (A1 con escalera exterior; A2 alta, comunicada con A1 por una pasarela)
-		Kit.house(m * CFrame.new(-60, 0, 55), V(24, 10, 18), PLASTER, teamColor, { Vines = true, OpenSides = true })
+		Kit.house(m * CFrame.new(-60, 0, 55), V(24, 10, 18), RGB(255, 222, 165), teamColor, { Vines = true, OpenSides = true })
 		Kit.stairs(m * V(-45.5, 0, 68), m * V(-45.5, 10, 50), 4, STONE)
-		Kit.house(m * CFrame.new(-100, 0, 72), V(20, 15, 16), RGB(240, 215, 180), teamColor, { Vines = true, OpenSides = true })
+		Kit.house(m * CFrame.new(-100, 0, 72), V(20, 15, 16), RGB(255, 196, 180), teamColor, { Vines = true, OpenSides = true })
 		Kit.ramp(m * V(-72, 10, 60), m * V(-90, 15, 68), 4, RGB(120, 90, 60), Enum.Material.WoodPlanks)
-		Kit.house(m * CFrame.new(-78, 0, -58), V(22, 10, 20), RGB(245, 235, 215), teamColor, { DoorX = -4, OpenSides = true })
+		Kit.house(m * CFrame.new(-78, 0, -58), V(22, 10, 20), RGB(200, 226, 240), teamColor, { DoorX = -4, OpenSides = true })
 		Kit.stairs(m * V(-64.5, 0, -45), m * V(-64.5, 10, -61), 4, STONE)
-		Kit.house(m * CFrame.new(-128, 0, -78), V(18, 12, 16), RGB(230, 200, 170), teamColor)
+		Kit.house(m * CFrame.new(-128, 0, -78), V(18, 12, 16), RGB(240, 235, 215), teamColor)
+
+		-- Macetas en las azoteas y guirnaldas sobre el mercado
+		Kit.flowerPot(m * CFrame.new(-68, 10, 50), RGB(255, 80, 120))
+		Kit.flowerPot(m * CFrame.new(-52, 10, 60), RGB(255, 200, 60))
+		Kit.flowerPot(m * CFrame.new(-104, 15, 76), RGB(255, 120, 200))
+		Kit.flowerPot(m * CFrame.new(-84, 10, -54), RGB(120, 160, 255))
+		Kit.stringLights(m * V(-44, 9, 12), m * V(-30, 9, 36))
+		Kit.stringLights(m * V(-30, 9, 12), m * V(-44, 9, 36))
 
 		-- Estandartes del equipo en las fachadas que miran al centro
 		Kit.banner(m * CFrame.new(-55, 9.5, 45.6), 5, 7, teamColor, C.White)
@@ -4652,6 +4678,19 @@ function Map.Build()
 	for _, s in { -1, 1 } do
 		local pour = deco("MoltenPour", V(3, 14, 1.2), CFrame.new(0, 7, s * 10.6), RGB(255, 150, 40), Enum.Material.Neon)
 		Kit.light(pour, "PointLight", ORANGE, 30, 3)
+		-- Chispas del metal fundido
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		sparks.Color = ColorSequence.new(RGB(255, 230, 150), ORANGE)
+		sparks.LightEmission = 1
+		sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+		sparks.Lifetime = NumberRange.new(0.6, 1.2)
+		sparks.Speed = NumberRange.new(8, 16)
+		sparks.SpreadAngle = Vector2.new(70, 70)
+		sparks.Acceleration = V(0, -35, 0)
+		sparks.Rate = 25
+		sparks.EmissionDirection = Enum.NormalId.Top
+		sparks.Parent = pour
 		Kit.lava(V(12, 1, 6), CFrame.new(0, -0.3, s * 14))
 		Kit.railing(V(-7, 0, s * 17.5), V(7, 0, s * 17.5), 3, ORANGE)
 	end
@@ -4720,6 +4759,21 @@ function Map.Build()
 		beam:SetAttribute("Sweep", 18)
 	end)
 
+	-- Pórticos de neón sobre los carriles con lámparas colgantes
+	for _, z in { -45, 45 } do
+		block("NeonGantry", V(2, 2, 2), CFrame.new(-60, 1, z), RGB(45, 45, 55), Enum.Material.Metal)
+		block("NeonGantry", V(2, 2, 2), CFrame.new(60, 1, z), RGB(45, 45, 55), Enum.Material.Metal)
+		deco("GantryPostA", V(1.4, 24, 1.4), CFrame.new(-60, 12, z), RGB(50, 50, 60), Enum.Material.Metal)
+		deco("GantryPostB", V(1.4, 24, 1.4), CFrame.new(60, 12, z), RGB(50, 50, 60), Enum.Material.Metal)
+		deco("GantryBeam", V(122, 1.6, 1.6), CFrame.new(0, 24, z), RGB(50, 50, 60), Enum.Material.Metal)
+		deco("GantryNeon", V(122, 0.4, 1.7), CFrame.new(0, 23, z), z < 0 and C.Pink or C.Cyan, Enum.Material.Neon)
+		for x = -45, 45, 30 do
+			deco("LampCable", V(0.15, 6, 0.15), CFrame.new(x, 20, z), RGB(20, 20, 20), Enum.Material.Metal)
+			local lamp = deco("HangingLamp", V(2.4, 0.8, 2.4), CFrame.new(x, 16.6, z), RGB(255, 210, 150), Enum.Material.Neon)
+			Kit.light(lamp, "SpotLight", RGB(255, 200, 140), 28, 2, Enum.NormalId.Bottom).Angle = 100
+		end
+	end
+
 	-- Spawns y banderas
 	local spawnStyle = { Floor = RGB(50, 52, 62), FloorMaterial = Enum.Material.DiamondPlate, Roof = RGB(45, 46, 56), RoofMaterial = Enum.Material.Metal }
 	Kit.spawnArea(teams[1], CFrame.new(-145, 0, 0), spawnStyle)
@@ -4735,6 +4789,9 @@ function Map.Build()
 			block("BackFactory", V(30, h, 12), CFrame.new(x, h / 2, z * 117), WALL:Lerp(Color3.new(0, 0, 0), (math.abs(x) % 2) * 0.15), Enum.Material.CorrodedMetal)
 			local stripe = deco("BackStripe", V(30.2, 0.6, 0.3), CFrame.new(x, h - 3, z * 110.9), (x / 30) % 2 == 0 and C.Cyan or C.Pink, Enum.Material.Neon)
 			stripe.Transparency = 0.1
+			deco("BackVertical", V(0.6, h - 6, 0.3), CFrame.new(x + 14, (h - 6) / 2, z * 110.9), (x / 30) % 2 == 0 and C.Pink or C.Cyan, Enum.Material.Neon)
+			local window = deco("BackWindow", V(10, 4, 0.3), CFrame.new(x - 5, h * 0.45, z * 110.9), RGB(255, 180, 80), Enum.Material.Neon)
+			window.Transparency = 0.35
 		end
 	end
 	for z = -90, 90, 30 do
@@ -5238,6 +5295,41 @@ function Kit.smokestack(position, height)
 	end
 	local light = Kit.ball("StackLight", 1.2, CFrame.new(position + V(0, height + 0.8, 0)), RGB(255, 40, 40), Enum.Material.Neon, true)
 	light:SetAttribute("Blink", 1.5)
+	-- Humo saliendo de la chimenea
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(RGB(120, 110, 130), RGB(60, 55, 70))
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 4), NumberSequenceKeypoint.new(1, 16) })
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Lifetime = NumberRange.new(5, 8)
+	smoke.Speed = NumberRange.new(4, 7)
+	smoke.SpreadAngle = Vector2.new(12, 12)
+	smoke.Acceleration = V(2, 1, 0)
+	smoke.Rate = 4
+	smoke.EmissionDirection = Enum.NormalId.Top
+	smoke.Parent = light
+end
+
+-- Guirnalda de bombillas entre dos puntos (cuelga un poco por el centro)
+function Kit.stringLights(a, b, color)
+	local count = math.max(4, math.floor((b - a).Magnitude / 2.5))
+	for i = 0, count do
+		local t = i / count
+		local p = a:Lerp(b, t) - V(0, math.sin(t * math.pi) * 1.5, 0)
+		local bulb = Kit.ball("Bulb", 0.45, CFrame.new(p), (i % 3 == 0) and RGB(255, 120, 120) or (color or RGB(255, 220, 140)), Enum.Material.Neon, true)
+		bulb.CastShadow = false
+	end
+	local mid = (a + b) / 2 - V(0, 0.75, 0)
+	deco("LightWire", V(0.08, 0.08, (b - a).Magnitude), CFrame.lookAt(mid, b), RGB(30, 30, 30), Enum.Material.SmoothPlastic)
+end
+
+-- Maceta con flores
+function Kit.flowerPot(cf, flowerColor)
+	block("Pot", V(2, 1.6, 2), cf * CFrame.new(0, 0.8, 0), RGB(190, 100, 60), Enum.Material.Plaster)
+	Kit.ball("Bush", 2.4, cf * CFrame.new(0, 2.1, 0), RGB(70, 160, 70), Enum.Material.Grass, true)
+	for i = 0, 2 do
+		Kit.ball("Flower", 0.6, cf * CFrame.new(math.cos(i * 2.1) * 0.8, 2.9, math.sin(i * 2.1) * 0.8), flowerColor or RGB(255, 90, 140), Enum.Material.SmoothPlastic, true)
+	end
 end
 
 -- Cartel de neón grande con texto

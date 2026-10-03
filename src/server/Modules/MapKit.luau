@@ -466,6 +466,41 @@ function Kit.smokestack(position, height)
 	end
 	local light = Kit.ball("StackLight", 1.2, CFrame.new(position + V(0, height + 0.8, 0)), RGB(255, 40, 40), Enum.Material.Neon, true)
 	light:SetAttribute("Blink", 1.5)
+	-- Humo saliendo de la chimenea
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(RGB(120, 110, 130), RGB(60, 55, 70))
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 4), NumberSequenceKeypoint.new(1, 16) })
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Lifetime = NumberRange.new(5, 8)
+	smoke.Speed = NumberRange.new(4, 7)
+	smoke.SpreadAngle = Vector2.new(12, 12)
+	smoke.Acceleration = V(2, 1, 0)
+	smoke.Rate = 4
+	smoke.EmissionDirection = Enum.NormalId.Top
+	smoke.Parent = light
+end
+
+-- Guirnalda de bombillas entre dos puntos (cuelga un poco por el centro)
+function Kit.stringLights(a, b, color)
+	local count = math.max(4, math.floor((b - a).Magnitude / 2.5))
+	for i = 0, count do
+		local t = i / count
+		local p = a:Lerp(b, t) - V(0, math.sin(t * math.pi) * 1.5, 0)
+		local bulb = Kit.ball("Bulb", 0.45, CFrame.new(p), (i % 3 == 0) and RGB(255, 120, 120) or (color or RGB(255, 220, 140)), Enum.Material.Neon, true)
+		bulb.CastShadow = false
+	end
+	local mid = (a + b) / 2 - V(0, 0.75, 0)
+	deco("LightWire", V(0.08, 0.08, (b - a).Magnitude), CFrame.lookAt(mid, b), RGB(30, 30, 30), Enum.Material.SmoothPlastic)
+end
+
+-- Maceta con flores
+function Kit.flowerPot(cf, flowerColor)
+	block("Pot", V(2, 1.6, 2), cf * CFrame.new(0, 0.8, 0), RGB(190, 100, 60), Enum.Material.Plaster)
+	Kit.ball("Bush", 2.4, cf * CFrame.new(0, 2.1, 0), RGB(70, 160, 70), Enum.Material.Grass, true)
+	for i = 0, 2 do
+		Kit.ball("Flower", 0.6, cf * CFrame.new(math.cos(i * 2.1) * 0.8, 2.9, math.sin(i * 2.1) * 0.8), flowerColor or RGB(255, 90, 140), Enum.Material.SmoothPlastic, true)
+	end
 end
 
 -- Cartel de neón grande con texto

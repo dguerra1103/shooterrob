@@ -1,25 +1,25 @@
-# ShooterRob 🔫
+# SHOOTER NEW 🔫 (ShooterRob)
 
-Un shooter en primera persona para Roblox, inspirado en juegos como *Disparo Hiper*: partidas por equipos (Rojo contra Azul) en los modos **Captura la bandera** y **Duelo por equipos**, armas con skins de neón, rachas de bajas y un **pase de batalla** con niveles y recompensas.
+Un shooter 5v5 en primera persona para Roblox, con el estilo del *concept pack*: mapas con mucho color e iluminación "Future", armas de neón (ARX-27 Pulse, Havoc Pump, Specter-9…), trajes de operador, **5 modos de juego** con votación, **pase de batalla** y una **tienda** con monedas y Robux.
 
-Todo está hecho con código (Luau). Incluso el mapa y las armas se generan solos, así que puedes darle a **Play** y probarlo sin tener que modelar nada.
+Todo está hecho con código (Luau). Los mapas, las armas y los trajes se generan solos, así que puedes darle a **Play** y probarlo sin modelar nada.
 
 ## Qué trae
 
 | Sistema | Detalles |
 |---|---|
-| **Captura la bandera** | Roba la bandera enemiga y llévala a tu base mientras la tuya siga allí. Gana el primer equipo en hacer 3 capturas (10 min). Si matan al portador la bandera cae: tu equipo la devuelve tocándola y, si nadie la toca, vuelve sola a los 20 s. Las banderas se ven a través de las paredes y el portador va un poco más lento. |
-| **Duelo por equipos** | El primer equipo que llega a 40 bajas gana (o el que más tenga cuando se acaben los 8 min). |
-| **Rondas** | Los modos se turnan en cada ronda. Hay calentamiento entre rondas, pantalla de victoria o derrota y un MVP (en CTF cada captura cuenta como 3 bajas). |
-| **Armas** | Rifle automático *AR-7 Hiper*, escopeta *Trueno SG*, francotirador *Halcón X* (con mira telescópica), pistola *Víbora P9* y cuchillo *Colmillo*. |
-| **Disparo** | Viewmodel en primera persona con brazos, retroceso, balanceo al caminar, apuntado (clic derecho), recarga, trazadoras, fogonazo, hitmarkers, números de daño y disparos a la cabeza. |
+| **Mapas** | **Harbor Heights** (puerto de día: canal con agua, puente central, torre de control, azoteas A y callejón B), **Container Clash** (puerto al atardecer: pila central de contenedores, pasarelas, grúas y pasillos de flanqueo), **Neon Foundry** (fundición de noche: lava que quema, horno, cintas transportadoras, letreros de neón y chispas) y **Downtown** (arena urbana). Cada mapa trae spawns por equipo, puntos para todos contra todos, 5 zonas de control y 2 bases de bandera. |
+| **Modos** | **Duelo por equipos** (40 bajas), **Captura la bandera** (3 capturas), **Zona de control** (150 puntos, la zona cambia cada minuto), **Todos contra todos** (25 bajas) y **Escalada de armas** (subes de arma con cada baja; gana quien la complete con el cuchillo). |
+| **Votación** | En el descanso entre rondas salen 3 opciones de mapa + modo. Pulsa **V** para votar con el ratón. |
+| **Armas** | Principales: **ARX-27 Pulse** (fusil), **Havoc Pump** (escopeta), **Specter-9** (subfusil), **Signal-7** (francotirador, nivel 3), **Vortex BR** (ráfaga de 3, nivel 4), **Raptor DMR** (tirador, nivel 7), **Titan LMG** (ametralladora, nivel 10) y **Nova** (lanzacohetes con explosión, nivel 14). Secundarias: **Viper P9** y **Hand Cannon** (nivel 6). Cuerpo a cuerpo: **Colmillo**. Las armas bloqueadas se pueden comprar antes con monedas. |
+| **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue y Golden Ace. Se ven en la partida sobre tu avatar. |
+| **Disparo** | Viewmodel con brazos, retroceso, balanceo, apuntado (clic derecho), mira telescópica, recarga, trazadoras, fogonazo, hitmarkers, números de daño, disparos a la cabeza y cohetes con explosión. |
 | **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
 | **Movimiento** | Correr (Shift) y deslizarse (C), con impulso. |
-| **HUD** | Marcador arriba con el top 10 de jugadores (foto, puesto y bajas), munición, vida, barra de racha, killfeed, nivel/XP y aviso de controles. |
-| **Pase de batalla** | 15 niveles con una vía gratis y otra premium (GamePass), 13 skins (de común a mítica) y monedas. El progreso se guarda con DataStore. |
-| **Mapa** | Arena urbana simétrica: calles con pasos de cebra, aceras con farolas y árboles, plaza central de baldosas, edificios con tiendas y rótulos de neón, contenedores rotulados, pasarela con barandillas, holograma giratorio, carteles gigantes y dos filas de rascacielos. |
-| **Gráficos** | Iluminación "Future", nubes volumétricas, rayos de sol, bloom y corrección de color. Armas detalladas con skins de dos colores, destellos, llamas y brillo que late (míticas). Fogonazo con fuego y humo, balas que viajan, chispas y polvo al impactar, casquillos y explosión de partículas al eliminar a alguien. |
-| **Interfaz** | Pantalla de inicio con la cámara girando sobre el mapa. Iconos 3D de las armas (en la partida y en el menú de skins), aviso de "ELIMINADO" y de doble/triple baja, vida con efecto de daño, contorno de los compañeros y nombres de los enemigos ocultos. |
+| **Pase de batalla** | Niveles con vía gratis y premium (GamePass), skins de común a mítica y monedas. El progreso se guarda con DataStore. |
+| **Tienda** | Packs de monedas con Robux, pase **VIP** (x2 XP y monedas), skins y trajes con monedas, **ofertas del día** con descuento, **recompensa diaria** (7 días, con caja el 7.º) y **Caja Neón** (solo monedas, con las probabilidades a la vista; si toca algo repetido te devuelve parte). En los países donde las cajas aleatorias no están permitidas se ocultan solas. |
+| **Gráficos** | Iluminación "Future", atmósfera, nubes, rayos de sol, bloom y corrección de color distinta por mapa, agua de Terrain, neón con luces, partículas (humo, chispas, lava), armas con skins de dos colores y efectos (destellos, llamas). |
+| **Interfaz** | Pantalla de inicio, menú con pestañas (Pase, Armas, Skins, Trajes, Tienda), iconos 3D de las armas, killfeed, rachas, marcador, aviso de zona/bandera y pantalla de victoria con MVP. |
 | **Práctica** | Muñecos en el mapa para probar las armas aunque juegues solo en Studio. |
 
 ## Cómo abrirlo (opción rápida)
@@ -61,7 +61,8 @@ rojo build -o ShooterRob.rbxlx
 | Correr | Shift (mantener) | L3 |
 | Deslizarse | C / Ctrl | R3 |
 | Cambiar arma | 1 / 2 / 3 / rueda del ratón | Y |
-| Pase de batalla | B | Select |
+| Menú (pase, armas, skins, trajes, tienda) | B | Select |
+| Votar mapa (en el descanso) | V | Cruceta arriba |
 
 En el móvil aparecen botones táctiles automáticamente.
 
@@ -70,20 +71,28 @@ En el móvil aparecen botones táctiles automáticamente.
 Todo lo importante está en `src/shared/`:
 
 - **`GameConfig.luau`**:
-  - Modos y su orden (`Modes`). Pon `{ "CTF" }` para jugar solo a Captura la bandera.
+  - Modos que entran en la votación (`Modes`). Pon `{ "CTF" }` para jugar solo a Captura la bandera. Códigos: `TDM`, `CTF`, `KOTH`, `FFA`, `GUN`.
   - Puntos para ganar y duración de cada modo (`ModeSettings`).
-  - Ajustes de la bandera: radios, tiempo de vuelta y velocidad del portador (`Flag`).
-  - Velocidades, XP (también la de capturar o devolver la bandera), recompensas del pase y el ID del GamePass premium.
-- **`Weapons.luau`**: daño, cadencia, cargador, retroceso, dispersión… y la forma de cada arma (piezas). Para crear un arma nueva, copia una entrada y añádela a `Weapons.Primaries`.
-- **`Skins.luau`**: colores y materiales de cada skin.
-- **`Sounds.luau`**: sonidos. Los que vienen ya incluidos en Roblox funcionan, pero para que suene mejor busca audios en el *Creator Store* y pega su `rbxassetid://`.
+  - Ajustes de la bandera (`Flag`), XP, monedas, recompensas del pase y el ID del GamePass premium (`PremiumPassId`).
+- **`Weapons.luau`**: daño, cadencia, cargador, retroceso, dispersión, nivel de desbloqueo y precio de cada arma, y el orden de *Escalada de armas* (`GunGameOrder`).
+- **`WeaponDesigns.luau`**: la forma de cada arma (piezas). Para añadir un arma nueva, copia una entrada aquí y en `Weapons.luau` y añádela a `Weapons.Primaries`.
+- **`Skins.luau`** y **`Outfits.luau`**: skins de armas y trajes de operador.
+- **`Shop.luau`**: precios, packs de Robux, VIP, recompensa diaria, cajas y ofertas.
+- **`Sounds.luau`**: sonidos. Para que suene mejor busca audios en el *Creator Store* y pega su `rbxassetid://`.
+
+Los mapas están en `src/server/Modules/MapDefs/` (uno por archivo) y usan las piezas de `MapKit.luau`. El orden de la rotación está en `MapBuilder.Order`.
 
 ### Usar tu propio mapa
 
-Construye tu mapa en Studio dentro de una carpeta o modelo llamado **`Map`** en `Workspace`. Si existe `workspace.Map`, el generador no crea el suyo. Pon dentro:
+Construye tu mapa en Studio dentro de una carpeta o modelo llamado **`Map`** en `Workspace`. Si existe `workspace.Map`, el generador no crea los suyos. Pon dentro:
 
 - **SpawnLocations** con `TeamColor = Really red` y otras con `Really blue`, y quítales la casilla `Neutral`.
-- Para Captura la bandera, una pieza llamada **`FlagBase`** por equipo, con un atributo **`Team`** (texto) igual a `Rojo` o `Azul`. La bandera aparece encima de esa pieza. Si faltan, el modo se salta automáticamente.
+- Para Captura la bandera, una pieza llamada **`FlagBase`** por equipo, con un atributo **`Team`** (texto) igual a `Rojo` o `Azul`.
+- Para Zona de control, piezas llamadas **`HardpointZone`** con los atributos `Order` (número) y `Radius`.
+- Para Todos contra todos y Escalada, piezas llamadas **`FFASpawn`** repartidas por el mapa.
+- Si una pieza usa el material **CrackedLava**, quema a quien la pise.
+
+Si falta algo, ese modo se salta automáticamente.
 
 ## Publicar en Roblox
 
@@ -119,35 +128,51 @@ ROBLOX_API_KEY=... ROBLOX_UNIVERSE_ID=... ROBLOX_PLACE_ID=... scripts/publish.sh
 
 > ⚠️ Cada publicación sustituye lo que haya en Roblox. Si cambias cosas a mano en Studio (por ejemplo el mapa), cópialas también al código, o se perderán en la siguiente publicación automática.
 
+## Monetización (Robux)
+
+En el [Creator Hub](https://create.roblox.com/dashboard/creations), abre tu experiencia → **Monetización**:
+
+1. **Developer Products**: crea 4 productos (por ejemplo 500, 1200, 3000 y 8000 monedas a 49, 99, 199 y 449 Robux) y pega cada ID en `Shop.CoinPacks[i].ProductId` (`src/shared/Shop.luau`).
+2. **Passes**: crea el pase **VIP** (299 Robux) y pon su ID en `Shop.VIPPassId`. Crea otro para el **pase de batalla premium** y pon su ID en `GameConfig.PremiumPassId`.
+
+Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se guardan con un registro para no entregar dos veces la misma.
+
 ## Antes de abrirlo al público
 
 1. En `GameConfig.luau`:
    - `MinPlayers = 2` (o más).
    - `TrainingDummies = false`.
-2. Crea un **GamePass** en el Creator Hub para el pase premium y pon su número en `PremiumPassId`.
-3. Cambia la experiencia a **Public** en el Creator Hub.
-4. Ponle un icono y miniaturas llamativas (como las de la captura) para atraer jugadores.
+2. Configura los IDs de la tienda (apartado anterior).
+3. En el Creator Hub, rellena el **cuestionario de madurez** y, como hay cajas, marca que tiene artículos aleatorios de pago (aunque solo se compren con monedas, las monedas se venden por Robux).
+4. Cambia la experiencia a **Public** y ponle un icono y miniaturas llamativas (puedes usar las imágenes del concept pack).
 
 ## Estructura del proyecto
 
 ```
 src/
 ├── shared/                 → ReplicatedStorage.Shared
-│   ├── GameConfig.luau      configuración general y pase de batalla
-│   ├── Weapons.luau         estadísticas y modelos de las armas
-│   ├── WeaponModels.luau    construye las armas a partir de piezas
-│   ├── Skins.luau           skins
+│   ├── GameConfig.luau      configuración general, modos y pase de batalla
+│   ├── Weapons.luau         estadísticas, desbloqueos y precios de las armas
+│   ├── WeaponDesigns.luau   forma de cada arma (piezas)
+│   ├── WeaponModels.luau    construye las armas y les aplica la skin
+│   ├── Skins.luau           skins de armas
+│   ├── Outfits.luau         trajes de operador
+│   ├── Shop.luau            tienda, VIP, diarias, cajas y ofertas
 │   ├── Sounds.luau          sonidos
-│   └── Remotes.luau         RemoteEvents
+│   └── Remotes.luau         RemoteEvents y RemoteFunctions
 ├── server/                 → ServerScriptService.Server
 │   ├── Main.server.luau     arranque
 │   └── Modules/
-│       ├── MapBuilder.luau  mapa e iluminación
-│       ├── PlayerData.luau  guardado, nivel, XP, skins, premium
-│       ├── Loadout.luau     da las armas al aparecer
-│       ├── Combat.luau      valida disparos, daño y bajas
-│       ├── Round.luau       equipos, rondas, modos, marcador, rachas
-│       ├── Flags.luau       modo Captura la bandera
+│       ├── MapBuilder.luau  registro de mapas e iluminación
+│       ├── MapKit.luau      piezas para construir mapas
+│       ├── MapDefs/         HarborHeights, ContainerClash, NeonFoundry, Downtown
+│       ├── PlayerData.luau  guardado, nivel, XP, monedas, compras
+│       ├── Loadout.luau     armas y traje al aparecer
+│       ├── Combat.luau      valida disparos, daño, explosiones y bajas
+│       ├── Round.luau       equipos, votación, rondas, modos, marcador, rachas
+│       ├── Flags.luau       Captura la bandera
+│       ├── Hardpoint.luau   Zona de control
+│       ├── Hazards.luau     lava
 │       └── Dummies.luau     muñecos de práctica
 └── client/                 → StarterPlayerScripts.Client
     ├── Main.client.luau     arranque
@@ -155,18 +180,19 @@ src/
         ├── WeaponController.luau  viewmodel, disparo, recarga, apuntar
         ├── Movement.luau          correr y deslizarse
         ├── HUD.luau               interfaz de partida
-        ├── Menu.luau              pase de batalla, skins y armas
+        ├── Menu.luau              pase, armas, skins, trajes y tienda
         ├── MainMenu.luau          pantalla de inicio
+        ├── VoteUI.luau            votación de mapa y modo
         ├── WeaponIcon.luau        iconos 3D de las armas
-        ├── WorldFX.luau           animaciones del mapa, contornos y efectos de baja
-        ├── Effects.luau           fogonazo, balas, impactos y casquillos
+        ├── WorldFX.luau           animaciones del mapa y efectos de baja
+        ├── Effects.luau           fogonazo, balas, impactos, cohetes y explosiones
         ├── ClientState.luau       estado compartido
         └── UI.luau                utilidades de interfaz
 ```
 
 ## Ideas para seguir
 
-- **Habilidades Q/E/X**: granada, dash o escudo, con tiempo de recarga.
-- **Modelos y animaciones de verdad**: importa armas con *MeshPart* desde el Toolbox y cambia `Parts` en `Weapons.luau` por el modelo.
-- **Tienda**: gastar las monedas en skins.
-- **Más mapas** con votación al final de cada ronda.
+- **Modelos de verdad**: cuando tengas armas o trajes en *MeshPart* (por ejemplo hechos en Blender a partir del concept pack), súbelos y sustituye las piezas en `WeaponDesigns.luau`.
+- **Habilidades Q/E**: granada, dash o escudo, con tiempo de recarga.
+- **Sonidos propios** para cada arma.
+- **Clasificación global** (OrderedDataStore) y misiones semanales.

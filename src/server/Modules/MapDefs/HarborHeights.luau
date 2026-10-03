@@ -132,13 +132,21 @@ function Map.Build()
 		Kit.stairs(m * V(-32, 0, -3.5), m * V(-8.5, 11, -3.5), 4, STONE)
 
 		-- Casas con azoteas (A1 con escalera exterior; A2 alta, comunicada con A1 por una pasarela)
-		Kit.house(m * CFrame.new(-60, 0, 55), V(24, 10, 18), PLASTER, teamColor, { Vines = true, OpenSides = true })
+		Kit.house(m * CFrame.new(-60, 0, 55), V(24, 10, 18), RGB(255, 222, 165), teamColor, { Vines = true, OpenSides = true })
 		Kit.stairs(m * V(-45.5, 0, 68), m * V(-45.5, 10, 50), 4, STONE)
-		Kit.house(m * CFrame.new(-100, 0, 72), V(20, 15, 16), RGB(240, 215, 180), teamColor, { Vines = true, OpenSides = true })
+		Kit.house(m * CFrame.new(-100, 0, 72), V(20, 15, 16), RGB(255, 196, 180), teamColor, { Vines = true, OpenSides = true })
 		Kit.ramp(m * V(-72, 10, 60), m * V(-90, 15, 68), 4, RGB(120, 90, 60), Enum.Material.WoodPlanks)
-		Kit.house(m * CFrame.new(-78, 0, -58), V(22, 10, 20), RGB(245, 235, 215), teamColor, { DoorX = -4, OpenSides = true })
+		Kit.house(m * CFrame.new(-78, 0, -58), V(22, 10, 20), RGB(200, 226, 240), teamColor, { DoorX = -4, OpenSides = true })
 		Kit.stairs(m * V(-64.5, 0, -45), m * V(-64.5, 10, -61), 4, STONE)
-		Kit.house(m * CFrame.new(-128, 0, -78), V(18, 12, 16), RGB(230, 200, 170), teamColor)
+		Kit.house(m * CFrame.new(-128, 0, -78), V(18, 12, 16), RGB(240, 235, 215), teamColor)
+
+		-- Macetas en las azoteas y guirnaldas sobre el mercado
+		Kit.flowerPot(m * CFrame.new(-68, 10, 50), RGB(255, 80, 120))
+		Kit.flowerPot(m * CFrame.new(-52, 10, 60), RGB(255, 200, 60))
+		Kit.flowerPot(m * CFrame.new(-104, 15, 76), RGB(255, 120, 200))
+		Kit.flowerPot(m * CFrame.new(-84, 10, -54), RGB(120, 160, 255))
+		Kit.stringLights(m * V(-44, 9, 12), m * V(-30, 9, 36))
+		Kit.stringLights(m * V(-30, 9, 12), m * V(-44, 9, 36))
 
 		-- Estandartes del equipo en las fachadas que miran al centro
 		Kit.banner(m * CFrame.new(-55, 9.5, 45.6), 5, 7, teamColor, C.White)
