@@ -51,6 +51,10 @@ local function paint(part, role, pal)
 	elseif role == "Shell" then
 		part.Color = Color3.fromRGB(200, 30, 35)
 		part.Material = Enum.Material.SmoothPlastic
+	elseif role == "Core" then
+		part.Color = (pal.Accent2 or pal.Accent):Lerp(pal.Accent, 0.5)
+		part.Material = Enum.Material.Neon
+		part.Transparency = 0.15
 	elseif role == "Lens" then
 		part.Color = pal.Accent:Lerp(WHITE, 0.35)
 		part.Material = Enum.Material.Glass

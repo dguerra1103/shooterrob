@@ -400,7 +400,7 @@ local function fire()
 	end
 end
 
--- Ráfaga (Vortex BR): varios disparos seguidos con una pausa entre ráfagas
+-- Ráfaga (Vortex AR-9, Phantom Sidewind): varios disparos seguidos con una pausa entre ráfagas
 local bursting = false
 local lastBurstEnd = 0
 local function startBurst()
