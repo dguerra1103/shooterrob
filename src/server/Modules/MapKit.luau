@@ -769,8 +769,9 @@ end
 
 -- Coche aparcado (sedán): carrocería de pintura brillante, cabina de cristal, ruedas de goma con
 -- tapacubos, faros y pilotos. La carrocería y la cabina son cobertura; el resto es decorativo.
--- Largo en el eje X local (el morro mira a -X).
-function Kit.car(cf, color)
+-- Largo en el eje X local (el morro mira a -X). options.Snow = true le pone nieve encima.
+function Kit.car(cf, color, options)
+	options = options or {}
 	local model = Instance.new("Model")
 	model.Name = "Car"
 	model.Parent = Kit.folder
@@ -824,6 +825,12 @@ function Kit.car(cf, color)
 		deco("Taillight", V(0.12, 0.3, 0.7), cf * CFrame.new(4.52, 1.6, z), RGB(200, 25, 25), Enum.Material.Neon, model)
 	end
 	deco("Plate", V(0.08, 0.35, 1.1), cf * CFrame.new(4.62, 1.05, 0), RGB(235, 235, 225), Enum.Material.SmoothPlastic, model)
+	if options.Snow then
+		local snow = RGB(240, 245, 252)
+		deco("CarSnow", V(3.2, 0.35, 3.6), cf * CFrame.new(0.3, 3.7, 0), snow, Enum.Material.Snow, model)
+		deco("CarSnow", V(2.3, 0.25, 3.8), cf * CFrame.new(-3.2, 2.45, 0), snow, Enum.Material.Snow, model)
+		deco("CarSnow", V(1.4, 0.25, 3.8), cf * CFrame.new(3.6, 2.45, 0), snow, Enum.Material.Snow, model)
+	end
 	Kit.contactShadow(cf, 9, 4.2, false, model)
 	return model
 end

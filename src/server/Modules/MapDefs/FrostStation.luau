@@ -203,6 +203,10 @@ function Map.Build()
 		snowMound(m * V(-115, -1.5, 46), 5.5)
 		snowMound(m * V(-20, -2.5, 82), 7)
 
+		-- Coches aparcados cubiertos de nieve
+		Kit.car(m * CFrame.new(-130, 0, -62) * CFrame.Angles(0, rad(8), 0), RGB(40, 70, 110), { Snow = true })
+		Kit.car(m * CFrame.new(-80, 0, 88) * CFrame.Angles(0, rad(175), 0), RGB(150, 40, 35), { Snow = true })
+
 		-- Rocas que asoman entre la nieve
 		Kit.rockCluster(m * V(-150, 0, -70), 4, Enum.Material.Rock)
 		Kit.rockCluster(m * V(-75, 0, 104), 4.5, Enum.Material.Slate)
