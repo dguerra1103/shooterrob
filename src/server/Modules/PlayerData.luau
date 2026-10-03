@@ -80,6 +80,7 @@ local function defaults()
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
+		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
 
@@ -169,6 +170,7 @@ local function publicView(player, data)
 		WeaponCamos = data.WeaponCamos,
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
+		Settings = data.Settings,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
@@ -306,6 +308,9 @@ local function load(player)
 	end
 	if type(merged.WeaponCamos) ~= "table" then
 		merged.WeaponCamos = {}
+	end
+	if type(merged.Settings) ~= "table" then
+		merged.Settings = table.clone(GameConfig.DefaultSettings)
 	end
 	if type(merged.KillEffects) ~= "table" then
 		merged.KillEffects = { Default = true }
@@ -884,6 +889,26 @@ function PlayerData.Init()
 	end)
 	Remotes.SetSecondary.OnServerEvent:Connect(function(player, weaponName)
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
+	end)
+
+	-- Ajustes del jugador: se validan y se guardan con su progreso
+	Remotes.SaveSettings.OnServerEvent:Connect(function(player, settings)
+		local data = profiles[player]
+		if not data or type(settings) ~= "table" then
+			return
+		end
+		local clean = table.clone(data.Settings)
+		if type(settings.Quality) == "string" and table.find(GameConfig.QualityLevels, settings.Quality) then
+			clean.Quality = settings.Quality
+		end
+		for key, limits in GameConfig.SettingsLimits do
+			local value = settings[key]
+			if type(value) == "number" and value == value then
+				clean[key] = math.clamp(math.floor(value * 100 + 0.5) / 100, limits[1], limits[2])
+			end
+		end
+		data.Settings = clean
+		dirty[player] = true
 	end)
 
 	Remotes.EquipKillEffect.OnServerEvent:Connect(function(player, effectId)

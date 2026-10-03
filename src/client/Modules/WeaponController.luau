@@ -520,12 +520,17 @@ local function renderStep(dt)
 		end
 	end
 
-	-- Campo de visión
-	local targetFov = GameConfig.FieldOfView
+	-- Campo de visión (el del menú Ajustes) y sensibilidad: al apuntar baja en proporción al zoom
+	local settings = ClientState.Settings or GameConfig.DefaultSettings
+	local baseFov = settings.FOV or GameConfig.FieldOfView
+	local targetFov = baseFov
+	local aimScale = 1
 	if def and def.AimFOV then
-		targetFov = lerp(GameConfig.FieldOfView, def.AimFOV, aimAlpha)
+		targetFov = lerp(baseFov, math.min(def.AimFOV, baseFov), aimAlpha)
+		aimScale = lerp(1, (settings.AimSensitivity or 0.8) * math.min(1, def.AimFOV / baseFov) ^ 0.5, aimAlpha)
 	end
 	camera.FieldOfView = targetFov + sprintAlpha * 6
+	UserInputService.MouseDeltaSensitivity = (settings.Sensitivity or 1) * aimScale
 
 	if not viewmodel or not def then
 		return

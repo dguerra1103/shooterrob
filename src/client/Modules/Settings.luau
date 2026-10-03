@@ -1,0 +1,146 @@
+-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
+-- Los cambios de Lighting hechos en el cliente solo afectan a este jugador.
+--
+-- Calidad:
+--   Baja  : sin sombras, sin bloom, sin rayos de sol, sin nubes ni partículas del mapa (móviles)
+--   Media : sombras y bloom, sin rayos de sol, la mitad de partículas del mapa
+--   Alta  : todo como lo diseñó el mapa
+--   Ultra : además, desenfoque de profundidad lejano y más partículas
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+
+local Settings = {}
+
+local PARTICLE_FACTOR = { Baja = 0, Media = 0.5, Alta = 1, Ultra = 1.3 }
+
+local current = table.clone(GameConfig.DefaultSettings)
+ClientState.Settings = current
+
+-- Partículas ambientales del mapa (nieve, hojas, chispas, humo): se escalan según la calidad
+local function scaleEmitter(emitter)
+	if not emitter:IsA("ParticleEmitter") then
+		return
+	end
+	local map = workspace:FindFirstChild("Map")
+	if not map or not emitter:IsDescendantOf(map) then
+		return
+	end
+	local base = emitter:GetAttribute("BaseRate")
+	if base == nil then
+		base = emitter.Rate
+		emitter:SetAttribute("BaseRate", base)
+	end
+	local factor = PARTICLE_FACTOR[current.Quality] or 1
+	emitter.Rate = base * factor
+	emitter.Enabled = factor > 0
+end
+
+local function applyQuality()
+	local q = current.Quality
+	local low = q == "Baja"
+	Lighting.GlobalShadows = not low
+	local bloom = Lighting:FindFirstChildOfClass("BloomEffect")
+	if bloom then
+		bloom.Enabled = not low
+	end
+	local rays = Lighting:FindFirstChildOfClass("SunRaysEffect")
+	if rays then
+		rays.Enabled = q == "Alta" or q == "Ultra"
+	end
+	local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds")
+	if clouds then
+		clouds.Enabled = not low
+	end
+	-- Desenfoque lejano solo en Ultra (creado en el cliente)
+	local dof = Lighting:FindFirstChild("QualityDOF")
+	if q == "Ultra" then
+		if not dof then
+			dof = Instance.new("DepthOfFieldEffect")
+			dof.Name = "QualityDOF"
+			dof.FarIntensity = 0.12
+			dof.FocusDistance = 70
+			dof.InFocusRadius = 90
+			dof.NearIntensity = 0
+			dof.Parent = Lighting
+		end
+		dof.Enabled = true
+	elseif dof then
+		dof.Enabled = false
+	end
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		for _, d in map:GetDescendants() do
+			scaleEmitter(d)
+		end
+	end
+end
+
+function Settings.Get()
+	return current
+end
+
+-- Cambia un ajuste, lo aplica al momento y lo guarda en el servidor (agrupando cambios seguidos)
+local saveQueued = false
+function Settings.Set(key, value)
+	if key == "Quality" then
+		if not table.find(GameConfig.QualityLevels, value) then
+			return
+		end
+	else
+		local limits = GameConfig.SettingsLimits[key]
+		if not limits or type(value) ~= "number" then
+			return
+		end
+		value = math.clamp(math.floor(value * 100 + 0.5) / 100, limits[1], limits[2])
+	end
+	current[key] = value
+	if key == "Quality" then
+		applyQuality()
+	end
+	if not saveQueued then
+		saveQueued = true
+		task.delay(1.5, function()
+			saveQueued = false
+			Remotes.SaveSettings:FireServer(current)
+		end)
+	end
+end
+
+function Settings.Init()
+	-- Ajustes guardados del jugador
+	local function fromData(data)
+		if type(data) ~= "table" or type(data.Settings) ~= "table" or saveQueued then
+			return
+		end
+		local changedQuality = data.Settings.Quality ~= current.Quality
+		for key, value in data.Settings do
+			if GameConfig.DefaultSettings[key] ~= nil and type(value) == type(GameConfig.DefaultSettings[key]) then
+				current[key] = value
+			end
+		end
+		if changedQuality then
+			applyQuality()
+		end
+	end
+	ClientState.DataChanged.Event:Connect(fromData)
+	fromData(ClientState.Data)
+
+	-- Al cambiar de mapa el servidor rehace la iluminación: volvemos a aplicar la calidad
+	ReplicatedStorage:GetAttributeChangedSignal("MapName"):Connect(function()
+		task.delay(1, applyQuality)
+	end)
+	workspace.DescendantAdded:Connect(function(inst)
+		if inst:IsA("ParticleEmitter") then
+			task.defer(scaleEmitter, inst)
+		end
+	end)
+	applyQuality()
+end
+
+return Settings

@@ -20,6 +20,7 @@ local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponIcon = require(script.Parent.WeaponIcon)
 local Effects = require(script.Parent.Effects)
+local Settings = require(script.Parent.Settings)
 
 local player = Players.LocalPlayer
 
@@ -29,6 +30,7 @@ local gui, panel, content, headerInfo, toast
 local tabButtons = {}
 local currentTab = "Pase"
 local busy = false
+local refresh -- reconstruye la pestaña actual (definida más abajo)
 
 local GOLD = Color3.fromRGB(255, 190, 40)
 local PANEL_BG = Color3.fromRGB(22, 24, 38)
@@ -37,7 +39,7 @@ local GREEN = Color3.fromRGB(60, 170, 90)
 local BLUE = Color3.fromRGB(40, 120, 255)
 local GREY = Color3.fromRGB(70, 70, 82)
 
-local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Efectos", "Tienda" }
+local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Efectos", "Tienda", "Ajustes" }
 
 local function rarityColor(rarity)
 	return Skins.RarityColors[rarity] or Color3.new(1, 1, 1)
@@ -725,6 +727,113 @@ local function buildSkinsPage(data)
 	end
 end
 
+---------------------------------------------------------------------------
+-- Pestaña: Ajustes (calidad gráfica, campo de visión, sensibilidad)
+---------------------------------------------------------------------------
+
+local QUALITY_INFO = {
+	Baja = "Máximo rendimiento (móviles): sin sombras ni efectos",
+	Media = "Sombras y brillo, menos partículas",
+	Alta = "Todo como está diseñado",
+	Ultra = "Además desenfoque de distancia y más partículas",
+}
+
+local function buildSettingsPage()
+	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }))
+	local current = Settings.Get()
+
+	local function section(order, title, height)
+		local frame = UI.new("Frame", {
+			LayoutOrder = order,
+			Size = UDim2.new(1, -12, 0, height),
+			BackgroundColor3 = CARD_BG,
+			Parent = scroll,
+		}, { UI.corner(12) })
+		UI.label({
+			Position = UDim2.fromOffset(16, 8),
+			Size = UDim2.new(1, -32, 0, 28),
+			Text = title,
+			TextSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = frame,
+		})
+		return frame
+	end
+
+	-- Calidad gráfica
+	local quality = section(1, "🎨 Calidad gráfica", 116)
+	for i, level in GameConfig.QualityLevels do
+		local selected = current.Quality == level
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 132, 42),
+			Size = UDim2.fromOffset(122, 36),
+			Text = level,
+			TextSize = 18,
+			BackgroundColor3 = selected and BLUE or GREY,
+			Parent = quality,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("Quality", level)
+			refresh()
+		end)
+	end
+	UI.label({
+		Position = UDim2.fromOffset(16, 84),
+		Size = UDim2.new(1, -32, 0, 22),
+		Text = QUALITY_INFO[current.Quality] or "",
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = quality,
+	})
+
+	-- Deslizadores sencillos con botones − y +
+	local function stepper(order, title, key, step, format)
+		local frame = section(order, title, 92)
+		local valueLabel = UI.label({
+			Position = UDim2.fromOffset(80, 44),
+			Size = UDim2.fromOffset(120, 36),
+			Text = string.format(format, current[key]),
+			TextSize = 24,
+			TextColor3 = GOLD,
+			Parent = frame,
+		})
+		for _, info in { { "−", -step, 16 }, { "+", step, 206 } } do
+			local button = UI.button({
+				Position = UDim2.fromOffset(info[3], 44),
+				Size = UDim2.fromOffset(56, 36),
+				Text = info[1],
+				TextSize = 26,
+				BackgroundColor3 = BLUE,
+				Parent = frame,
+			}, { UI.gloss() })
+			button.Activated:Connect(function()
+				Sounds.Play("Click")
+				Settings.Set(key, current[key] + info[2])
+				valueLabel.Text = string.format(format, current[key])
+			end)
+		end
+		return frame
+	end
+	stepper(2, "🔭 Campo de visión (FOV)", "FOV", 5, "%d°")
+	stepper(3, "🖱 Sensibilidad", "Sensitivity", 0.1, "%.1f")
+	stepper(4, "🎯 Sensibilidad al apuntar", "AimSensitivity", 0.05, "%.2f")
+	UI.label({
+		LayoutOrder = 5,
+		Size = UDim2.new(1, -12, 0, 40),
+		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
+		TextSize = 14,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = scroll,
+	})
+end
+
 -- Muestra un efecto de eliminación delante de la cámara (oculta el menú, y la pantalla de inicio
 -- con su desenfoque si está abierta, durante un momento)
 local previewing = false
@@ -1342,7 +1451,7 @@ end
 
 local lastBuiltTab = nil
 
-local function refresh()
+function refresh()
 	if not content then
 		return
 	end
@@ -1379,6 +1488,8 @@ local function refresh()
 		buildOutfitsPage(data)
 	elseif currentTab == "Efectos" then
 		buildKillEffectsPage(data)
+	elseif currentTab == "Ajustes" then
+		buildSettingsPage()
 	else
 		buildShopPage(data)
 	end
@@ -1519,8 +1630,8 @@ function Menu.Init()
 	for i, name in TABS do
 		local button = UI.button({
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(118, 38),
-			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name == "Efectos" and "💥 Efectos" or name,
+			Size = UDim2.fromOffset(name == "Ajustes" and 52 or 112, 38),
+			Text = name == "Tienda" and "🛒 Tienda" or name == "Retos" and "🎯 Retos" or name == "Efectos" and "💥 Efectos" or name == "Ajustes" and "⚙" or name,
 			BackgroundColor3 = CARD_BG,
 			Parent = tabs,
 		})

@@ -1,6 +1,7 @@
 -- Estado compartido entre los módulos del cliente.
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
+	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
 	InMainMenu = true, -- pantalla de inicio visible

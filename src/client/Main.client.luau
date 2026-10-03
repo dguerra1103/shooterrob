@@ -14,6 +14,7 @@ local WorldFX = require(Modules.WorldFX)
 local VoteUI = require(Modules.VoteUI)
 local GrenadeController = require(Modules.GrenadeController)
 local KillstreakController = require(Modules.KillstreakController)
+local Settings = require(Modules.Settings)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -25,6 +26,7 @@ task.spawn(function()
 	end
 end)
 
+Settings.Init()
 HUD.Init()
 Menu.Init()
 Movement.Init()
