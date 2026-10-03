@@ -36,6 +36,14 @@ function UI.stroke(color, thickness, transparency)
 	})
 end
 
+-- Degradado brillante (de claro arriba a más oscuro abajo) sobre el color de fondo
+function UI.gloss(bottom)
+	return UI.new("UIGradient", {
+		Color = ColorSequence.new(Color3.new(1, 1, 1), bottom or Color3.fromRGB(185, 185, 195)),
+		Rotation = 90,
+	})
+end
+
 function UI.padding(px)
 	return UI.new("UIPadding", {
 		PaddingTop = UDim.new(0, px),

@@ -2,6 +2,7 @@
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	MenuOpen = false,
+	InMainMenu = true, -- pantalla de inicio visible
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,
@@ -19,6 +20,11 @@ local ClientState = {
 	WeaponChanged = Instance.new("BindableEvent"),
 	ShotFired = Instance.new("BindableEvent"),
 }
+
+-- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
+function ClientState.IsBlocked()
+	return ClientState.MenuOpen or ClientState.InMainMenu
+end
 
 function ClientState.SetData(data)
 	if type(data) ~= "table" then

@@ -9,12 +9,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
+local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponController = require(script.Parent.WeaponController)
+local WeaponIcon = require(script.Parent.WeaponIcon)
 
 local player = Players.LocalPlayer
 
@@ -63,7 +65,7 @@ local function buildTopBar()
 			Size = UDim2.fromOffset(90, 44),
 			BackgroundColor3 = Color3.fromRGB(80, 80, 80),
 			Parent = top,
-		}, { UI.corner(8), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+		}, { UI.corner(10), UI.stroke(Color3.new(0, 0, 0), 3, 0), UI.gloss() })
 		return UI.label({
 			Size = UDim2.fromScale(1, 1),
 			Text = "0",
@@ -98,9 +100,9 @@ local function buildTopBar()
 	local timerBox = UI.new("Frame", {
 		Position = UDim2.fromOffset(95, 0),
 		Size = UDim2.fromOffset(140, 44),
-		BackgroundColor3 = Color3.fromRGB(25, 30, 60),
+		BackgroundColor3 = Color3.fromRGB(35, 45, 95),
 		Parent = top,
-	}, { UI.corner(8), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+	}, { UI.corner(10), UI.stroke(Color3.new(0, 0, 0), 3, 0), UI.gloss(Color3.fromRGB(120, 120, 150)) })
 	refs.Timer = UI.label({ Size = UDim2.fromScale(1, 1), Text = "00:00", TextSize = 30, Parent = timerBox })
 
 	refs.Mode = UI.label({
@@ -238,7 +240,7 @@ local function buildWeaponPanel()
 	local panel = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -20),
-		Size = UDim2.fromOffset(260, 90),
+		Size = UDim2.fromOffset(260, 104),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
@@ -258,8 +260,25 @@ local function buildWeaponPanel()
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = panel,
 	})
+	-- Barra del cargador
+	local ammoBar = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 76),
+		Size = UDim2.fromOffset(170, 6),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+		BackgroundTransparency = 0.3,
+		Parent = panel,
+	}, { UI.corner(3) })
+	refs.AmmoFill = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 210, 80),
+		Parent = ammoBar,
+	}, { UI.corner(3) })
+	refs.AmmoBar = ammoBar
 	refs.ReloadHint = UI.label({
-		Position = UDim2.fromOffset(0, 72),
+		Position = UDim2.fromOffset(0, 85),
 		Size = UDim2.new(1, 0, 0, 18),
 		Text = "",
 		TextSize = 16,
@@ -268,16 +287,16 @@ local function buildWeaponPanel()
 		Parent = panel,
 	})
 
-	-- Ranuras de armas (derecha)
+	-- Ranuras de armas (derecha) con icono 3D del arma
 	local slots = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -20, 0.62, 0),
-		Size = UDim2.fromOffset(200, 150),
+		Position = UDim2.new(1, -20, 0.6, 0),
+		Size = UDim2.fromOffset(230, 196),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
-			Padding = UDim.new(0, 8),
+			Padding = UDim.new(0, 6),
 			HorizontalAlignment = Enum.HorizontalAlignment.Right,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
@@ -286,26 +305,36 @@ local function buildWeaponPanel()
 	for slot = 1, 3 do
 		local row = UI.new("Frame", {
 			LayoutOrder = slot,
-			Size = UDim2.fromOffset(200, 40),
-			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(230, 60),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BackgroundTransparency = 0.7,
 			Parent = slots,
+		}, { UI.corner(10) })
+		local stroke = UI.stroke(Color3.fromRGB(255, 200, 60), 2, 1)
+		stroke.Parent = row
+		local icon = UI.new("Frame", {
+			Position = UDim2.fromOffset(6, 2),
+			Size = UDim2.fromOffset(170, 44),
+			BackgroundTransparency = 1,
+			Parent = row,
 		})
 		local name = UI.label({
-			Size = UDim2.new(1, -40, 1, 0),
+			Position = UDim2.fromOffset(10, 42),
+			Size = UDim2.fromOffset(170, 16),
 			Text = "",
-			TextSize = 18,
-			TextXAlignment = Enum.TextXAlignment.Right,
+			TextSize = 14,
+			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = row,
 		})
 		local key = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, 0, 0.5, 0),
+			Position = UDim2.new(1, -8, 0.5, 0),
 			Size = UDim2.fromOffset(30, 30),
 			BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 			Parent = row,
-		}, { UI.corner(6) })
+		}, { UI.corner(6), UI.stroke(Color3.new(0, 0, 0), 2, 0) })
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = tostring(slot), TextSize = 18, Parent = key })
-		refs.Slots[slot] = { Name = name, Key = key, Row = row }
+		refs.Slots[slot] = { Name = name, Key = key, Row = row, Stroke = stroke, Icon = icon, IconKey = nil }
 	end
 
 	-- Controles (estilo de la captura)
@@ -359,17 +388,33 @@ local function buildPlayerPanel()
 	-- Vida (abajo a la izquierda)
 	local health = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 24, 1, -24),
-		Size = UDim2.fromOffset(240, 22),
+		Position = UDim2.new(0, 56, 1, -24),
+		Size = UDim2.fromOffset(250, 26),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
-	}, { UI.corner(11), UI.stroke(Color3.new(0, 0, 0), 2, 0.2) })
+	}, { UI.corner(13), UI.stroke(Color3.new(0, 0, 0), 3, 0) })
+	refs.HealthChip = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		BackgroundTransparency = 0.25,
+		Parent = health,
+	}, { UI.corner(13) })
 	refs.HealthFill = UI.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(70, 220, 90),
 		Parent = health,
-	}, { UI.corner(11) })
-	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 16, Parent = health })
+	}, { UI.corner(13), UI.gloss() })
+	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 18, Parent = health })
+	UI.label({
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(0, -6, 0.5, 0),
+		Size = UDim2.fromOffset(28, 28),
+		Text = "✚",
+		TextSize = 28,
+		TextColor3 = Color3.fromRGB(90, 230, 110),
+		TextStrokeTransparency = 0,
+		Parent = health,
+	})
 
 	-- Racha (barra vertical a la izquierda, como en la captura)
 	local streakBar = UI.new("Frame", {
@@ -527,13 +572,56 @@ local function buildFeedsAndOverlays()
 		RichText = true,
 		Parent = refs.DeathScreen,
 	})
-	UI.label({
+	refs.RespawnText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.53),
 		Size = UDim2.fromOffset(600, 30),
 		Text = "Reapareciendo...",
 		TextSize = 22,
 		Parent = refs.DeathScreen,
+	})
+	refs.DeathIcon = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.33),
+		Size = UDim2.fromOffset(280, 110),
+		BackgroundTransparency = 1,
+		Parent = refs.DeathScreen,
+	})
+
+	-- Aviso de baja propia ("ELIMINADO", doble baja...)
+	refs.KillBanner = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.7),
+		Size = UDim2.fromOffset(440, 64),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = gui,
+	})
+	refs.KillScale = UI.new("UIScale", { Parent = refs.KillBanner })
+	refs.KillIcon = UI.label({
+		Size = UDim2.fromOffset(64, 64),
+		Text = "💀",
+		TextSize = 46,
+		Parent = refs.KillBanner,
+	})
+	refs.KillTitle = UI.label({
+		Position = UDim2.fromOffset(70, 2),
+		Size = UDim2.fromOffset(370, 34),
+		Text = "",
+		TextSize = 32,
+		TextStrokeTransparency = 0,
+		TextColor3 = Color3.fromRGB(255, 70, 70),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.KillBanner,
+	})
+	refs.KillSub = UI.label({
+		Position = UDim2.fromOffset(70, 36),
+		Size = UDim2.fromOffset(370, 24),
+		Text = "",
+		TextSize = 20,
+		TextColor3 = Color3.fromRGB(255, 225, 100),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.KillBanner,
 	})
 
 	-- Fin de ronda
@@ -638,9 +726,36 @@ local function onNotify(kind, text)
 	end
 end
 
+local multiCount, lastKillTime, killToken = 0, 0, nil
+local MULTI_NAMES = { [2] = "¡DOBLE BAJA!", [3] = "¡TRIPLE BAJA!", [4] = "¡CUÁDRUPLE!" }
+
+local function showKillBanner(victim, headshot)
+	local now = os.clock()
+	multiCount = (now - lastKillTime < 4) and multiCount + 1 or 1
+	lastKillTime = now
+	local multi = MULTI_NAMES[multiCount] or (multiCount >= 5 and "¡IMPARABLE!" or nil)
+	refs.KillTitle.Text = multi or "ELIMINADO"
+	refs.KillTitle.TextColor3 = multi and Color3.fromRGB(255, 180, 30) or Color3.fromRGB(255, 70, 70)
+	refs.KillSub.Text = tostring(victim) .. (headshot and "  ·  DISPARO A LA CABEZA" or "")
+	refs.KillIcon.Text = headshot and "🎯" or "💀"
+	refs.KillBanner.Visible = true
+	refs.KillScale.Scale = 1.5
+	tween(refs.KillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	local token = {}
+	killToken = token
+	task.delay(2.2, function()
+		if killToken == token then
+			refs.KillBanner.Visible = false
+		end
+	end)
+end
+
 local function onKillFeed(info)
 	if type(info) ~= "table" then
 		return
+	end
+	if info.Killer == player.Name and info.Victim ~= player.Name then
+		showKillBanner(info.Victim, info.Headshot)
 	end
 	local killer = info.Killer
 	local text
@@ -910,7 +1025,10 @@ local function updateData(data)
 end
 
 local lastHealth = 100
-local function render()
+local lastDamageTime = 0
+local chipRatio = 1
+local function render(dt)
+	gui.Enabled = not ClientState.InMainMenu
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
@@ -921,9 +1039,16 @@ local function render()
 		refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
 		refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
 		refs.HealthText.Text = tostring(math.ceil(health))
+		-- La parte blanca baja despacio y deja ver el daño recibido
+		chipRatio = ratio > chipRatio and ratio or math.max(ratio, chipRatio - dt * 0.5)
+		refs.HealthChip.Size = UDim2.fromScale(chipRatio, 1)
 		if health < lastHealth - 0.5 then
+			lastDamageTime = os.clock()
 			refs.DamageStroke.Transparency = 0.35
-			tween(refs.DamageStroke, 0.6, { Transparency = ratio < 0.35 and 0.75 or 1 })
+			tween(refs.DamageStroke, 0.6, { Transparency = 1 })
+		elseif ratio < 0.35 and ratio > 0 and os.clock() - lastDamageTime > 0.6 then
+			-- Vida baja: la viñeta roja late
+			refs.DamageStroke.Transparency = 0.7 + 0.15 * math.sin(os.clock() * 5)
 		end
 		lastHealth = health
 	end
@@ -947,6 +1072,11 @@ local function render()
 				ClientState.Ammo,
 				reserve
 			)
+			refs.AmmoBar.Visible = true
+			local fill = ClientState.Reloading and ClientState.ReloadProgress or ClientState.Ammo / def.MagSize
+			refs.AmmoFill.Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1)
+			refs.AmmoFill.BackgroundColor3 = ClientState.Reloading and Color3.fromRGB(120, 200, 255)
+				or (ClientState.Ammo <= math.ceil(def.MagSize * 0.25) and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 210, 80))
 			if ClientState.Reloading then
 				refs.ReloadHint.Text = "RECARGANDO " .. math.floor(ClientState.ReloadProgress * 100) .. "%"
 			elseif ClientState.Ammo == 0 and reserve == 0 then
@@ -959,22 +1089,38 @@ local function render()
 		else
 			refs.Ammo.Text = "∞"
 			refs.ReloadHint.Text = ""
+			refs.AmmoBar.Visible = false
 		end
 	else
 		refs.WeaponName.Text = ""
 		refs.Ammo.Text = ""
 		refs.ReloadHint.Text = ""
+		refs.AmmoBar.Visible = false
 	end
 
 	-- Ranuras
 	local tools = WeaponController.GetTools()
 	for slot, row in refs.Slots do
 		local slotTool = tools[slot]
-		local slotDef = slotTool and Weapons.Get(slotTool:GetAttribute("Weapon"))
+		local weaponName = slotTool and slotTool:GetAttribute("Weapon")
+		local slotDef = weaponName and Weapons.Get(weaponName)
+		row.Row.Visible = slotDef ~= nil
 		row.Name.Text = slotDef and slotDef.DisplayName or ""
 		local active = slotTool ~= nil and slotTool == tool
 		row.Name.TextColor3 = active and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(220, 220, 220)
 		row.Key.BackgroundColor3 = active and Color3.fromRGB(255, 170, 30) or Color3.fromRGB(20, 20, 25)
+		row.Stroke.Transparency = active and 0 or 1
+		row.Row.BackgroundTransparency = active and 0.45 or 0.7
+		-- Icono 3D (solo se reconstruye si cambia el arma o la skin)
+		local skinId = slotTool and slotTool:GetAttribute("Skin")
+		local iconKey = slotDef and (weaponName .. "|" .. tostring(skinId)) or nil
+		if iconKey ~= row.IconKey then
+			row.IconKey = iconKey
+			row.Icon:ClearAllChildren()
+			if iconKey then
+				WeaponIcon.Create(weaponName, skinId, { Size = UDim2.fromScale(1, 1), Parent = row.Icon }, "side", 170 / 44)
+			end
+		end
 	end
 
 	-- Mira
@@ -986,7 +1132,7 @@ local function render()
 		line.Frame.Visible = isGun and aim < 0.5
 	end
 	refs.CrossDot.Visible = aim < 0.5
-	refs.Crosshair.Visible = not ClientState.MenuOpen
+	refs.Crosshair.Visible = not ClientState.IsBlocked()
 	refs.Scope.Visible = def ~= nil and def.Scope == true and aim > 0.85
 end
 
@@ -1022,7 +1168,22 @@ function HUD.Init()
 		else
 			refs.DeathText.Text = "HAS MUERTO"
 		end
+		refs.DeathIcon:ClearAllChildren()
+		if weapon then
+			WeaponIcon.Create(weaponName, "Default", { Size = UDim2.fromScale(1, 1), Parent = refs.DeathIcon }, "angled", 280 / 110)
+		end
 		refs.DeathScreen.Visible = true
+		-- Cuenta atrás para reaparecer
+		task.spawn(function()
+			for t = GameConfig.RespawnTime, 1, -1 do
+				if not refs.DeathScreen.Visible then
+					return
+				end
+				refs.RespawnText.Text = "Reapareciendo en " .. t .. "..."
+				task.wait(1)
+			end
+			refs.RespawnText.Text = "Reapareciendo..."
+		end)
 	end)
 	player.CharacterAdded:Connect(function()
 		refs.DeathScreen.Visible = false

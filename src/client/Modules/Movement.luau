@@ -29,7 +29,7 @@ local function tweenCameraOffset(offset, time)
 end
 
 local function slide()
-	if ClientState.Sliding or ClientState.MenuOpen or not humanoid or humanoid.Health <= 0 or not rootPart then
+	if ClientState.Sliding or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
 	end
 	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
@@ -103,7 +103,7 @@ local function update()
 		and not ClientState.Aiming
 		and not recentlyShot
 		and not ClientState.Sliding
-		and not ClientState.MenuOpen
+		and not ClientState.IsBlocked()
 
 	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then

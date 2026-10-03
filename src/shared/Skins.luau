@@ -2,6 +2,10 @@
 --   Body   = cuerpo principal
 --   Accent = detalles brillantes (neón)
 --   Dark   = cañón, cargador, mira
+--   Accent2 = detalles secundarios (paneles, rayas)
+-- Opcional:
+--   Effect = "Sparkle" (destellos) o "Flame" (llamas) alrededor del arma
+--   Pulse  = true: los detalles de neón laten entre Accent y Accent2
 local Skins = {}
 
 Skins.List = {
@@ -13,6 +17,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(0, 200, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(30, 30, 34),
+		Accent2 = Color3.fromRGB(110, 115, 125),
 	},
 	Toxico = {
 		Name = "Tóxico",
@@ -22,6 +27,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(110, 255, 60),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(20, 26, 20),
+		Accent2 = Color3.fromRGB(255, 230, 0),
 	},
 	Selva = {
 		Name = "Selva",
@@ -31,6 +37,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(196, 160, 90),
 		AccentMaterial = Enum.Material.SmoothPlastic,
 		Dark = Color3.fromRGB(50, 40, 30),
+		Accent2 = Color3.fromRGB(60, 80, 40),
 	},
 	Oceano = {
 		Name = "Océano",
@@ -40,6 +47,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(80, 220, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(10, 25, 50),
+		Accent2 = Color3.fromRGB(255, 255, 255),
 	},
 	Atardecer = {
 		Name = "Atardecer",
@@ -49,6 +57,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 60, 140),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(70, 20, 60),
+		Accent2 = Color3.fromRGB(255, 200, 60),
 	},
 	Sakura = {
 		Name = "Sakura",
@@ -58,6 +67,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 80, 200),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(120, 40, 110),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
 	},
 	Hielo = {
 		Name = "Hielo",
@@ -67,6 +78,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(120, 200, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(60, 90, 120),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
 	},
 	Calabaza = {
 		Name = "Calabaza",
@@ -76,6 +89,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 220, 40),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(30, 20, 10),
+		Accent2 = Color3.fromRGB(120, 40, 160),
+		Effect = "Flame",
 	},
 	Vacio = {
 		Name = "Vacío",
@@ -85,6 +100,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 20, 40),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(40, 0, 5),
+		Accent2 = Color3.fromRGB(40, 40, 48),
+		Effect = "Sparkle",
+		Pulse = true,
 	},
 	Dorado = {
 		Name = "Dorado",
@@ -94,6 +112,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 255, 200),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(110, 80, 20),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
 	},
 	Galaxia = {
 		Name = "Galaxia",
@@ -103,6 +123,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 120, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(25, 10, 60),
+		Accent2 = Color3.fromRGB(80, 200, 255),
+		Effect = "Sparkle",
+		Pulse = true,
 	},
 	Dragon = {
 		Name = "Dragón",
@@ -112,6 +135,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 170, 0),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(40, 5, 5),
+		Accent2 = Color3.fromRGB(255, 60, 0),
+		Effect = "Flame",
+		Pulse = true,
 	},
 	Magma = {
 		Name = "Magma",
@@ -121,6 +147,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 90, 0),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(255, 50, 0),
+		Accent2 = Color3.fromRGB(255, 200, 0),
+		Effect = "Flame",
+		Pulse = true,
 	},
 }
 

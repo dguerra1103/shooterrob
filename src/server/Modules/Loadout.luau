@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Weapons = require(Shared.Weapons)
 local WeaponModels = require(Shared.WeaponModels)
+local Remotes = require(Shared.Remotes)
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -77,17 +78,37 @@ local function onSkinChanged(player, skinId)
 	end
 end
 
+-- Mientras el jugador está en la pantalla de inicio es invulnerable (escudo invisible)
+local function addMenuShield(player, character)
+	if player:GetAttribute("InMenu") and not character:FindFirstChild("MenuShield") then
+		local shield = Instance.new("ForceField")
+		shield.Name = "MenuShield"
+		shield.Visible = false
+		shield.Parent = character
+	end
+end
+
 local function onPlayer(player)
+	player:SetAttribute("InMenu", true)
 	player.CharacterAdded:Connect(function(character)
+		addMenuShield(player, character)
 		giveLoadout(player, character)
 	end)
 	if player.Character then
+		addMenuShield(player, player.Character)
 		task.spawn(giveLoadout, player, player.Character)
 	end
 end
 
 function Loadout.Init()
 	PlayerData.OnSkinChanged = onSkinChanged
+	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
+		player:SetAttribute("InMenu", false)
+		local shield = player.Character and player.Character:FindFirstChild("MenuShield")
+		if shield then
+			shield:Destroy()
+		end
+	end)
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)

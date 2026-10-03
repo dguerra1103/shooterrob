@@ -1,6 +1,9 @@
 -- Configuración general del juego. Cambia aquí los valores para ajustar el balance.
 local GameConfig = {}
 
+-- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
+GameConfig.GameTitle = "SHOOTER NEW"
+
 -- Equipos
 GameConfig.Teams = {
 	{ Name = "Rojo", Color = BrickColor.new("Really red") },

@@ -8,6 +8,7 @@ local EVENTS = {
 	"Melee", -- cliente -> servidor: cuchillazo
 	"EquipSkin", -- cliente -> servidor: equipar skin
 	"SetPrimary", -- cliente -> servidor: elegir arma principal
+	"LeaveMenu", -- cliente -> servidor: ha salido de la pantalla de inicio
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas

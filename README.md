@@ -17,7 +17,9 @@ Todo está hecho con código (Luau). Incluso el mapa y las armas se generan solo
 | **Movimiento** | Correr (Shift) y deslizarse (C), con impulso. |
 | **HUD** | Marcador arriba con el top 10 de jugadores (foto, puesto y bajas), munición, vida, barra de racha, killfeed, nivel/XP y aviso de controles. |
 | **Pase de batalla** | 15 niveles con una vía gratis y otra premium (GamePass), 13 skins (de común a mítica) y monedas. El progreso se guarda con DataStore. |
-| **Mapa** | Arena urbana simétrica con contenedores, edificios con azotea, pasarela elevada, plataforma central, coberturas y rascacielos de fondo. |
+| **Mapa** | Arena urbana simétrica: calles con pasos de cebra, aceras con farolas y árboles, plaza central de baldosas, edificios con tiendas y rótulos de neón, contenedores rotulados, pasarela con barandillas, holograma giratorio, carteles gigantes y dos filas de rascacielos. |
+| **Gráficos** | Iluminación "Future", nubes volumétricas, rayos de sol, bloom y corrección de color. Armas detalladas con skins de dos colores, destellos, llamas y brillo que late (míticas). Fogonazo con fuego y humo, balas que viajan, chispas y polvo al impactar, casquillos y explosión de partículas al eliminar a alguien. |
+| **Interfaz** | Pantalla de inicio con la cámara girando sobre el mapa. Iconos 3D de las armas (en la partida y en el menú de skins), aviso de "ELIMINADO" y de doble/triple baja, vida con efecto de daño, contorno de los compañeros y nombres de los enemigos ocultos. |
 | **Práctica** | Muñecos en el mapa para probar las armas aunque juegues solo en Studio. |
 
 ## Cómo abrirlo (opción rápida)
@@ -154,7 +156,10 @@ src/
         ├── Movement.luau          correr y deslizarse
         ├── HUD.luau               interfaz de partida
         ├── Menu.luau              pase de batalla, skins y armas
-        ├── Effects.luau           trazadoras e impactos
+        ├── MainMenu.luau          pantalla de inicio
+        ├── WeaponIcon.luau        iconos 3D de las armas
+        ├── WorldFX.luau           animaciones del mapa, contornos y efectos de baja
+        ├── Effects.luau           fogonazo, balas, impactos y casquillos
         ├── ClientState.luau       estado compartido
         └── UI.luau                utilidades de interfaz
 ```

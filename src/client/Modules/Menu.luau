@@ -14,6 +14,7 @@ local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local WeaponIcon = require(script.Parent.WeaponIcon)
 
 local player = Players.LocalPlayer
 
@@ -31,33 +32,6 @@ local CARD_BG = Color3.fromRGB(38, 42, 64)
 -- Tarjetas de recompensa
 ---------------------------------------------------------------------------
 
-local function skinSwatch(skinId, parent, size)
-	local skin = Skins.Get(skinId)
-	local swatch = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 8),
-		Size = size or UDim2.fromOffset(80, 40),
-		BackgroundColor3 = skin.Body,
-		Parent = parent,
-	}, { UI.corner(6), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
-	UI.new("Frame", {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.fromScale(0, 0.45),
-		Size = UDim2.new(1, 0, 0.22, 0),
-		BackgroundColor3 = skin.Accent,
-		BorderSizePixel = 0,
-		Parent = swatch,
-	})
-	UI.new("Frame", {
-		Position = UDim2.fromScale(0.15, 0.62),
-		Size = UDim2.fromScale(0.18, 0.5),
-		BackgroundColor3 = skin.Dark,
-		BorderSizePixel = 0,
-		Parent = swatch,
-	})
-	return swatch
-end
-
 local function rewardCard(reward, unlocked, premium, parent, order)
 	local card = UI.new("Frame", {
 		LayoutOrder = order,
@@ -70,7 +44,13 @@ local function rewardCard(reward, unlocked, premium, parent, order)
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "—", TextSize = 30, TextTransparency = 0.5, Parent = card })
 	elseif reward.Type == "Skin" then
 		local skin = Skins.Get(reward.Id)
-		skinSwatch(reward.Id, card)
+		WeaponIcon.Create(
+			ClientState.Data and ClientState.Data.Primary or "Rifle",
+			reward.Id,
+			{ Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(102, 48), Parent = card },
+			"angled",
+			102 / 48
+		)
 		UI.label({
 			Position = UDim2.fromOffset(0, 52),
 			Size = UDim2.new(1, 0, 0, 22),
@@ -293,7 +273,13 @@ local function buildSkinsPage(data)
 			UI.corner(10),
 			UI.stroke(equipped and GOLD or (Skins.RarityColors[skin.Rarity] or Color3.new(1, 1, 1)), 2, equipped and 0 or 0.4),
 		})
-		skinSwatch(id, card, UDim2.fromOffset(120, 46))
+		WeaponIcon.Create(
+			data.Primary or "Rifle",
+			id,
+			{ Position = UDim2.fromOffset(6, 4), Size = UDim2.fromOffset(153, 56), Parent = card },
+			"angled",
+			153 / 56
+		)
 		UI.label({
 			Position = UDim2.fromOffset(0, 58),
 			Size = UDim2.new(1, 0, 0, 22),
@@ -347,7 +333,7 @@ local function buildWeaponsPage(data)
 		local selected = data.Primary == weaponName
 		local card = UI.new("Frame", {
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(220, 300),
+			Size = UDim2.fromOffset(220, 330),
 			BackgroundColor3 = CARD_BG,
 			Parent = holder,
 		}, { UI.corner(12), UI.stroke(selected and GOLD or Color3.fromRGB(90, 100, 140), 2, 0) })
@@ -358,6 +344,13 @@ local function buildWeaponsPage(data)
 			TextSize = 26,
 			Parent = card,
 		})
+		WeaponIcon.Create(
+			weaponName,
+			data.EquippedSkin,
+			{ Position = UDim2.fromOffset(10, 42), Size = UDim2.fromOffset(200, 72), Parent = card },
+			"angled",
+			200 / 72
+		)
 		local stats = {
 			{ "Daño", def.Pellets > 1 and (def.Damage .. " x" .. def.Pellets) or tostring(def.Damage) },
 			{ "Cadencia", string.format("%.1f/s", def.FireRate) },
@@ -367,7 +360,7 @@ local function buildWeaponsPage(data)
 		}
 		for j, stat in stats do
 			UI.label({
-				Position = UDim2.fromOffset(18, 52 + (j - 1) * 30),
+				Position = UDim2.fromOffset(18, 118 + (j - 1) * 30),
 				Size = UDim2.new(1, -36, 0, 26),
 				Text = stat[1],
 				TextSize = 18,
@@ -376,7 +369,7 @@ local function buildWeaponsPage(data)
 				Parent = card,
 			})
 			UI.label({
-				Position = UDim2.fromOffset(18, 52 + (j - 1) * 30),
+				Position = UDim2.fromOffset(18, 118 + (j - 1) * 30),
 				Size = UDim2.new(1, -36, 0, 26),
 				Text = stat[2],
 				TextSize = 18,
@@ -444,7 +437,8 @@ end
 local function setOpen(open)
 	ClientState.MenuOpen = open
 	panel.Visible = open
-	UserInputService.MouseIconEnabled = open
+	-- En la pantalla de inicio el ratón siempre se ve
+	UserInputService.MouseIconEnabled = open or ClientState.InMainMenu
 	if open then
 		refresh()
 	end
@@ -452,6 +446,18 @@ end
 
 function Menu.Toggle()
 	setOpen(not panel.Visible)
+end
+
+-- Abre el menú directamente en una pestaña ("Pase", "Skins" o "Armas")
+function Menu.Open(tab)
+	if tab then
+		currentTab = tab
+	end
+	setOpen(true)
+end
+
+function Menu.IsOpen()
+	return panel ~= nil and panel.Visible
 end
 
 function Menu.Init()
@@ -481,7 +487,15 @@ function Menu.Init()
 		BackgroundColor3 = PANEL_BG,
 		Visible = false,
 		Parent = gui,
-	}, { UI.corner(16), UI.stroke(Color3.fromRGB(255, 140, 40), 3, 0), UI.padding(16) })
+	}, {
+		UI.corner(16),
+		UI.stroke(Color3.fromRGB(255, 140, 40), 3, 0),
+		UI.padding(16),
+		UI.new("UIGradient", {
+			Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 120, 200)),
+			Rotation = 120,
+		}),
+	})
 	UI.new("UISizeConstraint", { MaxSize = Vector2.new(800, 480) }).Parent = panel
 
 	-- Un botón "Modal" libera el ratón en primera persona mientras el menú está abierto

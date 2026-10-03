@@ -75,10 +75,16 @@ local function damageAtDistance(def, distance)
 	return def.Damage + (def.MinDamage - def.Damage) * alpha
 end
 
+-- Al atacar se pierde cualquier escudo (el de reaparición y el de la pantalla de inicio)
 local function removeSpawnShield(character)
-	local shield = character:FindFirstChildOfClass("ForceField")
-	if shield then
-		shield:Destroy()
+	for _, child in character:GetChildren() do
+		if child:IsA("ForceField") then
+			child:Destroy()
+		end
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		player:SetAttribute("InMenu", false)
 	end
 end
 

@@ -1,23 +1,35 @@
 <roblox version="4">
-  <Item class="Players" referent="0">
+  <Item class="Lighting" referent="0">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <float name="EnvironmentDiffuseScale">1</float>
+      <float name="EnvironmentSpecularScale">1</float>
+      <float name="ShadowSoftness">0.15</float>
+      <token name="Technology">4</token>
+    </Properties>
+  </Item>
+  <Item class="Players" referent="1">
     <Properties>
       <string name="Name">Players</string>
       <float name="RespawnTime">3</float>
     </Properties>
   </Item>
-  <Item class="ReplicatedStorage" referent="1">
+  <Item class="ReplicatedStorage" referent="2">
     <Properties>
       <string name="Name">ReplicatedStorage</string>
     </Properties>
-    <Item class="Folder" referent="2">
+    <Item class="Folder" referent="3">
       <Properties>
         <string name="Name">Shared</string>
       </Properties>
-      <Item class="ModuleScript" referent="3">
+      <Item class="ModuleScript" referent="4">
         <Properties>
           <string name="Name">GameConfig</string>
           <string name="Source"><![CDATA[-- Configuración general del juego. Cambia aquí los valores para ajustar el balance.
 local GameConfig = {}
+
+-- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
+GameConfig.GameTitle = "SHOOTER NEW"
 
 -- Equipos
 GameConfig.Teams = {
@@ -104,7 +116,7 @@ return GameConfig
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="4">
+      <Item class="ModuleScript" referent="5">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Crea (servidor) o espera (cliente) todos los RemoteEvents/RemoteFunctions del juego.
@@ -117,6 +129,7 @@ local EVENTS = {
 	"Melee", -- cliente -> servidor: cuchillazo
 	"EquipSkin", -- cliente -> servidor: equipar skin
 	"SetPrimary", -- cliente -> servidor: elegir arma principal
+	"LeaveMenu", -- cliente -> servidor: ha salido de la pantalla de inicio
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
@@ -164,13 +177,17 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="5">
+      <Item class="ModuleScript" referent="6">
         <Properties>
           <string name="Name">Skins</string>
           <string name="Source"><![CDATA[-- Skins de armas. Cada skin pinta las piezas del arma según su "Role":
 --   Body   = cuerpo principal
 --   Accent = detalles brillantes (neón)
 --   Dark   = cañón, cargador, mira
+--   Accent2 = detalles secundarios (paneles, rayas)
+-- Opcional:
+--   Effect = "Sparkle" (destellos) o "Flame" (llamas) alrededor del arma
+--   Pulse  = true: los detalles de neón laten entre Accent y Accent2
 local Skins = {}
 
 Skins.List = {
@@ -182,6 +199,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(0, 200, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(30, 30, 34),
+		Accent2 = Color3.fromRGB(110, 115, 125),
 	},
 	Toxico = {
 		Name = "Tóxico",
@@ -191,6 +209,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(110, 255, 60),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(20, 26, 20),
+		Accent2 = Color3.fromRGB(255, 230, 0),
 	},
 	Selva = {
 		Name = "Selva",
@@ -200,6 +219,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(196, 160, 90),
 		AccentMaterial = Enum.Material.SmoothPlastic,
 		Dark = Color3.fromRGB(50, 40, 30),
+		Accent2 = Color3.fromRGB(60, 80, 40),
 	},
 	Oceano = {
 		Name = "Océano",
@@ -209,6 +229,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(80, 220, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(10, 25, 50),
+		Accent2 = Color3.fromRGB(255, 255, 255),
 	},
 	Atardecer = {
 		Name = "Atardecer",
@@ -218,6 +239,7 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 60, 140),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(70, 20, 60),
+		Accent2 = Color3.fromRGB(255, 200, 60),
 	},
 	Sakura = {
 		Name = "Sakura",
@@ -227,6 +249,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 80, 200),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(120, 40, 110),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
 	},
 	Hielo = {
 		Name = "Hielo",
@@ -236,6 +260,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(120, 200, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(60, 90, 120),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
 	},
 	Calabaza = {
 		Name = "Calabaza",
@@ -245,6 +271,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 220, 40),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(30, 20, 10),
+		Accent2 = Color3.fromRGB(120, 40, 160),
+		Effect = "Flame",
 	},
 	Vacio = {
 		Name = "Vacío",
@@ -254,6 +282,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 20, 40),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(40, 0, 5),
+		Accent2 = Color3.fromRGB(40, 40, 48),
+		Effect = "Sparkle",
+		Pulse = true,
 	},
 	Dorado = {
 		Name = "Dorado",
@@ -263,6 +294,8 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 255, 200),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(110, 80, 20),
+		Accent2 = Color3.fromRGB(255, 255, 255),
+		Effect = "Sparkle",
 	},
 	Galaxia = {
 		Name = "Galaxia",
@@ -272,6 +305,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 120, 255),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(25, 10, 60),
+		Accent2 = Color3.fromRGB(80, 200, 255),
+		Effect = "Sparkle",
+		Pulse = true,
 	},
 	Dragon = {
 		Name = "Dragón",
@@ -281,6 +317,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 170, 0),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(40, 5, 5),
+		Accent2 = Color3.fromRGB(255, 60, 0),
+		Effect = "Flame",
+		Pulse = true,
 	},
 	Magma = {
 		Name = "Magma",
@@ -290,6 +329,9 @@ Skins.List = {
 		Accent = Color3.fromRGB(255, 90, 0),
 		AccentMaterial = Enum.Material.Neon,
 		Dark = Color3.fromRGB(255, 50, 0),
+		Accent2 = Color3.fromRGB(255, 200, 0),
+		Effect = "Flame",
+		Pulse = true,
 	},
 }
 
@@ -309,7 +351,7 @@ return Skins
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="6">
+      <Item class="ModuleScript" referent="7">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[-- Sonidos del juego. Los "rbxasset://" vienen incluidos con Roblox y funcionan sin subir nada.
@@ -356,27 +398,87 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="7">
+      <Item class="ModuleScript" referent="8">
         <Properties>
           <string name="Name">WeaponModels</string>
           <string name="Source"><![CDATA[-- Construye los modelos de las armas a partir de las piezas definidas en Weapons.
--- Lo usan el servidor (Tool que ven los demás) y el cliente (viewmodel en primera persona).
+-- Lo usan el servidor (Tool que ven los demás) y el cliente (viewmodel e iconos 3D).
 local Weapons = require(script.Parent.Weapons)
 local Skins = require(script.Parent.Skins)
 
 local WeaponModels = {}
 
+-- Texturas de partículas que vienen incluidas con Roblox
+local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+
 local function paint(part, role, skin)
+	part.Transparency = 0
+	part.Reflectance = 0
 	if role == "Accent" then
 		part.Color = skin.Accent
 		part.Material = skin.AccentMaterial
+	elseif role == "Accent2" then
+		part.Color = skin.Accent2 or skin.Accent
+		part.Material = Enum.Material.SmoothPlastic
 	elseif role == "Dark" then
 		part.Color = skin.Dark
 		part.Material = Enum.Material.Metal
+	elseif role == "Metal" then
+		part.Color = Color3.fromRGB(200, 202, 210)
+		part.Material = Enum.Material.Metal
+		part.Reflectance = 0.15
+	elseif role == "Lens" then
+		part.Color = Color3.fromRGB(170, 225, 255)
+		part.Material = Enum.Material.Glass
+		part.Transparency = 0.55
+		part.Reflectance = 0.3
 	else
 		part.Color = skin.Body
 		part.Material = skin.BodyMaterial
 	end
+end
+
+-- Partículas de la skin (destellos o llamas) alrededor del arma
+local function applyEffects(container, skin)
+	for _, inst in container:GetDescendants() do
+		if inst:IsA("ParticleEmitter") and inst.Name == "SkinFX" then
+			inst:Destroy()
+		end
+	end
+	local handle = container:FindFirstChild("Handle")
+	if not handle or not skin.Effect then
+		return
+	end
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "SkinFX"
+	emitter.LockedToPart = true
+	emitter.LightEmission = 1
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	if skin.Effect == "Flame" then
+		emitter.Texture = FIRE_TEXTURE
+		emitter.Color = ColorSequence.new(skin.Accent, skin.Accent2 or skin.Accent)
+		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 0) })
+		emitter.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		emitter.Lifetime = NumberRange.new(0.25, 0.45)
+		emitter.Speed = NumberRange.new(0.3, 0.8)
+		emitter.Acceleration = Vector3.new(0, 2.5, 0)
+		emitter.Rate = 14
+	else
+		emitter.Texture = SPARKLE_TEXTURE
+		emitter.Color = ColorSequence.new(skin.Accent, skin.Accent2 or Color3.new(1, 1, 1))
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.3, 0.16),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		emitter.Lifetime = NumberRange.new(0.4, 0.8)
+		emitter.Speed = NumberRange.new(0.1, 0.4)
+		emitter.Rotation = NumberRange.new(0, 360)
+		emitter.RotSpeed = NumberRange.new(-90, 90)
+		emitter.Rate = 7
+	end
+	emitter.Parent = handle
 end
 
 -- Pinta todas las piezas de un arma (Model o Tool) con la skin indicada.
@@ -390,10 +492,12 @@ function WeaponModels.ApplySkin(container, skinId)
 			end
 		end
 	end
+	applyEffects(container, skin)
 end
 
 -- Devuelve un Model con PrimaryPart = Handle. Las piezas van soldadas al Handle.
-function WeaponModels.Build(weaponName, skinId)
+-- withEffects = false para no añadir partículas (por ejemplo en iconos).
+function WeaponModels.Build(weaponName, skinId, withEffects)
 	local def = Weapons.Get(weaponName)
 	assert(def, "Arma desconocida: " .. tostring(weaponName))
 	local skin = Skins.Get(skinId)
@@ -406,6 +510,11 @@ function WeaponModels.Build(weaponName, skinId)
 		local part = Instance.new("Part")
 		part.Name = spec.Name
 		part.Size = spec.Size
+		if spec.Shape == "Cylinder" then
+			part.Shape = Enum.PartType.Cylinder
+		elseif spec.Shape == "Ball" then
+			part.Shape = Enum.PartType.Ball
+		end
 		part.CanCollide = false
 		part.CanTouch = false
 		part.CanQuery = false
@@ -446,8 +555,16 @@ function WeaponModels.Build(weaponName, skinId)
 		aim.Position = def.AimPoint
 		aim.Parent = handle
 	end
+	-- Punto por donde salen los casquillos (lado derecho del cuerpo)
+	local eject = Instance.new("Attachment")
+	eject.Name = "Eject"
+	eject.Position = Vector3.new(0.2, 0.08, 0)
+	eject.Parent = handle
 
 	model.PrimaryPart = handle
+	if withEffects ~= false then
+		applyEffects(model, skin)
+	end
 	return model
 end
 
@@ -455,18 +572,28 @@ return WeaponModels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="ModuleScript" referent="9">
         <Properties>
           <string name="Name">Weapons</string>
           <string name="Source"><![CDATA[-- Estadísticas y modelo (hecho con piezas) de cada arma.
 -- Espacio del modelo: -Z = hacia delante (cañón), +Y = arriba. "Handle" es la pieza raíz.
 local Weapons = {}
 
-local function P(name, size, cf, role)
-	return { Name = name, Size = size, CFrame = cf, Role = role }
+-- Roles de color: Body, Accent (neón), Accent2 (secundario), Dark, Metal (cromado), Lens (cristal)
+local function P(name, size, cf, role, shape)
+	return { Name = name, Size = size, CFrame = cf, Role = role, Shape = shape }
 end
 
 local rad = math.rad
+
+-- Cilindro a lo largo del eje Z (cañones, tubos)
+local function Cyl(name, length, diameter, position, role)
+	return P(name, Vector3.new(length, diameter, diameter), CFrame.new(position) * CFrame.Angles(0, rad(90), 0), role, "Cylinder")
+end
+
+local function V(x, y, z)
+	return Vector3.new(x, y, z)
+end
 
 Weapons.List = {
 	Rifle = {
@@ -496,18 +623,44 @@ Weapons.List = {
 		AimPoint = Vector3.new(0, 0.43, 0.2),
 		Muzzle = Vector3.new(0, 0.04, -2.6),
 		Parts = {
-			P("Handle", Vector3.new(0.3, 0.42, 1.5), CFrame.new(), "Body"),
-			P("Rail", Vector3.new(0.32, 0.08, 1.3), CFrame.new(0, 0.25, -0.05), "Accent"),
-			P("Handguard", Vector3.new(0.36, 0.36, 0.9), CFrame.new(0, 0, -1.15), "Body"),
-			P("HandguardStripe", Vector3.new(0.38, 0.08, 0.9), CFrame.new(0, 0.05, -1.15), "Accent"),
-			P("Barrel", Vector3.new(0.14, 0.14, 0.8), CFrame.new(0, 0.04, -2), "Dark"),
-			P("Brake", Vector3.new(0.2, 0.2, 0.22), CFrame.new(0, 0.04, -2.45), "Dark"),
-			P("Mag", Vector3.new(0.2, 0.65, 0.32), CFrame.new(0, -0.5, -0.35) * CFrame.Angles(rad(-12), 0, 0), "Dark"),
-			P("Grip", Vector3.new(0.2, 0.5, 0.28), CFrame.new(0, -0.42, 0.45) * CFrame.Angles(rad(18), 0, 0), "Body"),
-			P("Stock", Vector3.new(0.26, 0.36, 0.9), CFrame.new(0, -0.05, 1.2), "Body"),
-			P("StockPad", Vector3.new(0.28, 0.4, 0.08), CFrame.new(0, -0.05, 1.68), "Accent"),
-			P("SightBase", Vector3.new(0.14, 0.14, 0.3), CFrame.new(0, 0.33, 0.05), "Dark"),
-			P("SightDot", Vector3.new(0.06, 0.06, 0.04), CFrame.new(0, 0.43, 0.05), "Accent"),
+			P("Handle", V(0.3, 0.42, 1.5), CFrame.new(), "Body"),
+			P("UpperStripe", V(0.32, 0.06, 1.3), CFrame.new(0, 0.12, -0.05), "Accent"),
+			P("SidePanel", V(0.33, 0.14, 0.6), CFrame.new(0, -0.08, 0.3), "Accent2"),
+			P("EjectionPort", V(0.02, 0.1, 0.3), CFrame.new(0.16, 0.06, 0.05), "Dark"),
+			P("ChargingHandle", V(0.1, 0.06, 0.15), CFrame.new(0.12, 0.2, 0.62), "Metal"),
+			P("Rail", V(0.18, 0.08, 1.2), CFrame.new(0, 0.25, -0.05), "Dark"),
+			P("RailNotch1", V(0.22, 0.04, 0.06), CFrame.new(0, 0.3, -0.55), "Dark"),
+			P("RailNotch2", V(0.22, 0.04, 0.06), CFrame.new(0, 0.3, -0.35), "Dark"),
+			P("RailNotch3", V(0.22, 0.04, 0.06), CFrame.new(0, 0.3, -0.15), "Dark"),
+			P("RailNotch4", V(0.22, 0.04, 0.06), CFrame.new(0, 0.3, 0.25), "Dark"),
+			P("RailNotch5", V(0.22, 0.04, 0.06), CFrame.new(0, 0.3, 0.45), "Dark"),
+			P("Handguard", V(0.36, 0.36, 0.9), CFrame.new(0, 0, -1.15), "Body"),
+			P("HandguardTop", V(0.38, 0.06, 0.9), CFrame.new(0, 0.15, -1.15), "Accent"),
+			P("Vent1", V(0.38, 0.05, 0.12), CFrame.new(0, -0.03, -0.85), "Accent2"),
+			P("Vent2", V(0.38, 0.05, 0.12), CFrame.new(0, -0.03, -1.15), "Accent2"),
+			P("Vent3", V(0.38, 0.05, 0.12), CFrame.new(0, -0.03, -1.45), "Accent2"),
+			P("GasBlock", V(0.16, 0.2, 0.12), CFrame.new(0, 0.1, -1.68), "Dark"),
+			P("FrontSight", V(0.05, 0.16, 0.05), CFrame.new(0, 0.26, -1.68), "Dark"),
+			Cyl("Barrel", 0.8, 0.12, V(0, 0.04, -2), "Dark"),
+			Cyl("Brake", 0.28, 0.2, V(0, 0.04, -2.45), "Dark"),
+			Cyl("BrakeRing", 0.05, 0.22, V(0, 0.04, -2.32), "Accent"),
+			P("MagTop", V(0.2, 0.4, 0.32), CFrame.new(0, -0.38, -0.35) * CFrame.Angles(rad(-8), 0, 0), "Dark"),
+			P("MagBottom", V(0.2, 0.36, 0.3), CFrame.new(0, -0.72, -0.43) * CFrame.Angles(rad(-22), 0, 0), "Dark"),
+			P("MagBase", V(0.22, 0.06, 0.33), CFrame.new(0, -0.9, -0.5) * CFrame.Angles(rad(-22), 0, 0), "Accent"),
+			P("TriggerGuard", V(0.06, 0.04, 0.35), CFrame.new(0, -0.3, 0.15), "Dark"),
+			P("Trigger", V(0.03, 0.12, 0.03), CFrame.new(0, -0.24, 0.12), "Metal"),
+			P("Grip", V(0.2, 0.5, 0.28), CFrame.new(0, -0.42, 0.45) * CFrame.Angles(rad(18), 0, 0), "Body"),
+			P("GripStrap", V(0.21, 0.32, 0.06), CFrame.new(0, -0.44, 0.58) * CFrame.Angles(rad(18), 0, 0), "Accent2"),
+			Cyl("BufferTube", 0.6, 0.14, V(0, 0.02, 0.95), "Dark"),
+			P("Stock", V(0.26, 0.36, 0.75), CFrame.new(0, -0.05, 1.25), "Body"),
+			P("CheekRest", V(0.27, 0.08, 0.5), CFrame.new(0, 0.15, 1.2), "Accent2"),
+			P("StockPad", V(0.28, 0.4, 0.08), CFrame.new(0, -0.05, 1.66), "Accent"),
+			P("SightBase", V(0.14, 0.08, 0.34), CFrame.new(0, 0.33, 0.05), "Dark"),
+			P("SightTop", V(0.22, 0.04, 0.3), CFrame.new(0, 0.56, 0.05), "Body"),
+			P("SightLeft", V(0.03, 0.2, 0.3), CFrame.new(-0.1, 0.46, 0.05), "Body"),
+			P("SightRight", V(0.03, 0.2, 0.3), CFrame.new(0.1, 0.46, 0.05), "Body"),
+			P("SightLens", V(0.17, 0.17, 0.02), CFrame.new(0, 0.46, -0.08), "Lens"),
+			P("SightDot", V(0.04, 0.04, 0.02), CFrame.new(0, 0.43, 0.04), "Accent"),
 		},
 	},
 
@@ -538,14 +691,28 @@ Weapons.List = {
 		AimPoint = Vector3.new(0, 0.3, 0.3),
 		Muzzle = Vector3.new(0, 0.1, -2.25),
 		Parts = {
-			P("Handle", Vector3.new(0.3, 0.4, 1.3), CFrame.new(), "Body"),
-			P("Barrel", Vector3.new(0.16, 0.16, 1.6), CFrame.new(0, 0.1, -1.4), "Dark"),
-			P("Tube", Vector3.new(0.14, 0.14, 1.3), CFrame.new(0, -0.12, -1.4), "Dark"),
-			P("Pump", Vector3.new(0.26, 0.24, 0.8), CFrame.new(0, -0.12, -1.3), "Accent"),
-			P("Grip", Vector3.new(0.2, 0.5, 0.28), CFrame.new(0, -0.4, 0.4) * CFrame.Angles(rad(18), 0, 0), "Body"),
-			P("Stock", Vector3.new(0.26, 0.38, 1), CFrame.new(0, -0.1, 1.1), "Body"),
-			P("Stripe", Vector3.new(0.32, 0.08, 1.2), CFrame.new(0, 0.12, 0), "Accent"),
-			P("Bead", Vector3.new(0.05, 0.05, 0.05), CFrame.new(0, 0.21, -2.15), "Accent"),
+			P("Handle", V(0.3, 0.4, 1.3), CFrame.new(), "Body"),
+			P("ReceiverStripe", V(0.32, 0.08, 1.1), CFrame.new(0, 0.12, 0), "Accent"),
+			P("SidePanel", V(0.32, 0.14, 0.5), CFrame.new(0, -0.06, 0.1), "Accent2"),
+			P("EjectionPort", V(0.02, 0.12, 0.35), CFrame.new(0.16, 0.04, -0.1), "Dark"),
+			Cyl("Barrel", 1.6, 0.18, V(0, 0.1, -1.4), "Dark"),
+			Cyl("Tube", 1.3, 0.15, V(0, -0.12, -1.4), "Dark"),
+			Cyl("BarrelBand", 0.08, 0.21, V(0, 0.1, -2.1), "Accent2"),
+			P("Pump", V(0.26, 0.24, 0.8), CFrame.new(0, -0.12, -1.3), "Accent"),
+			P("PumpGroove1", V(0.27, 0.25, 0.05), CFrame.new(0, -0.12, -1.05), "Dark"),
+			P("PumpGroove2", V(0.27, 0.25, 0.05), CFrame.new(0, -0.12, -1.3), "Dark"),
+			P("PumpGroove3", V(0.27, 0.25, 0.05), CFrame.new(0, -0.12, -1.55), "Dark"),
+			P("Bead", V(0.05, 0.05, 0.05), CFrame.new(0, 0.21, -2.15), "Accent"),
+			P("RearSightL", V(0.04, 0.08, 0.06), CFrame.new(-0.06, 0.25, 0.3), "Dark"),
+			P("RearSightR", V(0.04, 0.08, 0.06), CFrame.new(0.06, 0.25, 0.3), "Dark"),
+			P("TriggerGuard", V(0.06, 0.04, 0.35), CFrame.new(0, -0.28, 0.1), "Dark"),
+			P("Grip", V(0.2, 0.5, 0.28), CFrame.new(0, -0.4, 0.4) * CFrame.Angles(rad(18), 0, 0), "Body"),
+			P("Stock", V(0.26, 0.38, 1), CFrame.new(0, -0.1, 1.1), "Body"),
+			P("StockPad", V(0.28, 0.42, 0.08), CFrame.new(0, -0.1, 1.62), "Accent"),
+			P("Shell1", V(0.06, 0.08, 0.16), CFrame.new(0.15, -0.05, 0.85), "Accent2"),
+			P("Shell2", V(0.06, 0.08, 0.16), CFrame.new(0.15, -0.05, 1.02), "Accent2"),
+			P("Shell3", V(0.06, 0.08, 0.16), CFrame.new(0.15, -0.05, 1.19), "Accent2"),
+			P("Shell4", V(0.06, 0.08, 0.16), CFrame.new(0.15, -0.05, 1.36), "Accent2"),
 		},
 	},
 
@@ -577,16 +744,31 @@ Weapons.List = {
 		AimPoint = Vector3.new(0, 0.45, 0.6),
 		Muzzle = Vector3.new(0, 0.05, -3.1),
 		Parts = {
-			P("Handle", Vector3.new(0.3, 0.4, 1.6), CFrame.new(), "Body"),
-			P("Barrel", Vector3.new(0.13, 0.13, 2), CFrame.new(0, 0.05, -1.8), "Dark"),
-			P("MuzzleBrake", Vector3.new(0.2, 0.2, 0.3), CFrame.new(0, 0.05, -2.9), "Dark"),
-			P("Scope", Vector3.new(0.22, 0.22, 1.1), CFrame.new(0, 0.45, -0.1), "Dark"),
-			P("ScopeRingFront", Vector3.new(0.26, 0.26, 0.1), CFrame.new(0, 0.45, -0.45), "Accent"),
-			P("ScopeRingBack", Vector3.new(0.26, 0.26, 0.1), CFrame.new(0, 0.45, 0.25), "Accent"),
-			P("Mag", Vector3.new(0.2, 0.4, 0.4), CFrame.new(0, -0.4, -0.3), "Dark"),
-			P("Grip", Vector3.new(0.2, 0.5, 0.28), CFrame.new(0, -0.42, 0.5) * CFrame.Angles(rad(18), 0, 0), "Body"),
-			P("Stock", Vector3.new(0.28, 0.45, 1.2), CFrame.new(0, -0.08, 1.35), "Body"),
-			P("StockStripe", Vector3.new(0.3, 0.1, 1), CFrame.new(0, 0.1, 1.3), "Accent"),
+			P("Handle", V(0.3, 0.4, 1.6), CFrame.new(), "Body"),
+			P("Stripe", V(0.32, 0.06, 1.4), CFrame.new(0, 0.12, 0), "Accent"),
+			P("BoltHandle", V(0.28, 0.06, 0.06), CFrame.new(0.2, 0.12, 0.45), "Metal", "Cylinder"),
+			P("BoltKnob", V(0.14, 0.14, 0.14), CFrame.new(0.35, 0.12, 0.45), "Metal", "Ball"),
+			Cyl("Barrel", 2, 0.13, V(0, 0.05, -1.8), "Dark"),
+			Cyl("MuzzleBrake", 0.32, 0.2, V(0, 0.05, -2.9), "Dark"),
+			Cyl("MuzzleRing", 0.05, 0.22, V(0, 0.05, -2.75), "Accent"),
+			P("BipodL", V(0.04, 0.04, 0.7), CFrame.new(-0.06, -0.08, -1.3), "Dark"),
+			P("BipodR", V(0.04, 0.04, 0.7), CFrame.new(0.06, -0.08, -1.3), "Dark"),
+			P("ScopeMount", V(0.1, 0.14, 0.8), CFrame.new(0, 0.3, -0.1), "Dark"),
+			Cyl("Scope", 1.1, 0.22, V(0, 0.45, -0.1), "Dark"),
+			Cyl("ScopeBell", 0.25, 0.3, V(0, 0.45, -0.68), "Dark"),
+			Cyl("ScopeEye", 0.2, 0.28, V(0, 0.45, 0.5), "Dark"),
+			Cyl("ScopeLens", 0.02, 0.27, V(0, 0.45, -0.81), "Lens"),
+			P("ScopeTurret", V(0.12, 0.12, 0.12), CFrame.new(0, 0.6, -0.1) * CFrame.Angles(0, 0, rad(90)), "Metal", "Cylinder"),
+			P("ScopeRingFront", V(0.26, 0.26, 0.1), CFrame.new(0, 0.45, -0.45), "Accent"),
+			P("ScopeRingBack", V(0.26, 0.26, 0.1), CFrame.new(0, 0.45, 0.25), "Accent"),
+			P("Mag", V(0.2, 0.4, 0.4), CFrame.new(0, -0.4, -0.3), "Dark"),
+			P("MagStripe", V(0.21, 0.08, 0.41), CFrame.new(0, -0.56, -0.3), "Accent2"),
+			P("TriggerGuard", V(0.06, 0.04, 0.35), CFrame.new(0, -0.3, 0.2), "Dark"),
+			P("Grip", V(0.2, 0.5, 0.28), CFrame.new(0, -0.42, 0.5) * CFrame.Angles(rad(18), 0, 0), "Body"),
+			P("Stock", V(0.28, 0.45, 1.2), CFrame.new(0, -0.08, 1.35), "Body"),
+			P("StockStripe", V(0.3, 0.1, 1), CFrame.new(0, 0.1, 1.3), "Accent"),
+			P("CheekRest", V(0.29, 0.12, 0.5), CFrame.new(0, 0.2, 1.1), "Accent2"),
+			P("StockPad", V(0.3, 0.5, 0.08), CFrame.new(0, -0.08, 1.98), "Dark"),
 		},
 	},
 
@@ -617,13 +799,24 @@ Weapons.List = {
 		AimPoint = Vector3.new(0, 0.2, 0.5),
 		Muzzle = Vector3.new(0, 0.02, -0.6),
 		Parts = {
-			P("Handle", Vector3.new(0.22, 0.28, 1), CFrame.new(), "Body"),
-			P("SlideStripe", Vector3.new(0.24, 0.06, 0.9), CFrame.new(0, 0.1, 0), "Accent"),
-			P("Frame", Vector3.new(0.2, 0.14, 0.9), CFrame.new(0, -0.2, -0.05), "Dark"),
-			P("Grip", Vector3.new(0.2, 0.6, 0.3), CFrame.new(0, -0.5, 0.3) * CFrame.Angles(rad(14), 0, 0), "Body"),
-			P("BarrelTip", Vector3.new(0.12, 0.12, 0.1), CFrame.new(0, 0.02, -0.52), "Dark"),
-			P("RearSight", Vector3.new(0.18, 0.06, 0.06), CFrame.new(0, 0.17, 0.45), "Dark"),
-			P("FrontSight", Vector3.new(0.05, 0.07, 0.05), CFrame.new(0, 0.17, -0.45), "Accent"),
+			P("Handle", V(0.22, 0.28, 1), CFrame.new(), "Body"),
+			P("SlideStripe", V(0.24, 0.06, 0.9), CFrame.new(0, 0.1, 0), "Accent"),
+			P("Serration1", V(0.23, 0.18, 0.03), CFrame.new(0, 0.0, 0.26), "Dark"),
+			P("Serration2", V(0.23, 0.18, 0.03), CFrame.new(0, 0.0, 0.32), "Dark"),
+			P("Serration3", V(0.23, 0.18, 0.03), CFrame.new(0, 0.0, 0.38), "Dark"),
+			P("Serration4", V(0.23, 0.18, 0.03), CFrame.new(0, 0.0, 0.44), "Dark"),
+			P("EjectionPort", V(0.02, 0.1, 0.25), CFrame.new(0.11, 0.06, -0.05), "Dark"),
+			P("Frame", V(0.2, 0.14, 0.9), CFrame.new(0, -0.2, -0.05), "Dark"),
+			P("UnderRail", V(0.14, 0.06, 0.3), CFrame.new(0, -0.29, -0.3), "Dark"),
+			P("Grip", V(0.2, 0.6, 0.3), CFrame.new(0, -0.5, 0.3) * CFrame.Angles(rad(14), 0, 0), "Body"),
+			P("GripPanel", V(0.215, 0.42, 0.22), CFrame.new(0, -0.5, 0.3) * CFrame.Angles(rad(14), 0, 0), "Accent2"),
+			P("TriggerGuard", V(0.05, 0.04, 0.3), CFrame.new(0, -0.32, -0.02), "Dark"),
+			P("Trigger", V(0.03, 0.12, 0.03), CFrame.new(0, -0.26, 0.02), "Metal"),
+			Cyl("BarrelTip", 0.1, 0.12, V(0, 0.02, -0.52), "Dark"),
+			P("Hammer", V(0.06, 0.1, 0.06), CFrame.new(0, 0.12, 0.52), "Metal"),
+			P("RearSightL", V(0.05, 0.06, 0.06), CFrame.new(-0.06, 0.17, 0.45), "Dark"),
+			P("RearSightR", V(0.05, 0.06, 0.06), CFrame.new(0.06, 0.17, 0.45), "Dark"),
+			P("FrontSight", V(0.05, 0.07, 0.05), CFrame.new(0, 0.17, -0.45), "Accent"),
 		},
 	},
 
@@ -637,10 +830,16 @@ Weapons.List = {
 		ViewOffset = CFrame.new(0.8, -0.75, -1.5) * CFrame.Angles(rad(15), rad(20), 0),
 		RightHand = Vector3.new(0, 0, 0.1),
 		Parts = {
-			P("Handle", Vector3.new(0.16, 0.2, 0.6), CFrame.new(), "Dark"),
-			P("Guard", Vector3.new(0.3, 0.25, 0.06), CFrame.new(0, 0, -0.33), "Body"),
-			P("Blade", Vector3.new(0.05, 0.24, 1), CFrame.new(0, 0.02, -0.86), "Accent"),
-			P("Spine", Vector3.new(0.06, 0.08, 0.9), CFrame.new(0, 0.14, -0.8), "Body"),
+			P("Handle", V(0.16, 0.2, 0.6), CFrame.new(), "Dark"),
+			P("Wrap1", V(0.17, 0.21, 0.06), CFrame.new(0, 0, -0.15), "Accent2"),
+			P("Wrap2", V(0.17, 0.21, 0.06), CFrame.new(0, 0, 0), "Accent2"),
+			P("Wrap3", V(0.17, 0.21, 0.06), CFrame.new(0, 0, 0.15), "Accent2"),
+			P("Pommel", V(0.18, 0.22, 0.08), CFrame.new(0, 0, 0.33), "Body"),
+			P("Guard", V(0.3, 0.25, 0.06), CFrame.new(0, 0, -0.33), "Body"),
+			P("Blade", V(0.05, 0.24, 0.9), CFrame.new(0, 0.02, -0.81), "Accent"),
+			P("BladeTip", V(0.05, 0.17, 0.3), CFrame.new(0, -0.02, -1.33) * CFrame.Angles(rad(30), 0, 0), "Accent"),
+			P("Edge", V(0.055, 0.05, 0.85), CFrame.new(0, -0.1, -0.8), "Metal"),
+			P("Spine", V(0.06, 0.08, 0.9), CFrame.new(0, 0.14, -0.8), "Body"),
 		},
 	},
 }
@@ -660,15 +859,15 @@ return Weapons
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="9">
+  <Item class="ServerScriptService" referent="10">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="10">
+    <Item class="Folder" referent="11">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Script" referent="11">
+      <Item class="Script" referent="12">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -695,11 +894,11 @@ Dummies.Init()
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="12">
+      <Item class="Folder" referent="13">
         <Properties>
           <string name="Name">Modules</string>
         </Properties>
-        <Item class="ModuleScript" referent="13">
+        <Item class="ModuleScript" referent="14">
           <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Validación de disparos y daño en el servidor (anti-trampas básico).
@@ -779,10 +978,16 @@ local function damageAtDistance(def, distance)
 	return def.Damage + (def.MinDamage - def.Damage) * alpha
 end
 
+-- Al atacar se pierde cualquier escudo (el de reaparición y el de la pantalla de inicio)
 local function removeSpawnShield(character)
-	local shield = character:FindFirstChildOfClass("ForceField")
-	if shield then
-		shield:Destroy()
+	for _, child in character:GetChildren() do
+		if child:IsA("ForceField") then
+			child:Destroy()
+		end
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		player:SetAttribute("InMenu", false)
 	end
 end
 
@@ -1024,7 +1229,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="14">
+        <Item class="ModuleScript" referent="15">
           <Properties>
             <string name="Name">Dummies</string>
             <string name="Source"><![CDATA[-- Muñecos de práctica para probar las armas en Studio (desactívalos en GameConfig.TrainingDummies).
@@ -1099,7 +1304,7 @@ return Dummies
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="15">
+        <Item class="ModuleScript" referent="16">
           <Properties>
             <string name="Name">Flags</string>
             <string name="Source"><![CDATA[-- Modo Captura la bandera.
@@ -1210,6 +1415,18 @@ local function buildFlag(team)
 	light.Range = 14
 	light.Brightness = 2
 	light.Parent = cloth
+
+	-- Destellos del color del equipo
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.Color = ColorSequence.new(team.Color.Color, Color3.new(1, 1, 1))
+	sparkles.LightEmission = 1
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.Lifetime = NumberRange.new(0.6, 1.2)
+	sparkles.Speed = NumberRange.new(0.5, 1.5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Rate = 8
+	sparkles.Parent = cloth
 
 	-- Marcador visible a través de las paredes
 	local billboard = Instance.new("BillboardGui")
@@ -1483,7 +1700,7 @@ return Flags
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="16">
+        <Item class="ModuleScript" referent="17">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -1493,6 +1710,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Weapons = require(Shared.Weapons)
 local WeaponModels = require(Shared.WeaponModels)
+local Remotes = require(Shared.Remotes)
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -1565,17 +1783,37 @@ local function onSkinChanged(player, skinId)
 	end
 end
 
+-- Mientras el jugador está en la pantalla de inicio es invulnerable (escudo invisible)
+local function addMenuShield(player, character)
+	if player:GetAttribute("InMenu") and not character:FindFirstChild("MenuShield") then
+		local shield = Instance.new("ForceField")
+		shield.Name = "MenuShield"
+		shield.Visible = false
+		shield.Parent = character
+	end
+end
+
 local function onPlayer(player)
+	player:SetAttribute("InMenu", true)
 	player.CharacterAdded:Connect(function(character)
+		addMenuShield(player, character)
 		giveLoadout(player, character)
 	end)
 	if player.Character then
+		addMenuShield(player, player.Character)
 		task.spawn(giveLoadout, player, player.Character)
 	end
 end
 
 function Loadout.Init()
 	PlayerData.OnSkinChanged = onSkinChanged
+	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
+		player:SetAttribute("InMenu", false)
+		local shield = player.Character and player.Character:FindFirstChild("MenuShield")
+		if shield then
+			shield:Destroy()
+		end
+	end)
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
@@ -1586,12 +1824,13 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="17">
+        <Item class="ModuleScript" referent="18">
           <Properties>
             <string name="Name">MapBuilder</string>
-            <string name="Source"><![CDATA[-- Genera un mapa urbano simétrico (estilo arena) con contenedores, edificios y rampas.
+            <string name="Source"><![CDATA[-- Genera un mapa urbano simétrico (estilo arena) con calles, edificios, contenedores, rampas y decoración.
 -- Si ya existe workspace.Map (por ejemplo uno que construyas tú en Studio) no genera nada.
--- Tu mapa propio debe tener SpawnLocations con TeamColor = Really red / Really blue.
+-- Tu mapa propio debe tener SpawnLocations con TeamColor = Really red / Really blue
+-- y, para Captura la bandera, una pieza "FlagBase" por equipo con el atributo Team.
 local Lighting = game:GetService("Lighting")
 
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
@@ -1603,6 +1842,26 @@ local WIDTH = 220 -- eje Z
 local WALL_HEIGHT = 34
 
 local mapFolder
+
+-- Paleta del mapa (colores pastel y vivos, estilo cartoon)
+local C = {
+	Asphalt = Color3.fromRGB(70, 74, 86),
+	Sidewalk = Color3.fromRGB(214, 214, 222),
+	Curb = Color3.fromRGB(240, 240, 245),
+	LineWhite = Color3.fromRGB(245, 245, 250),
+	LineYellow = Color3.fromRGB(255, 205, 50),
+	WallBlue = Color3.fromRGB(163, 196, 230),
+	WallTrim = Color3.fromRGB(240, 244, 250),
+	Window = Color3.fromRGB(120, 190, 255),
+	Metal = Color3.fromRGB(60, 62, 70),
+	Ramp = Color3.fromRGB(150, 152, 165),
+	Pink = Color3.fromRGB(255, 80, 170),
+	Cyan = Color3.fromRGB(0, 220, 255),
+	Leaf = Color3.fromRGB(90, 190, 90),
+	LeafDark = Color3.fromRGB(60, 150, 70),
+	Wood = Color3.fromRGB(176, 124, 70),
+	WoodDark = Color3.fromRGB(120, 80, 45),
+}
 
 local function block(name, size, cf, color, material, parent)
 	local part = Instance.new("Part")
@@ -1618,12 +1877,69 @@ local function block(name, size, cf, color, material, parent)
 	return part
 end
 
+-- Pieza decorativa: no choca, no bloquea disparos y no hace sombra
+local function deco(name, size, cf, color, material, parent)
+	local part = block(name, size, cf, color, material, parent)
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	return part
+end
+
+-- Cilindro de pie (en Roblox el eje del cilindro es X, lo giramos para que sea vertical)
+local function cylinder(name, height, diameter, cf, color, material, parent, decorative)
+	local fn = decorative and deco or block
+	local part = fn(
+		name,
+		Vector3.new(height, diameter, diameter),
+		cf * CFrame.Angles(0, 0, math.pi / 2),
+		color,
+		material,
+		parent
+	)
+	part.Shape = Enum.PartType.Cylinder
+	return part
+end
+
+-- Texto pegado a una cara de una pieza (carteles, rótulos de neón...)
+local function sign(part, face, text, color, strokeColor)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 25
+	gui.LightInfluence = 0
+	gui.Parent = part
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.Text = text
+	label.TextColor3 = color
+	label.TextStrokeColor3 = strokeColor or Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0
+	label.Parent = gui
+	return gui
+end
+
 -- Rampa inclinada desde "bottom" hasta "top" (posiciones de la superficie)
 local function ramp(bottom, top, width, color)
 	local mid = (bottom + top) / 2
 	local length = (top - bottom).Magnitude
 	local cf = CFrame.lookAt(mid, top) * CFrame.new(0, -0.5, 0)
-	return block("Ramp", Vector3.new(width, 1, length + 1), cf, color, Enum.Material.DiamondPlate)
+	local part = block("Ramp", Vector3.new(width, 1, length + 1), cf, color, Enum.Material.DiamondPlate)
+	-- Franjas amarillas de los bordes
+	for _, side in { -1, 1 } do
+		deco(
+			"RampEdge",
+			Vector3.new(0.4, 0.1, length + 1),
+			cf * CFrame.new(side * (width / 2 - 0.3), 0.52, 0),
+			C.LineYellow,
+			Enum.Material.SmoothPlastic
+		)
+	end
+	return part
 end
 
 -- Rotación de 180° alrededor del centro: la mitad del equipo Azul es espejo de la del Rojo
@@ -1634,79 +1950,235 @@ local function symmetric(fn)
 	fn(MIRROR, "B")
 end
 
+---------------------------------------------------------------------------
+-- Piezas del mapa
+---------------------------------------------------------------------------
+
+local CARGO_NAMES = { "HYPER CARGO", "NEXO LINE", "FROST CO.", "TURBO SHIP" }
+local cargoIndex = 0
+
 local function container(cf, color)
 	local model = Instance.new("Model")
 	model.Name = "Container"
 	model.Parent = mapFolder
 	local size = Vector3.new(20, 8.5, 8)
-	block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
+	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
 	for i = -4, 4 do
-		block("Rib", Vector3.new(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
+		deco("Rib", Vector3.new(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
 	end
 	block("Roof", Vector3.new(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
+	-- Marco y puertas en un extremo
+	deco("DoorFrame", Vector3.new(0.3, 8.6, 8.4), cf * CFrame.new(10.1, 4.25, 0), dark, Enum.Material.Metal, model)
+	for _, z in { -2, 2 } do
+		deco("LockBar", Vector3.new(0.3, 7.6, 0.25), cf * CFrame.new(10.3, 4.25, z), Color3.fromRGB(200, 200, 205), Enum.Material.Metal, model)
+	end
+	deco("DoorSplit", Vector3.new(0.35, 8, 0.15), cf * CFrame.new(10.3, 4.25, 0), Color3.fromRGB(30, 30, 30), Enum.Material.Metal, model)
+	-- Rótulo de la naviera en los dos lados largos
+	cargoIndex = cargoIndex % #CARGO_NAMES + 1
+	local text = CARGO_NAMES[cargoIndex]
+	sign(body, Enum.NormalId.Front, text, Color3.new(1, 1, 1), dark)
+	sign(body, Enum.NormalId.Back, text, Color3.new(1, 1, 1), dark)
 	return model
 end
 
 local function crate(cf, size)
 	size = size or 4
-	return block(
+	local core = block(
 		"Crate",
 		Vector3.new(size, size, size),
 		cf * CFrame.new(0, size / 2, 0),
-		Color3.fromRGB(176, 124, 70),
+		C.Wood,
 		Enum.Material.WoodPlanks
 	)
+	-- Bandas de refuerzo
+	for _, y in { 0.12, 0.88 } do
+		deco(
+			"CrateBand",
+			Vector3.new(size + 0.15, size * 0.12, size + 0.15),
+			cf * CFrame.new(0, size * y, 0),
+			C.WoodDark,
+			Enum.Material.Wood
+		)
+	end
+	return core
 end
+
+-- Barrera tipo "jersey" de hormigón con franjas rojas y blancas
+local function barrier(size, cf)
+	local part = block("Barrier", size, cf * CFrame.new(0, size.Y / 2, 0), Color3.fromRGB(225, 225, 230), Enum.Material.Concrete)
+	local long = size.X >= size.Z
+	local length = long and size.X or size.Z
+	local count = math.max(2, math.floor(length / 3))
+	for i = 0, count - 1 do
+		local offset = -length / 2 + (i + 0.5) * (length / count)
+		local color = i % 2 == 0 and Color3.fromRGB(230, 50, 50) or Color3.fromRGB(250, 250, 250)
+		local stripeSize = long and Vector3.new(length / count, 1, size.Z + 0.1) or Vector3.new(size.X + 0.1, 1, length / count)
+		local pos = long and CFrame.new(offset, size.Y - 1.2, 0) or CFrame.new(0, size.Y - 1.2, offset)
+		deco("Stripe", stripeSize, cf * pos, color, Enum.Material.SmoothPlastic)
+	end
+	return part
+end
+
+local function streetLamp(cf)
+	local model = Instance.new("Model")
+	model.Name = "StreetLamp"
+	model.Parent = mapFolder
+	cylinder("Pole", 14, 0.6, cf * CFrame.new(0, 7, 0), C.Metal, Enum.Material.Metal, model)
+	cylinder("Base", 1, 1.2, cf * CFrame.new(0, 0.5, 0), C.Metal, Enum.Material.Metal, model)
+	deco("Arm", Vector3.new(0.4, 0.4, 4), cf * CFrame.new(0, 13.8, -1.8), C.Metal, Enum.Material.Metal, model)
+	local head = deco("Lamp", Vector3.new(1.6, 0.5, 2.2), cf * CFrame.new(0, 13.4, -3.6), C.Metal, Enum.Material.Metal, model)
+	local bulb = deco("Bulb", Vector3.new(1.2, 0.2, 1.8), cf * CFrame.new(0, 13.1, -3.6), Color3.fromRGB(255, 240, 200), Enum.Material.Neon, model)
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Bottom
+	light.Range = 26
+	light.Angle = 100
+	light.Brightness = 1.5
+	light.Color = Color3.fromRGB(255, 235, 200)
+	light.Parent = bulb
+	return head
+end
+
+local function tree(cf)
+	local model = Instance.new("Model")
+	model.Name = "Tree"
+	model.Parent = mapFolder
+	block("Planter", Vector3.new(5, 1.6, 5), cf * CFrame.new(0, 0.8, 0), Color3.fromRGB(200, 200, 208), Enum.Material.Concrete, model)
+	deco("Soil", Vector3.new(4.4, 0.2, 4.4), cf * CFrame.new(0, 1.65, 0), Color3.fromRGB(90, 60, 40), Enum.Material.Ground, model)
+	cylinder("Trunk", 7, 0.9, cf * CFrame.new(0, 5, 0), Color3.fromRGB(110, 75, 45), Enum.Material.Wood, model)
+	for i, spec in {
+		{ Vector3.new(0, 9.5, 0), 6.5, C.Leaf },
+		{ Vector3.new(1.6, 8.4, 1), 4.5, C.LeafDark },
+		{ Vector3.new(-1.5, 8.8, -1.2), 4.8, C.Leaf },
+		{ Vector3.new(0.3, 11.6, -0.4), 4, C.LeafDark },
+	} do
+		local leaf = deco("Leaves" .. i, Vector3.new(spec[2], spec[2], spec[2]), cf * CFrame.new(spec[1]), spec[3], Enum.Material.Grass, model)
+		leaf.Shape = Enum.PartType.Ball
+		leaf.CastShadow = true
+	end
+end
+
+local function bollard(cf)
+	cylinder("Bollard", 2.4, 0.8, cf * CFrame.new(0, 1.2, 0), C.LineYellow, Enum.Material.SmoothPlastic)
+	cylinder("BollardBand", 0.4, 0.85, cf * CFrame.new(0, 1.9, 0), Color3.fromRGB(30, 30, 30), Enum.Material.SmoothPlastic, nil, true)
+end
+
+local SHOP_SIGNS = {
+	{ "ARCADE", Color3.fromRGB(255, 80, 200) },
+	{ "PIZZA", Color3.fromRGB(255, 170, 30) },
+	{ "GYM", Color3.fromRGB(0, 220, 255) },
+	{ "TACOS", Color3.fromRGB(120, 255, 90) },
+}
+local signIndex = 0
 
 local function building(cf, size, color)
 	local model = Instance.new("Model")
 	model.Name = "Building"
 	model.Parent = mapFolder
+	local trim = color:Lerp(Color3.new(0, 0, 0), 0.15)
 	block("Block", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.Concrete, model)
-	-- franja decorativa y ventanas
-	block(
-		"Stripe",
-		Vector3.new(size.X + 0.2, 1, size.Z + 0.2),
-		cf * CFrame.new(0, size.Y - 1.5, 0),
-		Color3.fromRGB(255, 196, 0),
-		Enum.Material.SmoothPlastic,
-		model
-	)
-	for i = -1, 1 do
-		block(
-			"Window",
-			Vector3.new(size.X * 0.2, size.Y * 0.35, size.Z + 0.3),
-			cf * CFrame.new(i * size.X * 0.3, size.Y * 0.45, 0),
-			Color3.fromRGB(120, 190, 255),
-			Enum.Material.Glass,
-			model
-		).Transparency = 0.3
+	-- Zócalo y cornisa
+	deco("Base", Vector3.new(size.X + 0.4, 1.2, size.Z + 0.4), cf * CFrame.new(0, 0.6, 0), trim, Enum.Material.Concrete, model)
+	deco("Cornice", Vector3.new(size.X + 0.6, 0.8, size.Z + 0.6), cf * CFrame.new(0, size.Y - 0.4, 0), C.WallTrim, Enum.Material.SmoothPlastic, model)
+	deco("Stripe", Vector3.new(size.X + 0.3, 0.6, size.Z + 0.3), cf * CFrame.new(0, size.Y - 1.6, 0), Color3.fromRGB(255, 196, 0), Enum.Material.SmoothPlastic, model)
+
+	-- Ventanas en las cuatro fachadas
+	local function windowsOnFace(axis, sign_, count, span, skip)
+		for i = 1, count do
+			if i == skip then
+				continue
+			end
+			local t = (i - 0.5) / count - 0.5
+			local pos, glassSize, frameSize
+			if axis == "Z" then
+				pos = CFrame.new(t * span, size.Y * 0.5, sign_ * (size.Z / 2 + 0.1))
+				glassSize = Vector3.new(2.6, 3.6, 0.2)
+				frameSize = Vector3.new(3.2, 4.2, 0.15)
+			else
+				pos = CFrame.new(sign_ * (size.X / 2 + 0.1), size.Y * 0.5, t * span)
+				glassSize = Vector3.new(0.2, 3.6, 2.6)
+				frameSize = Vector3.new(0.15, 4.2, 3.2)
+			end
+			deco("WindowFrame", frameSize, cf * pos, C.WallTrim, Enum.Material.SmoothPlastic, model)
+			local glass = deco("Window", glassSize, cf * pos, C.Window, Enum.Material.Glass, model)
+			glass.Transparency = 0.15
+			glass.Reflectance = 0.2
+		end
 	end
-	-- murito de cobertura en la azotea
+	windowsOnFace("Z", -1, 4, size.X - 6, 1) -- sin la primera: ahí va la puerta
+	windowsOnFace("Z", 1, 4, size.X - 6)
+	windowsOnFace("X", -1, 3, size.Z - 6)
+	windowsOnFace("X", 1, 3, size.Z - 6)
+
+	-- Puerta y toldo en la fachada que mira al centro del mapa (-Z)
+	local front = -size.Z / 2
+	local doorX = -0.375 * (size.X - 6)
+	deco("Door", Vector3.new(4, 6.5, 0.3), cf * CFrame.new(doorX, 3.25, front - 0.1), Color3.fromRGB(50, 55, 70), Enum.Material.SmoothPlastic, model)
+	signIndex = signIndex % #SHOP_SIGNS + 1
+	local shop = SHOP_SIGNS[signIndex]
+	for i = 0, 4 do
+		deco(
+			"Awning",
+			Vector3.new(1.2, 0.3, 3),
+			cf * CFrame.new(doorX - 2.4 + i * 1.2, 7.6, front - 1.5) * CFrame.Angles(math.rad(-15), 0, 0),
+			i % 2 == 0 and shop[2] or Color3.new(1, 1, 1),
+			Enum.Material.Fabric,
+			model
+		)
+	end
+	-- Rótulo de neón
+	local signPart = deco("ShopSign", Vector3.new(10, 2.6, 0.4), cf * CFrame.new(size.X / 5, size.Y - 2.5, front - 0.3), Color3.fromRGB(25, 25, 35), Enum.Material.SmoothPlastic, model)
+	sign(signPart, Enum.NormalId.Front, shop[1], shop[2], Color3.fromRGB(255, 255, 255))
+	local glow = Instance.new("SurfaceLight")
+	glow.Face = Enum.NormalId.Front
+	glow.Color = shop[2]
+	glow.Range = 10
+	glow.Brightness = 1.5
+	glow.Parent = signPart
+
+	-- Murito de cobertura en la azotea (sólido)
 	local h = 3
 	local top = size.Y
 	block("Rail", Vector3.new(size.X, h, 1), cf * CFrame.new(0, top + h / 2, -size.Z / 2 + 0.5), color, Enum.Material.Concrete, model)
 	block("Rail", Vector3.new(size.X, h, 1), cf * CFrame.new(0, top + h / 2, size.Z / 2 - 0.5), color, Enum.Material.Concrete, model)
+
+	-- Aires acondicionados y antena en la azotea
+	for _, x in { -size.X / 4, -size.X / 4 + 4.5 } do
+		block("ACUnit", Vector3.new(3.5, 2.4, 3), cf * CFrame.new(x, top + 1.2, 4), Color3.fromRGB(200, 205, 210), Enum.Material.Metal, model)
+		local fan = cylinder("Fan", 0.2, 2.2, cf * CFrame.new(x, top + 2.45, 4), Color3.fromRGB(70, 70, 75), Enum.Material.Metal, model, true)
+		fan:SetAttribute("Spin", 360)
+	end
+	cylinder("Antenna", 7, 0.25, cf * CFrame.new(size.X / 2 - 3, top + 3.5, size.Z / 2 - 3), C.Metal, Enum.Material.Metal, model, true)
+	local beacon = deco("Beacon", Vector3.new(0.6, 0.6, 0.6), cf * CFrame.new(size.X / 2 - 3, top + 7.2, size.Z / 2 - 3), Color3.fromRGB(255, 40, 40), Enum.Material.Neon, model)
+	beacon.Shape = Enum.PartType.Ball
 	return model
 end
 
 local function spawnArea(team, cf)
-	-- Zona de spawn con techo y muretes
-	local base = block(
-		"SpawnFloor",
-		Vector3.new(30, 0.4, 70),
-		cf * CFrame.new(0, 0.2, 0),
-		team.Color.Color:Lerp(Color3.new(1, 1, 1), 0.55),
-		Enum.Material.SmoothPlastic
-	)
-	base.Name = team.Name .. "SpawnFloor"
-	block("Roof", Vector3.new(30, 1, 70), cf * CFrame.new(0, 16, 0), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)
+	local teamColor = team.Color.Color
+	local light = teamColor:Lerp(Color3.new(1, 1, 1), 0.55)
+	local floor = block("SpawnFloor", Vector3.new(30, 0.4, 70), cf * CFrame.new(0, 0.2, 0), light, Enum.Material.SmoothPlastic)
+	floor.Name = team.Name .. "SpawnFloor"
+	-- Rejilla del suelo
+	for z = -30, 30, 10 do
+		deco("FloorLine", Vector3.new(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic)
+	end
+
+	local roof = block("Roof", Vector3.new(30, 1, 70), cf * CFrame.new(0, 16, 0), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)
+	deco("RoofTrim", Vector3.new(0.6, 0.5, 70.2), cf * CFrame.new(15, 15.4, 0), teamColor, Enum.Material.Neon)
+	-- Cartel del equipo encima de la entrada
+	local banner = block("TeamBanner", Vector3.new(0.6, 4, 28), cf * CFrame.new(15.2, 18.6, 0), teamColor, Enum.Material.SmoothPlastic)
+	sign(banner, Enum.NormalId.Right, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
+	sign(banner, Enum.NormalId.Left, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
+	roof.Name = team.Name .. "SpawnRoof"
+
 	for _, z in { -34, 34 } do
 		block("Pillar", Vector3.new(2, 16, 2), cf * CFrame.new(14, 8, z), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)
+		deco("PillarStripe", Vector3.new(2.1, 1, 2.1), cf * CFrame.new(14, 12, z), teamColor, Enum.Material.Neon)
 	end
 	for _, z in { -24, 0, 24 } do
-		block("Cover", Vector3.new(2, 4, 10), cf * CFrame.new(14, 2, z), team.Color.Color, Enum.Material.SmoothPlastic)
+		block("Cover", Vector3.new(2, 4, 10), cf * CFrame.new(14, 2, z), teamColor, Enum.Material.SmoothPlastic)
+		deco("CoverTop", Vector3.new(2.1, 0.3, 10.1), cf * CFrame.new(14, 4.05, z), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
 	end
 
 	for i, z in { -24, -8, 8, 24 } do
@@ -1727,59 +2199,120 @@ local function spawnArea(team, cf)
 			decal:Destroy()
 		end
 	end
+
+	-- Luz de equipo bajo el techo
+	local lamp = deco("SpawnLight", Vector3.new(20, 0.2, 60), cf * CFrame.new(0, 15.4, 0), teamColor:Lerp(Color3.new(1, 1, 1), 0.7), Enum.Material.Neon)
+	local surfaceLight = Instance.new("SurfaceLight")
+	surfaceLight.Face = Enum.NormalId.Bottom
+	surfaceLight.Range = 16
+	surfaceLight.Brightness = 0.8
+	surfaceLight.Color = teamColor:Lerp(Color3.new(1, 1, 1), 0.5)
+	surfaceLight.Parent = lamp
 end
 
 -- Base de la bandera: el módulo Flags busca piezas "FlagBase" con el atributo Team.
 -- En un mapa propio basta con poner una pieza llamada FlagBase con Team = "Rojo" / "Azul".
 local function flagBase(team, cf)
-	local ring = block(
-		"FlagBaseRing",
-		Vector3.new(0.3, 13, 13),
-		cf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2),
-		team.Color.Color,
-		Enum.Material.Neon
-	)
+	local teamColor = team.Color.Color
+	local ring = deco("FlagBaseRing", Vector3.new(0.3, 13, 13), cf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2), teamColor, Enum.Material.Neon)
 	ring.Shape = Enum.PartType.Cylinder
-	local pad = block(
-		"FlagBase",
-		Vector3.new(0.4, 11, 11),
-		cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2),
-		Color3.fromRGB(235, 235, 240),
-		Enum.Material.Concrete
-	)
+	local pad = block("FlagBase", Vector3.new(0.4, 11, 11), cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)
 	pad.Shape = Enum.PartType.Cylinder
 	pad:SetAttribute("Team", team.Name)
+	local inner = deco("FlagBaseInner", Vector3.new(0.45, 4, 4), cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.pi / 2), teamColor, Enum.Material.Neon)
+	inner.Shape = Enum.PartType.Cylinder
+	-- Pilones luminosos alrededor
+	for i = 0, 3 do
+		local angle = i * math.pi / 2 + math.pi / 4
+		local offset = CFrame.new(math.cos(angle) * 7.5, 0, math.sin(angle) * 7.5)
+		cylinder("Pylon", 2, 0.7, cf * offset * CFrame.new(0, 1, 0), Color3.fromRGB(230, 230, 235), Enum.Material.SmoothPlastic, nil, true)
+		local top = deco("PylonLight", Vector3.new(0.8, 0.8, 0.8), cf * offset * CFrame.new(0, 2.3, 0), teamColor, Enum.Material.Neon)
+		top.Shape = Enum.PartType.Ball
+	end
+	local glow = Instance.new("PointLight")
+	glow.Color = teamColor
+	glow.Range = 16
+	glow.Brightness = 1.5
+	glow.Parent = inner
 	return pad
 end
 
-local function setupLighting()
-	Lighting.ClockTime = 14.5
-	Lighting.Brightness = 3
-	Lighting.Ambient = Color3.fromRGB(110, 110, 130)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 170)
-	Lighting.GlobalShadows = true
+-- Fachada con ventanas sobre la cara interior de un muro exterior.
+-- `inward` = signo (+1/-1) de la dirección hacia el centro del mapa.
+local function facade(center, length, alongX, inward)
+	local rows = { 13, 22 }
+	for _, y in rows do
+		for t = -length / 2 + 8, length / 2 - 8, 12 do
+			local pos = alongX and Vector3.new(t, y, center.Z + inward * 0.3) or Vector3.new(center.X + inward * 0.3, y, t)
+			local frameSize = alongX and Vector3.new(5, 5, 0.3) or Vector3.new(0.3, 5, 5)
+			local glassSize = alongX and Vector3.new(4.2, 4.2, 0.35) or Vector3.new(0.35, 4.2, 4.2)
+			deco("FacadeFrame", frameSize, CFrame.new(pos), C.WallTrim, Enum.Material.SmoothPlastic)
+			local glass = deco("FacadeWindow", glassSize, CFrame.new(pos), C.Window, Enum.Material.Glass)
+			glass.Transparency = 0.1
+			glass.Reflectance = 0.25
+		end
+	end
+	-- Cornisa y franja inferior
+	local trimSize = alongX and Vector3.new(length, 1.2, 1.2) or Vector3.new(1.2, 1.2, length)
+	deco("WallCornice", trimSize, CFrame.new(center + Vector3.new(0, WALL_HEIGHT / 2 + 0.3, 0)), C.WallTrim, Enum.Material.SmoothPlastic)
+	local baseSize = alongX and Vector3.new(length, 3, 0.6) or Vector3.new(0.6, 3, length)
+	local basePos = alongX and Vector3.new(center.X, 1.5, center.Z + inward * 0.3) or Vector3.new(center.X + inward * 0.3, 1.5, center.Z)
+	deco("WallBase", baseSize, CFrame.new(basePos), Color3.fromRGB(120, 150, 190), Enum.Material.Concrete)
+end
 
-	local function ensure(className)
-		local inst = Lighting:FindFirstChildOfClass(className)
+local function setupLighting()
+	Lighting.ClockTime = 15
+	Lighting.GeographicLatitude = 35
+	Lighting.Brightness = 3.2
+	Lighting.ExposureCompensation = 0.1
+	Lighting.Ambient = Color3.fromRGB(80, 85, 105)
+	Lighting.OutdoorAmbient = Color3.fromRGB(140, 145, 170)
+	Lighting.GlobalShadows = true
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+
+	local function ensure(className, parent)
+		parent = parent or Lighting
+		local inst = parent:FindFirstChildOfClass(className)
 		if not inst then
 			inst = Instance.new(className)
-			inst.Parent = Lighting
+			inst.Parent = parent
 		end
 		return inst
 	end
 	local atmosphere = ensure("Atmosphere")
-	atmosphere.Density = 0.25
-	atmosphere.Haze = 1
-	atmosphere.Color = Color3.fromRGB(200, 225, 255)
+	atmosphere.Density = 0.3
+	atmosphere.Offset = 0.25
+	atmosphere.Color = Color3.fromRGB(199, 220, 255)
+	atmosphere.Decay = Color3.fromRGB(106, 120, 150)
+	atmosphere.Glare = 0.3
+	atmosphere.Haze = 1.4
+
 	local cc = ensure("ColorCorrectionEffect")
-	cc.Saturation = 0.2
-	cc.Contrast = 0.08
+	cc.Saturation = 0.25
+	cc.Contrast = 0.1
+	cc.Brightness = 0.02
+	cc.TintColor = Color3.fromRGB(255, 250, 245)
+
 	local bloom = ensure("BloomEffect")
-	bloom.Intensity = 0.6
-	bloom.Size = 20
-	bloom.Threshold = 1.4
+	bloom.Intensity = 0.8
+	bloom.Size = 24
+	bloom.Threshold = 1.6
+
+	local rays = ensure("SunRaysEffect")
+	rays.Intensity = 0.06
+	rays.Spread = 0.6
+
 	ensure("Sky")
+
+	-- Nubes volumétricas
+	local clouds = ensure("Clouds", workspace.Terrain)
+	clouds.Cover = 0.55
+	clouds.Density = 0.6
+	clouds.Color = Color3.fromRGB(255, 255, 255)
 end
+
+---------------------------------------------------------------------------
 
 function MapBuilder.Build()
 	setupLighting()
@@ -1797,25 +2330,72 @@ function MapBuilder.Build()
 	mapFolder.Name = "Map"
 	mapFolder.Parent = workspace
 
-	-- Suelo
-	block("Floor", Vector3.new(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), Color3.fromRGB(196, 200, 210), Enum.Material.Concrete)
-	-- Carriles de color
-	for _, z in { -70, 0, 70 } do
-		block("Lane", Vector3.new(LENGTH - 60, 0.05, 3), CFrame.new(0, 0.03, z), Color3.fromRGB(240, 240, 245), Enum.Material.SmoothPlastic)
+	-- Suelo: asfalto, aceras y plaza central
+	block("Floor", Vector3.new(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), C.Asphalt, Enum.Material.Asphalt)
+	for _, side in { -1, 1 } do
+		block("Sidewalk", Vector3.new(LENGTH, 0.4, 16), CFrame.new(0, 0.2, side * (WIDTH / 2 - 8)), C.Sidewalk, Enum.Material.Pavement)
+		deco("Curb", Vector3.new(LENGTH, 0.45, 0.8), CFrame.new(0, 0.22, side * (WIDTH / 2 - 16.4)), C.Curb, Enum.Material.Concrete)
+		-- Línea discontinua del carril
+		for x = -125, 125, 10 do
+			deco("LaneDash", Vector3.new(5, 0.05, 0.6), CFrame.new(x, 0.03, side * 50), C.LineWhite, Enum.Material.SmoothPlastic)
+		end
+		-- Pasos de cebra
+		for _, x in { -40, 40 } do
+			for i = 0, 6 do
+				deco("Zebra", Vector3.new(8, 0.05, 1.4), CFrame.new(x, 0.035, side * (40 + i * 3)), C.LineWhite, Enum.Material.SmoothPlastic)
+			end
+		end
+		-- Línea amarilla de borde
+		deco("EdgeLine", Vector3.new(LENGTH - 60, 0.05, 0.5), CFrame.new(0, 0.03, side * (WIDTH / 2 - 19)), C.LineYellow, Enum.Material.SmoothPlastic)
+	end
+	-- Plaza central con baldosas de colores
+	local tileColors = { Color3.fromRGB(235, 230, 220), Color3.fromRGB(255, 190, 200) }
+	for ix = -5, 4 do
+		for iz = -5, 4 do
+			deco(
+				"PlazaTile",
+				Vector3.new(5.9, 0.06, 5.9),
+				CFrame.new(ix * 6 + 3, 0.03, iz * 6 + 3),
+				tileColors[(ix + iz) % 2 + 1],
+				Enum.Material.Pavement
+			)
+		end
 	end
 
-	-- Muros exteriores
-	local wallColor = Color3.fromRGB(163, 196, 230)
-	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, WIDTH / 2 + 2), wallColor, Enum.Material.Concrete)
-	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, -WIDTH / 2 - 2), wallColor, Enum.Material.Concrete)
-	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(LENGTH / 2 + 2, WALL_HEIGHT / 2, 0), wallColor, Enum.Material.Concrete)
-	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(-LENGTH / 2 - 2, WALL_HEIGHT / 2, 0), wallColor, Enum.Material.Concrete)
+	-- Muros exteriores con fachadas
+	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, WIDTH / 2 + 2), C.WallBlue, Enum.Material.Concrete)
+	block("Wall", Vector3.new(LENGTH, WALL_HEIGHT, 4), CFrame.new(0, WALL_HEIGHT / 2, -WIDTH / 2 - 2), C.WallBlue, Enum.Material.Concrete)
+	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(LENGTH / 2 + 2, WALL_HEIGHT / 2, 0), C.WallBlue, Enum.Material.Concrete)
+	block("Wall", Vector3.new(4, WALL_HEIGHT, WIDTH), CFrame.new(-LENGTH / 2 - 2, WALL_HEIGHT / 2, 0), C.WallBlue, Enum.Material.Concrete)
+	facade(Vector3.new(0, WALL_HEIGHT / 2, WIDTH / 2), LENGTH, true, -1)
+	facade(Vector3.new(0, WALL_HEIGHT / 2, -WIDTH / 2), LENGTH, true, 1)
+	facade(Vector3.new(LENGTH / 2, WALL_HEIGHT / 2, 0), WIDTH, false, -1)
+	facade(Vector3.new(-LENGTH / 2, WALL_HEIGHT / 2, 0), WIDTH, false, 1)
+
 	-- Techo invisible para que nadie salga del mapa
 	local ceiling = block("Ceiling", Vector3.new(LENGTH, 1, WIDTH), CFrame.new(0, WALL_HEIGHT + 12, 0), Color3.new(1, 1, 1))
 	ceiling.Transparency = 1
 	ceiling.CanQuery = false
+	ceiling.CastShadow = false
 
-	-- Spawns
+	-- Carteles gigantes con el nombre del juego sobre los muros largos
+	for _, side in { -1, 1 } do
+		local board = deco(
+			"Billboard",
+			Vector3.new(70, 14, 1),
+			CFrame.new(0, WALL_HEIGHT + 9, side * (WIDTH / 2 + 3)) * (side > 0 and CFrame.new() or MIRROR),
+			Color3.fromRGB(20, 20, 35),
+			Enum.Material.SmoothPlastic
+		)
+		sign(board, Enum.NormalId.Front, GameConfig.GameTitle, Color3.fromRGB(255, 200, 40), Color3.fromRGB(120, 20, 80))
+		deco("BillboardFrame", Vector3.new(72, 1, 1.2), board.CFrame * CFrame.new(0, 7.4, 0), C.Pink, Enum.Material.Neon)
+		deco("BillboardFrame", Vector3.new(72, 1, 1.2), board.CFrame * CFrame.new(0, -7.4, 0), C.Pink, Enum.Material.Neon)
+		for _, x in { -25, 25 } do
+			deco("BillboardLeg", Vector3.new(1, 10, 1), board.CFrame * CFrame.new(x, -12, 0.5), C.Metal, Enum.Material.Metal)
+		end
+	end
+
+	-- Spawns y banderas
 	local teams = GameConfig.Teams
 	spawnArea(teams[1], CFrame.new(-LENGTH / 2 + 15, 0, 0))
 	spawnArea(teams[2], MIRROR * CFrame.new(-LENGTH / 2 + 15, 0, 0))
@@ -1834,21 +2414,20 @@ function MapBuilder.Build()
 
 		-- Edificio con azotea accesible por rampa
 		building(m * CFrame.new(-75, 0, 68), Vector3.new(26, 12, 22), Color3.fromRGB(245, 245, 250))
-		ramp(
-			(m * CFrame.new(-38, 0, 74)).Position,
-			(m * CFrame.new(-62, 12, 74)).Position,
-			7,
-			Color3.fromRGB(150, 150, 160)
-		)
+		ramp((m * CFrame.new(-38, 0, 74)).Position, (m * CFrame.new(-62, 12, 74)).Position, 7, C.Ramp)
 
-		-- Pasarela elevada sobre los contenedores
-		block("Catwalk", Vector3.new(30, 1, 6), m * CFrame.new(-95, 17.9, -45), Color3.fromRGB(90, 90, 100), Enum.Material.DiamondPlate)
-		ramp(
-			(m * CFrame.new(-120, 0, -5)).Position,
-			(m * CFrame.new(-110, 17.4, -45)).Position,
-			6,
-			Color3.fromRGB(150, 150, 160)
-		)
+		-- Pasarela elevada sobre los contenedores, con barandillas
+		local catwalk = block("Catwalk", Vector3.new(30, 1, 6), m * CFrame.new(-95, 17.9, -45), Color3.fromRGB(90, 90, 100), Enum.Material.DiamondPlate)
+		for _, z in { -2.8, 2.8 } do
+			deco("Handrail", Vector3.new(30, 0.25, 0.25), catwalk.CFrame * CFrame.new(0, 3, z), C.LineYellow, Enum.Material.Metal)
+			for x = -14, 14, 4 do
+				deco("RailPost", Vector3.new(0.25, 2.5, 0.25), catwalk.CFrame * CFrame.new(x, 1.75, z), C.Metal, Enum.Material.Metal)
+			end
+		end
+		for _, x in { -82, -108 } do
+			block("CatwalkLeg", Vector3.new(1, 17.4, 1), m * CFrame.new(x, 8.7, -42.6), C.Metal, Enum.Material.Metal)
+		end
+		ramp((m * CFrame.new(-120, 0, -5)).Position, (m * CFrame.new(-110, 17.4, -45)).Position, 6, C.Ramp)
 
 		-- Cajas de cobertura
 		crate(m * CFrame.new(-110, 0, 20))
@@ -1859,23 +2438,58 @@ function MapBuilder.Build()
 		crate(m * CFrame.new(-25, 0, -40), 5)
 		crate(m * CFrame.new(-25, 0, -35))
 
-		-- Muros bajos de cobertura
-		block("LowWall", Vector3.new(2, 4.5, 16), m * CFrame.new(-40, 2.25, -15), Color3.fromRGB(250, 210, 80), Enum.Material.Concrete)
-		block("LowWall", Vector3.new(14, 4.5, 2), m * CFrame.new(-18, 2.25, 40), Color3.fromRGB(250, 210, 80), Enum.Material.Concrete)
+		-- Barreras de cobertura
+		barrier(Vector3.new(2, 4.5, 16), m * CFrame.new(-40, 0, -15))
+		barrier(Vector3.new(14, 4.5, 2), m * CFrame.new(-18, 0, 40))
 
 		-- Rampa a la plataforma central
-		ramp((m * CFrame.new(-34, 0, 0)).Position, (m * CFrame.new(-12, 7, 0)).Position, 8, Color3.fromRGB(150, 150, 160))
+		ramp((m * CFrame.new(-34, 0, 0)).Position, (m * CFrame.new(-12, 7, 0)).Position, 8, C.Ramp)
+
+		-- Farolas y árboles en las dos aceras (la otra mitad sale del espejo)
+		for _, x in { -130, -90, -50, -10 } do
+			streetLamp(m * CFrame.new(x, 0.4, -(WIDTH / 2 - 4)) * MIRROR) -- brazo hacia el centro
+			streetLamp(m * CFrame.new(x, 0.4, WIDTH / 2 - 4))
+		end
+		for _, x in { -110, -70, -30 } do
+			tree(m * CFrame.new(x, 0.4, -(WIDTH / 2 - 7)))
+			tree(m * CFrame.new(x, 0.4, WIDTH / 2 - 7))
+		end
+
+		-- Bolardos en las esquinas de la plaza
+		for _, z in { -28, 28 } do
+			bollard(m * CFrame.new(-30, 0, z))
+			bollard(m * CFrame.new(-26, 0, z))
+		end
 	end)
 
 	-- Plataforma central
-	block("CenterPlatform", Vector3.new(24, 1, 24), CFrame.new(0, 6.5, 0), Color3.fromRGB(80, 80, 95), Enum.Material.DiamondPlate)
+	local platform = block("CenterPlatform", Vector3.new(24, 1, 24), CFrame.new(0, 6.5, 0), Color3.fromRGB(80, 80, 95), Enum.Material.DiamondPlate)
 	for _, x in { -10, 10 } do
 		for _, z in { -10, 10 } do
 			block("Pillar", Vector3.new(2, 6, 2), CFrame.new(x, 3, z), Color3.fromRGB(60, 60, 70), Enum.Material.Metal)
 		end
 	end
-	block("CenterCover", Vector3.new(2, 4, 10), CFrame.new(0, 9, 7), Color3.fromRGB(255, 80, 160), Enum.Material.SmoothPlastic)
-	block("CenterCover", Vector3.new(2, 4, 10), CFrame.new(0, 9, -7), Color3.fromRGB(255, 80, 160), Enum.Material.SmoothPlastic)
+	-- Bordes de neón
+	for _, z in { -12, 12 } do
+		deco("PlatformEdge", Vector3.new(24.2, 0.3, 0.3), platform.CFrame * CFrame.new(0, -0.45, z), C.Pink, Enum.Material.Neon)
+	end
+	for _, x in { -12, 12 } do
+		deco("PlatformEdge", Vector3.new(0.3, 0.3, 24.2), platform.CFrame * CFrame.new(x, -0.45, 0), C.Pink, Enum.Material.Neon)
+	end
+	block("CenterCover", Vector3.new(2, 4, 10), CFrame.new(0, 9, 7), C.Pink, Enum.Material.SmoothPlastic)
+	block("CenterCover", Vector3.new(2, 4, 10), CFrame.new(0, 9, -7), C.Pink, Enum.Material.SmoothPlastic)
+	-- Holograma giratorio sobre el centro (gira en el cliente)
+	local holo = deco("Hologram", Vector3.new(0.3, 9, 9), CFrame.new(0, 22, 0) * CFrame.Angles(0, 0, math.pi / 2) * CFrame.Angles(math.rad(70), 0, 0), C.Cyan, Enum.Material.ForceField)
+	holo.Shape = Enum.PartType.Cylinder
+	holo:SetAttribute("Spin", 45)
+	local holoCore = deco("HologramCore", Vector3.new(2.5, 2.5, 2.5), CFrame.new(0, 22, 0), C.Pink, Enum.Material.Neon)
+	holoCore.Shape = Enum.PartType.Ball
+	holoCore:SetAttribute("Bob", 1.2)
+	local holoLight = Instance.new("PointLight")
+	holoLight.Color = C.Pink
+	holoLight.Range = 20
+	holoLight.Brightness = 2
+	holoLight.Parent = holoCore
 
 	-- Rascacielos de fondo (decoración fuera de los muros)
 	local rng = Random.new(42)
@@ -1887,51 +2501,53 @@ function MapBuilder.Build()
 		Color3.fromRGB(90, 140, 210),
 		Color3.fromRGB(200, 220, 245),
 		Color3.fromRGB(70, 110, 180),
+		Color3.fromRGB(240, 240, 250),
+		Color3.fromRGB(255, 200, 210),
 	}
-	for x = -220, 220, 36 do
-		for _, side in { -1, 1 } do
-			local h = rng:NextNumber(60, 160)
-			local w = rng:NextNumber(24, 34)
-			local z = side * (WIDTH / 2 + 40 + rng:NextNumber(0, 30))
-			local tower = block(
-				"Tower",
-				Vector3.new(w, h, w),
-				CFrame.new(x, h / 2, z),
-				palette[rng:NextInteger(1, #palette)],
-				Enum.Material.Glass,
-				skyline
-			)
-			tower.CanCollide = false
-			tower.CanQuery = false
-			tower.CastShadow = false
-			for y = 10, h - 10, 14 do
-				local strip = block(
-					"Window",
-					Vector3.new(w + 0.4, 1, w + 0.4),
-					CFrame.new(x, y, z),
-					Color3.fromRGB(255, 255, 255),
-					Enum.Material.SmoothPlastic,
-					skyline
-				)
-				strip.CanCollide = false
-				strip.CanQuery = false
+	local neonTops = { C.Pink, C.Cyan, C.LineYellow, Color3.fromRGB(140, 255, 120) }
+
+	local function tower(position, w, d, h)
+		local color = palette[rng:NextInteger(1, #palette)]
+		local glassy = rng:NextNumber() < 0.6
+		local body = deco("Tower", Vector3.new(w, h, d), CFrame.new(position + Vector3.new(0, h / 2, 0)), color, glassy and Enum.Material.Glass or Enum.Material.Concrete, skyline)
+		body.Reflectance = glassy and 0.15 or 0
+		-- Franjas horizontales (pisos)
+		for y = 8, h - 6, 7 do
+			deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
+		end
+		-- Columnas verticales
+		for _, sx in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				deco("Column", Vector3.new(1.2, h, 1.2), CFrame.new(position + Vector3.new(sx * w / 2, h / 2, sz * d / 2)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
 			end
 		end
+		-- Remate superior
+		local capH = rng:NextNumber(2, 6)
+		deco("Cap", Vector3.new(w * 0.7, capH, d * 0.7), CFrame.new(position + Vector3.new(0, h + capH / 2, 0)), C.WallTrim, Enum.Material.Concrete, skyline)
+		if rng:NextNumber() < 0.5 then
+			deco("NeonTop", Vector3.new(w + 0.6, 1, d + 0.6), CFrame.new(position + Vector3.new(0, h - 0.5, 0)), neonTops[rng:NextInteger(1, #neonTops)], Enum.Material.Neon, skyline)
+		end
+		if rng:NextNumber() < 0.4 then
+			local antennaH = rng:NextNumber(8, 16)
+			deco("Antenna", Vector3.new(0.6, antennaH, 0.6), CFrame.new(position + Vector3.new(0, h + capH + antennaH / 2, 0)), C.Metal, Enum.Material.Metal, skyline)
+			local light = deco("AntennaLight", Vector3.new(1, 1, 1), CFrame.new(position + Vector3.new(0, h + capH + antennaH, 0)), Color3.fromRGB(255, 40, 40), Enum.Material.Neon, skyline)
+			light.Shape = Enum.PartType.Ball
+		end
 	end
-	for _, x in { -1, 1 } do
+
+	for x = -230, 230, 38 do
+		for _, side in { -1, 1 } do
+			local w = rng:NextNumber(24, 34)
+			tower(Vector3.new(x + rng:NextNumber(-6, 6), 0, side * (WIDTH / 2 + 42 + rng:NextNumber(0, 30))), w, w, rng:NextNumber(60, 160))
+			-- Segunda fila más lejana y alta
+			local w2 = rng:NextNumber(28, 40)
+			tower(Vector3.new(x + 19, 0, side * (WIDTH / 2 + 110 + rng:NextNumber(0, 40))), w2, w2, rng:NextNumber(110, 240))
+		end
+	end
+	for _, side in { -1, 1 } do
 		for z = -140, 140, 40 do
-			local h = rng:NextNumber(50, 130)
-			local tower = block(
-				"Tower",
-				Vector3.new(30, h, 30),
-				CFrame.new(x * (LENGTH / 2 + 50), h / 2, z),
-				palette[rng:NextInteger(1, #palette)],
-				Enum.Material.Glass,
-				skyline
-			)
-			tower.CanCollide = false
-			tower.CanQuery = false
-			tower.CastShadow = false
+			tower(Vector3.new(side * (LENGTH / 2 + 50), 0, z + rng:NextNumber(-5, 5)), 30, 30, rng:NextNumber(50, 130))
+			tower(Vector3.new(side * (LENGTH / 2 + 120), 0, z + 20), 36, 36, rng:NextNumber(100, 220))
 		end
 	end
 
@@ -1942,7 +2558,7 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="18">
+        <Item class="ModuleScript" referent="19">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins) guardados con DataStore.
@@ -2267,7 +2883,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="19">
+        <Item class="ModuleScript" referent="20">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Equipos, rondas, modos de juego (Duelo por equipos / Captura la bandera), marcador, rachas y recompensas.
@@ -2565,21 +3181,21 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="20">
+  <Item class="StarterPlayer" referent="21">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="21">
+    <Item class="StarterPlayerScripts" referent="22">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="22">
+      <Item class="Folder" referent="23">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="23">
+        <Item class="LocalScript" referent="24">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -2593,6 +3209,8 @@ local WeaponController = require(Modules.WeaponController)
 local Movement = require(Modules.Movement)
 local HUD = require(Modules.HUD)
 local Menu = require(Modules.Menu)
+local MainMenu = require(Modules.MainMenu)
+local WorldFX = require(Modules.WorldFX)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -2608,20 +3226,23 @@ HUD.Init()
 Menu.Init()
 Movement.Init()
 WeaponController.Init()
+WorldFX.Init()
+MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="24">
+        <Item class="Folder" referent="25">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="25">
+          <Item class="ModuleScript" referent="26">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	MenuOpen = false,
+	InMainMenu = true, -- pantalla de inicio visible
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,
@@ -2640,6 +3261,11 @@ local ClientState = {
 	ShotFired = Instance.new("BindableEvent"),
 }
 
+-- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
+function ClientState.IsBlocked()
+	return ClientState.MenuOpen or ClientState.InMainMenu
+end
+
 function ClientState.SetData(data)
 	if type(data) ~= "table" then
 		return
@@ -2652,14 +3278,21 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="26">
+          <Item class="ModuleScript" referent="27">
             <Properties>
               <string name="Name">Effects</string>
-              <string name="Source"><![CDATA[-- Efectos visuales: trazadoras, impactos y fogonazos.
+              <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
 local Effects = {}
+
+-- Texturas de partículas incluidas con Roblox
+local TEX = {
+	Fire = "rbxasset://textures/particles/fire_main.dds",
+	Smoke = "rbxasset://textures/particles/smoke_main.dds",
+	Sparkle = "rbxasset://textures/particles/sparkles_main.dds",
+}
 
 local folder = Instance.new("Folder")
 folder.Name = "ClientFX"
@@ -2680,69 +3313,249 @@ local function fxPart(props)
 	return part
 end
 
+-- lookAt que no falla cuando la dirección es vertical (por ejemplo, impactos en el suelo)
+local function safeLookAt(position, direction)
+	local up = math.abs(direction.Unit.Y) > 0.99 and Vector3.zAxis or Vector3.yAxis
+	return CFrame.lookAt(position, position + direction, up)
+end
+
+local function seq(a, b)
+	return NumberSequence.new({ NumberSequenceKeypoint.new(0, a), NumberSequenceKeypoint.new(1, b) })
+end
+
+-- Pieza invisible que sirve de emisor; su +Y apunta hacia `direction`
+local function emitterAnchor(position, direction, lifetime)
+	direction = (direction and direction.Magnitude > 0.01) and direction.Unit or Vector3.yAxis
+	local anchor = fxPart({
+		Size = Vector3.new(0.1, 0.1, 0.1),
+		Transparency = 1,
+		CFrame = safeLookAt(position, direction) * CFrame.Angles(-math.pi / 2, 0, 0),
+	})
+	Debris:AddItem(anchor, lifetime or 2)
+	return anchor
+end
+
+local function emit(parent, props, count)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Enabled = false
+	emitter.EmissionDirection = Enum.NormalId.Top
+	for key, value in props do
+		emitter[key] = value
+	end
+	emitter.Parent = parent
+	emitter:Emit(count)
+	return emitter
+end
+
+---------------------------------------------------------------------------
+
+-- Bala trazadora que viaja desde el cañón hasta el impacto, con una estela tenue
 function Effects.Tracer(from, to, color)
 	local distance = (to - from).Magnitude
-	if distance < 0.5 then
+	if distance < 1 then
 		return
 	end
-	local part = fxPart({
-		Color = color or Color3.fromRGB(255, 230, 120),
-		Size = Vector3.new(0.07, 0.07, distance),
-		CFrame = CFrame.lookAt(from, to) * CFrame.new(0, 0, -distance / 2),
-		Transparency = 0.2,
-	})
-	TweenService:Create(part, TweenInfo.new(0.12), { Transparency = 1, Size = Vector3.new(0.02, 0.02, distance) }):Play()
-	Debris:AddItem(part, 0.15)
-end
+	color = color or Color3.fromRGB(255, 230, 120)
+	local direction = safeLookAt(from, to - from)
 
-function Effects.Impact(position, normal, hitPart)
-	local isCharacter = hitPart and hitPart.Parent and hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil
-	local color = isCharacter and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(255, 240, 200)
-	local part = fxPart({
+	-- Estela fina que se desvanece
+	local trail = fxPart({
 		Color = color,
-		Size = Vector3.new(0.45, 0.45, 0.05),
-		CFrame = CFrame.lookAt(position, position + (normal or Vector3.yAxis)),
-		Shape = Enum.PartType.Block,
+		Size = Vector3.new(0.03, 0.03, distance),
+		CFrame = direction * CFrame.new(0, 0, -distance / 2),
+		Transparency = 0.6,
 	})
-	TweenService:Create(part, TweenInfo.new(0.25), { Transparency = 1, Size = Vector3.new(0.9, 0.9, 0.02) }):Play()
-	Debris:AddItem(part, 0.3)
+	TweenService:Create(trail, TweenInfo.new(0.1), { Transparency = 1 }):Play()
+	Debris:AddItem(trail, 0.12)
 
-	if not isCharacter and hitPart then
-		local mark = fxPart({
-			Color = Color3.fromRGB(30, 30, 30),
-			Material = Enum.Material.SmoothPlastic,
-			Size = Vector3.new(0.25, 0.25, 0.02),
-			CFrame = CFrame.lookAt(position, position + (normal or Vector3.yAxis)),
-			Transparency = 0.2,
-		})
-		TweenService:Create(mark, TweenInfo.new(4, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
-		Debris:AddItem(mark, 4.2)
-	end
+	-- La bala
+	local length = math.min(6, distance)
+	local travel = math.max(distance - length, 0.01)
+	local duration = math.clamp(distance / 900, 0.02, 0.25)
+	local bullet = fxPart({
+		Color = color,
+		Size = Vector3.new(0.12, 0.12, length),
+		CFrame = direction * CFrame.new(0, 0, -length / 2),
+	})
+	TweenService
+		:Create(bullet, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = direction * CFrame.new(0, 0, -length / 2 - travel) })
+		:Play()
+	Debris:AddItem(bullet, duration + 0.02)
 end
 
-function Effects.MuzzleFlash(attachment)
+-- Fogonazo: estrella de luz, llamas y humo
+function Effects.MuzzleFlash(attachment, color)
 	if not attachment then
 		return
 	end
-	local flash = fxPart({
-		Color = Color3.fromRGB(255, 210, 90),
-		Size = Vector3.new(0.35, 0.35, 0.6),
-		CFrame = attachment.WorldCFrame * CFrame.Angles(0, 0, math.random() * math.pi),
-		Transparency = 0.1,
+	color = color or Color3.fromRGB(255, 200, 90)
+	local cf = attachment.WorldCFrame
+	local spin = math.random() * math.pi
+	for i = 0, 1 do
+		local star = fxPart({
+			Color = color:Lerp(Color3.new(1, 1, 1), 0.4),
+			Size = Vector3.new(0.08, 0.7, 0.3),
+			CFrame = cf * CFrame.new(0, 0, -0.2) * CFrame.Angles(0, 0, spin + i * math.pi / 2),
+		})
+		Debris:AddItem(star, 0.04)
+	end
+	local core = fxPart({
+		Color = Color3.fromRGB(255, 240, 200),
+		Size = Vector3.new(0.3, 0.3, 0.3),
+		Shape = Enum.PartType.Ball,
+		CFrame = cf * CFrame.new(0, 0, -0.15),
 	})
 	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 200, 100)
-	light.Range = 10
-	light.Brightness = 3
-	light.Parent = flash
-	Debris:AddItem(flash, 0.05)
+	light.Color = color
+	light.Range = 12
+	light.Brightness = 4
+	light.Parent = core
+	Debris:AddItem(core, 0.05)
+
+	local anchor = emitterAnchor(cf.Position, cf.LookVector, 1.2)
+	emit(anchor, {
+		Texture = TEX.Fire,
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 180), color),
+		LightEmission = 1,
+		Size = seq(0.45, 0),
+		Transparency = seq(0, 1),
+		Lifetime = NumberRange.new(0.04, 0.08),
+		Speed = NumberRange.new(4, 8),
+		SpreadAngle = Vector2.new(12, 12),
+	}, 5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(220, 220, 220)),
+		Size = seq(0.2, 0.9),
+		Transparency = seq(0.6, 1),
+		Lifetime = NumberRange.new(0.4, 0.8),
+		Speed = NumberRange.new(1, 3),
+		SpreadAngle = Vector2.new(20, 20),
+		Acceleration = Vector3.new(0, 1.5, 0),
+	}, 2)
+end
+
+-- Impacto: chispas, polvo del color de la superficie y marca de bala
+function Effects.Impact(position, normal, hitPart)
+	local isCharacter = hitPart ~= nil
+		and hitPart.Parent ~= nil
+		and (hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil or hitPart.Parent:IsA("Accessory"))
+	local anchor = emitterAnchor(position + (normal or Vector3.yAxis) * 0.05, normal, 1.5)
+
+	if isCharacter then
+		-- Destello de golpe (estilo cartoon, sin sangre)
+		emit(anchor, {
+			Texture = TEX.Sparkle,
+			Color = ColorSequence.new(Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 220, 120)),
+			LightEmission = 1,
+			Size = seq(0.5, 0),
+			Lifetime = NumberRange.new(0.15, 0.3),
+			Speed = NumberRange.new(6, 12),
+			SpreadAngle = Vector2.new(60, 60),
+			Rotation = NumberRange.new(0, 360),
+		}, 8)
+		return
+	end
+
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 230, 150)),
+		LightEmission = 1,
+		Size = seq(0.18, 0),
+		Lifetime = NumberRange.new(0.15, 0.35),
+		Speed = NumberRange.new(8, 16),
+		SpreadAngle = Vector2.new(45, 45),
+		Acceleration = Vector3.new(0, -40, 0),
+	}, 6)
+	local dustColor = hitPart and hitPart.Color:Lerp(Color3.new(1, 1, 1), 0.3) or Color3.fromRGB(200, 200, 200)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(dustColor),
+		Size = seq(0.3, 1.4),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(0.4, 0.7),
+		Speed = NumberRange.new(1.5, 3),
+		SpreadAngle = Vector2.new(30, 30),
+	}, 3)
+
+	local mark = fxPart({
+		Color = Color3.fromRGB(25, 25, 28),
+		Material = Enum.Material.SmoothPlastic,
+		Size = Vector3.new(0.22, 0.22, 0.02),
+		Shape = Enum.PartType.Block,
+		CFrame = safeLookAt(position, normal or Vector3.yAxis),
+		Transparency = 0.15,
+	})
+	TweenService:Create(mark, TweenInfo.new(5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
+	Debris:AddItem(mark, 5.2)
+end
+
+-- Casquillo que sale disparado por la derecha del arma
+function Effects.ShellCasing(attachment, cameraCFrame, color)
+	if not attachment then
+		return
+	end
+	local casing = Instance.new("Part")
+	casing.Size = Vector3.new(0.06, 0.06, 0.16)
+	casing.Color = color or Color3.fromRGB(230, 180, 60)
+	casing.Material = Enum.Material.Metal
+	casing.Reflectance = 0.2
+	casing.CanCollide = true
+	casing.CanQuery = false
+	casing.CanTouch = false
+	casing.CastShadow = false
+	casing.Massless = true
+	casing.CustomPhysicalProperties = PhysicalProperties.new(0.05, 0.3, 0.6)
+	casing.CFrame = attachment.WorldCFrame
+	casing.Parent = folder
+	local right = cameraCFrame.RightVector
+	local up = cameraCFrame.UpVector
+	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3)
+	casing.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
+	Debris:AddItem(casing, 1.5)
+end
+
+-- Explosión de partículas cuando alguien es eliminado
+function Effects.DeathBurst(position, color)
+	color = color or Color3.new(1, 1, 1)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(color, Color3.new(1, 1, 1)),
+		LightEmission = 1,
+		Size = seq(0.9, 0),
+		Lifetime = NumberRange.new(0.5, 0.9),
+		Speed = NumberRange.new(10, 20),
+		SpreadAngle = Vector2.new(180, 180),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-180, 180),
+		Drag = 4,
+	}, 24)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.6)),
+		Size = seq(1.5, 4),
+		Transparency = seq(0.4, 1),
+		Lifetime = NumberRange.new(0.8, 1.3),
+		Speed = NumberRange.new(2, 5),
+		SpreadAngle = Vector2.new(180, 180),
+	}, 6)
+	local flash = fxPart({
+		Color = color,
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(1, 1, 1),
+		CFrame = CFrame.new(position),
+		Transparency = 0.2,
+	})
+	TweenService:Create(flash, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = Vector3.new(7, 7, 7), Transparency = 1 }):Play()
+	Debris:AddItem(flash, 0.4)
 end
 
 return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="27">
+          <Item class="ModuleScript" referent="28">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -2756,12 +3569,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
+local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponController = require(script.Parent.WeaponController)
+local WeaponIcon = require(script.Parent.WeaponIcon)
 
 local player = Players.LocalPlayer
 
@@ -2810,7 +3625,7 @@ local function buildTopBar()
 			Size = UDim2.fromOffset(90, 44),
 			BackgroundColor3 = Color3.fromRGB(80, 80, 80),
 			Parent = top,
-		}, { UI.corner(8), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+		}, { UI.corner(10), UI.stroke(Color3.new(0, 0, 0), 3, 0), UI.gloss() })
 		return UI.label({
 			Size = UDim2.fromScale(1, 1),
 			Text = "0",
@@ -2845,9 +3660,9 @@ local function buildTopBar()
 	local timerBox = UI.new("Frame", {
 		Position = UDim2.fromOffset(95, 0),
 		Size = UDim2.fromOffset(140, 44),
-		BackgroundColor3 = Color3.fromRGB(25, 30, 60),
+		BackgroundColor3 = Color3.fromRGB(35, 45, 95),
 		Parent = top,
-	}, { UI.corner(8), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
+	}, { UI.corner(10), UI.stroke(Color3.new(0, 0, 0), 3, 0), UI.gloss(Color3.fromRGB(120, 120, 150)) })
 	refs.Timer = UI.label({ Size = UDim2.fromScale(1, 1), Text = "00:00", TextSize = 30, Parent = timerBox })
 
 	refs.Mode = UI.label({
@@ -2985,7 +3800,7 @@ local function buildWeaponPanel()
 	local panel = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -20),
-		Size = UDim2.fromOffset(260, 90),
+		Size = UDim2.fromOffset(260, 104),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
@@ -3005,8 +3820,25 @@ local function buildWeaponPanel()
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = panel,
 	})
+	-- Barra del cargador
+	local ammoBar = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 76),
+		Size = UDim2.fromOffset(170, 6),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
+		BackgroundTransparency = 0.3,
+		Parent = panel,
+	}, { UI.corner(3) })
+	refs.AmmoFill = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 210, 80),
+		Parent = ammoBar,
+	}, { UI.corner(3) })
+	refs.AmmoBar = ammoBar
 	refs.ReloadHint = UI.label({
-		Position = UDim2.fromOffset(0, 72),
+		Position = UDim2.fromOffset(0, 85),
 		Size = UDim2.new(1, 0, 0, 18),
 		Text = "",
 		TextSize = 16,
@@ -3015,16 +3847,16 @@ local function buildWeaponPanel()
 		Parent = panel,
 	})
 
-	-- Ranuras de armas (derecha)
+	-- Ranuras de armas (derecha) con icono 3D del arma
 	local slots = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -20, 0.62, 0),
-		Size = UDim2.fromOffset(200, 150),
+		Position = UDim2.new(1, -20, 0.6, 0),
+		Size = UDim2.fromOffset(230, 196),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
-			Padding = UDim.new(0, 8),
+			Padding = UDim.new(0, 6),
 			HorizontalAlignment = Enum.HorizontalAlignment.Right,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
@@ -3033,26 +3865,36 @@ local function buildWeaponPanel()
 	for slot = 1, 3 do
 		local row = UI.new("Frame", {
 			LayoutOrder = slot,
-			Size = UDim2.fromOffset(200, 40),
-			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(230, 60),
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BackgroundTransparency = 0.7,
 			Parent = slots,
+		}, { UI.corner(10) })
+		local stroke = UI.stroke(Color3.fromRGB(255, 200, 60), 2, 1)
+		stroke.Parent = row
+		local icon = UI.new("Frame", {
+			Position = UDim2.fromOffset(6, 2),
+			Size = UDim2.fromOffset(170, 44),
+			BackgroundTransparency = 1,
+			Parent = row,
 		})
 		local name = UI.label({
-			Size = UDim2.new(1, -40, 1, 0),
+			Position = UDim2.fromOffset(10, 42),
+			Size = UDim2.fromOffset(170, 16),
 			Text = "",
-			TextSize = 18,
-			TextXAlignment = Enum.TextXAlignment.Right,
+			TextSize = 14,
+			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = row,
 		})
 		local key = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, 0, 0.5, 0),
+			Position = UDim2.new(1, -8, 0.5, 0),
 			Size = UDim2.fromOffset(30, 30),
 			BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 			Parent = row,
-		}, { UI.corner(6) })
+		}, { UI.corner(6), UI.stroke(Color3.new(0, 0, 0), 2, 0) })
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = tostring(slot), TextSize = 18, Parent = key })
-		refs.Slots[slot] = { Name = name, Key = key, Row = row }
+		refs.Slots[slot] = { Name = name, Key = key, Row = row, Stroke = stroke, Icon = icon, IconKey = nil }
 	end
 
 	-- Controles (estilo de la captura)
@@ -3106,17 +3948,33 @@ local function buildPlayerPanel()
 	-- Vida (abajo a la izquierda)
 	local health = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 24, 1, -24),
-		Size = UDim2.fromOffset(240, 22),
+		Position = UDim2.new(0, 56, 1, -24),
+		Size = UDim2.fromOffset(250, 26),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
-	}, { UI.corner(11), UI.stroke(Color3.new(0, 0, 0), 2, 0.2) })
+	}, { UI.corner(13), UI.stroke(Color3.new(0, 0, 0), 3, 0) })
+	refs.HealthChip = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+		BackgroundTransparency = 0.25,
+		Parent = health,
+	}, { UI.corner(13) })
 	refs.HealthFill = UI.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(70, 220, 90),
 		Parent = health,
-	}, { UI.corner(11) })
-	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 16, Parent = health })
+	}, { UI.corner(13), UI.gloss() })
+	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 18, Parent = health })
+	UI.label({
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(0, -6, 0.5, 0),
+		Size = UDim2.fromOffset(28, 28),
+		Text = "✚",
+		TextSize = 28,
+		TextColor3 = Color3.fromRGB(90, 230, 110),
+		TextStrokeTransparency = 0,
+		Parent = health,
+	})
 
 	-- Racha (barra vertical a la izquierda, como en la captura)
 	local streakBar = UI.new("Frame", {
@@ -3274,13 +4132,56 @@ local function buildFeedsAndOverlays()
 		RichText = true,
 		Parent = refs.DeathScreen,
 	})
-	UI.label({
+	refs.RespawnText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.53),
 		Size = UDim2.fromOffset(600, 30),
 		Text = "Reapareciendo...",
 		TextSize = 22,
 		Parent = refs.DeathScreen,
+	})
+	refs.DeathIcon = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.33),
+		Size = UDim2.fromOffset(280, 110),
+		BackgroundTransparency = 1,
+		Parent = refs.DeathScreen,
+	})
+
+	-- Aviso de baja propia ("ELIMINADO", doble baja...)
+	refs.KillBanner = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.7),
+		Size = UDim2.fromOffset(440, 64),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = gui,
+	})
+	refs.KillScale = UI.new("UIScale", { Parent = refs.KillBanner })
+	refs.KillIcon = UI.label({
+		Size = UDim2.fromOffset(64, 64),
+		Text = "💀",
+		TextSize = 46,
+		Parent = refs.KillBanner,
+	})
+	refs.KillTitle = UI.label({
+		Position = UDim2.fromOffset(70, 2),
+		Size = UDim2.fromOffset(370, 34),
+		Text = "",
+		TextSize = 32,
+		TextStrokeTransparency = 0,
+		TextColor3 = Color3.fromRGB(255, 70, 70),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.KillBanner,
+	})
+	refs.KillSub = UI.label({
+		Position = UDim2.fromOffset(70, 36),
+		Size = UDim2.fromOffset(370, 24),
+		Text = "",
+		TextSize = 20,
+		TextColor3 = Color3.fromRGB(255, 225, 100),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.KillBanner,
 	})
 
 	-- Fin de ronda
@@ -3385,9 +4286,36 @@ local function onNotify(kind, text)
 	end
 end
 
+local multiCount, lastKillTime, killToken = 0, 0, nil
+local MULTI_NAMES = { [2] = "¡DOBLE BAJA!", [3] = "¡TRIPLE BAJA!", [4] = "¡CUÁDRUPLE!" }
+
+local function showKillBanner(victim, headshot)
+	local now = os.clock()
+	multiCount = (now - lastKillTime < 4) and multiCount + 1 or 1
+	lastKillTime = now
+	local multi = MULTI_NAMES[multiCount] or (multiCount >= 5 and "¡IMPARABLE!" or nil)
+	refs.KillTitle.Text = multi or "ELIMINADO"
+	refs.KillTitle.TextColor3 = multi and Color3.fromRGB(255, 180, 30) or Color3.fromRGB(255, 70, 70)
+	refs.KillSub.Text = tostring(victim) .. (headshot and "  ·  DISPARO A LA CABEZA" or "")
+	refs.KillIcon.Text = headshot and "🎯" or "💀"
+	refs.KillBanner.Visible = true
+	refs.KillScale.Scale = 1.5
+	tween(refs.KillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	local token = {}
+	killToken = token
+	task.delay(2.2, function()
+		if killToken == token then
+			refs.KillBanner.Visible = false
+		end
+	end)
+end
+
 local function onKillFeed(info)
 	if type(info) ~= "table" then
 		return
+	end
+	if info.Killer == player.Name and info.Victim ~= player.Name then
+		showKillBanner(info.Victim, info.Headshot)
 	end
 	local killer = info.Killer
 	local text
@@ -3657,7 +4585,10 @@ local function updateData(data)
 end
 
 local lastHealth = 100
-local function render()
+local lastDamageTime = 0
+local chipRatio = 1
+local function render(dt)
+	gui.Enabled = not ClientState.InMainMenu
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
@@ -3668,9 +4599,16 @@ local function render()
 		refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
 		refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
 		refs.HealthText.Text = tostring(math.ceil(health))
+		-- La parte blanca baja despacio y deja ver el daño recibido
+		chipRatio = ratio > chipRatio and ratio or math.max(ratio, chipRatio - dt * 0.5)
+		refs.HealthChip.Size = UDim2.fromScale(chipRatio, 1)
 		if health < lastHealth - 0.5 then
+			lastDamageTime = os.clock()
 			refs.DamageStroke.Transparency = 0.35
-			tween(refs.DamageStroke, 0.6, { Transparency = ratio < 0.35 and 0.75 or 1 })
+			tween(refs.DamageStroke, 0.6, { Transparency = 1 })
+		elseif ratio < 0.35 and ratio > 0 and os.clock() - lastDamageTime > 0.6 then
+			-- Vida baja: la viñeta roja late
+			refs.DamageStroke.Transparency = 0.7 + 0.15 * math.sin(os.clock() * 5)
 		end
 		lastHealth = health
 	end
@@ -3694,6 +4632,11 @@ local function render()
 				ClientState.Ammo,
 				reserve
 			)
+			refs.AmmoBar.Visible = true
+			local fill = ClientState.Reloading and ClientState.ReloadProgress or ClientState.Ammo / def.MagSize
+			refs.AmmoFill.Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1)
+			refs.AmmoFill.BackgroundColor3 = ClientState.Reloading and Color3.fromRGB(120, 200, 255)
+				or (ClientState.Ammo <= math.ceil(def.MagSize * 0.25) and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 210, 80))
 			if ClientState.Reloading then
 				refs.ReloadHint.Text = "RECARGANDO " .. math.floor(ClientState.ReloadProgress * 100) .. "%"
 			elseif ClientState.Ammo == 0 and reserve == 0 then
@@ -3706,22 +4649,38 @@ local function render()
 		else
 			refs.Ammo.Text = "∞"
 			refs.ReloadHint.Text = ""
+			refs.AmmoBar.Visible = false
 		end
 	else
 		refs.WeaponName.Text = ""
 		refs.Ammo.Text = ""
 		refs.ReloadHint.Text = ""
+		refs.AmmoBar.Visible = false
 	end
 
 	-- Ranuras
 	local tools = WeaponController.GetTools()
 	for slot, row in refs.Slots do
 		local slotTool = tools[slot]
-		local slotDef = slotTool and Weapons.Get(slotTool:GetAttribute("Weapon"))
+		local weaponName = slotTool and slotTool:GetAttribute("Weapon")
+		local slotDef = weaponName and Weapons.Get(weaponName)
+		row.Row.Visible = slotDef ~= nil
 		row.Name.Text = slotDef and slotDef.DisplayName or ""
 		local active = slotTool ~= nil and slotTool == tool
 		row.Name.TextColor3 = active and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(220, 220, 220)
 		row.Key.BackgroundColor3 = active and Color3.fromRGB(255, 170, 30) or Color3.fromRGB(20, 20, 25)
+		row.Stroke.Transparency = active and 0 or 1
+		row.Row.BackgroundTransparency = active and 0.45 or 0.7
+		-- Icono 3D (solo se reconstruye si cambia el arma o la skin)
+		local skinId = slotTool and slotTool:GetAttribute("Skin")
+		local iconKey = slotDef and (weaponName .. "|" .. tostring(skinId)) or nil
+		if iconKey ~= row.IconKey then
+			row.IconKey = iconKey
+			row.Icon:ClearAllChildren()
+			if iconKey then
+				WeaponIcon.Create(weaponName, skinId, { Size = UDim2.fromScale(1, 1), Parent = row.Icon }, "side", 170 / 44)
+			end
+		end
 	end
 
 	-- Mira
@@ -3733,7 +4692,7 @@ local function render()
 		line.Frame.Visible = isGun and aim < 0.5
 	end
 	refs.CrossDot.Visible = aim < 0.5
-	refs.Crosshair.Visible = not ClientState.MenuOpen
+	refs.Crosshair.Visible = not ClientState.IsBlocked()
 	refs.Scope.Visible = def ~= nil and def.Scope == true and aim > 0.85
 end
 
@@ -3769,7 +4728,22 @@ function HUD.Init()
 		else
 			refs.DeathText.Text = "HAS MUERTO"
 		end
+		refs.DeathIcon:ClearAllChildren()
+		if weapon then
+			WeaponIcon.Create(weaponName, "Default", { Size = UDim2.fromScale(1, 1), Parent = refs.DeathIcon }, "angled", 280 / 110)
+		end
 		refs.DeathScreen.Visible = true
+		-- Cuenta atrás para reaparecer
+		task.spawn(function()
+			for t = GameConfig.RespawnTime, 1, -1 do
+				if not refs.DeathScreen.Visible then
+					return
+				end
+				refs.RespawnText.Text = "Reapareciendo en " .. t .. "..."
+				task.wait(1)
+			end
+			refs.RespawnText.Text = "Reapareciendo..."
+		end)
 	end)
 	player.CharacterAdded:Connect(function()
 		refs.DeathScreen.Visible = false
@@ -3803,7 +4777,310 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="28">
+          <Item class="ModuleScript" referent="29">
+            <Properties>
+              <string name="Name">MainMenu</string>
+              <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
+-- Mientras está abierta el personaje no se mueve y es invulnerable (escudo del servidor).
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Sounds = require(Shared.Sounds)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+local Menu = require(script.Parent.Menu)
+local WeaponIcon = require(script.Parent.WeaponIcon)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local MainMenu = {}
+
+local gui, root, infoLabel, showcase
+local blur
+local orbitAngle = 0
+local controls
+
+local ORBIT_CENTER = Vector3.new(0, 8, 0)
+local ORBIT_RADIUS = 150
+local ORBIT_HEIGHT = 65
+
+local function getControls()
+	if controls then
+		return controls
+	end
+	local ok, result = pcall(function()
+		local playerModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
+		return playerModule:GetControls()
+	end)
+	if ok then
+		controls = result
+	end
+	return controls
+end
+
+local function orbit(dt)
+	orbitAngle += dt * 0.06
+	local position = ORBIT_CENTER + Vector3.new(math.cos(orbitAngle) * ORBIT_RADIUS, ORBIT_HEIGHT, math.sin(orbitAngle) * ORBIT_RADIUS)
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.CFrame = CFrame.lookAt(position, ORBIT_CENTER)
+	camera.FieldOfView = 60
+end
+
+local function bigButton(text, color, order, parent)
+	local button = UI.button({
+		LayoutOrder = order,
+		Size = UDim2.fromOffset(300, 58),
+		Text = text,
+		TextSize = 28,
+		BackgroundColor3 = color,
+		Parent = parent,
+	}, { UI.stroke(Color3.new(0, 0, 0), 3, 0), UI.gloss() })
+	button.TextStrokeTransparency = 0.5
+	local scale = UI.new("UIScale", { Parent = button })
+	button.MouseEnter:Connect(function()
+		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1.06 }):Play()
+	end)
+	button.MouseLeave:Connect(function()
+		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1 }):Play()
+	end)
+	return button
+end
+
+local function refreshInfo()
+	local data = ClientState.Data
+	if infoLabel then
+		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
+			or "Cargando..."
+	end
+	-- Arma principal con la skin equipada, a la derecha
+	if showcase then
+		showcase:ClearAllChildren()
+		if data then
+			WeaponIcon.Create(data.Primary or "Rifle", data.EquippedSkin, { Size = UDim2.fromScale(1, 1), Parent = showcase }, "angled", 1.6)
+		end
+	end
+end
+
+local function play()
+	if not ClientState.InMainMenu then
+		return
+	end
+	Sounds.Play("Click")
+	Remotes.LeaveMenu:FireServer()
+	TweenService:Create(root, TweenInfo.new(0.35), { GroupTransparency = 1 }):Play()
+	showcase.Visible = false
+	if blur then
+		TweenService:Create(blur, TweenInfo.new(0.35), { Size = 0 }):Play()
+	end
+	task.delay(0.35, function()
+		RunService:UnbindFromRenderStep("MainMenuOrbit")
+		ClientState.InMainMenu = false
+		gui.Enabled = false
+		if blur then
+			blur:Destroy()
+			blur = nil
+		end
+		camera.CameraType = Enum.CameraType.Custom
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+		local ctrl = getControls()
+		if ctrl then
+			ctrl:Enable()
+		end
+		if not Menu.IsOpen() then
+			UserInputService.MouseIconEnabled = false
+		end
+	end)
+end
+
+function MainMenu.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "MainMenu",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 4,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	root = UI.new("CanvasGroup", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	})
+
+	-- Oscurecido a la izquierda para que se lea el texto
+	UI.new("Frame", {
+		Size = UDim2.fromScale(0.65, 1),
+		BackgroundColor3 = Color3.fromRGB(10, 10, 25),
+		BorderSizePixel = 0,
+		Parent = root,
+	}, {
+		UI.new("UIGradient", {
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.15),
+				NumberSequenceKeypoint.new(0.6, 0.5),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}),
+	})
+
+	-- Botón invisible "Modal": libera el ratón aunque la cámara sea en primera persona
+	UI.new("TextButton", {
+		Size = UDim2.fromOffset(1, 1),
+		BackgroundTransparency = 1,
+		Text = "",
+		Modal = true,
+		Parent = root,
+	})
+
+	local left = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 70, 0.5, 0),
+		Size = UDim2.fromOffset(560, 520),
+		BackgroundTransparency = 1,
+		Parent = root,
+	})
+
+	-- Título con degradado y borde grueso
+	local title = UI.label({
+		Size = UDim2.new(1, 0, 0, 110),
+		Text = GameConfig.GameTitle,
+		TextSize = 96,
+		TextScaled = true,
+		TextStrokeTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = left,
+	}, {
+		UI.new("UIGradient", {
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 230, 60)),
+				ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 140, 30)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 70, 170)),
+			}),
+			Rotation = 90,
+		}),
+		UI.new("UIStroke", { Thickness = 6, Color = Color3.fromRGB(30, 10, 40) }),
+	})
+	local titleScale = UI.new("UIScale", { Parent = title })
+
+	UI.label({
+		Position = UDim2.fromOffset(4, 112),
+		Size = UDim2.new(1, 0, 0, 30),
+		Text = "CAPTURA LA BANDERA  ·  DUELO POR EQUIPOS",
+		TextSize = 24,
+		TextColor3 = Color3.fromRGB(200, 230, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = left,
+	})
+
+	local buttons = UI.new("Frame", {
+		Position = UDim2.fromOffset(0, 175),
+		Size = UDim2.fromOffset(300, 220),
+		BackgroundTransparency = 1,
+		Parent = left,
+	}, {
+		UI.new("UIListLayout", { Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local playButton = bigButton("▶  JUGAR", Color3.fromRGB(60, 200, 90), 1, buttons)
+	playButton.Size = UDim2.fromOffset(300, 70)
+	playButton.TextSize = 36
+	playButton.Activated:Connect(play)
+	bigButton("⭐  PASE DE BATALLA", Color3.fromRGB(255, 130, 30), 2, buttons).Activated:Connect(function()
+		Sounds.Play("Click")
+		Menu.Open("Pase")
+	end)
+	bigButton("🔫  ARMAS Y SKINS", Color3.fromRGB(50, 130, 255), 3, buttons).Activated:Connect(function()
+		Sounds.Play("Click")
+		Menu.Open("Skins")
+	end)
+
+	infoLabel = UI.label({
+		Position = UDim2.fromOffset(2, 420),
+		Size = UDim2.new(1, 0, 0, 26),
+		Text = "Cargando...",
+		TextSize = 22,
+		TextColor3 = Color3.fromRGB(255, 220, 120),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = left,
+	})
+	UI.label({
+		Position = UDim2.fromOffset(2, 452),
+		Size = UDim2.new(1, 0, 0, 22),
+		Text = "Clic izq. disparar · Clic der. apuntar · Shift correr · C deslizar · B pase",
+		TextSize = 16,
+		TextColor3 = Color3.fromRGB(190, 195, 215),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = left,
+	})
+
+	-- Escaparate del arma a la derecha (fuera del CanvasGroup para que el 3D se dibuje siempre)
+	showcase = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -60, 0.55, 0),
+		Size = UDim2.fromOffset(480, 300),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	})
+
+	-- Desenfoque del fondo
+	blur = Instance.new("BlurEffect")
+	blur.Name = "MainMenuBlur"
+	blur.Size = 10
+	blur.Parent = Lighting
+
+	ClientState.InMainMenu = true
+	UserInputService.MouseIconEnabled = true
+	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
+
+	-- El título "respira"
+	task.spawn(function()
+		while ClientState.InMainMenu do
+			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1.04 }):Play()
+			task.wait(1.2)
+			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+			task.wait(1.2)
+		end
+	end)
+
+	-- Bloquea el movimiento del personaje mientras tanto
+	task.spawn(function()
+		local ctrl = getControls()
+		if ctrl and ClientState.InMainMenu then
+			ctrl:Disable()
+		end
+	end)
+
+	ClientState.DataChanged.Event:Connect(refreshInfo)
+	refreshInfo()
+
+	-- También se puede empezar con Enter / botón A del mando
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or not ClientState.InMainMenu or Menu.IsOpen() then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonA then
+			play()
+		end
+	end)
+end
+
+return MainMenu
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú del pase de batalla, skins y elección de arma principal (tecla B).
@@ -3822,6 +5099,7 @@ local Remotes = require(Shared.Remotes)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local WeaponIcon = require(script.Parent.WeaponIcon)
 
 local player = Players.LocalPlayer
 
@@ -3839,33 +5117,6 @@ local CARD_BG = Color3.fromRGB(38, 42, 64)
 -- Tarjetas de recompensa
 ---------------------------------------------------------------------------
 
-local function skinSwatch(skinId, parent, size)
-	local skin = Skins.Get(skinId)
-	local swatch = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 8),
-		Size = size or UDim2.fromOffset(80, 40),
-		BackgroundColor3 = skin.Body,
-		Parent = parent,
-	}, { UI.corner(6), UI.stroke(Color3.new(0, 0, 0), 2, 0.3) })
-	UI.new("Frame", {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.fromScale(0, 0.45),
-		Size = UDim2.new(1, 0, 0.22, 0),
-		BackgroundColor3 = skin.Accent,
-		BorderSizePixel = 0,
-		Parent = swatch,
-	})
-	UI.new("Frame", {
-		Position = UDim2.fromScale(0.15, 0.62),
-		Size = UDim2.fromScale(0.18, 0.5),
-		BackgroundColor3 = skin.Dark,
-		BorderSizePixel = 0,
-		Parent = swatch,
-	})
-	return swatch
-end
-
 local function rewardCard(reward, unlocked, premium, parent, order)
 	local card = UI.new("Frame", {
 		LayoutOrder = order,
@@ -3878,7 +5129,13 @@ local function rewardCard(reward, unlocked, premium, parent, order)
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "—", TextSize = 30, TextTransparency = 0.5, Parent = card })
 	elseif reward.Type == "Skin" then
 		local skin = Skins.Get(reward.Id)
-		skinSwatch(reward.Id, card)
+		WeaponIcon.Create(
+			ClientState.Data and ClientState.Data.Primary or "Rifle",
+			reward.Id,
+			{ Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(102, 48), Parent = card },
+			"angled",
+			102 / 48
+		)
 		UI.label({
 			Position = UDim2.fromOffset(0, 52),
 			Size = UDim2.new(1, 0, 0, 22),
@@ -4101,7 +5358,13 @@ local function buildSkinsPage(data)
 			UI.corner(10),
 			UI.stroke(equipped and GOLD or (Skins.RarityColors[skin.Rarity] or Color3.new(1, 1, 1)), 2, equipped and 0 or 0.4),
 		})
-		skinSwatch(id, card, UDim2.fromOffset(120, 46))
+		WeaponIcon.Create(
+			data.Primary or "Rifle",
+			id,
+			{ Position = UDim2.fromOffset(6, 4), Size = UDim2.fromOffset(153, 56), Parent = card },
+			"angled",
+			153 / 56
+		)
 		UI.label({
 			Position = UDim2.fromOffset(0, 58),
 			Size = UDim2.new(1, 0, 0, 22),
@@ -4155,7 +5418,7 @@ local function buildWeaponsPage(data)
 		local selected = data.Primary == weaponName
 		local card = UI.new("Frame", {
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(220, 300),
+			Size = UDim2.fromOffset(220, 330),
 			BackgroundColor3 = CARD_BG,
 			Parent = holder,
 		}, { UI.corner(12), UI.stroke(selected and GOLD or Color3.fromRGB(90, 100, 140), 2, 0) })
@@ -4166,6 +5429,13 @@ local function buildWeaponsPage(data)
 			TextSize = 26,
 			Parent = card,
 		})
+		WeaponIcon.Create(
+			weaponName,
+			data.EquippedSkin,
+			{ Position = UDim2.fromOffset(10, 42), Size = UDim2.fromOffset(200, 72), Parent = card },
+			"angled",
+			200 / 72
+		)
 		local stats = {
 			{ "Daño", def.Pellets > 1 and (def.Damage .. " x" .. def.Pellets) or tostring(def.Damage) },
 			{ "Cadencia", string.format("%.1f/s", def.FireRate) },
@@ -4175,7 +5445,7 @@ local function buildWeaponsPage(data)
 		}
 		for j, stat in stats do
 			UI.label({
-				Position = UDim2.fromOffset(18, 52 + (j - 1) * 30),
+				Position = UDim2.fromOffset(18, 118 + (j - 1) * 30),
 				Size = UDim2.new(1, -36, 0, 26),
 				Text = stat[1],
 				TextSize = 18,
@@ -4184,7 +5454,7 @@ local function buildWeaponsPage(data)
 				Parent = card,
 			})
 			UI.label({
-				Position = UDim2.fromOffset(18, 52 + (j - 1) * 30),
+				Position = UDim2.fromOffset(18, 118 + (j - 1) * 30),
 				Size = UDim2.new(1, -36, 0, 26),
 				Text = stat[2],
 				TextSize = 18,
@@ -4252,7 +5522,8 @@ end
 local function setOpen(open)
 	ClientState.MenuOpen = open
 	panel.Visible = open
-	UserInputService.MouseIconEnabled = open
+	-- En la pantalla de inicio el ratón siempre se ve
+	UserInputService.MouseIconEnabled = open or ClientState.InMainMenu
 	if open then
 		refresh()
 	end
@@ -4260,6 +5531,18 @@ end
 
 function Menu.Toggle()
 	setOpen(not panel.Visible)
+end
+
+-- Abre el menú directamente en una pestaña ("Pase", "Skins" o "Armas")
+function Menu.Open(tab)
+	if tab then
+		currentTab = tab
+	end
+	setOpen(true)
+end
+
+function Menu.IsOpen()
+	return panel ~= nil and panel.Visible
 end
 
 function Menu.Init()
@@ -4289,7 +5572,15 @@ function Menu.Init()
 		BackgroundColor3 = PANEL_BG,
 		Visible = false,
 		Parent = gui,
-	}, { UI.corner(16), UI.stroke(Color3.fromRGB(255, 140, 40), 3, 0), UI.padding(16) })
+	}, {
+		UI.corner(16),
+		UI.stroke(Color3.fromRGB(255, 140, 40), 3, 0),
+		UI.padding(16),
+		UI.new("UIGradient", {
+			Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 120, 200)),
+			Rotation = 120,
+		}),
+	})
 	UI.new("UISizeConstraint", { MaxSize = Vector2.new(800, 480) }).Parent = panel
 
 	-- Un botón "Modal" libera el ratón en primera persona mientras el menú está abierto
@@ -4383,7 +5674,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="29">
+          <Item class="ModuleScript" referent="31">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -4417,7 +5708,7 @@ local function tweenCameraOffset(offset, time)
 end
 
 local function slide()
-	if ClientState.Sliding or ClientState.MenuOpen or not humanoid or humanoid.Health <= 0 or not rootPart then
+	if ClientState.Sliding or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
 	end
 	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
@@ -4491,7 +5782,7 @@ local function update()
 		and not ClientState.Aiming
 		and not recentlyShot
 		and not ClientState.Sliding
-		and not ClientState.MenuOpen
+		and not ClientState.IsBlocked()
 
 	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then
@@ -4557,7 +5848,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="32">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -4595,6 +5886,14 @@ function UI.stroke(color, thickness, transparency)
 		Thickness = thickness or 2,
 		Transparency = transparency or 0,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	})
+end
+
+-- Degradado brillante (de claro arriba a más oscuro abajo) sobre el color de fondo
+function UI.gloss(bottom)
+	return UI.new("UIGradient", {
+		Color = ColorSequence.new(Color3.new(1, 1, 1), bottom or Color3.fromRGB(185, 185, 195)),
+		Rotation = 90,
 	})
 end
 
@@ -4651,7 +5950,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="31">
+          <Item class="ModuleScript" referent="33">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -4701,6 +6000,10 @@ local swayX, swayY = 0, 0
 local bobTime = 0
 local aimAlpha, sprintAlpha = 0, 0
 local viewmodelHidden = false
+local pulseParts = {} -- piezas de neón que laten (skins míticas)
+local pulseSkin = nil
+local strafeRoll = 0
+local shakeRoll = 0
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -4758,6 +6061,26 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	glove.Color = Color3.fromRGB(25, 25, 28)
 	glove.Material = Enum.Material.Fabric
 	glove.Parent = model
+
+	-- Puño blanco de la manga
+	local cuff = Instance.new("Part")
+	cuff.Name = "Cuff"
+	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
+	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
+	cuff.Color = Color3.fromRGB(245, 245, 250)
+	cuff.Material = Enum.Material.Fabric
+	cuff.Parent = model
+end
+
+-- Oculta en nuestra pantalla el Tool real (los demás jugadores sí lo ven)
+local function hideToolLocally(tool)
+	for _, inst in tool:GetDescendants() do
+		if inst:IsA("BasePart") then
+			inst.LocalTransparencyModifier = 1
+		elseif inst:IsA("ParticleEmitter") then
+			inst.Enabled = false
+		end
+	end
 end
 
 local function destroyViewmodel()
@@ -4791,6 +6114,17 @@ local function createViewmodel(tool)
 	model.Name = "Viewmodel"
 	model.Parent = camera
 	viewmodel = model
+
+	-- Skins con "Pulse": los detalles de neón laten
+	table.clear(pulseParts)
+	pulseSkin = Skins.Get(tool:GetAttribute("Skin"))
+	if pulseSkin.Pulse then
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") and part:GetAttribute("Role") == "Accent" then
+				table.insert(pulseParts, part)
+			end
+		end
+	end
 end
 
 local function setViewmodelHidden(hidden)
@@ -4801,6 +6135,8 @@ local function setViewmodelHidden(hidden)
 	for _, part in viewmodel:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
+		elseif part:IsA("ParticleEmitter") then
+			part.Enabled = not hidden
 		end
 	end
 end
@@ -4837,12 +6173,7 @@ local function onEquipped(tool)
 	reloadStart = nil
 	localAmmo = tool:GetAttribute("Ammo") or 0
 
-	-- Ocultamos el Tool real en nuestra pantalla (los demás sí lo ven)
-	for _, part in tool:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.LocalTransparencyModifier = 1
-		end
-	end
+	hideToolLocally(tool)
 	createViewmodel(tool)
 
 	attrConnection = tool.AttributeChanged:Connect(function(attribute)
@@ -4856,11 +6187,7 @@ local function onEquipped(tool)
 			end
 		elseif attribute == "Skin" then
 			createViewmodel(tool)
-			for _, part in tool:GetDescendants() do
-				if part:IsA("BasePart") then
-					part.LocalTransparencyModifier = 1
-				end
-			end
+			hideToolLocally(tool)
 		elseif attribute == "Reloading" and not tool:GetAttribute("Reloading") then
 			reloadStart = nil
 		end
@@ -4888,7 +6215,7 @@ end
 WeaponController.GetTools = getTools
 
 local function equipSlot(slot)
-	if not humanoid or humanoid.Health <= 0 or ClientState.MenuOpen then
+	if not humanoid or humanoid.Health <= 0 or ClientState.IsBlocked() then
 		return
 	end
 	local tool = getTools()[slot]
@@ -4954,7 +6281,7 @@ end
 
 local function fire()
 	local now = os.clock()
-	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.MenuOpen then
+	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() then
 		return
 	end
 	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < 0.25 then
@@ -4994,7 +6321,10 @@ local function fire()
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	Effects.MuzzleFlash(muzzle)
+	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
+	Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
 	Sounds.Play((def.Pellets > 1 or def.Damage >= 80) and "ShotHeavy" or "Shot")
+	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
 
 	-- Retroceso
 	local recoil = math.rad(def.Recoil)
@@ -5013,7 +6343,7 @@ end
 local function melee()
 	local knife = Weapons.Get(Weapons.Melee)
 	local now = os.clock()
-	if now - meleeTime < knife.Cooldown or ClientState.MenuOpen or not humanoid or humanoid.Health <= 0 then
+	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 then
 		return
 	end
 	if not getTools()[knife.Slot] then
@@ -5060,7 +6390,7 @@ local function renderStep(dt)
 	ClientState.Ammo = localAmmo
 
 	-- Apuntar
-	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.MenuOpen
+	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.IsBlocked()
 	ClientState.Aiming = canAim
 	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * 14))
 	if aimAlpha < 0.001 then
@@ -5076,6 +6406,25 @@ local function renderStep(dt)
 	camYaw -= applyYaw
 	if applyPitch ~= 0 or applyYaw ~= 0 then
 		camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
+	end
+
+	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
+	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
+	if rootPart then
+		local velocity = rootPart.AssemblyLinearVelocity
+		local side = velocity:Dot(camera.CFrame.RightVector)
+		strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
+	end
+	shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
+	camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+
+	-- Latido de las skins míticas
+	if #pulseParts > 0 and pulseSkin then
+		local t = (math.sin(os.clock() * 3) + 1) / 2
+		local color = pulseSkin.Accent:Lerp(pulseSkin.Accent2 or Color3.new(1, 1, 1), t)
+		for _, part in pulseParts do
+			part.Color = color
+		end
 	end
 
 	-- Campo de visión
@@ -5158,7 +6507,8 @@ local function renderStep(dt)
 	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * recoilCF)
 
 	-- Mira telescópica: ocultar el arma
-	setViewmodelHidden(def.Scope == true and aimAlpha > 0.85)
+	-- (y también en la pantalla de inicio, donde la cámara está lejos)
+	setViewmodelHidden((def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu)
 end
 
 ---------------------------------------------------------------------------
@@ -5167,7 +6517,7 @@ end
 
 local function bindActions()
 	ContextActionService:BindAction("Fire", function(_, state)
-		if ClientState.MenuOpen then
+		if ClientState.IsBlocked() then
 			triggerHeld = false
 			return Enum.ContextActionResult.Pass
 		end
@@ -5187,7 +6537,7 @@ local function bindActions()
 	ContextActionService:SetPosition("Fire", UDim2.new(1, -110, 1, -160))
 
 	ContextActionService:BindAction("Aim", function(_, state, input)
-		if ClientState.MenuOpen then
+		if ClientState.IsBlocked() then
 			aimHeld = false
 			return Enum.ContextActionResult.Pass
 		end
@@ -5206,7 +6556,7 @@ local function bindActions()
 	ContextActionService:SetPosition("Aim", UDim2.new(1, -190, 1, -110))
 
 	ContextActionService:BindAction("Reload", function(_, state)
-		if state == Enum.UserInputState.Begin and not ClientState.MenuOpen then
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			requestReload()
 		end
 		return Enum.ContextActionResult.Pass
@@ -5215,7 +6565,7 @@ local function bindActions()
 	ContextActionService:SetPosition("Reload", UDim2.new(1, -200, 1, -190))
 
 	ContextActionService:BindAction("Melee", function(_, state)
-		if state == Enum.UserInputState.Begin and not ClientState.MenuOpen then
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			melee()
 		end
 		return Enum.ContextActionResult.Pass
@@ -5240,7 +6590,7 @@ local function bindActions()
 	end, false, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.ButtonY)
 
 	UserInputService.InputChanged:Connect(function(input, processed)
-		if processed or ClientState.MenuOpen then
+		if processed or ClientState.IsBlocked() then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
@@ -5320,13 +6670,240 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
+          <Item class="ModuleScript" referent="34">
+            <Properties>
+              <string name="Name">WeaponIcon</string>
+              <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local WeaponModels = require(Shared.WeaponModels)
+
+local WeaponIcon = {}
+
+local FOV = 20
+
+-- view: "side" (de perfil, cañón a la derecha) o "angled" (tres cuartos)
+-- aspect: ancho / alto del ViewportFrame
+function WeaponIcon.Create(weaponName, skinId, props, view, aspect)
+	local viewport = Instance.new("ViewportFrame")
+	viewport.BackgroundTransparency = 1
+	viewport.Ambient = Color3.fromRGB(170, 170, 185)
+	viewport.LightColor = Color3.fromRGB(255, 255, 255)
+	viewport.LightDirection = Vector3.new(-1, -1.5, -0.6)
+	for key, value in props or {} do
+		viewport[key] = value
+	end
+
+	local model = WeaponModels.Build(weaponName, skinId, false)
+	model.Parent = viewport
+
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = FOV
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+
+	local boxCFrame, size = model:GetBoundingBox()
+	local center = boxCFrame.Position
+	aspect = aspect or 2.5
+	local tanHalf = math.tan(math.rad(FOV / 2))
+
+	local direction
+	if view == "angled" then
+		direction = Vector3.new(1, 0.35, 0.45).Unit
+	else
+		direction = Vector3.new(1, 0.05, 0).Unit
+	end
+	-- Distancia para que quepa: el largo del arma (Z) en horizontal y el alto (Y) en vertical
+	local fitVertical = (size.Y / 2) / tanHalf
+	local fitHorizontal = (size.Z / 2) / (tanHalf * aspect)
+	local margin = view == "angled" and 1.35 or 1.12
+	local distance = math.max(fitVertical, fitHorizontal) * margin + size.X / 2
+	camera.CFrame = CFrame.lookAt(center + direction * distance, center)
+	return viewport
+end
+
+return WeaponIcon
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="35">
+            <Properties>
+              <string name="Name">WorldFX</string>
+              <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
+--  * Piezas del mapa con atributo Spin (grados/seg) giran y con Bob (studs) flotan
+--  * Contorno de color en los compañeros de equipo (visible a través de paredes)
+--  * Oculta el nombre de los enemigos
+--  * Explosión de partículas cuando alguien es eliminado
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local Effects = require(script.Parent.Effects)
+
+local player = Players.LocalPlayer
+
+local WorldFX = {}
+
+local animated = {} -- [part] = { Base = CFrame, Spin = number, Bob = number, Phase = number }
+
+local function track(inst)
+	if not inst:IsA("BasePart") then
+		return
+	end
+	local spin = inst:GetAttribute("Spin")
+	local bob = inst:GetAttribute("Bob")
+	if spin or bob then
+		animated[inst] = { Base = inst.CFrame, Spin = spin or 0, Bob = bob or 0, Phase = math.random() * 10 }
+	end
+end
+
+local function animate()
+	local t = os.clock()
+	for part, info in animated do
+		if not part.Parent then
+			animated[part] = nil
+			continue
+		end
+		local position = info.Base.Position + Vector3.new(0, math.sin(t * 1.5 + info.Phase) * info.Bob, 0)
+		local rotation = info.Base - info.Base.Position
+		-- Giro alrededor del eje Y del mundo que pasa por la pieza
+		part.CFrame = CFrame.new(position) * CFrame.Angles(0, math.rad(info.Spin * t), 0) * rotation
+	end
+end
+
+---------------------------------------------------------------------------
+-- Jugadores
+---------------------------------------------------------------------------
+
+local function teamColorOf(other)
+	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
+end
+
+local function styleCharacter(other, character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local isTeammate = player.Team ~= nil and other.Team == player.Team
+	local highlight = character:FindFirstChild("TeamHighlight")
+	if isTeammate and other ~= player then
+		if not highlight then
+			highlight = Instance.new("Highlight")
+			highlight.Name = "TeamHighlight"
+			highlight.FillTransparency = 1
+			highlight.OutlineTransparency = 0.2
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Parent = character
+		end
+		highlight.OutlineColor = teamColorOf(other)
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+	else
+		if highlight then
+			highlight:Destroy()
+		end
+		if other ~= player then
+			-- Sin nombre sobre los enemigos: hay que encontrarlos
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		end
+	end
+end
+
+local function watchDeath(character, color)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then
+		return
+	end
+	humanoid.Died:Connect(function()
+		local root = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+		if root then
+			Effects.DeathBurst(root.Position, typeof(color) == "function" and color() or color)
+		end
+	end)
+end
+
+local function onCharacter(other, character)
+	task.spawn(watchDeath, character, function()
+		return teamColorOf(other)
+	end)
+	character:WaitForChild("Humanoid", 10)
+	styleCharacter(other, character)
+end
+
+local function onPlayer(other)
+	other.CharacterAdded:Connect(function(character)
+		onCharacter(other, character)
+	end)
+	if other.Character then
+		task.spawn(onCharacter, other, other.Character)
+	end
+	other:GetPropertyChangedSignal("Team"):Connect(function()
+		if other.Character then
+			styleCharacter(other, other.Character)
+		end
+	end)
+end
+
+local function restyleAll()
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			styleCharacter(other, other.Character)
+		end
+	end
+end
+
+function WorldFX.Init()
+	-- Animaciones del mapa
+	for _, inst in workspace:GetDescendants() do
+		track(inst)
+	end
+	workspace.DescendantAdded:Connect(track)
+	RunService.RenderStepped:Connect(animate)
+
+	-- Jugadores
+	for _, other in Players:GetPlayers() do
+		onPlayer(other)
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
+
+	-- Muñecos de práctica
+	local function watchDummies(folder)
+		for _, dummy in folder:GetChildren() do
+			task.spawn(watchDeath, dummy, Color3.fromRGB(255, 200, 60))
+		end
+		folder.ChildAdded:Connect(function(dummy)
+			task.spawn(watchDeath, dummy, Color3.fromRGB(255, 200, 60))
+		end)
+	end
+	local dummies = workspace:FindFirstChild("Dummies")
+	if dummies then
+		watchDummies(dummies)
+	end
+	workspace.ChildAdded:Connect(function(child)
+		if child.Name == "Dummies" then
+			watchDummies(child)
+		end
+	end)
+end
+
+return WorldFX
+]]></string>
+            </Properties>
+          </Item>
         </Item>
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="32">
+  <Item class="Teams" referent="36">
     <Properties>
       <string name="Name">Teams</string>
+    </Properties>
+  </Item>
+  <Item class="Workspace" referent="37">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="NeedsPivotMigration">false</bool>
+      <bool name="StreamingEnabled">false</bool>
     </Properties>
   </Item>
 </roblox>

@@ -1,8 +1,15 @@
--- Efectos visuales: trazadoras, impactos y fogonazos.
+-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
 local Effects = {}
+
+-- Texturas de partículas incluidas con Roblox
+local TEX = {
+	Fire = "rbxasset://textures/particles/fire_main.dds",
+	Smoke = "rbxasset://textures/particles/smoke_main.dds",
+	Sparkle = "rbxasset://textures/particles/sparkles_main.dds",
+}
 
 local folder = Instance.new("Folder")
 folder.Name = "ClientFX"
@@ -23,62 +30,242 @@ local function fxPart(props)
 	return part
 end
 
+-- lookAt que no falla cuando la dirección es vertical (por ejemplo, impactos en el suelo)
+local function safeLookAt(position, direction)
+	local up = math.abs(direction.Unit.Y) > 0.99 and Vector3.zAxis or Vector3.yAxis
+	return CFrame.lookAt(position, position + direction, up)
+end
+
+local function seq(a, b)
+	return NumberSequence.new({ NumberSequenceKeypoint.new(0, a), NumberSequenceKeypoint.new(1, b) })
+end
+
+-- Pieza invisible que sirve de emisor; su +Y apunta hacia `direction`
+local function emitterAnchor(position, direction, lifetime)
+	direction = (direction and direction.Magnitude > 0.01) and direction.Unit or Vector3.yAxis
+	local anchor = fxPart({
+		Size = Vector3.new(0.1, 0.1, 0.1),
+		Transparency = 1,
+		CFrame = safeLookAt(position, direction) * CFrame.Angles(-math.pi / 2, 0, 0),
+	})
+	Debris:AddItem(anchor, lifetime or 2)
+	return anchor
+end
+
+local function emit(parent, props, count)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Enabled = false
+	emitter.EmissionDirection = Enum.NormalId.Top
+	for key, value in props do
+		emitter[key] = value
+	end
+	emitter.Parent = parent
+	emitter:Emit(count)
+	return emitter
+end
+
+---------------------------------------------------------------------------
+
+-- Bala trazadora que viaja desde el cañón hasta el impacto, con una estela tenue
 function Effects.Tracer(from, to, color)
 	local distance = (to - from).Magnitude
-	if distance < 0.5 then
+	if distance < 1 then
 		return
 	end
-	local part = fxPart({
-		Color = color or Color3.fromRGB(255, 230, 120),
-		Size = Vector3.new(0.07, 0.07, distance),
-		CFrame = CFrame.lookAt(from, to) * CFrame.new(0, 0, -distance / 2),
-		Transparency = 0.2,
-	})
-	TweenService:Create(part, TweenInfo.new(0.12), { Transparency = 1, Size = Vector3.new(0.02, 0.02, distance) }):Play()
-	Debris:AddItem(part, 0.15)
-end
+	color = color or Color3.fromRGB(255, 230, 120)
+	local direction = safeLookAt(from, to - from)
 
-function Effects.Impact(position, normal, hitPart)
-	local isCharacter = hitPart and hitPart.Parent and hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil
-	local color = isCharacter and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(255, 240, 200)
-	local part = fxPart({
+	-- Estela fina que se desvanece
+	local trail = fxPart({
 		Color = color,
-		Size = Vector3.new(0.45, 0.45, 0.05),
-		CFrame = CFrame.lookAt(position, position + (normal or Vector3.yAxis)),
-		Shape = Enum.PartType.Block,
+		Size = Vector3.new(0.03, 0.03, distance),
+		CFrame = direction * CFrame.new(0, 0, -distance / 2),
+		Transparency = 0.6,
 	})
-	TweenService:Create(part, TweenInfo.new(0.25), { Transparency = 1, Size = Vector3.new(0.9, 0.9, 0.02) }):Play()
-	Debris:AddItem(part, 0.3)
+	TweenService:Create(trail, TweenInfo.new(0.1), { Transparency = 1 }):Play()
+	Debris:AddItem(trail, 0.12)
 
-	if not isCharacter and hitPart then
-		local mark = fxPart({
-			Color = Color3.fromRGB(30, 30, 30),
-			Material = Enum.Material.SmoothPlastic,
-			Size = Vector3.new(0.25, 0.25, 0.02),
-			CFrame = CFrame.lookAt(position, position + (normal or Vector3.yAxis)),
-			Transparency = 0.2,
-		})
-		TweenService:Create(mark, TweenInfo.new(4, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
-		Debris:AddItem(mark, 4.2)
-	end
+	-- La bala
+	local length = math.min(6, distance)
+	local travel = math.max(distance - length, 0.01)
+	local duration = math.clamp(distance / 900, 0.02, 0.25)
+	local bullet = fxPart({
+		Color = color,
+		Size = Vector3.new(0.12, 0.12, length),
+		CFrame = direction * CFrame.new(0, 0, -length / 2),
+	})
+	TweenService
+		:Create(bullet, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = direction * CFrame.new(0, 0, -length / 2 - travel) })
+		:Play()
+	Debris:AddItem(bullet, duration + 0.02)
 end
 
-function Effects.MuzzleFlash(attachment)
+-- Fogonazo: estrella de luz, llamas y humo
+function Effects.MuzzleFlash(attachment, color)
 	if not attachment then
 		return
 	end
-	local flash = fxPart({
-		Color = Color3.fromRGB(255, 210, 90),
-		Size = Vector3.new(0.35, 0.35, 0.6),
-		CFrame = attachment.WorldCFrame * CFrame.Angles(0, 0, math.random() * math.pi),
-		Transparency = 0.1,
+	color = color or Color3.fromRGB(255, 200, 90)
+	local cf = attachment.WorldCFrame
+	local spin = math.random() * math.pi
+	for i = 0, 1 do
+		local star = fxPart({
+			Color = color:Lerp(Color3.new(1, 1, 1), 0.4),
+			Size = Vector3.new(0.08, 0.7, 0.3),
+			CFrame = cf * CFrame.new(0, 0, -0.2) * CFrame.Angles(0, 0, spin + i * math.pi / 2),
+		})
+		Debris:AddItem(star, 0.04)
+	end
+	local core = fxPart({
+		Color = Color3.fromRGB(255, 240, 200),
+		Size = Vector3.new(0.3, 0.3, 0.3),
+		Shape = Enum.PartType.Ball,
+		CFrame = cf * CFrame.new(0, 0, -0.15),
 	})
 	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 200, 100)
-	light.Range = 10
-	light.Brightness = 3
-	light.Parent = flash
-	Debris:AddItem(flash, 0.05)
+	light.Color = color
+	light.Range = 12
+	light.Brightness = 4
+	light.Parent = core
+	Debris:AddItem(core, 0.05)
+
+	local anchor = emitterAnchor(cf.Position, cf.LookVector, 1.2)
+	emit(anchor, {
+		Texture = TEX.Fire,
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 180), color),
+		LightEmission = 1,
+		Size = seq(0.45, 0),
+		Transparency = seq(0, 1),
+		Lifetime = NumberRange.new(0.04, 0.08),
+		Speed = NumberRange.new(4, 8),
+		SpreadAngle = Vector2.new(12, 12),
+	}, 5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(220, 220, 220)),
+		Size = seq(0.2, 0.9),
+		Transparency = seq(0.6, 1),
+		Lifetime = NumberRange.new(0.4, 0.8),
+		Speed = NumberRange.new(1, 3),
+		SpreadAngle = Vector2.new(20, 20),
+		Acceleration = Vector3.new(0, 1.5, 0),
+	}, 2)
+end
+
+-- Impacto: chispas, polvo del color de la superficie y marca de bala
+function Effects.Impact(position, normal, hitPart)
+	local isCharacter = hitPart ~= nil
+		and hitPart.Parent ~= nil
+		and (hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil or hitPart.Parent:IsA("Accessory"))
+	local anchor = emitterAnchor(position + (normal or Vector3.yAxis) * 0.05, normal, 1.5)
+
+	if isCharacter then
+		-- Destello de golpe (estilo cartoon, sin sangre)
+		emit(anchor, {
+			Texture = TEX.Sparkle,
+			Color = ColorSequence.new(Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 220, 120)),
+			LightEmission = 1,
+			Size = seq(0.5, 0),
+			Lifetime = NumberRange.new(0.15, 0.3),
+			Speed = NumberRange.new(6, 12),
+			SpreadAngle = Vector2.new(60, 60),
+			Rotation = NumberRange.new(0, 360),
+		}, 8)
+		return
+	end
+
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 230, 150)),
+		LightEmission = 1,
+		Size = seq(0.18, 0),
+		Lifetime = NumberRange.new(0.15, 0.35),
+		Speed = NumberRange.new(8, 16),
+		SpreadAngle = Vector2.new(45, 45),
+		Acceleration = Vector3.new(0, -40, 0),
+	}, 6)
+	local dustColor = hitPart and hitPart.Color:Lerp(Color3.new(1, 1, 1), 0.3) or Color3.fromRGB(200, 200, 200)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(dustColor),
+		Size = seq(0.3, 1.4),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(0.4, 0.7),
+		Speed = NumberRange.new(1.5, 3),
+		SpreadAngle = Vector2.new(30, 30),
+	}, 3)
+
+	local mark = fxPart({
+		Color = Color3.fromRGB(25, 25, 28),
+		Material = Enum.Material.SmoothPlastic,
+		Size = Vector3.new(0.22, 0.22, 0.02),
+		Shape = Enum.PartType.Block,
+		CFrame = safeLookAt(position, normal or Vector3.yAxis),
+		Transparency = 0.15,
+	})
+	TweenService:Create(mark, TweenInfo.new(5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
+	Debris:AddItem(mark, 5.2)
+end
+
+-- Casquillo que sale disparado por la derecha del arma
+function Effects.ShellCasing(attachment, cameraCFrame, color)
+	if not attachment then
+		return
+	end
+	local casing = Instance.new("Part")
+	casing.Size = Vector3.new(0.06, 0.06, 0.16)
+	casing.Color = color or Color3.fromRGB(230, 180, 60)
+	casing.Material = Enum.Material.Metal
+	casing.Reflectance = 0.2
+	casing.CanCollide = true
+	casing.CanQuery = false
+	casing.CanTouch = false
+	casing.CastShadow = false
+	casing.Massless = true
+	casing.CustomPhysicalProperties = PhysicalProperties.new(0.05, 0.3, 0.6)
+	casing.CFrame = attachment.WorldCFrame
+	casing.Parent = folder
+	local right = cameraCFrame.RightVector
+	local up = cameraCFrame.UpVector
+	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3)
+	casing.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
+	Debris:AddItem(casing, 1.5)
+end
+
+-- Explosión de partículas cuando alguien es eliminado
+function Effects.DeathBurst(position, color)
+	color = color or Color3.new(1, 1, 1)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(color, Color3.new(1, 1, 1)),
+		LightEmission = 1,
+		Size = seq(0.9, 0),
+		Lifetime = NumberRange.new(0.5, 0.9),
+		Speed = NumberRange.new(10, 20),
+		SpreadAngle = Vector2.new(180, 180),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-180, 180),
+		Drag = 4,
+	}, 24)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.6)),
+		Size = seq(1.5, 4),
+		Transparency = seq(0.4, 1),
+		Lifetime = NumberRange.new(0.8, 1.3),
+		Speed = NumberRange.new(2, 5),
+		SpreadAngle = Vector2.new(180, 180),
+	}, 6)
+	local flash = fxPart({
+		Color = color,
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(1, 1, 1),
+		CFrame = CFrame.new(position),
+		Transparency = 0.2,
+	})
+	TweenService:Create(flash, TweenInfo.new(0.35, Enum.EasingStyle.Quad), { Size = Vector3.new(7, 7, 7), Transparency = 1 }):Play()
+	Debris:AddItem(flash, 0.4)
 end
 
 return Effects

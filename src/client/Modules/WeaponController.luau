@@ -45,6 +45,10 @@ local swayX, swayY = 0, 0
 local bobTime = 0
 local aimAlpha, sprintAlpha = 0, 0
 local viewmodelHidden = false
+local pulseParts = {} -- piezas de neón que laten (skins míticas)
+local pulseSkin = nil
+local strafeRoll = 0
+local shakeRoll = 0
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -102,6 +106,26 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	glove.Color = Color3.fromRGB(25, 25, 28)
 	glove.Material = Enum.Material.Fabric
 	glove.Parent = model
+
+	-- Puño blanco de la manga
+	local cuff = Instance.new("Part")
+	cuff.Name = "Cuff"
+	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
+	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
+	cuff.Color = Color3.fromRGB(245, 245, 250)
+	cuff.Material = Enum.Material.Fabric
+	cuff.Parent = model
+end
+
+-- Oculta en nuestra pantalla el Tool real (los demás jugadores sí lo ven)
+local function hideToolLocally(tool)
+	for _, inst in tool:GetDescendants() do
+		if inst:IsA("BasePart") then
+			inst.LocalTransparencyModifier = 1
+		elseif inst:IsA("ParticleEmitter") then
+			inst.Enabled = false
+		end
+	end
 end
 
 local function destroyViewmodel()
@@ -135,6 +159,17 @@ local function createViewmodel(tool)
 	model.Name = "Viewmodel"
 	model.Parent = camera
 	viewmodel = model
+
+	-- Skins con "Pulse": los detalles de neón laten
+	table.clear(pulseParts)
+	pulseSkin = Skins.Get(tool:GetAttribute("Skin"))
+	if pulseSkin.Pulse then
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") and part:GetAttribute("Role") == "Accent" then
+				table.insert(pulseParts, part)
+			end
+		end
+	end
 end
 
 local function setViewmodelHidden(hidden)
@@ -145,6 +180,8 @@ local function setViewmodelHidden(hidden)
 	for _, part in viewmodel:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
+		elseif part:IsA("ParticleEmitter") then
+			part.Enabled = not hidden
 		end
 	end
 end
@@ -181,12 +218,7 @@ local function onEquipped(tool)
 	reloadStart = nil
 	localAmmo = tool:GetAttribute("Ammo") or 0
 
-	-- Ocultamos el Tool real en nuestra pantalla (los demás sí lo ven)
-	for _, part in tool:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.LocalTransparencyModifier = 1
-		end
-	end
+	hideToolLocally(tool)
 	createViewmodel(tool)
 
 	attrConnection = tool.AttributeChanged:Connect(function(attribute)
@@ -200,11 +232,7 @@ local function onEquipped(tool)
 			end
 		elseif attribute == "Skin" then
 			createViewmodel(tool)
-			for _, part in tool:GetDescendants() do
-				if part:IsA("BasePart") then
-					part.LocalTransparencyModifier = 1
-				end
-			end
+			hideToolLocally(tool)
 		elseif attribute == "Reloading" and not tool:GetAttribute("Reloading") then
 			reloadStart = nil
 		end
@@ -232,7 +260,7 @@ end
 WeaponController.GetTools = getTools
 
 local function equipSlot(slot)
-	if not humanoid or humanoid.Health <= 0 or ClientState.MenuOpen then
+	if not humanoid or humanoid.Health <= 0 or ClientState.IsBlocked() then
 		return
 	end
 	local tool = getTools()[slot]
@@ -298,7 +326,7 @@ end
 
 local function fire()
 	local now = os.clock()
-	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.MenuOpen then
+	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() then
 		return
 	end
 	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < 0.25 then
@@ -338,7 +366,10 @@ local function fire()
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	Effects.MuzzleFlash(muzzle)
+	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
+	Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
 	Sounds.Play((def.Pellets > 1 or def.Damage >= 80) and "ShotHeavy" or "Shot")
+	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
 
 	-- Retroceso
 	local recoil = math.rad(def.Recoil)
@@ -357,7 +388,7 @@ end
 local function melee()
 	local knife = Weapons.Get(Weapons.Melee)
 	local now = os.clock()
-	if now - meleeTime < knife.Cooldown or ClientState.MenuOpen or not humanoid or humanoid.Health <= 0 then
+	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 then
 		return
 	end
 	if not getTools()[knife.Slot] then
@@ -404,7 +435,7 @@ local function renderStep(dt)
 	ClientState.Ammo = localAmmo
 
 	-- Apuntar
-	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.MenuOpen
+	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.IsBlocked()
 	ClientState.Aiming = canAim
 	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * 14))
 	if aimAlpha < 0.001 then
@@ -420,6 +451,25 @@ local function renderStep(dt)
 	camYaw -= applyYaw
 	if applyPitch ~= 0 or applyYaw ~= 0 then
 		camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
+	end
+
+	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
+	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
+	if rootPart then
+		local velocity = rootPart.AssemblyLinearVelocity
+		local side = velocity:Dot(camera.CFrame.RightVector)
+		strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
+	end
+	shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
+	camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+
+	-- Latido de las skins míticas
+	if #pulseParts > 0 and pulseSkin then
+		local t = (math.sin(os.clock() * 3) + 1) / 2
+		local color = pulseSkin.Accent:Lerp(pulseSkin.Accent2 or Color3.new(1, 1, 1), t)
+		for _, part in pulseParts do
+			part.Color = color
+		end
 	end
 
 	-- Campo de visión
@@ -502,7 +552,8 @@ local function renderStep(dt)
 	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * recoilCF)
 
 	-- Mira telescópica: ocultar el arma
-	setViewmodelHidden(def.Scope == true and aimAlpha > 0.85)
+	-- (y también en la pantalla de inicio, donde la cámara está lejos)
+	setViewmodelHidden((def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu)
 end
 
 ---------------------------------------------------------------------------
@@ -511,7 +562,7 @@ end
 
 local function bindActions()
 	ContextActionService:BindAction("Fire", function(_, state)
-		if ClientState.MenuOpen then
+		if ClientState.IsBlocked() then
 			triggerHeld = false
 			return Enum.ContextActionResult.Pass
 		end
@@ -531,7 +582,7 @@ local function bindActions()
 	ContextActionService:SetPosition("Fire", UDim2.new(1, -110, 1, -160))
 
 	ContextActionService:BindAction("Aim", function(_, state, input)
-		if ClientState.MenuOpen then
+		if ClientState.IsBlocked() then
 			aimHeld = false
 			return Enum.ContextActionResult.Pass
 		end
@@ -550,7 +601,7 @@ local function bindActions()
 	ContextActionService:SetPosition("Aim", UDim2.new(1, -190, 1, -110))
 
 	ContextActionService:BindAction("Reload", function(_, state)
-		if state == Enum.UserInputState.Begin and not ClientState.MenuOpen then
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			requestReload()
 		end
 		return Enum.ContextActionResult.Pass
@@ -559,7 +610,7 @@ local function bindActions()
 	ContextActionService:SetPosition("Reload", UDim2.new(1, -200, 1, -190))
 
 	ContextActionService:BindAction("Melee", function(_, state)
-		if state == Enum.UserInputState.Begin and not ClientState.MenuOpen then
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			melee()
 		end
 		return Enum.ContextActionResult.Pass
@@ -584,7 +635,7 @@ local function bindActions()
 	end, false, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.ButtonY)
 
 	UserInputService.InputChanged:Connect(function(input, processed)
-		if processed or ClientState.MenuOpen then
+		if processed or ClientState.IsBlocked() then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseWheel then

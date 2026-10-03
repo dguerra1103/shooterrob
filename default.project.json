@@ -30,6 +30,19 @@
       "$properties": {
         "RespawnTime": 3
       }
+    },
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future",
+        "EnvironmentDiffuseScale": 1,
+        "EnvironmentSpecularScale": 1,
+        "ShadowSoftness": 0.15
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false
+      }
     }
   }
 }

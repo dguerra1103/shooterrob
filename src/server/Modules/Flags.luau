@@ -107,6 +107,18 @@ local function buildFlag(team)
 	light.Brightness = 2
 	light.Parent = cloth
 
+	-- Destellos del color del equipo
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.Color = ColorSequence.new(team.Color.Color, Color3.new(1, 1, 1))
+	sparkles.LightEmission = 1
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.Lifetime = NumberRange.new(0.6, 1.2)
+	sparkles.Speed = NumberRange.new(0.5, 1.5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Rate = 8
+	sparkles.Parent = cloth
+
 	-- Marcador visible a través de las paredes
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "Marker"
