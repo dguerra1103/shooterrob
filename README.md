@@ -14,6 +14,8 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Armas** | Principales: **ARX-27 Pulse** (fusil), **Havoc Pump** (escopeta), **Specter-9** (subfusil), **Signal-7** (francotirador, nivel 3), **Vortex AR-9** (fusil de energía con ráfagas de 3, nivel 4), **Nova Drift** (subfusil ágil, nivel 5), **Raptor DMR** (tirador, nivel 7), **Breach Hammer** (escopeta semiautomática, nivel 8), **Titan Grind** (ametralladora pesada, nivel 10), **Ghostline XR** (francotirador con supresor, nivel 12) y **Tempest Core** (lanzacohetes con explosión, nivel 14). Secundarias: **Viper P9**, **Hand Cannon** (nivel 6) y **Phantom Sidewind** (pistola de ráfagas de 2 con mira de punto, nivel 9). Cuerpo a cuerpo: **Colmillo**. Las armas bloqueadas se pueden comprar antes con monedas. |
 | **Retos diarios** | 3 retos al día distintos para cada jugador (bajas, tiros a la cabeza, victorias, capturas, zona, rachas, bajas con cierto tipo de arma…). Dan monedas y XP al completarse. Completar los 3 regala una caja, y se puede cambiar 1 reto al día. Pestaña **Retos** del menú. |
 | **Maestría de armas** | Cada arma cuenta sus bajas y desbloquea camuflajes exclusivos para ella: **Carbono** (25), **Oro** (75), **Diamante** (150) y **Materia oscura** (300), más monedas. El camuflaje se equipa solo al ganarlo y se puede cambiar en la pestaña **Armas**. No se venden ni salen en cajas. |
+| **Granadas** | Tecla **G**: granada de fragmentación que rebota y explota a los 2 s (daño en área). Una por jugador, se recarga en 15 s y vuelve al reaparecer. No hay en Escalada de armas. |
+| **Efectos de eliminación** | Lo que ven todos cuando eliminas a alguien: Confeti, Amor, Llamarada, Congelado, Fantasma, Calavera, Rayo, Lluvia de monedas y Agujero negro. Se compran con monedas en la pestaña **Efectos** (con botón para verlos antes). |
 | **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue y Golden Ace. Se ven en la partida sobre tu avatar. |
 | **Disparo** | Viewmodel con brazos, retroceso, balanceo, apuntado (clic derecho), mira telescópica, recarga, trazadoras, fogonazo, hitmarkers, números de daño, disparos a la cabeza y cohetes con explosión. |
 | **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
@@ -60,10 +62,11 @@ rojo build -o ShooterRob.rbxlx
 | Apuntar | Clic derecho | L2 |
 | Recargar | R | X |
 | Cuchillo rápido | F | B |
+| Granada | G | L1 |
 | Correr | Shift (mantener) | L3 |
 | Deslizarse | C / Ctrl | R3 |
 | Cambiar arma | 1 / 2 / 3 / rueda del ratón | Y |
-| Menú (pase, retos, armas, skins, trajes, tienda) | B | Select |
+| Menú (pase, retos, armas, skins, trajes, efectos, tienda) | B | Select |
 | Votar mapa (en el descanso) | V | Cruceta arriba |
 
 En el móvil aparecen botones táctiles automáticamente.
@@ -164,6 +167,7 @@ src/
 │   ├── Shop.luau            tienda, VIP, diarias, cajas y ofertas
 │   ├── Challenges.luau      retos diarios
 │   ├── Mastery.luau         maestría de armas (camuflajes por bajas)
+│   ├── KillEffects.luau     efectos de eliminación
 │   ├── Sounds.luau          sonidos
 │   └── Remotes.luau         RemoteEvents y RemoteFunctions
 ├── server/                 → ServerScriptService.Server
@@ -179,6 +183,7 @@ src/
 │       ├── Flags.luau       Captura la bandera
 │       ├── Hardpoint.luau   Zona de control
 │       ├── Hazards.luau     lava
+│       ├── Grenades.luau    granadas
 │       └── Dummies.luau     muñecos de práctica
 └── client/                 → StarterPlayerScripts.Client
     ├── Main.client.luau     arranque
@@ -189,6 +194,7 @@ src/
         ├── Menu.luau              pase, retos, armas, skins, trajes y tienda
         ├── MainMenu.luau          pantalla de inicio
         ├── VoteUI.luau            votación de mapa y modo
+        ├── GrenadeController.luau granada (tecla G) e indicador
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
         ├── Effects.luau           fogonazo, balas, impactos, cohetes y explosiones

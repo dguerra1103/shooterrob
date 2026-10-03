@@ -50,6 +50,7 @@ Challenges.Pool = {
 	{ Id = "Snipers", Stat = "Kill", Weapons = { "Signal7", "GhostlineXR", "RaptorDMR" }, Goal = 4, Text = "4 bajas con francotirador o DMR", Coins = 250, XP = 350, MinLevel = 3 },
 	{ Id = "Pistols", Stat = "Kill", Weapons = { "Viper", "HandCannon", "PhantomSidewind" }, Goal = 4, Text = "4 bajas con pistola", Coins = 200, XP = 300 },
 	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife" }, Goal = 2, Text = "2 bajas con el cuchillo", Coins = 300, XP = 400 },
+	{ Id = "Grenades", Stat = "Kill", Weapons = { "Grenade" }, Goal = 3, Text = "3 bajas con granada", Coins = 250, XP = 350 },
 	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher" }, Goal = 3, Text = "3 bajas con el Tempest Core", Coins = 250, XP = 350, MinLevel = 14 },
 }
 
@@ -544,6 +545,8 @@ local EVENTS = {
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
 	"EquipKillEffect", -- cliente -> servidor: equipar efecto de eliminación
 	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
+	"ThrowGrenade", -- cliente -> servidor: lanzar granada (dirección)
+	"ExplosionFX", -- servidor -> clientes: explosión de granada (posición, radio)
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
@@ -2795,7 +2798,22 @@ Weapons.GunGameOrder = {
 -- Nombres antiguos guardados en DataStore -> nombres nuevos
 Weapons.Legacy = { Rifle = "ARX27", Shotgun = "HavocPump", Sniper = "Signal7", Pistol = "Viper" }
 
+-- Granada de fragmentación (tecla G). No ocupa hueco: cada jugador tiene una que se recarga sola.
+Weapons.Grenade = {
+	DisplayName = "Granada",
+	Type = "Grenade",
+	Pellets = 1,
+	Damage = 110,
+	Explosive = { Radius = 16, Damage = 110, MinDamage = 25 },
+	Cooldown = 15, -- segundos hasta tener otra
+	Fuse = 2.2, -- segundos hasta explotar
+	ThrowSpeed = 80,
+}
+
 function Weapons.Get(name)
+	if name == "Grenade" then
+		return Weapons.Grenade
+	end
 	return Weapons.List[name] or Weapons.List[Weapons.Legacy[name] or ""]
 end
 
@@ -2845,6 +2863,7 @@ local Combat = require(Modules.Combat)
 local Round = require(Modules.Round)
 local Dummies = require(Modules.Dummies)
 local Hazards = require(Modules.Hazards)
+local Grenades = require(Modules.Grenades)
 
 MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
@@ -2854,6 +2873,7 @@ Combat.OnKill = Round.RegisterKill
 Round.Init()
 Dummies.Init()
 Hazards.Init()
+Grenades.Init()
 ]]></string>
         </Properties>
       </Item>
@@ -3766,6 +3786,138 @@ return Flags
         </Item>
         <Item class="ModuleScript" referent="23">
           <Properties>
+            <string name="Name">Grenades</string>
+            <string name="Source"><![CDATA[-- Granadas: el servidor crea la granada con física, la deja rebotar y la hace explotar.
+-- Cada jugador tiene una, que se recarga sola (atributo GrenadeReadyAt = hora del servidor).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local Weapons = require(Shared.Weapons)
+local Remotes = require(Shared.Remotes)
+
+local Combat = require(script.Parent.Combat)
+
+local Grenades = {}
+
+local DEF = Weapons.Grenade
+
+local folder
+
+local function now()
+	return workspace:GetServerTimeNow()
+end
+
+local function makeGrenade(cf)
+	local ball = Instance.new("Part")
+	ball.Name = "Grenade"
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.new(0.9, 0.9, 0.9)
+	ball.Color = Color3.fromRGB(60, 70, 50)
+	ball.Material = Enum.Material.Metal
+	ball.CFrame = cf
+	ball.CanCollide = true
+	ball.CanQuery = false
+	ball.CanTouch = false
+	ball.CustomPhysicalProperties = PhysicalProperties.new(2, 0.7, 0.35, 1, 1)
+	local band = Instance.new("Part")
+	band.Name = "Band"
+	band.Shape = Enum.PartType.Cylinder
+	band.Size = Vector3.new(0.2, 0.95, 0.95)
+	band.Color = Color3.fromRGB(255, 50, 40)
+	band.Material = Enum.Material.Neon
+	band.CanCollide = false
+	band.CanQuery = false
+	band.CanTouch = false
+	band.Massless = true
+	band.CFrame = cf
+	band.Parent = ball
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = ball
+	weld.Part1 = band
+	weld.Parent = band
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 60, 40)
+	light.Range = 8
+	light.Brightness = 2
+	light.Parent = band
+	return ball, light
+end
+
+local function throw(player, direction)
+	if typeof(direction) ~= "Vector3" or direction.Magnitude < 0.5 or direction.Magnitude > 1.5 then
+		return
+	end
+	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local head = character and character:FindFirstChild("Head")
+	if not humanoid or humanoid.Health <= 0 or not head then
+		return
+	end
+	if now() < (player:GetAttribute("GrenadeReadyAt") or 0) then
+		return
+	end
+	player:SetAttribute("GrenadeReadyAt", now() + DEF.Cooldown)
+	-- Lanzar quita la protección de aparición, como disparar
+	for _, child in character:GetChildren() do
+		if child:IsA("ForceField") then
+			child:Destroy()
+		end
+	end
+
+	direction = direction.Unit
+	local start = head.Position + direction * 2
+	local grenade, light = makeGrenade(CFrame.new(start))
+	grenade.Parent = folder
+	grenade:SetNetworkOwner(nil)
+	grenade.AssemblyLinearVelocity = direction * DEF.ThrowSpeed + Vector3.new(0, 14, 0)
+	grenade.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
+
+	task.spawn(function()
+		-- Parpadeo cada vez más rápido
+		local fuseEnd = os.clock() + DEF.Fuse
+		while os.clock() < fuseEnd and grenade.Parent do
+			light.Enabled = not light.Enabled
+			task.wait(math.max(0.06, (fuseEnd - os.clock()) * 0.15))
+		end
+		if not grenade.Parent then
+			return
+		end
+		local position = grenade.Position + Vector3.new(0, 0.6, 0)
+		grenade:Destroy()
+		Remotes.ExplosionFX:FireAllClients(position, DEF.Explosive.Radius)
+		if player.Parent then
+			Combat.Explode(player, position, DEF, "Grenade")
+		end
+	end)
+end
+
+function Grenades.Init()
+	folder = Instance.new("Folder")
+	folder.Name = "Grenades"
+	folder.Parent = workspace
+	Remotes.ThrowGrenade.OnServerEvent:Connect(throw)
+	-- Al reaparecer se tiene la granada lista
+	local function onPlayer(player)
+		player.CharacterAdded:Connect(function()
+			player:SetAttribute("GrenadeReadyAt", 0)
+		end)
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in Players:GetPlayers() do
+		onPlayer(player)
+	end
+end
+
+return Grenades
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="24">
+          <Properties>
             <string name="Name">Hardpoint</string>
             <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
 -- (sin enemigos dentro) suma 1 punto por segundo. Si hay jugadores de los dos equipos, está disputada.
@@ -3983,7 +4135,7 @@ return Hardpoint
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="24">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">Hazards</string>
             <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava quita vida cada cuarto de segundo.
@@ -4050,7 +4202,7 @@ return Hazards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -4234,7 +4386,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -4286,11 +4438,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="27">
+        <Item class="Folder" referent="28">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="28">
+          <Item class="ModuleScript" referent="29">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -4494,7 +4646,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="29">
+          <Item class="ModuleScript" referent="30">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -5188,7 +5340,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="30">
+          <Item class="ModuleScript" referent="31">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -5439,7 +5591,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="31">
+          <Item class="ModuleScript" referent="32">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -5649,7 +5801,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -6379,7 +6531,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -7298,7 +7450,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="35">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -7940,21 +8092,21 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="35">
+  <Item class="StarterPlayer" referent="36">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="36">
+    <Item class="StarterPlayerScripts" referent="37">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="37">
+      <Item class="Folder" referent="38">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="38">
+        <Item class="LocalScript" referent="39">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -7971,6 +8123,7 @@ local Menu = require(Modules.Menu)
 local MainMenu = require(Modules.MainMenu)
 local WorldFX = require(Modules.WorldFX)
 local VoteUI = require(Modules.VoteUI)
+local GrenadeController = require(Modules.GrenadeController)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -7988,15 +8141,16 @@ Movement.Init()
 WeaponController.Init()
 WorldFX.Init()
 VoteUI.Init()
+GrenadeController.Init()
 MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="39">
+        <Item class="Folder" referent="40">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -8045,7 +8199,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -8726,7 +8880,129 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="43">
+            <Properties>
+              <string name="Name">GrenadeController</string>
+              <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
+local Players = game:GetService("Players")
+local ContextActionService = game:GetService("ContextActionService")
+local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Weapons = require(Shared.Weapons)
+local Sounds = require(Shared.Sounds)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local Effects = require(script.Parent.Effects)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local GrenadeController = {}
+
+local DEF = Weapons.Grenade
+
+local widget, label, fill
+
+local function readyAt()
+	return player:GetAttribute("GrenadeReadyAt") or 0
+end
+
+local function canThrow()
+	if ClientState.IsBlocked() or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+		return false
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.Health > 0 and workspace:GetServerTimeNow() >= readyAt()
+end
+
+local function throw()
+	if not canThrow() then
+		return
+	end
+	-- Un poco hacia arriba para que la parábola llegue más lejos
+	local direction = (camera.CFrame.LookVector + Vector3.new(0, 0.12, 0)).Unit
+	Remotes.ThrowGrenade:FireServer(direction)
+	Sounds.Play("Swing", nil, 0.8, 1)
+end
+
+local function updateWidget()
+	local gunGame = ReplicatedStorage:GetAttribute("Mode") == "GUN"
+	widget.Visible = not ClientState.InMainMenu and not gunGame
+	if not widget.Visible then
+		return
+	end
+	local left = readyAt() - workspace:GetServerTimeNow()
+	if left <= 0 then
+		label.Text = "💣 G"
+		label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		fill.Size = UDim2.fromScale(1, 1)
+		fill.BackgroundColor3 = Color3.fromRGB(255, 90, 40)
+	else
+		label.Text = "💣 " .. math.ceil(left)
+		label.TextColor3 = Color3.fromRGB(190, 190, 200)
+		fill.Size = UDim2.fromScale(1 - left / DEF.Cooldown, 1)
+		fill.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
+	end
+end
+
+function GrenadeController.Init()
+	local gui = UI.new("ScreenGui", {
+		Name = "Grenade",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 2,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	widget = UI.new("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -24, 1, -150),
+		Size = UDim2.fromOffset(84, 34),
+		BackgroundColor3 = Color3.fromRGB(20, 22, 34),
+		BackgroundTransparency = 0.25,
+		Parent = gui,
+	}, { UI.corner(10), UI.stroke(Color3.fromRGB(255, 120, 60), 2, 0.3) })
+	fill = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 0.55,
+		Parent = widget,
+	}, { UI.corner(10) })
+	label = UI.label({ Size = UDim2.fromScale(1, 1), Text = "💣 G", TextSize = 20, ZIndex = 2, Parent = widget })
+
+	ContextActionService:BindAction("Grenade", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			throw()
+		end
+		return Enum.ContextActionResult.Pass
+	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
+	ContextActionService:SetTitle("Grenade", "💣")
+	ContextActionService:SetPosition("Grenade", UDim2.new(1, -200, 1, -270))
+
+	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)
+		if typeof(position) == "Vector3" then
+			Effects.Explosion(position, type(radius) == "number" and radius or 14)
+			-- Sonido en el punto de la explosión (se oye más fuerte cuanto más cerca)
+			local spot = Instance.new("Attachment")
+			spot.WorldPosition = position
+			spot.Parent = workspace.Terrain
+			Sounds.Play("ShotHeavy", spot, 0.45, 1.6)
+			Debris:AddItem(spot, 5)
+		end
+	end)
+
+	RunService.Heartbeat:Connect(updateWidget)
+end
+
+return GrenadeController
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -9084,7 +9360,8 @@ local function buildWeaponPanel()
 			}),
 		})
 		for i, pair in {
-			{ "Pase de batalla", "B" },
+			{ "Menú y tienda", "B" },
+			{ "Granada", "G" },
 			{ "Deslizar", "C" },
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },
@@ -9951,8 +10228,16 @@ function HUD.Init()
 			refs.DeathText.Text = "HAS MUERTO"
 		end
 		refs.DeathIcon:ClearAllChildren()
-		if weapon then
+		if weapon and weapon.Parts then
 			WeaponIcon.Create(weaponName, "Default", { Size = UDim2.fromScale(1, 1), Parent = refs.DeathIcon }, "angled", 280 / 110)
+		elseif weapon then
+			-- Armas sin modelo (granada): un emoji grande
+			local icon = Instance.new("TextLabel")
+			icon.Size = UDim2.fromScale(1, 1)
+			icon.BackgroundTransparency = 1
+			icon.Text = "💣"
+			icon.TextScaled = true
+			icon.Parent = refs.DeathIcon
 		end
 		refs.DeathScreen.Visible = true
 		-- Cuenta atrás para reaparecer
@@ -10000,7 +10285,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="43">
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -10333,7 +10618,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="44">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -11831,7 +12116,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="45">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -12009,7 +12294,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -12111,7 +12396,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -12262,7 +12547,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -13035,7 +13320,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="51">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -13092,7 +13377,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="50">
+          <Item class="ModuleScript" referent="52">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -13254,12 +13539,12 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="51">
+  <Item class="Teams" referent="53">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="52">
+  <Item class="Workspace" referent="54">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

@@ -353,7 +353,8 @@ local function buildWeaponPanel()
 			}),
 		})
 		for i, pair in {
-			{ "Pase de batalla", "B" },
+			{ "Menú y tienda", "B" },
+			{ "Granada", "G" },
 			{ "Deslizar", "C" },
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },
@@ -1220,8 +1221,16 @@ function HUD.Init()
 			refs.DeathText.Text = "HAS MUERTO"
 		end
 		refs.DeathIcon:ClearAllChildren()
-		if weapon then
+		if weapon and weapon.Parts then
 			WeaponIcon.Create(weaponName, "Default", { Size = UDim2.fromScale(1, 1), Parent = refs.DeathIcon }, "angled", 280 / 110)
+		elseif weapon then
+			-- Armas sin modelo (granada): un emoji grande
+			local icon = Instance.new("TextLabel")
+			icon.Size = UDim2.fromScale(1, 1)
+			icon.BackgroundTransparency = 1
+			icon.Text = "💣"
+			icon.TextScaled = true
+			icon.Parent = refs.DeathIcon
 		end
 		refs.DeathScreen.Visible = true
 		-- Cuenta atrás para reaparecer

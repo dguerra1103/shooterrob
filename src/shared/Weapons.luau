@@ -573,7 +573,22 @@ Weapons.GunGameOrder = {
 -- Nombres antiguos guardados en DataStore -> nombres nuevos
 Weapons.Legacy = { Rifle = "ARX27", Shotgun = "HavocPump", Sniper = "Signal7", Pistol = "Viper" }
 
+-- Granada de fragmentación (tecla G). No ocupa hueco: cada jugador tiene una que se recarga sola.
+Weapons.Grenade = {
+	DisplayName = "Granada",
+	Type = "Grenade",
+	Pellets = 1,
+	Damage = 110,
+	Explosive = { Radius = 16, Damage = 110, MinDamage = 25 },
+	Cooldown = 15, -- segundos hasta tener otra
+	Fuse = 2.2, -- segundos hasta explotar
+	ThrowSpeed = 80,
+}
+
 function Weapons.Get(name)
+	if name == "Grenade" then
+		return Weapons.Grenade
+	end
 	return Weapons.List[name] or Weapons.List[Weapons.Legacy[name] or ""]
 end
 

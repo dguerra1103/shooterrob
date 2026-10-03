@@ -11,6 +11,7 @@ local Combat = require(Modules.Combat)
 local Round = require(Modules.Round)
 local Dummies = require(Modules.Dummies)
 local Hazards = require(Modules.Hazards)
+local Grenades = require(Modules.Grenades)
 
 MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
@@ -20,3 +21,4 @@ Combat.OnKill = Round.RegisterKill
 Round.Init()
 Dummies.Init()
 Hazards.Init()
+Grenades.Init()

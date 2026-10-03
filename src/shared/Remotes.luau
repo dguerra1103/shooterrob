@@ -15,6 +15,8 @@ local EVENTS = {
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
 	"EquipKillEffect", -- cliente -> servidor: equipar efecto de eliminación
 	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
+	"ThrowGrenade", -- cliente -> servidor: lanzar granada (dirección)
+	"ExplosionFX", -- servidor -> clientes: explosión de granada (posición, radio)
 	"ShotFX", -- servidor -> clientes: efectos de disparo de otros jugadores
 	"HitConfirm", -- servidor -> cliente: confirmación de impacto (hitmarker)
 	"KillFeed", -- servidor -> clientes: registro de bajas
