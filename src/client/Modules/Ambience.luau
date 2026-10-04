@@ -218,7 +218,9 @@ function Ambience.Update()
 	end
 	-- (el viento sube y baja poco a poco, como ráfagas)
 	local gust = 0.8 + 0.2 * math.sin(os.clock() * 0.35) + 0.1 * math.sin(os.clock() * 1.3)
-	wind.Volume = preset.Wind * gust
+	-- (con ventisca, el viento sopla mucho más fuerte)
+	local storm = map ~= nil and map:GetAttribute("Weather") == "Snowstorm"
+	wind.Volume = preset.Wind * gust * (storm and 1.7 or 1)
 	wind.PlaybackSpeed = preset.WindSpeed
 	if not wind.IsPlaying then
 		wind:Play()
