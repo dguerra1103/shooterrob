@@ -20,6 +20,8 @@ local EVENTS = {
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
 	"EquipKillEffect", -- cliente -> servidor: equipar efecto de eliminación
 	"EquipCharm", -- cliente -> servidor: equipar colgante de arma (Charms)
+	"EquipSpray", -- cliente -> servidor: equipar grafiti (Sprays)
+	"Spray", -- cliente -> servidor: pintar el grafiti en un punto (el servidor lo comprueba)
 	"SaveSettings", -- cliente -> servidor: ajustes (calidad gráfica, FOV, sensibilidad)
 	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
 	"ThrowGrenade", -- cliente -> servidor: lanzar granada (dirección)

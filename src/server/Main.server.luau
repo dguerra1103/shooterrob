@@ -20,6 +20,7 @@ local Bots = require(Modules.Bots)
 local Gifts = require(Modules.Gifts)
 local Friends = require(Modules.Friends)
 local Event = require(Modules.Event)
+local Graffiti = require(Modules.Graffiti)
 
 
 -- Arranca cada sistema por separado: si uno falla, se avisa en Output y los demás siguen
@@ -47,3 +48,4 @@ start("Bots", Bots.Init)
 start("Gifts", Gifts.Init)
 start("Friends", Friends.Init)
 start("Event", Event.Init)
+start("Graffiti", Graffiti.Init)

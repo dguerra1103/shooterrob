@@ -39,6 +39,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Guadaña y Calabazooka** | Menú → Armas | Guadaña (cuerpo a cuerpo, 1500 monedas). Calabazooka (lanzacohetes) sale bloqueada con "🎃 75 caramelos"; al conseguirla dispara calabazas. |
 | **Mira** | Menú → Ajustes → Mira | Cambia el color (6) y el tamaño; se nota al momento en la mira. |
 | **SE BUSCA** | Play solo, haz 5 bajas seguidas sin morir | Arriba: "💰 SE BUSCA: tú · 25 🪙 por su cabeza" y en grande "¡TE BUSCAN!". Los bots van más a por ti. Con 2 jugadores (Local Server), el otro ve un cartel rojo sobre tu cabeza; si te elimina, "¡RECOMPENSA COBRADA! +25 🪙". |
+| **Grafitis** | En partida, mira una pared cerca y pulsa **J** | Aparece un círculo azul con "GG" pintado en la pared. Menú → Efectos → abajo: compra la Calabaza y pulsa J otra vez (a los 6 s): el anterior desaparece y sale la calabaza con "BOO!". |
 | **Premio del grupo** | Pon el ID de tu grupo en `GameConfig.Group.Id` y publica (en Studio el grupo puede no comprobarse) | En la pantalla de inicio sale ⭐ ÚNETE AL GRUPO +500 🪙. Si ya estás en el grupo: "✅ ¡+500 🪙! Gracias" y el botón desaparece. Si no, sale la ventana de Roblox para unirte. |
 | **Pase de 50 niveles** | Menú → Pase | Los niveles cercanos al tuyo; al final "… y N niveles más". |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |

@@ -17,6 +17,7 @@ local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
 local Charms = require(Shared.Charms)
+local Sprays = require(Shared.Sprays)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -1329,6 +1330,47 @@ local function buildKillEffectsPage(data)
 		priceButton(card, "KillEffect", id, owned[id] == true, equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipKillEffect:FireServer(id)
+		end)
+	end
+
+	-- Grafitis (tecla J), en la misma rejilla, después de los efectos
+	local header = UI.new("Frame", { LayoutOrder = 999, BackgroundColor3 = Color3.fromRGB(60, 50, 90), Parent = scroll }, { UI.corner(12) })
+	UI.label({
+		Size = UDim2.fromScale(1, 1),
+		Text = "🎨 GRAFITIS\n\nPulsa J (o 🎨 en el móvil) para pintar el tuyo en la pared que tienes delante",
+		TextSize = 17,
+		TextWrapped = true,
+		TextColor3 = GOLD,
+		Parent = header,
+	}, { UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }) })
+	local spraysOwned = data.Sprays or { Default = true }
+	for i, id in sortedIds(Sprays.List) do
+		local sprayDef = Sprays.List[id]
+		local equipped = (data.EquippedSpray or "Default") == id
+		local card = UI.new("Frame", { LayoutOrder = 1000 + i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
+			UI.corner(12),
+			UI.stroke(equipped and GOLD or rarityColor(sprayDef.Rarity), 2, equipped and 0 or 0.4),
+		})
+		local preview = UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 10),
+			Size = UDim2.fromOffset(110, 110),
+			BackgroundTransparency = 1,
+			Parent = card,
+		})
+		Sprays.Draw(id, preview)
+		UI.label({ Position = UDim2.fromOffset(0, 126), Size = UDim2.new(1, 0, 0, 24), Text = sprayDef.Name, TextSize = 20, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 150),
+			Size = UDim2.new(1, 0, 0, 16),
+			Text = sprayDef.Rarity,
+			TextSize = 14,
+			TextColor3 = rarityColor(sprayDef.Rarity),
+			Parent = card,
+		})
+		priceButton(card, "Spray", id, spraysOwned[id] == true, equipped, function()
+			Sounds.Play("Click")
+			Remotes.EquipSpray:FireServer(id)
 		end)
 	end
 end

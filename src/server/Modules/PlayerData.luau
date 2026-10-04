@@ -22,6 +22,7 @@ local Challenges = require(Shared.Challenges)
 local Mastery = require(Shared.Mastery)
 local KillEffects = require(Shared.KillEffects)
 local Charms = require(Shared.Charms)
+local Sprays = require(Shared.Sprays)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = {}
@@ -91,6 +92,8 @@ local function defaults()
 		EquippedKillEffect = "Default",
 		Charms = { Default = true }, -- colgantes de arma comprados
 		EquippedCharm = "Default",
+		Sprays = { Default = true }, -- grafitis comprados (tecla J)
+		EquippedSpray = "Default",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
@@ -202,6 +205,8 @@ local function publicView(player, data)
 		EquippedKillEffect = data.EquippedKillEffect,
 		Charms = data.Charms,
 		EquippedCharm = data.EquippedCharm,
+		Sprays = data.Sprays,
+		EquippedSpray = data.EquippedSpray,
 		Settings = data.Settings,
 		Revives = data.Revives,
 		WheelFree = data.WheelDay ~= Shop.DayNumber(),
@@ -409,6 +414,12 @@ local function load(player)
 	end
 	if type(merged.Achievements) ~= "table" then
 		merged.Achievements = {}
+	end
+	if type(merged.Sprays) ~= "table" then
+		merged.Sprays = { Default = true }
+	end
+	if not Sprays.List[merged.EquippedSpray] or not merged.Sprays[merged.EquippedSpray] then
+		merged.EquippedSpray = "Default"
 	end
 	merged.GroupReward = merged.GroupReward == true
 	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
@@ -859,6 +870,14 @@ local function buyItem(player, kind, id)
 			return false, "Ya lo tienes"
 		end
 		price = Shop.GetPrice("Charm", id)
+	elseif kind == "Spray" then
+		if not Sprays.List[id] then
+			return false, "No existe"
+		end
+		if data.Sprays[id] then
+			return false, "Ya lo tienes"
+		end
+		price = Shop.GetPrice("Spray", id)
 	end
 	if not price then
 		return false, "No está a la venta"
@@ -877,6 +896,9 @@ local function buyItem(player, kind, id)
 	elseif kind == "Charm" then
 		data.Charms[id] = true
 		data.EquippedCharm = id -- se equipa al comprarlo (se ve al reaparecer)
+	elseif kind == "Spray" then
+		data.Sprays[id] = true
+		data.EquippedSpray = id -- se equipa al comprarlo
 	else
 		data.Outfits[id] = true
 	end
@@ -1326,6 +1348,16 @@ function PlayerData.Init()
 			return
 		end
 		data.EquippedCharm = charmId
+		dirty[player] = true
+		sendUpdate(player)
+	end)
+
+	Remotes.EquipSpray.OnServerEvent:Connect(function(player, sprayId)
+		local data = profiles[player]
+		if not data or type(sprayId) ~= "string" or not Sprays.List[sprayId] or not data.Sprays[sprayId] then
+			return
+		end
+		data.EquippedSpray = sprayId
 		dirty[player] = true
 		sendUpdate(player)
 	end)

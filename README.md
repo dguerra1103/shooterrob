@@ -31,6 +31,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Efectos de eliminación** | Lo que ven todos cuando eliminas a alguien: Confeti, Amor, Llamarada, Congelado, Fantasma, Calavera, Rayo, Lluvia de monedas, Agujero negro, Pintura, Arcoíris y los de Halloween: Murciélagos y Calabazas. Se compran con monedas en la pestaña **Efectos** (con botón para verlos antes). |
 | **Rachas** | 3 bajas seguidas: **Radar** (tu equipo ve a los enemigos a través de las paredes 12 s). 5 bajas seguidas: **Ataque aéreo** (tecla T: marcas rojas y 5 bombas en línea donde apuntas). No hay en Escalada de armas. |
 | **SE BUSCA** | Con 5 bajas seguidas el jugador queda marcado con un cartel 💰 sobre la cabeza (todos lo ven menos él) y una recompensa de 25 monedas que sube +5 por baja (hasta 100). Quien lo elimine la cobra (y +50 XP; vale la mitad si la racha fue casi toda contra bots); los bots van más a por él. Se ajusta en `GameConfig.Bounty`. |
+| **Grafitis** | Tecla J: pintas tu grafiti en la pared o el suelo de delante (lo ven todos; uno por jugador, cada 6 s, se borran al cambiar de mapa). 9 diseños con emoji (GG gratis, Fuego, Cien, Calavera, Calabaza, Payaso, Gato, Corona, Diamante) de 200 a 1000 monedas en la pestaña **Efectos**. Se añaden en `src/shared/Sprays.luau`. |
 | **Grupo** | Botón ⭐ ÚNETE AL GRUPO en la pantalla de inicio: quien está en el grupo del juego cobra 500 monedas una vez (si no está, sale la ventana de Roblox para unirse). Pon el ID del grupo en `GameConfig.Group.Id` (con 0 no sale el botón). |
 | **Clasificación global** | Top 10 mundial de bajas, de victorias y de rango (mejores RP) (todos los servidores) en la pantalla de inicio. Se actualiza cada 90 s; tu fila se resalta si estás dentro. |
 | **Rangos competitivos** | 🥉 Bronce, 🥈 Plata, 🥇 Oro, 💠 Platino, 💎 Diamante y 👑 Campeón. Ganar da +25 RP, perder −12 (−5 en todos contra todos) y el MVP +5 extra; nunca se baja de rango. Solo cuenta para quien ha jugado de verdad (volver al menú no libra de la derrota). Al llegar a cada rango por primera vez hay premio: monedas y, en Oro, Diamante y Campeón, cajas gratis. Contra bots solo se gana un poco (+8) y no se pierde. Los bots apuntan peor contra los rangos bajos y mejor contra los altos (`GameConfig.Bots.SkillByRank`). Se ve en la pantalla de inicio, en el marcador, en el chat y al final de cada partida ("¡ASCIENDES A ORO!"). Se ajusta en `src/shared/Ranks.luau`. |
@@ -98,11 +99,12 @@ rojo build -o ShooterRob.rbxlx
 | Inspeccionar arma | V | Cruceta arriba |
 | Habilidades: Impulso / Supersalto / Poción | E / Z / X | Cruceta izquierda / abajo |
 | Emotes | N (en móvil, botón 😀) | — |
+| Grafiti | J (en móvil, botón 🎨) | — |
 | Recoger regalo por tiempo jugado | H (en móvil, tocar 🎁) | — |
 | Marcador (equipos, bajas, muertes; bots incluidos) | Tab (mantener; en móvil, botón 📋) | — |
 | Muerto: revivir instantáneo / regenerar ahora | B / Espacio o F | Y / A |
 
-En el móvil aparecen botones táctiles automáticamente (disparar, apuntar, recargar, cuchillo, correr, deslizar, granada, cambiar arma ⇄ y ataque aéreo).
+En el móvil aparecen botones táctiles automáticamente (disparar, apuntar, recargar, cuchillo, correr, deslizar, granada, cambiar arma ⇄, ataque aéreo, emotes 😀 y grafiti 🎨).
 
 ## Personalizar
 
@@ -235,6 +237,7 @@ src/
 │       ├── Grenades.luau    granadas
 │       ├── Leaderboard.luau clasificación global
 │       ├── Killstreaks.luau recompensas por racha (radar y ataque aéreo)
+│       ├── Graffiti.luau    grafitis: comprueba y pinta el de cada jugador
 │       ├── Bounty.luau      "SE BUSCA": recompensa por la cabeza del jugador en racha
 │       └── Dummies.luau     muñecos de práctica
 └── client/                 → StarterPlayerScripts.Client
