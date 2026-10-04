@@ -31598,7 +31598,16 @@ local strafeRoll = 0
 local shakeRoll = 0
 local headBobTime = 0 -- balanceo de la cámara al andar (GameConfig.Movement.CameraBob)
 local headBobAmount = 0
+-- Animación del arma: inercia con muelle, arma contra la pared, saltos y golpes alternos
+local swayVelX, swayVelY = 0, 0
+local wallAlpha = 0
+local airOffset = 0
+local meleeSide = 1
+local meleeDuration = 0.35
+local reloadWasEmpty = false
+local wallCheckTime = 0
 
+local collectMovingParts -- (más abajo)
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
@@ -31633,7 +31642,7 @@ local function skinTone()
 	return hand and hand.Color or Color3.fromRGB(255, 204, 153)
 end
 
-local function addArm(model, handPos, shoulderCam, weaponDef)
+local function addArm(model, handPos, shoulderCam, weaponDef, side)
 	local shoulder = weaponDef.ViewOffset:PointToObjectSpace(shoulderCam)
 	local length = (shoulder - handPos).Magnitude
 	local sleeveColor = player.Team and player.TeamColor.Color or Color3.fromRGB(60, 60, 70)
@@ -31655,6 +31664,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	arm.CFrame = CFrame.lookAt((handPos + shoulder) / 2, handPos)
 	arm.Color = zombieSkin or skinTone()
 	arm.Material = Enum.Material.SmoothPlastic
+	arm:SetAttribute("Side", side)
 	arm.Parent = model
 
 	local sleeve = Instance.new("Part")
@@ -31663,6 +31673,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	sleeve.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.27), handPos)
 	sleeve.Color = sleeveColor
 	sleeve.Material = Enum.Material.Fabric
+	sleeve:SetAttribute("Side", side)
 	sleeve.Parent = model
 
 	local glove = Instance.new("Part")
@@ -31671,6 +31682,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	glove.CFrame = CFrame.lookAt(handPos + (shoulder - handPos).Unit * 0.15, handPos)
 	glove.Color = outfitColors and outfitColors.Glove or Color3.fromRGB(25, 25, 28)
 	glove.Material = Enum.Material.Fabric
+	glove:SetAttribute("Side", side)
 	glove.Parent = model
 
 	-- Puño blanco de la manga
@@ -31680,6 +31692,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
 	cuff.Color = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250)
 	cuff.Material = (outfitColors and not zombieSkin) and Enum.Material.Neon or Enum.Material.Fabric
+	cuff:SetAttribute("Side", side)
 	cuff.Parent = model
 end
 
@@ -31726,6 +31739,89 @@ local function swingCharm(dt)
 	end
 end
 
+-- Piezas que se mueven por separado en primera persona: cargador, corredera, bomba, cerrojo y
+-- los dos brazos. Se guarda dónde está cada una respecto al Handle para moverla desde ahí.
+local moving = { Mag = {}, Slide = {}, Pump = {}, Bolt = {}, Left = {}, Right = {} }
+local movingDirty = {}
+local magCenter, boltCenter = nil, nil
+
+local function movingGroup(part)
+	local side = part:GetAttribute("Side")
+	if side then
+		return side
+	end
+	local name = part.Name
+	if name == "MagTube" or string.sub(name, 1, 10) == "BoltShroud" or string.sub(name, 1, 11) == "BoltRelease" then
+		return nil
+	end
+	local function starts(prefix)
+		return string.sub(name, 1, #prefix) == prefix
+	end
+	if starts("Mag") or starts("Drum") or starts("AmmoBox") or starts("BeltRound") then
+		return "Mag"
+	elseif starts("Slide") then
+		return "Slide"
+	elseif starts("Pump") and not starts("Pumpkin") then -- (la Calabazooka no tiene bomba)
+		return "Pump"
+	elseif starts("BoltHandle") or starts("BoltKnob") then
+		return "Bolt"
+	end
+	return nil
+end
+
+local function centerOf(list)
+	if #list == 0 then
+		return nil
+	end
+	local sum = Vector3.zero
+	for _, entry in list do
+		sum += entry.Offset.Position
+	end
+	return sum / #list
+end
+
+collectMovingParts = function(model, weaponDef)
+	for key, list in moving do
+		table.clear(list)
+		movingDirty[key] = false
+	end
+	local handle = model.PrimaryPart
+	if not handle or weaponDef.Type ~= "Gun" then
+		-- (las armas cuerpo a cuerpo solo mueven los brazos con el arma entera)
+		return
+	end
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and part ~= handle then
+			local group = movingGroup(part)
+			if group then
+				table.insert(moving[group], { Part = part, Offset = handle.CFrame:ToObjectSpace(part.CFrame) })
+			end
+		end
+	end
+	magCenter = centerOf(moving.Mag)
+	boltCenter = centerOf(moving.Bolt)
+end
+
+-- Coloca un grupo desplazado (offset en el espacio del arma). Sin offset, solo si hace falta
+-- devolverlo a su sitio (el arma entera ya se movió con PivotTo).
+local function placeGroup(key, handleCF, offset, fade)
+	local list = moving[key]
+	if #list == 0 then
+		return
+	end
+	if not offset and not movingDirty[key] then
+		return
+	end
+	movingDirty[key] = offset ~= nil
+	local cf = offset or CFrame.identity
+	for _, entry in list do
+		entry.Part.CFrame = handleCF * cf * entry.Offset
+		if key == "Mag" then
+			entry.Part.LocalTransparencyModifier = offset and fade or 0
+		end
+	end
+end
+
 local function destroyViewmodel()
 	if viewmodel then
 		viewmodel:Destroy()
@@ -31752,10 +31848,10 @@ local function createViewmodel(tool)
 	charmRing = ring
 	resetCharm()
 	if weaponDef.RightHand then
-		addArm(model, weaponDef.RightHand, RIGHT_SHOULDER, weaponDef)
+		addArm(model, weaponDef.RightHand, RIGHT_SHOULDER, weaponDef, "Right")
 	end
 	if weaponDef.LeftHand then
-		addArm(model, weaponDef.LeftHand, LEFT_SHOULDER, weaponDef)
+		addArm(model, weaponDef.LeftHand, LEFT_SHOULDER, weaponDef, "Left")
 	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -31767,6 +31863,7 @@ local function createViewmodel(tool)
 		end
 	end
 	model.Name = "Viewmodel"
+	collectMovingParts(model, weaponDef)
 	-- Brillo suave del neón del arma sobre las manos (se nota mucho en mapas oscuros)
 	local glowPalette = WeaponModels.GetPalette(weaponName, tool:GetAttribute("Skin"))
 	-- Solo si el neón brilla de verdad (las armas clásicas sin skin no llevan neón)
@@ -31842,6 +31939,9 @@ local function onEquipped(tool)
 	equippedTool, def = tool, weaponDef
 	equipTime = os.clock()
 	sprayCount, debtPitch, debtYaw = 0, 0, 0 -- (el retroceso de otra arma no se recupera con esta)
+	swayX, swayY, swayVelX, swayVelY = 0, 0, 0, 0
+	wallAlpha, airOffset = 0, 0
+	updateRayFilter()
 	inspectTime = -10
 	reloadStart = nil
 	localAmmo = tool:GetAttribute("Ammo") or 0
@@ -31963,7 +32063,8 @@ local function requestReload()
 	-- Secuencia de la recarga: sacar el cargador, meter el nuevo y (si estaba vacía) montar el arma.
 	-- Si la recarga se corta (cambias de arma, cuchillo...) deja de sonar.
 	local token, reloadTime, wasEmpty = reloadStart, def.ReloadTime or 2, localAmmo <= 0
-	local shotgun = def.Pellets > 1
+	reloadWasEmpty = wasEmpty
+	local shotgun = def.Pellets > 1 and #moving.Mag == 0 -- (la escopeta de tambor recarga con cargador)
 	local function step(at, name, pitch, volume)
 		task.delay(reloadTime * at, function()
 			if reloadStart == token then
@@ -31995,6 +32096,7 @@ local function fire()
 	end
 	if localAmmo <= 0 then
 		lastShot = now
+		kickVel += 0.5 -- el gatillo en vacío: un tirón seco
 		Sounds.Play("Empty")
 		requestReload()
 		return
@@ -32141,6 +32243,8 @@ local function melee()
 	end
 	meleeTime = now
 	meleeWithKnife = def ~= nil and def.Type == "Melee"
+	meleeSide = -meleeSide -- golpes alternos: uno de derecha a izquierda y el siguiente al revés
+	meleeDuration = meleeWithKnife and math.clamp(knife.Cooldown * 0.75, 0.32, 0.6) or 0.38
 	reloadStart = nil
 	Sounds.Play("Swing")
 
@@ -32294,12 +32398,23 @@ local function renderStep(dt)
 	end
 
 	local now = os.clock()
+	local function smooth(x)
+		x = math.clamp(x, 0, 1)
+		return x * x * (3 - 2 * x)
+	end
+	local function window(x, a, b) -- 0 -> 1 entre a y b
+		return smooth((x - a) / (b - a))
+	end
+	local function pulse(x, center, width) -- 0 -> 1 -> 0 alrededor de center
+		return smooth(1 - math.abs(x - center) / width)
+	end
 
-	-- Balanceo al caminar
-	local speed = 0
+	-- Balanceo al caminar (al correr, más amplio y con giro: el "ocho" de los shooters)
+	local speed, verticalSpeed = 0, 0
 	if rootPart then
 		local velocity = rootPart.AssemblyLinearVelocity
 		speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+		verticalSpeed = velocity.Y
 	end
 	local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
 	if grounded and not ClientState.Sliding then
@@ -32309,18 +32424,41 @@ local function renderStep(dt)
 	if not grounded or ClientState.Sliding then
 		bobAmount = 0
 	end
-	local bob = CFrame.new(math.cos(bobTime) * 0.05 * bobAmount, -math.abs(math.sin(bobTime)) * 0.06 * bobAmount, 0)
+	local s = sprintAlpha
+	local bob = CFrame.new(
+		math.cos(bobTime) * (0.05 + 0.05 * s) * bobAmount,
+		-math.abs(math.sin(bobTime)) * (0.06 + 0.04 * s) * bobAmount,
+		0
+	) * CFrame.Angles(0, 0, math.cos(bobTime) * math.rad(3.5) * s * bobAmount)
 
-	-- Inercia al mover el ratón
+	-- Respiración: el arma nunca está del todo quieta (apuntando, casi nada)
+	local breathScale = (1 - aimAlpha * 0.8) * (1 - math.min(1, bobAmount))
+	local breath = CFrame.new(math.sin(now * 0.8) * 0.01 * breathScale, math.sin(now * 1.6) * 0.014 * breathScale, 0)
+		* CFrame.Angles(math.sin(now * 1.6 + 0.6) * math.rad(0.5) * breathScale, 0, 0)
+
+	-- Inercia al mover el ratón: muelle (se retrasa, se pasa un poco y vuelve). Las armas
+	-- pesadas (las que te hacen ir más lento) van más perezosas.
 	local delta = UserInputService:GetMouseDelta()
-	swayX = lerp(swayX, math.clamp(-delta.X * 0.004, -0.12, 0.12), math.min(1, dt * 10))
-	swayY = lerp(swayY, math.clamp(-delta.Y * 0.004, -0.12, 0.12), math.min(1, dt * 10))
+	local weight = math.clamp(def.WalkSpeedMultiplier or 1, 0.8, 1.15)
+	local stiffness, damping = 160 * weight * weight, 16 * weight
+	local sdt = math.min(dt, 1 / 30)
+	local targetX = math.clamp(-delta.X * 0.004, -0.12, 0.12)
+	local targetY = math.clamp(-delta.Y * 0.004, -0.12, 0.12)
+	swayVelX += ((targetX - swayX) * stiffness - swayVelX * damping) * sdt
+	swayVelY += ((targetY - swayY) * stiffness - swayVelY * damping) * sdt
+	swayX += swayVelX * sdt
+	swayY += swayVelY * sdt
 	local swayScale = 1 - aimAlpha * 0.75
 	local sway = CFrame.Angles(swayY * swayScale, swayX * swayScale, swayX * 0.6 * swayScale)
 
+	-- Moverse: al ir de lado el arma se inclina; al saltar se queda atrás y al caer se hunde
+	local strafeTilt = CFrame.Angles(0, 0, strafeRoll * 2.5 * (1 - aimAlpha * 0.8))
+	airOffset = lerp(airOffset, grounded and 0 or math.clamp(-verticalSpeed * 0.005, -0.12, 0.12), math.min(1, dt * 10))
+	local land = ClientState.LandKick or 0
+	local airCF = CFrame.new(0, airOffset - 0.2 * land, 0) * CFrame.Angles(airOffset * 0.8 - math.rad(7) * land, 0, 0)
+
 	-- Retroceso del arma
 	-- (muelles amortiguados: el arma va hacia atrás, se pasa un poquito al volver y se asienta)
-	local sdt = math.min(dt, 1 / 30)
 	kickVel += (-260 * recoilKick - 24 * kickVel) * sdt
 	recoilKick += kickVel * sdt
 	rotVel += (-220 * recoilRot - 20 * rotVel) * sdt
@@ -32338,30 +32476,128 @@ local function renderStep(dt)
 	end
 
 	-- Correr
-	local s = sprintAlpha
 	local sprintCF = CFrame.new(-0.25 * s, -0.2 * s, 0.1 * s) * CFrame.Angles(math.rad(-12) * s, math.rad(35) * s, math.rad(18) * s)
 
-	-- Recarga
+	-- Pegado a una pared: el arma se recoge y apunta hacia arriba en vez de atravesarla
+	if now - wallCheckTime > 1 then
+		wallCheckTime = now
+		updateRayFilter()
+	end
+	local wallTarget = 0
+	if def.Type == "Gun" and not ClientState.InMainMenu then
+		local hit = workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * 3.4, rayParams)
+		local part = hit and hit.Instance
+		local solid = part and part:IsA("BasePart") and part.CanCollide and part.Transparency < 0.9
+		if solid and not (part.Parent and part.Parent:FindFirstChildOfClass("Humanoid")) then
+			wallTarget = math.clamp(1 - (hit.Distance - 1.1) / 2.3, 0, 1) * (1 - aimAlpha * 0.6)
+		end
+	end
+	wallAlpha = lerp(wallAlpha, wallTarget, math.min(1, dt * 10))
+	local w = wallAlpha
+	local wallCF = CFrame.new(-0.1 * w, -0.1 * w, 0.55 * w) * CFrame.Angles(math.rad(32) * w, math.rad(-12) * w, math.rad(-14) * w)
+
+	-- Recarga. Con cargador: lo sueltas, la mano trae otro, lo encaja (golpe) y, si estaba
+	-- vacía, se monta. Escopetas: cartucho a cartucho y bombeo al final. Va al ritmo de los sonidos.
 	local reloadCF = CFrame.new()
-	if reloadStart then
-		local r = math.sin(ClientState.ReloadProgress * math.pi)
-		reloadCF = CFrame.new(0, -0.35 * r, 0) * CFrame.Angles(math.rad(-20) * r, 0, math.rad(35) * r)
+	local magOffset, magFade, leftOffset, rightOffset = nil, 0, nil, nil
+	local slideBack, pumpBack, boltBack = 0, 0, 0
+	local p = reloadStart and ClientState.ReloadProgress or -1
+	local shotgun = (def.Pellets or 1) > 1 and #moving.Mag == 0
+	if p >= 0 then
+		local tilt = window(p, 0, 0.12) * (1 - window(p, 0.86, 1))
+		local seat = pulse(p, 0.57, 0.05)
+		local function aroundMag(rotation) -- (gira sobre su propio centro)
+			return CFrame.new(magCenter) * rotation * CFrame.new(-magCenter)
+		end
+		if magCenter and not shotgun then
+			-- Cargador fuera (cae acelerando y desaparece) y el nuevo sube desde abajo
+			if p < 0.3 then
+				local out = window(p, 0.1, 0.26)
+				magOffset = CFrame.new(0, -1.8 * out * out, 0.12 * out) * aroundMag(CFrame.Angles(math.rad(-15) * out, 0, 0))
+				magFade = out
+			else
+				local into = window(p, 0.34, 0.55)
+				magOffset = CFrame.new(0, -0.9 * (1 - into), 0.15 * (1 - into)) * aroundMag(CFrame.Angles(math.rad(-10) * (1 - into), 0, 0))
+				magFade = 1 - window(p, 0.3, 0.38)
+			end
+			-- La mano izquierda baja a por el cargador nuevo, lo sube hasta su sitio y vuelve
+			local hand = def.LeftHand or magCenter
+			local grab = window(p, 0.14, 0.28) * (1 - window(p, 0.58, 0.72))
+			local bottom = magCenter + Vector3.new(0, -0.35, 0.05) - hand
+			local follow = p < 0.3 and Vector3.new(0, -0.9 * window(p, 0.16, 0.3), 0.15 * window(p, 0.16, 0.3))
+				or magOffset.Position
+			leftOffset = CFrame.new((bottom + follow) * grab)
+			reloadCF = CFrame.new(-0.08 * tilt, -0.1 * tilt + 0.05 * seat, 0.05 * tilt)
+				* CFrame.Angles(math.rad(8) * tilt + math.rad(4) * seat, math.rad(-10) * tilt, math.rad(28) * tilt)
+		elseif shotgun then
+			-- Cartuchos: la mano va de la cartuchera a la ventana de carga cuatro veces
+			local active = window(p, 0.08, 0.16) * (1 - window(p, 0.78, 0.84))
+			local push = 0
+			for _, at in { 0.2, 0.38, 0.56, 0.74 } do
+				push = math.max(push, pulse(p, at, 0.07))
+			end
+			local port = Vector3.new(0, -0.32, -0.15) - (def.LeftHand or Vector3.new(0, -0.3, -1))
+			if active > 0.001 then
+				leftOffset = CFrame.new((port + Vector3.new(0.1, -0.55, 0.25) * (1 - push)) * active)
+			end
+			reloadCF = CFrame.new(-0.05 * tilt, -0.08 * tilt + 0.03 * push * active, 0)
+				* CFrame.Angles(math.rad(12) * tilt, math.rad(-8) * tilt, math.rad(-32) * tilt)
+			pumpBack = pulse(p, 0.91, 0.06)
+		else
+			-- Lanzacohetes, ballesta, revólver...: la mano baja, trae la munición y la mete
+			local fetch = pulse(p, 0.38, 0.22)
+			leftOffset = CFrame.new(0.1 * fetch, -0.8 * fetch, 0.2 * fetch)
+			reloadCF = CFrame.new(0, -0.3 * tilt + 0.04 * seat, 0) * CFrame.Angles(math.rad(-18) * tilt, 0, math.rad(30) * tilt)
+		end
+		-- Montar el arma (si estaba vacía): tirón seco hacia atrás
+		if reloadWasEmpty and not shotgun then
+			local charge = pulse(p, 0.88, 0.05)
+			reloadCF *= CFrame.new(0, 0, 0.06 * charge) * CFrame.Angles(math.rad(-3) * charge, 0, math.rad(-6) * charge)
+			slideBack = p < 0.86 and 1 or 0
+		end
+	elseif def.Type == "Gun" then
+		local t = now - lastShot
+		-- Corredera de las pistolas: atrás y adelante en cada disparo; abierta si te quedas sin balas
+		slideBack = localAmmo <= 0 and 1 or (t < 0.03 and t / 0.03 or math.max(0, 1 - (t - 0.03) / 0.07))
+		local manual = def.FireRate <= 1.6 and not def.Explosive and localAmmo > 0
+		if manual and t < 0.7 then
+			local cycle = (t - 0.14) / 0.36
+			if cycle > 0 and cycle < 1 then
+				local motion = math.sin(cycle * math.pi)
+				if def.Pellets > 1 then
+					-- Bombeo de la escopeta (con la mano izquierda en el guardamanos)
+					pumpBack = motion
+					reloadCF = CFrame.Angles(math.rad(-3) * motion, 0, math.rad(-4) * motion)
+				elseif boltCenter then
+					-- Cerrojo: la mano derecha va a la manilla, la abre, tira y la cierra
+					boltBack = motion
+					local reach = smooth(math.min(cycle / 0.2, (1 - cycle) / 0.2))
+					rightOffset = CFrame.new((boltCenter - (def.RightHand or boltCenter) + Vector3.new(0.05, 0, 0.1)) * reach + Vector3.new(0, 0, 0.3 * motion))
+					reloadCF = CFrame.new(0, -0.04 * reach, 0) * CFrame.Angles(0, 0, math.rad(-14) * reach)
+				end
+			end
+		end
 	end
 
-	-- Sacar arma
-	local e = 1 - math.clamp((now - equipTime) / 0.3, 0, 1)
-	local equipCF = CFrame.new(0, -0.8 * e * e, 0) * CFrame.Angles(math.rad(-40) * e, 0, 0)
+	-- Sacar arma: sube desde abajo girando y se asienta con un pequeño rebote
+	local e = math.clamp((now - equipTime) / 0.4, 0, 1)
+	local c1, c3 = 1.70158, 2.70158
+	local raise = 1 + c3 * (e - 1) ^ 3 + c1 * (e - 1) ^ 2 -- (sale un poco de más y vuelve)
+	local down = 1 - raise
+	local equipCF = CFrame.new(0.15 * down, -0.9 * down, 0.1 * down) * CFrame.Angles(math.rad(-50) * down, math.rad(15) * down, math.rad(-25) * down)
 
-	-- Cuchillazo / golpe rápido
+	-- Cuerpo a cuerpo: golpe rápido (el impacto es al instante) y vuelta más lenta, alternando lado
 	local meleeCF = CFrame.new()
-	local m = (now - meleeTime) / 0.35
+	local m = (now - meleeTime) / meleeDuration
 	if m < 1 then
-		local k = math.sin(m * math.pi)
+		local k = m < 0.3 and 1 - (1 - m / 0.3) ^ 3 or 1 - smooth((m - 0.3) / 0.7)
+		local side = meleeSide
 		if meleeWithKnife then
-			meleeCF = CFrame.new(-0.6 * k, 0.2 * k, -0.6 * k)
-				* CFrame.Angles(math.rad(-20) * k, math.rad(70) * k, math.rad(-30) * k)
+			meleeCF = CFrame.new(-0.6 * k * side, 0.15 * k, -0.6 * k)
+				* CFrame.Angles(math.rad(-20) * k, math.rad(70) * k * side, math.rad(-35) * k * side)
 		else
-			meleeCF = CFrame.new(-0.3 * k, 0, -0.5 * k) * CFrame.Angles(0, math.rad(30) * k, math.rad(20) * k)
+			-- Culatazo con el arma de fuego
+			meleeCF = CFrame.new(-0.3 * k, 0.05 * k, -0.55 * k) * CFrame.Angles(math.rad(10) * k, math.rad(30) * k, math.rad(25) * k)
 		end
 	end
 
@@ -32369,10 +32605,6 @@ local function renderStep(dt)
 	local inspectCF = CFrame.new()
 	local it = (now - inspectTime) / INSPECT_TIME
 	if it < 1 then
-		local function smooth(x)
-			x = math.clamp(x, 0, 1)
-			return x * x * (3 - 2 * x)
-		end
 		local envelope = smooth(math.min(it / 0.18, (1 - it) / 0.18))
 		local turn = smooth((it - 0.18) / 0.64)
 		local yaw = math.rad(70 + (-45 - 70) * turn)
@@ -32386,7 +32618,25 @@ local function renderStep(dt)
 	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting
 	setViewmodelHidden(hide)
 	if not hide then -- oculta no hace falta moverla cada fotograma
-		viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
+		viewmodel:PivotTo(
+			camera.CFrame * bob * breath * sway * airCF * strafeTilt * base * sprintCF * wallCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF
+		)
+		-- Piezas móviles (después de colocar el arma entera)
+		local handle = viewmodel.PrimaryPart
+		if handle then
+			local handleCF = handle.CFrame
+			placeGroup("Mag", handleCF, magOffset, magFade)
+			placeGroup("Slide", handleCF, slideBack > 0.001 and CFrame.new(0, 0, 0.16 * slideBack) or nil)
+			local pumpCF = pumpBack > 0.001 and CFrame.new(0, 0, 0.36 * pumpBack) or nil
+			placeGroup("Pump", handleCF, pumpCF)
+			placeGroup("Bolt", handleCF, boltBack > 0.001 and CFrame.new(0, 0.04 * boltBack, 0.3 * boltBack) or nil)
+			-- La mano izquierda acompaña a la bomba de la escopeta
+			if pumpCF and not leftOffset then
+				leftOffset = pumpCF
+			end
+			placeGroup("Left", handleCF, leftOffset)
+			placeGroup("Right", handleCF, rightOffset)
+		end
 		swingCharm(dt)
 	end
 end
