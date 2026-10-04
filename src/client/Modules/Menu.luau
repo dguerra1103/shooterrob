@@ -1751,10 +1751,10 @@ local function buildShopPage(data)
 
 	-- Pack de Halloween (compra única, hasta que acaba el evento)
 	local bundle = Shop.HalloweenBundle
-	if data.HalloweenBundleAvailable then
+	if data.HalloweenBundleAvailable and os.time() < bundle.EndsAt then
 		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
 		local card = UI.new("Frame", {
-			LayoutOrder = 0,
+			LayoutOrder = -1,
 			Size = UDim2.new(1, -10, 0, 130),
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			Parent = scroll,
@@ -1811,6 +1811,14 @@ local function buildShopPage(data)
 			buyBundle.AutoButtonColor = false
 			buyBundle.Text = "Procesando..."
 			MarketplaceService:PromptProductPurchase(player, bundle.ProductId)
+			-- (si la compra no llega a entregarse, el botón vuelve a funcionar)
+			task.delay(20, function()
+				if buyBundle.Parent and buyBundle.Text == "Procesando..." then
+					buyBundle.Active = true
+					buyBundle.AutoButtonColor = true
+					buyBundle.Text = "R$ " .. bundle.Robux .. "  ¡COMPRAR!"
+				end
+			end)
 		end)
 	end
 

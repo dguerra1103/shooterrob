@@ -9394,6 +9394,18 @@ end
 -- Noria gigante de fondo (en el plano XY local, mirando hacia el mapa)
 local function ferrisWheel(cf, radius)
 	local hub = cf * CFrame.new(0, radius + 5, 0)
+	-- La rueda gira despacio en el cliente (WorldFX: Orbit); las cabinas siguen derechas
+	local axis = hub.LookVector
+	local function spin(part, anchor)
+		part:SetAttribute("Orbit", 7)
+		part:SetAttribute("OrbitCenter", hub.Position)
+		part:SetAttribute("OrbitAxis", axis)
+		if anchor then
+			part:SetAttribute("OrbitUpright", true)
+			part:SetAttribute("OrbitAnchor", anchor)
+		end
+		return part
+	end
 	for _, z in { -3.5, 3.5 } do
 		for _, s in { -1, 1 } do
 			local foot = (cf * CFrame.new(s * radius * 0.6, 0, z * 1.6)).Position
@@ -9407,11 +9419,11 @@ local function ferrisWheel(cf, radius)
 	for i = 0, segments - 1 do
 		local around = hub * CFrame.Angles(0, 0, i / segments * 2 * math.pi)
 		for _, z in { -1.6, 1.6 } do
-			Kit.deco("WheelRim", V(segLength, 0.7, 0.7), around * CFrame.new(0, radius, z), i % 2 == 0 and RED or CREAM, SMOOTH)
+			spin(Kit.deco("WheelRim", V(segLength, 0.7, 0.7), around * CFrame.new(0, radius, z), i % 2 == 0 and RED or CREAM, SMOOTH))
 		end
 		if i % 2 == 0 then
-			Kit.deco("WheelSpoke", V(0.35, radius, 0.35), around * CFrame.new(0, radius / 2, 0), CREAM, SMOOTH)
-			Kit.ball("WheelBulb", 0.7, around * CFrame.new(0, radius + 0.6, 0), NEON_BULB, Enum.Material.Neon, true).CastShadow = false
+			spin(Kit.deco("WheelSpoke", V(0.35, radius, 0.35), around * CFrame.new(0, radius / 2, 0), CREAM, SMOOTH))
+			spin(Kit.ball("WheelBulb", 0.7, around * CFrame.new(0, radius + 0.6, 0), NEON_BULB, Enum.Material.Neon, true)).CastShadow = false
 		end
 		if i % 4 == 0 then
 			-- Cabina colgando (siempre derecha)
@@ -9419,9 +9431,9 @@ local function ferrisWheel(cf, radius)
 			local cabinColors = { TEAL, PINK, GOLD, PURPLE, RGB(90, 200, 90), RED, RGB(60, 140, 240) }
 			local color = cabinColors[(i / 4) % #cabinColors + 1]
 			local base = CFrame.new(p) * (cf - cf.Position)
-			Kit.deco("WheelCabin", V(4, 2.6, 3.4), base * CFrame.new(0, -2.6, 0), color, SMOOTH)
-			Kit.deco("WheelCabinRoof", V(4.4, 0.5, 3.8), base * CFrame.new(0, -1.1, 0), CREAM, SMOOTH)
-			Kit.deco("WheelCabinBar", V(0.3, 1, 0.3), base * CFrame.new(0, -0.5, 0), CREAM, SMOOTH)
+			spin(Kit.deco("WheelCabin", V(4, 2.6, 3.4), base * CFrame.new(0, -2.6, 0), color, SMOOTH), p)
+			spin(Kit.deco("WheelCabinRoof", V(4.4, 0.5, 3.8), base * CFrame.new(0, -1.1, 0), CREAM, SMOOTH), p)
+			spin(Kit.deco("WheelCabinBar", V(0.3, 1, 0.3), base * CFrame.new(0, -0.5, 0), CREAM, SMOOTH), p)
 		end
 	end
 end
@@ -18347,6 +18359,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
 
 local player = Players.LocalPlayer
 
@@ -18409,6 +18422,11 @@ local function onHit(humanoid)
 	if userId == player.UserId then
 		return -- (tu propio cohete o granada)
 	end
+	-- Con escudo (al reaparecer o en la pantalla de inicio) el disparo no hace daño: sin marca
+	local character = humanoid.Parent
+	if ClientState.Dead or ClientState.InMainMenu or (character and character:FindFirstChildOfClass("ForceField")) then
+		return
+	end
 	local source = userId and { UserId = userId } or (bot and { Bot = bot }) or nil
 	if not source then
 		return
@@ -18437,6 +18455,10 @@ end
 
 local function update()
 	if #marks == 0 then
+		return
+	end
+	if ClientState.Dead or ClientState.InMainMenu then
+		clear()
 		return
 	end
 	local camera = workspace.CurrentCamera
@@ -25175,10 +25197,10 @@ local function buildShopPage(data)
 
 	-- Pack de Halloween (compra única, hasta que acaba el evento)
 	local bundle = Shop.HalloweenBundle
-	if data.HalloweenBundleAvailable then
+	if data.HalloweenBundleAvailable and os.time() < bundle.EndsAt then
 		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
 		local card = UI.new("Frame", {
-			LayoutOrder = 0,
+			LayoutOrder = -1,
 			Size = UDim2.new(1, -10, 0, 130),
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			Parent = scroll,
@@ -25235,6 +25257,14 @@ local function buildShopPage(data)
 			buyBundle.AutoButtonColor = false
 			buyBundle.Text = "Procesando..."
 			MarketplaceService:PromptProductPurchase(player, bundle.ProductId)
+			-- (si la compra no llega a entregarse, el botón vuelve a funcionar)
+			task.delay(20, function()
+				if buyBundle.Parent and buyBundle.Text == "Procesando..." then
+					buyBundle.Active = true
+					buyBundle.AutoButtonColor = true
+					buyBundle.Text = "R$ " .. bundle.Robux .. "  ¡COMPRAR!"
+				end
+			end)
 		end)
 	end
 
@@ -28848,6 +28878,8 @@ return Wheel
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
 --  * Piezas del mapa con atributo Spin (grados/seg) giran y con Bob (studs) flotan
+--  * Con Orbit (grados/seg) giran alrededor de OrbitCenter sobre el eje OrbitAxis (la noria);
+--    con OrbitUpright solo se mueven sin girar (las cabinas siguen derechas), colgando de OrbitAnchor
 --  * Contorno de color en los compañeros de equipo (visible a través de paredes)
 --  * Oculta el nombre de los enemigos
 --  * Explosión de partículas cuando alguien es eliminado
@@ -28873,13 +28905,20 @@ local function track(inst)
 	local bob = inst:GetAttribute("Bob")
 	local blink = inst:GetAttribute("Blink")
 	local sweep = inst:GetAttribute("Sweep")
-	if spin or bob or blink or sweep then
+	local orbit = inst:GetAttribute("Orbit")
+	if spin or bob or blink or sweep or orbit then
+		local center, axis = inst:GetAttribute("OrbitCenter"), inst:GetAttribute("OrbitAxis")
 		animated[inst] = {
 			Base = inst.CFrame,
 			Spin = spin or 0,
 			Bob = bob or 0,
 			Blink = blink,
 			Sweep = sweep,
+			Orbit = (orbit and typeof(center) == "Vector3" and typeof(axis) == "Vector3" and axis.Magnitude > 0) and orbit or nil,
+			OrbitCenter = center,
+			OrbitAxis = typeof(axis) == "Vector3" and axis.Magnitude > 0 and axis.Unit or nil,
+			OrbitUpright = inst:GetAttribute("OrbitUpright") == true,
+			OrbitAnchor = typeof(inst:GetAttribute("OrbitAnchor")) == "Vector3" and inst:GetAttribute("OrbitAnchor") or nil,
 			BaseTransparency = inst.Transparency,
 			Phase = math.random() * 10,
 		}
@@ -28898,7 +28937,14 @@ local function animate()
 			local on = math.sin((t + info.Phase) * math.pi * 2 / info.Blink) > 0
 			part.Transparency = on and info.BaseTransparency or 0.95
 		end
-		if info.Sweep then
+		if info.Orbit then
+			local turn = CFrame.fromAxisAngle(info.OrbitAxis, math.rad(info.Orbit * t))
+			-- (con ancla, la pieza sigue a su punto de enganche sin girar su propio desplazamiento)
+			local anchor = info.OrbitAnchor or info.Base.Position
+			local position = info.OrbitCenter + turn * (anchor - info.OrbitCenter) + (info.Base.Position - anchor)
+			local rotation = info.Base - info.Base.Position
+			part.CFrame = CFrame.new(position) * (info.OrbitUpright and rotation or (turn * rotation))
+		elseif info.Sweep then
 			-- Haz de luz que barre a un lado y a otro desde su base
 			local pivot = (info.Base * CFrame.new(0, -part.Size.Y / 2, 0)).Position
 			local angle = math.rad(info.Sweep) * math.sin(t * 0.4 + info.Phase)

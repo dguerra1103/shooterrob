@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
 
 local player = Players.LocalPlayer
 
@@ -67,6 +68,11 @@ local function onHit(humanoid)
 	if userId == player.UserId then
 		return -- (tu propio cohete o granada)
 	end
+	-- Con escudo (al reaparecer o en la pantalla de inicio) el disparo no hace daño: sin marca
+	local character = humanoid.Parent
+	if ClientState.Dead or ClientState.InMainMenu or (character and character:FindFirstChildOfClass("ForceField")) then
+		return
+	end
 	local source = userId and { UserId = userId } or (bot and { Bot = bot }) or nil
 	if not source then
 		return
@@ -95,6 +101,10 @@ end
 
 local function update()
 	if #marks == 0 then
+		return
+	end
+	if ClientState.Dead or ClientState.InMainMenu then
+		clear()
 		return
 	end
 	local camera = workspace.CurrentCamera

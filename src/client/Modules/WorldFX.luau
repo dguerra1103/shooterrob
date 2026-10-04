@@ -1,5 +1,7 @@
 -- Efectos del mundo en el cliente:
 --  * Piezas del mapa con atributo Spin (grados/seg) giran y con Bob (studs) flotan
+--  * Con Orbit (grados/seg) giran alrededor de OrbitCenter sobre el eje OrbitAxis (la noria);
+--    con OrbitUpright solo se mueven sin girar (las cabinas siguen derechas), colgando de OrbitAnchor
 --  * Contorno de color en los compañeros de equipo (visible a través de paredes)
 --  * Oculta el nombre de los enemigos
 --  * Explosión de partículas cuando alguien es eliminado
@@ -25,13 +27,20 @@ local function track(inst)
 	local bob = inst:GetAttribute("Bob")
 	local blink = inst:GetAttribute("Blink")
 	local sweep = inst:GetAttribute("Sweep")
-	if spin or bob or blink or sweep then
+	local orbit = inst:GetAttribute("Orbit")
+	if spin or bob or blink or sweep or orbit then
+		local center, axis = inst:GetAttribute("OrbitCenter"), inst:GetAttribute("OrbitAxis")
 		animated[inst] = {
 			Base = inst.CFrame,
 			Spin = spin or 0,
 			Bob = bob or 0,
 			Blink = blink,
 			Sweep = sweep,
+			Orbit = (orbit and typeof(center) == "Vector3" and typeof(axis) == "Vector3" and axis.Magnitude > 0) and orbit or nil,
+			OrbitCenter = center,
+			OrbitAxis = typeof(axis) == "Vector3" and axis.Magnitude > 0 and axis.Unit or nil,
+			OrbitUpright = inst:GetAttribute("OrbitUpright") == true,
+			OrbitAnchor = typeof(inst:GetAttribute("OrbitAnchor")) == "Vector3" and inst:GetAttribute("OrbitAnchor") or nil,
 			BaseTransparency = inst.Transparency,
 			Phase = math.random() * 10,
 		}
@@ -50,7 +59,14 @@ local function animate()
 			local on = math.sin((t + info.Phase) * math.pi * 2 / info.Blink) > 0
 			part.Transparency = on and info.BaseTransparency or 0.95
 		end
-		if info.Sweep then
+		if info.Orbit then
+			local turn = CFrame.fromAxisAngle(info.OrbitAxis, math.rad(info.Orbit * t))
+			-- (con ancla, la pieza sigue a su punto de enganche sin girar su propio desplazamiento)
+			local anchor = info.OrbitAnchor or info.Base.Position
+			local position = info.OrbitCenter + turn * (anchor - info.OrbitCenter) + (info.Base.Position - anchor)
+			local rotation = info.Base - info.Base.Position
+			part.CFrame = CFrame.new(position) * (info.OrbitUpright and rotation or (turn * rotation))
+		elseif info.Sweep then
 			-- Haz de luz que barre a un lado y a otro desde su base
 			local pivot = (info.Base * CFrame.new(0, -part.Size.Y / 2, 0)).Position
 			local angle = math.rad(info.Sweep) * math.sin(t * 0.4 + info.Phase)

@@ -210,6 +210,18 @@ end
 -- Noria gigante de fondo (en el plano XY local, mirando hacia el mapa)
 local function ferrisWheel(cf, radius)
 	local hub = cf * CFrame.new(0, radius + 5, 0)
+	-- La rueda gira despacio en el cliente (WorldFX: Orbit); las cabinas siguen derechas
+	local axis = hub.LookVector
+	local function spin(part, anchor)
+		part:SetAttribute("Orbit", 7)
+		part:SetAttribute("OrbitCenter", hub.Position)
+		part:SetAttribute("OrbitAxis", axis)
+		if anchor then
+			part:SetAttribute("OrbitUpright", true)
+			part:SetAttribute("OrbitAnchor", anchor)
+		end
+		return part
+	end
 	for _, z in { -3.5, 3.5 } do
 		for _, s in { -1, 1 } do
 			local foot = (cf * CFrame.new(s * radius * 0.6, 0, z * 1.6)).Position
@@ -223,11 +235,11 @@ local function ferrisWheel(cf, radius)
 	for i = 0, segments - 1 do
 		local around = hub * CFrame.Angles(0, 0, i / segments * 2 * math.pi)
 		for _, z in { -1.6, 1.6 } do
-			Kit.deco("WheelRim", V(segLength, 0.7, 0.7), around * CFrame.new(0, radius, z), i % 2 == 0 and RED or CREAM, SMOOTH)
+			spin(Kit.deco("WheelRim", V(segLength, 0.7, 0.7), around * CFrame.new(0, radius, z), i % 2 == 0 and RED or CREAM, SMOOTH))
 		end
 		if i % 2 == 0 then
-			Kit.deco("WheelSpoke", V(0.35, radius, 0.35), around * CFrame.new(0, radius / 2, 0), CREAM, SMOOTH)
-			Kit.ball("WheelBulb", 0.7, around * CFrame.new(0, radius + 0.6, 0), NEON_BULB, Enum.Material.Neon, true).CastShadow = false
+			spin(Kit.deco("WheelSpoke", V(0.35, radius, 0.35), around * CFrame.new(0, radius / 2, 0), CREAM, SMOOTH))
+			spin(Kit.ball("WheelBulb", 0.7, around * CFrame.new(0, radius + 0.6, 0), NEON_BULB, Enum.Material.Neon, true)).CastShadow = false
 		end
 		if i % 4 == 0 then
 			-- Cabina colgando (siempre derecha)
@@ -235,9 +247,9 @@ local function ferrisWheel(cf, radius)
 			local cabinColors = { TEAL, PINK, GOLD, PURPLE, RGB(90, 200, 90), RED, RGB(60, 140, 240) }
 			local color = cabinColors[(i / 4) % #cabinColors + 1]
 			local base = CFrame.new(p) * (cf - cf.Position)
-			Kit.deco("WheelCabin", V(4, 2.6, 3.4), base * CFrame.new(0, -2.6, 0), color, SMOOTH)
-			Kit.deco("WheelCabinRoof", V(4.4, 0.5, 3.8), base * CFrame.new(0, -1.1, 0), CREAM, SMOOTH)
-			Kit.deco("WheelCabinBar", V(0.3, 1, 0.3), base * CFrame.new(0, -0.5, 0), CREAM, SMOOTH)
+			spin(Kit.deco("WheelCabin", V(4, 2.6, 3.4), base * CFrame.new(0, -2.6, 0), color, SMOOTH), p)
+			spin(Kit.deco("WheelCabinRoof", V(4.4, 0.5, 3.8), base * CFrame.new(0, -1.1, 0), CREAM, SMOOTH), p)
+			spin(Kit.deco("WheelCabinBar", V(0.3, 1, 0.3), base * CFrame.new(0, -0.5, 0), CREAM, SMOOTH), p)
 		end
 	end
 end
