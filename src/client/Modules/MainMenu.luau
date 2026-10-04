@@ -376,15 +376,33 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "5 MODOS  ·  14 ARMAS  ·  RETOS DIARIOS",
+		Text = "9 MAPAS  ·  5 MODOS  ·  14 ARMAS  ·  HABILIDADES",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = left,
 	})
+	-- Novedades (late para llamar la atención)
+	local news = UI.label({
+		Position = UDim2.fromOffset(4, 142),
+		Size = UDim2.new(1, 0, 0, 26),
+		Text = "🆕 NUEVO: Pastel Plaza · Jardín Sakura · Playa Tiki · Emotes (N)",
+		TextSize = 19,
+		TextColor3 = Color3.fromRGB(255, 225, 90),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = left,
+	})
+	task.spawn(function()
+		while news.Parent do
+			TweenService:Create(news, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { TextTransparency = 0.35 }):Play()
+			task.wait(0.9)
+			TweenService:Create(news, TweenInfo.new(0.9, Enum.EasingStyle.Sine), { TextTransparency = 0 }):Play()
+			task.wait(0.9)
+		end
+	end)
 
 	local buttons = UI.new("Frame", {
-		Position = UDim2.fromOffset(0, 175),
+		Position = UDim2.fromOffset(0, 182),
 		Size = UDim2.fromOffset(300, 440),
 		BackgroundTransparency = 1,
 		Parent = left,
