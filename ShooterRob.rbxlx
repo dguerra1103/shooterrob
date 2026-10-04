@@ -16249,6 +16249,24 @@ function Map.Build()
 		end
 	end)
 
+	-- Con tormenta: hormigón mojado (brilla un poco) y charcos por los caminos
+	if Kit.Weather == "Rain" then
+		for _, part in folder:GetDescendants() do
+			if part:IsA("BasePart") and (part.Name == "MainRoad" or part.Name == "CrossRoad") then
+				part.Color = part.Color:Lerp(RGB(0, 0, 0), 0.25)
+				part.Reflectance = 0.12
+			end
+		end
+		for i, p in { V(-150, 0, 4), V(-96, 0, -5), V(-60, 0, 7), V(-20, 0, -4), V(4, 0, 60), V(-4, 0, -70), V(-110, 0, 62), V(-80, 0, -56) } do
+			for _, q in { p, Kit.MIRROR * p } do
+				local onRoad = math.abs(q.Z) < 11 or math.abs(q.X) < 10
+				local puddle = Kit.cylinder("Puddle", 0.04, 3 + (i % 3) * 1.5, CFrame.new(q + V(0, onRoad and 0.43 or 0.03, 0)), RGB(62, 66, 72), M.SmoothPlastic, nil, true)
+				puddle.Reflectance = 0.35
+				puddle.CastShadow = false
+			end
+		end
+	end
+
 	-- Zonas de salida, banderas y límites
 	local spawnStyle = { Floor = RGB(118, 118, 114), FloorMaterial = M.Concrete, Roof = OLIVE_DARK, RoofMaterial = M.CorrodedMetal }
 	Kit.spawnArea(teams[1], CFrame.new(-184, 0, 0), spawnStyle)
