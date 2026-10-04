@@ -74,9 +74,10 @@ end
 local function tower(position, diameter, height, roofColor)
 	Kit.cylinder("Tower", height, diameter, CFrame.new(position + V(0, height / 2, 0)), STONE, COBBLE)
 	Kit.cylinder("TowerRing", 1, diameter + 0.8, CFrame.new(position + V(0, height - 0.5, 0)), STONE_DARK, COBBLE, nil, true)
+	-- (el tejado es sólido: si no, alguien podría meterse dentro de un supersalto y disparar sin ser visto)
 	for i = 0, 5 do
 		local d = (diameter + 1) * (1 - i / 6)
-		Kit.cylinder("TowerRoof", 1.4, d, CFrame.new(position + V(0, height + 0.7 + i * 1.4, 0)), roofColor, SMOOTH, nil, true)
+		Kit.cylinder("TowerRoof", 1.4, d, CFrame.new(position + V(0, height + 0.7 + i * 1.4, 0)), roofColor, SMOOTH)
 	end
 	local flagPole = position + V(0, height + 9.5, 0)
 	Kit.cylinder("FlagPole", 4, 0.25, CFrame.new(flagPole), WOOD_DARK, Enum.Material.Wood, nil, true)
@@ -103,7 +104,7 @@ end
 
 local function well(cf)
 	Kit.cylinder("Well", 2.4, 5, cf * CFrame.new(0, 1.2, 0), STONE, COBBLE)
-	Kit.cylinder("WellWater", 0.1, 4, cf * CFrame.new(0, 2.3, 0), RGB(70, 140, 200), SMOOTH, nil, true)
+	Kit.cylinder("WellWater", 0.1, 4, cf * CFrame.new(0, 2.45, 0), RGB(70, 140, 200), SMOOTH, nil, true)
 	for _, x in { -2.2, 2.2 } do
 		Kit.deco("WellPost", V(0.4, 4, 0.4), cf * CFrame.new(x, 4, 0), WOOD_DARK, Enum.Material.Wood)
 	end
@@ -155,11 +156,12 @@ function Map.Build()
 		-- Escalera exterior a la azotea de la torre y almenas de su lado
 		Kit.stairs(m * V(-KEEP - 15.8, 0, 6), m * V(-KEEP - 0.2, KEEP_H, 6), 3, STONE, COBBLE)
 		battlements(m * V(-KEEP + 0.9, 0, -KEEP + 0.9), m * V(-KEEP + 0.9, 0, KEEP - 0.9), KEEP_H, { m * V(-KEEP + 0.9, 0, 6) })
-		battlements(m * V(-KEEP + 0.9, 0, KEEP - 0.9), m * V(KEEP - 0.9, 0, KEEP - 0.9), KEEP_H)
+		battlements(m * V(-KEEP + 0.9, 0, KEEP - 0.9), m * V(KEEP - 0.9, 0, KEEP - 0.9), KEEP_H, { m * V(-5.3, 0, KEEP - 0.9) })
 
 		-- Muralla con tres pasos y rampa al adarve
 		local wallX = -48
-		for _, seg in { { -50, -30 }, { -18, -6 }, { 6, 18 }, { 30, 50 } } do
+		-- (los tramos de los extremos llegan al límite del mapa: solo se cruza por los tres pasos)
+		for _, seg in { { -65, -30 }, { -18, -6 }, { 6, 18 }, { 30, 65 } } do
 			local len = seg[2] - seg[1]
 			local cz = (seg[1] + seg[2]) / 2
 			-- (4 de ancho: las almenas van por el lado del centro y queda un adarve para andar)
@@ -182,7 +184,7 @@ function Map.Build()
 		Kit.barrel(m * CFrame.new(-12, 0, 18), WOOD)
 		Kit.barrel(m * CFrame.new(-14.3, 0, 19.5), WOOD_DARK)
 		Kit.crate(m * CFrame.new(-36, 0, -42), 4, WOOD)
-		Kit.crate(m * CFrame.new(-33, 0, -45), 3.5, WOOD)
+		Kit.crate(m * CFrame.new(-31.5, 0, -46), 3.5, WOOD)
 		Kit.crate(m * CFrame.new(-62, 0, 24), 4, WOOD)
 		Kit.crate(m * CFrame.new(-64, 0, -26), 4, WOOD)
 		Kit.tree(m * CFrame.new(-20, 0, -48))
@@ -219,7 +221,7 @@ function Map.Build()
 	-- Modos
 	for _, p in {
 		V(-76, 0.5, 8), V(-76, 0.5, -16), V(-56, 0.5, 2), V(-40, 0.5, 30), V(-26, 0.5, -36),
-		V(-49, 7.5, 15), V(-4, KEEP_H + 0.5, -4), V(-20, 0.5, 4), V(-60, 0.5, -44), V(-38, 0.5, 50),
+		V(-49, 7.5, 15), V(-4, KEEP_H + 0.5, -4), V(-20, 0.5, 0), V(-60, 0.5, -44), V(-38, 0.5, 50),
 	} do
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Kit.MIRROR * p)
