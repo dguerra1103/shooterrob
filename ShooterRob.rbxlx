@@ -468,7 +468,7 @@ GameConfig.IntermissionTime = 20
 -- Quita alguno de la lista si no lo quieres.
 GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
-	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
+	TDM = { Name = "Duelo por equipos", ScoreToWin = 50, RoundTime = 10 * 60, Teams = true }, -- puntos = bajas (50 en 10 min, como en los shooters de móvil)
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
 	KOTH = { Name = "Zona de control", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true }, -- 1 punto/seg en la zona
 	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
@@ -504,19 +504,31 @@ GameConfig.Abilities = {
 	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
 	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },
 }
--- Bots: rellenan la partida cuando hay pocos jugadores (se quitan solos al entrar gente)
+-- Bots: rellenan la partida cuando hay pocos jugadores (se quitan solos al entrar gente). Con
+-- FillTo = 10 las partidas por equipos son siempre 5 contra 5 (como en los shooters de móvil).
 GameConfig.Bots = {
 	Enabled = true,
-	FillTo = 6, -- jugadores + bots hasta este número
-	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift", "SplatX" },
-	Range = 140,
-	Accuracy = 0.55, -- probabilidad de acertar a corta distancia
-	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia
+	FillTo = 10, -- jugadores + bots hasta este número (10 = 5 contra 5)
+	-- Roles: cada bot sale con uno (y sus armas). Max = como mucho tantos por equipo.
+	Roles = {
+		{ Name = "Asalto", Weight = 4, Weapons = { "ARX27", "VortexBR" } }, -- fusil: equilibrado
+		{ Name = "Subfusil", Weight = 2.5, Weapons = { "Specter9", "NovaDrift" } }, -- corre y entra a por ti
+		{ Name = "Tirador", Weight = 1.5, Max = 1, Weapons = { "RaptorDMR", "Signal7" } }, -- se aposta lejos (ventanas, alturas)
+		{ Name = "Escopeta", Weight = 1, Max = 1, Weapons = { "HavocPump" } }, -- distancia corta, muy agresivo
+		{ Name = "Ametralladora", Weight = 1, Max = 1, Weapons = { "TitanLMG" } }, -- aguanta una línea
+	},
+	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift" }, -- (si no hay Roles)
+	Range = 160,
+	Accuracy = 0.55, -- probabilidad de acertar a corta distancia (con la puntería ya asentada)
+	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia (menos con fusiles de precisión)
 	DamageScale = 0.55, -- los bots hacen menos daño que un jugador
-	Reaction = 0.5, -- segundos antes de empezar a disparar a un objetivo nuevo
-	MaxFireRate = 6, -- disparos por segundo como máximo
-	WalkSpeed = 16,
-	JumpChance = 0.2, -- probabilidad de saltar en cada cambio de dirección mientras pelea
+	Reaction = 0.45, -- segundos antes de empezar a disparar a un objetivo nuevo (varía con cada bot)
+	MaxFireRate = 8, -- disparos por segundo como máximo
+	WalkSpeed = 18, -- peleando (como un jugador andando)
+	SprintSpeed = 25, -- de camino, sin enemigos cerca (como un jugador corriendo)
+	JumpChance = 0.06, -- probabilidad de saltar en cada cambio de dirección mientras pelea
+	Hearing = 1, -- multiplica la distancia a la que oyen los disparos (110 studs; con silenciador 25)
+	GrenadeCooldown = 18, -- segundos entre granadas de cada bot
 	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
 	-- Puntería y daño contra cada jugador según su rango (Bronce, Plata, Oro, Platino, Diamante,
 	-- Campeón): con los novatos son más blandos y con los mejores aprietan más
@@ -704,6 +716,12 @@ GameConfig.PlaytimeGifts = {
 	{ Minutes = 30, Revives = 2 },
 	{ Minutes = 45, Coins = 300 },
 }
+-- Vida que se recupera sola (como en los shooters de móvil): tras Delay segundos sin daño sube
+-- PerSecond puntos por segundo hasta llenarse
+GameConfig.HealthRegen = { Enabled = true, Delay = 4, PerSecond = 35 }
+-- Apariciones dinámicas (Duelo por equipos, Zona y Calabazas): al reaparecer, en el punto del mapa
+-- más seguro (lejos de los enemigos, cerca de tu equipo) en vez de en la base. false = siempre en la base
+GameConfig.DynamicSpawns = true
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = false -- muñecos de práctica quietos (ya no hacen falta: los bots sirven para practicar)
 
@@ -5335,6 +5353,7 @@ Weapons.List = {
 
 	GhostlineXR = {
 		DisplayName = "Ghostline XR",
+		Suppressed = true, -- con silenciador: los bots casi no lo oyen
 		Category = "Francotirador",
 		Description = "Supresor y mira de largo alcance. Un tiro al cuerpo basta.",
 		Slot = 1,
@@ -5903,6 +5922,7 @@ local Gifts = require(Modules.Gifts)
 local Friends = require(Modules.Friends)
 local Event = require(Modules.Event)
 local Graffiti = require(Modules.Graffiti)
+local HealthRegen = require(Modules.HealthRegen)
 
 
 -- Arranca cada sistema por separado: si uno falla, se avisa en Output y los demás siguen
@@ -5932,6 +5952,7 @@ start("Gifts", Gifts.Init)
 start("Friends", Friends.Init)
 start("Event", Event.Init)
 start("Graffiti", Graffiti.Init)
+start("HealthRegen", HealthRegen.Init)
 ]]></string>
         </Properties>
       </Item>
@@ -6129,6 +6150,8 @@ local Combat = require(script.Parent.Combat)
 local Pumpkins = require(script.Parent.Pumpkins)
 local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
+local Grenades = require(script.Parent.Grenades)
+local SpawnPicker = require(script.Parent.SpawnPicker)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 
@@ -6159,7 +6182,7 @@ table.sort(BOT_CHARMS)
 local Bots = {}
 
 local CONFIG = GameConfig.Bots
-local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega" }
+local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega", "Bruno", "Sofi", "Leo", "Iris", "Hugo", "Nala", "Thor", "Cleo" }
 
 local folder
 local statsFolder -- ReplicatedStorage.BotStats: una carpeta por bot con Team, Kills, Deaths y Score (marcador)
@@ -6444,7 +6467,9 @@ local function flagGoal(agent)
 	return nil
 end
 
--- Camino hasta un punto al azar del mapa (o la zona activa en Zona de control)
+local laneGoal, bestIntel, chooseRole -- (más abajo)
+
+-- Adónde ir: objetivo del modo, alerta, pista del equipo o su carril
 local function pickGoal(agent)
 	local flagTarget = flagGoal(agent)
 	if typeof(flagTarget) == "Vector3" then
@@ -6470,11 +6495,14 @@ local function pickGoal(agent)
 	if typeof(zone) == "Vector3" and math.random() < 0.75 then
 		return zone + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
 	end
-	refreshPoints()
-	if #ffaPoints == 0 then
-		return nil
+	-- Pista del equipo: va a donde se ha visto u oído al enemigo (los agresivos casi siempre)
+	local clue = bestIntel(agent, 10, 150)
+	local chase = ({ Subfusil = 0.85, Escopeta = 0.85, Asalto = 0.55, Ametralladora = 0.35, Tirador = 0 })[agent.Role or "Asalto"] or 0.5
+	if clue and math.random() < chase then
+		return clue.Position + Vector3.new(math.random(-6, 6), 0, math.random(-6, 6)), true
 	end
-	return ffaPoints[math.random(1, #ffaPoints)]
+	-- Si no, patrulla su carril hasta donde le toca según su rol
+	return laneGoal(agent)
 end
 
 local function computePath(agent, goal)
@@ -6496,39 +6524,317 @@ local function computePath(agent, goal)
 	end
 end
 
-local function shoot(agent, target, distance)
+---------------------------------------------------------------------------
+-- Comportamiento "de jugador": roles, carriles, información del equipo, oído y coberturas
+---------------------------------------------------------------------------
+
+-- Lo que sabe cada equipo de dónde está el enemigo (lo que ve u oye cualquier compañero).
+-- En todos contra todos cada bot tiene lo suyo.
+local intel = {} -- [clave] = { { Position, Time } }
+local INTEL_TIME = 12
+
+local function intelKey(agent)
+	return (teamMode() and agent.Team) and agent.Team.Name or agent.Name
+end
+
+local function reportEnemy(agent, position)
+	local key = intelKey(agent)
+	local list = intel[key]
+	if not list then
+		list = {}
+		intel[key] = list
+	end
+	local now = os.clock()
+	for _, entry in list do
+		if (entry.Position - position).Magnitude < 18 then
+			entry.Position, entry.Time = position, now
+			return
+		end
+	end
+	table.insert(list, { Position = position, Time = now })
+	if #list > 8 then
+		table.remove(list, 1)
+	end
+end
+
+-- La pista más reciente (y cercana) que tiene su equipo
+bestIntel = function(agent, maxAge, maxDistance)
+	local list = intel[intelKey(agent)]
+	if not list or not agent.Root then
+		return nil
+	end
+	local now = os.clock()
+	local best, bestScore = nil, math.huge
+	for _, entry in list do
+		local age = now - entry.Time
+		local distance = (entry.Position - agent.Root.Position).Magnitude
+		if age < maxAge and distance < maxDistance then
+			local score = distance + age * 12
+			if score < bestScore then
+				best, bestScore = entry, score
+			end
+		end
+	end
+	return best
+end
+
+-- Oído: disparos recientes de enemigos a su alcance
+local function hear(agent, now)
+	local noise = Combat.Noise
+	for i = #noise, 1, -1 do
+		local n = noise[i]
+		if now - n.Time > 1.2 then
+			break -- (van en orden: los más nuevos al final)
+		end
+		local enemy = n.Model ~= agent.Model and (not teamMode() or n.Team ~= agent.Team)
+		if enemy and n.Model and n.Model.Parent then
+			local distance = (n.Position - agent.Root.Position).Magnitude
+			if distance < n.Range * (CONFIG.Hearing or 1) then
+				reportEnemy(agent, n.Position)
+				return n.Position
+			end
+		end
+	end
+	return nil
+end
+
+-- Eje del mapa: de la base propia a la enemiga (para repartir carriles y saber hacia dónde avanzar)
+local function mapAxis(agent)
+	refreshPoints()
+	local own, enemy
+	if teamMode() and agent.Team then
+		for _, team in Teams:GetTeams() do
+			local points = spawnsByColor[team.TeamColor.Name]
+			if points and #points > 0 then
+				local sum = Vector3.zero
+				for _, p in points do
+					sum += p
+				end
+				if team == agent.Team then
+					own = sum / #points
+				else
+					enemy = sum / #points
+				end
+			end
+		end
+	end
+	if not own or not enemy or (enemy - own).Magnitude < 20 then
+		return nil
+	end
+	return own, enemy
+end
+
+-- Punto de patrulla según su rol y su carril: los de subfusil y escopeta se meten hasta el fondo,
+-- los de fusil por la mitad y el tirador se queda en su mitad, a ser posible en alto (ventanas).
+local ROLE_DEPTH = {
+	Asalto = { 0.3, 0.75 },
+	Subfusil = { 0.45, 0.98 },
+	Escopeta = { 0.45, 0.98 },
+	Ametralladora = { 0.25, 0.6 },
+	Tirador = { 0.12, 0.5 },
+}
+
+laneGoal = function(agent)
+	refreshPoints()
+	if #ffaPoints == 0 then
+		return nil
+	end
+	local own, enemy = mapAxis(agent)
+	if not own then
+		return ffaPoints[math.random(1, #ffaPoints)]
+	end
+	local axis = Vector3.new(enemy.X - own.X, 0, enemy.Z - own.Z)
+	local length = axis.Magnitude
+	axis = axis.Unit
+	local side = Vector3.new(-axis.Z, 0, axis.X)
+	local middle = (own + enemy) / 2
+	local maxSide = 1
+	for _, p in ffaPoints do
+		maxSide = math.max(maxSide, math.abs((p - middle):Dot(side)))
+	end
+	local depth = ROLE_DEPTH[agent.Role or "Asalto"] or ROLE_DEPTH.Asalto
+	local anyLane = math.random() < 0.2
+	local good, high = {}, {}
+	for _, p in ffaPoints do
+		local progress = (p - own):Dot(axis) / length
+		local lateral = (p - middle):Dot(side) / maxSide
+		local lane = lateral < -0.33 and -1 or (lateral > 0.33 and 1 or 0)
+		if progress >= depth[1] and progress <= depth[2] and (anyLane or lane == agent.Lane) then
+			table.insert(good, p)
+			if p.Y > own.Y + 4 then
+				table.insert(high, p)
+			end
+		end
+	end
+	if agent.Role == "Tirador" and #high > 0 then
+		return high[math.random(1, #high)]
+	end
+	if #good == 0 then
+		return ffaPoints[math.random(1, #ffaPoints)]
+	end
+	return good[math.random(1, #good)]
+end
+
+-- Hacia dónde mira mientras espera en un sitio: hacia el lado enemigo (o la pista más reciente)
+local function watchPoint(agent)
+	local clue = bestIntel(agent, INTEL_TIME, 200)
+	if clue then
+		return clue.Position
+	end
+	local own, enemy = mapAxis(agent)
+	if own then
+		return agent.Root.Position + Vector3.new(enemy.X - own.X, 0, enemy.Z - own.Z).Unit * 50
+	end
+	return agent.Root.Position + agent.Root.CFrame.LookVector * 50
+end
+
+-- Cobertura: un punto cercano desde el que el enemigo no le ve (para retirarse con poca vida)
+local function findCover(agent, target)
+	local root = agent.Root
+	local enemyHead = target.Head.Position
+	local away = Vector3.new(root.Position.X - enemyHead.X, 0, root.Position.Z - enemyHead.Z)
+	away = away.Magnitude > 0.1 and away.Unit or root.CFrame.LookVector * -1
+	local ignore = { agent.Model, target.Model }
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	rayParams.FilterDescendantsInstances = ignore
+	local best
+	for _, angle in { 70, -70, 110, -110, 40, -40, 150, -150 } do
+		local direction = CFrame.Angles(0, math.rad(angle), 0) * away
+		for _, distance in { 9, 15 } do
+			local point = root.Position + direction * distance
+			-- Que se pueda llegar en línea recta y que desde el enemigo no se vea
+			local path = workspace:Raycast(root.Position, direction * distance, rayParams)
+			if not path and safeGround(point) then
+				local seen = workspace:Raycast(enemyHead, (point + Vector3.new(0, 1.5, 0)) - enemyHead, rayParams)
+				if seen then
+					best = point
+					break
+				end
+			end
+		end
+		if best then
+			break
+		end
+	end
+	return best
+end
+
+-- Daño de un arma a una distancia (cae entre FalloffStart y FalloffEnd)
+local function damageAt(def, distance)
+	local start, finish = def.FalloffStart or 100, def.FalloffEnd or 300
+	if distance <= start then
+		return def.Damage
+	end
+	local alpha = math.clamp((distance - start) / math.max(1, finish - start), 0, 1)
+	return def.Damage + ((def.MinDamage or def.Damage) - def.Damage) * alpha
+end
+
+-- Recarga (los demás ven el arma recargando: atributo Reloading del Tool)
+local function startReload(agent, def, now)
+	local tool = agent.Tool
+	agent.Mag = def.MagSize
+	agent.ReloadUntil = now + def.ReloadTime * (1.05 + math.random() * 0.2)
+	if tool then
+		tool:SetAttribute("Reloading", true)
+		task.delay(agent.ReloadUntil - now, function()
+			if tool.Parent then
+				tool:SetAttribute("Reloading", false)
+			end
+		end)
+	end
+end
+
+local function shoot(agent, target, distance, now)
 	local tool = agent.Tool
 	local def = Weapons.Get(agent.Weapon)
 	if not tool or not tool.Parent or not def then
 		return
 	end
-	-- Recarga de vez en cuando (pausa breve)
-	agent.Shots += 1
-	if agent.Shots >= def.MagSize then
-		agent.Shots = 0
-		agent.NextShot = os.clock() + def.ReloadTime
+	-- Cargador de verdad: al vaciarlo recarga (y mientras tanto no dispara)
+	if agent.Mag <= 0 then
+		startReload(agent, def, now)
 		return
 	end
+	agent.Mag -= 1
 	-- Dificultad según el rango del jugador al que disparan (contra otros bots, normal)
 	local targetPlayer = Players:GetPlayerFromCharacter(target.Model)
-	local skill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
-	local accuracy = math.min(0.95, CONFIG.Accuracy * skill)
-	local chance = math.clamp(accuracy - distance * CONFIG.AccuracyFalloff, 0.06, accuracy)
+	local rankSkill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
+	local skill = rankSkill * (agent.Skill or 1)
+	-- La puntería se asienta: los primeros tiros sobre un objetivo nuevo fallan más
+	local settle = math.clamp((now - (agent.AimStart or now)) / 0.9 + 0.35, 0.35, 1)
+	local accuracy = math.min(0.95, CONFIG.Accuracy * skill) * settle
+	-- (los fusiles de precisión apenas pierden puntería de lejos; las escopetas, mucha)
+	local falloff = CONFIG.AccuracyFalloff * math.clamp((def.Spread or 1.6) / 1.6, 0.25, 3)
+	local chance = math.clamp(accuracy - distance * falloff, 0.04, accuracy)
+	if agent.Root.AssemblyLinearVelocity.Magnitude > 8 then
+		chance *= 0.8 -- disparar andando
+	end
 	local targetRoot = target.Model:FindFirstChild("HumanoidRootPart")
 	if targetRoot and targetRoot.AssemblyLinearVelocity.Magnitude > 12 then
 		chance *= 0.7 -- cuesta más acertar a quien se mueve rápido
 	end
-	local hit = math.random() < chance
-	local endpoint
-	if hit then
-		endpoint = target.Head.Position + Vector3.new(math.random() - 0.5, -math.random() * 1.5, math.random() - 0.5)
-		local damage = (distance > (def.FalloffStart or 100) and def.MinDamage or def.Damage) * CONFIG.DamageScale * skill
-		Combat.BotDamage(agent, target.Humanoid, damage, agent.Weapon)
-	else
-		local miss = Vector3.new(math.random() - 0.5, math.random() - 0.3, math.random() - 0.5).Unit * (2 + math.random() * 3)
-		endpoint = target.Head.Position + miss
+	local pellets = math.max(1, def.Pellets or 1)
+	local hits = 0
+	for _ = 1, pellets do
+		if math.random() < chance then
+			hits += 1
+		end
 	end
-	Remotes.ShotFX:FireAllClients(tool, { endpoint })
+	local endpoints = {}
+	if hits > 0 then
+		local headshot = math.random() < 0.12 * skill
+		local damage = damageAt(def, distance) * hits * CONFIG.DamageScale * rankSkill
+		if headshot then
+			damage *= def.HeadshotMultiplier or 1.5
+			table.insert(endpoints, target.Head.Position)
+		else
+			table.insert(endpoints, target.Head.Position + Vector3.new(math.random() - 0.5, -0.8 - math.random() * 1.2, math.random() - 0.5))
+		end
+		Combat.BotDamage(agent, target.Humanoid, damage, agent.Weapon)
+	end
+	while #endpoints < math.min(3, pellets) or #endpoints == 0 do
+		local miss = Vector3.new(math.random() - 0.5, math.random() - 0.3, math.random() - 0.5).Unit * (2 + math.random() * 3)
+		table.insert(endpoints, target.Head.Position + miss)
+	end
+	Remotes.ShotFX:FireAllClients(tool, endpoints)
+	local head = agent.Model:FindFirstChild("Head")
+	if head then
+		Combat.ReportNoise(head.Position, agent.Team, agent.Model, agent.Weapon)
+	end
+end
+
+-- Granada al último sitio donde vio al enemigo (si se ha escondido detrás de algo)
+local function throwGrenade(agent, position)
+	local head = agent.Model:FindFirstChild("Head")
+	if not head then
+		return false
+	end
+	local grenadeDef = Weapons.Grenade
+	return Grenades.BotThrow(agent.Model, head.Position + agent.Root.CFrame.LookVector * 2, position, function(blast)
+		local info = grenadeDef.Explosive
+		local ignore = { agent.Model }
+		local map = workspace:FindFirstChild("Map")
+		local boundary = map and map:FindFirstChild("Boundary")
+		if boundary then
+			table.insert(ignore, boundary)
+		end
+		for _, target in candidates(agent) do
+			local root = target.Model:FindFirstChild("HumanoidRootPart")
+			local distance = root and (root.Position - blast).Magnitude
+			if distance and distance <= info.Radius then
+				rayParams.FilterDescendantsInstances = ignore
+				local hit = workspace:Raycast(blast, root.Position - blast, rayParams)
+				if not hit or hit.Instance:IsDescendantOf(target.Model) then
+					local damage = info.Damage + (info.MinDamage - info.Damage) * (distance / info.Radius)
+					Combat.BotDamage(agent, target.Humanoid, damage * CONFIG.DamageScale, "Grenade")
+				end
+			end
+		end
+	end)
 end
 
 -- Zombi (Infección): persigue al superviviente más cercano (aunque no lo vea, con el buscador de
@@ -6594,6 +6900,117 @@ local function zombieThink(agent, humanoid, root, now)
 	end
 end
 
+local function lookAt(root, position)
+	local look = Vector3.new(position.X, root.Position.Y, position.Z)
+	if (look - root.Position).Magnitude > 0.5 then
+		root.CFrame = CFrame.lookAt(root.Position, look)
+	end
+end
+
+-- Pelea con un enemigo a la vista: se mueve según su rol, se cubre si le queda poca vida y dispara
+-- en ráfagas (a quemarropa, a todo lo que da el arma)
+local function fight(agent, humanoid, root, target, distance, now)
+	if agent.Target ~= target.Model then
+		agent.Target = target.Model
+		agent.AimStart = now + (agent.Reaction or CONFIG.Reaction)
+		agent.NextShot = math.max(agent.NextShot, agent.AimStart)
+		agent.BurstLeft = 0
+	end
+	agent.LastSeenPosition, agent.LastSeenTime = target.Head.Position, now
+	agent.HoldUntil = 0
+	reportEnemy(agent, target.Head.Position)
+	humanoid.WalkSpeed = CONFIG.WalkSpeed
+	humanoid.AutoRotate = false
+	lookAt(root, target.Head.Position)
+
+	-- Con poca vida se retira a cubierto (la vida se recupera sola) y luego vuelve
+	if humanoid.Health < humanoid.MaxHealth * 0.35 and agent.Role ~= "Escopeta" and now > (agent.NextRetreat or 0) then
+		agent.NextRetreat = now + 9
+		local cover = findCover(agent, target)
+		if cover then
+			agent.RetreatUntil = now + 2.2
+			humanoid.WalkSpeed = CONFIG.SprintSpeed or CONFIG.WalkSpeed
+			humanoid.AutoRotate = true
+			humanoid:MoveTo(cover)
+			return
+		end
+	end
+
+	-- Movimiento: cada rol pelea a su manera
+	if now >= agent.NextStrafe then
+		local role = agent.Role
+		local dest
+		if role == "Tirador" then
+			-- Quieto para apuntar; de vez en cuando un paso al lado
+			agent.NextStrafe = now + 2.5 + math.random() * 2
+			if math.random() < 0.35 then
+				dest = root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -4 or 4)
+			else
+				dest = root.Position
+			end
+		else
+			agent.NextStrafe = now + 0.45 + math.random() * 0.7
+			local strafe = (math.random() < 0.5 and -1 or 1) * (role == "Ametralladora" and 3 or 6)
+			dest = root.Position + root.CFrame.RightVector * strafe
+			-- Los de corta distancia se echan encima; todos se acercan si está muy lejos
+			local close = (role == "Subfusil" and 18) or (role == "Escopeta" and 9) or 75
+			if distance > close then
+				dest += root.CFrame.LookVector * math.min(10, distance - close)
+			end
+		end
+		if not safeGround(dest) then
+			dest = root.Position - (dest - root.Position) -- (al otro lado, si no hay agua)
+		end
+		if safeGround(dest) then
+			humanoid:MoveTo(dest)
+		end
+		if math.random() < CONFIG.JumpChance and role ~= "Tirador" then
+			humanoid.Jump = true
+		end
+	end
+
+	-- Disparo: ráfagas controladas de lejos con armas automáticas, a todo trapo de cerca
+	if now < (agent.ReloadUntil or 0) then
+		return
+	end
+	local def = Weapons.Get(agent.Weapon)
+	local interval = 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate)
+	local shots = 0
+	while now >= agent.NextShot and shots < 2 do
+		shots += 1
+		if def and def.Automatic and distance > 35 then
+			if agent.BurstLeft <= 0 then
+				agent.BurstLeft = math.random(3, 6)
+				agent.NextShot = now + 0.22 + math.random() * 0.3
+				break
+			end
+			agent.BurstLeft -= 1
+		end
+		shoot(agent, target, distance, now)
+		agent.NextShot = math.max(agent.NextShot + interval, now - interval) + math.random() * 0.04
+		if now < (agent.ReloadUntil or 0) then
+			break
+		end
+	end
+end
+
+-- Atascado contra algo: salta y, si sigue, busca otro camino
+local function checkStuck(agent, humanoid, root, now)
+	local moved = agent.StuckPosition and (root.Position - agent.StuckPosition).Magnitude or math.huge
+	if moved > 1.5 then
+		agent.StuckPosition, agent.StuckTime = root.Position, now
+		return
+	end
+	local stuck = now - (agent.StuckTime or now)
+	if stuck > 1.4 then
+		humanoid.Jump = true
+	end
+	if stuck > 3 then
+		agent.Waypoints, agent.GoalDeadline = nil, 0
+		agent.StuckPosition, agent.StuckTime = root.Position, now
+	end
+end
+
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
@@ -6609,6 +7026,7 @@ local function think(agent)
 		return
 	end
 	local target, distance = findTarget(agent)
+	local heard = hear(agent, now)
 	if not target then
 		checkAlert(agent, now)
 	end
@@ -6616,46 +7034,23 @@ local function think(agent)
 	if target and agent.CarryingFlag then
 		if agent.Target ~= target.Model then
 			agent.Target = target.Model
-			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
+			agent.AimStart = now + (agent.Reaction or CONFIG.Reaction)
+			agent.NextShot = math.max(agent.NextShot, agent.AimStart)
 		end
-		if now >= agent.NextShot then
+		reportEnemy(agent, target.Head.Position)
+		if now >= agent.NextShot and now >= (agent.ReloadUntil or 0) then
 			local def = Weapons.Get(agent.Weapon)
 			agent.NextShot = now + 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate) + math.random() * 0.12
-			shoot(agent, target, distance)
+			shoot(agent, target, distance, now)
 		end
 		target = nil
 	end
+	-- Retirándose a cubierto: sigue hasta llegar (sin pararse a pelear)
+	if now < (agent.RetreatUntil or 0) and not agent.CarryingFlag then
+		return
+	end
 	if target then
-		if agent.Target ~= target.Model then
-			agent.Target = target.Model
-			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
-		end
-		-- Mira al objetivo y se mueve un poco de lado mientras dispara (sin girar hacia donde camina)
-		humanoid.AutoRotate = false
-		local look = Vector3.new(target.Head.Position.X, root.Position.Y, target.Head.Position.Z)
-		if (look - root.Position).Magnitude > 0.5 then
-			root.CFrame = CFrame.lookAt(root.Position, look)
-		end
-		if now >= agent.NextStrafe then
-			agent.NextStrafe = now + 1.2 + math.random()
-			local side = math.random() < 0.5 and -6 or 6
-			local dest = root.Position + root.CFrame.RightVector * side
-			if not safeGround(dest) then
-				dest = root.Position - root.CFrame.RightVector * side -- (al otro lado, si no hay agua)
-			end
-			if safeGround(dest) then
-				humanoid:MoveTo(dest)
-			end
-			-- De vez en cuando salta mientras pelea (como un jugador)
-			if math.random() < CONFIG.JumpChance then
-				humanoid.Jump = true
-			end
-		end
-		if now >= agent.NextShot then
-			local def = Weapons.Get(agent.Weapon)
-			agent.NextShot = now + 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate) + math.random() * 0.12
-			shoot(agent, target, distance)
-		end
+		fight(agent, humanoid, root, target, distance, now)
 		return
 	end
 	-- (el portador de la bandera conserva su objetivo: si no, el retraso de reacción no acabaría nunca)
@@ -6663,6 +7058,61 @@ local function think(agent)
 		agent.Target = nil
 	end
 	humanoid.AutoRotate = true
+
+	-- Recarga táctica cuando no hay nadie delante
+	local def = Weapons.Get(agent.Weapon)
+	if def and agent.Mag < def.MagSize * 0.4 and now >= (agent.ReloadUntil or 0) then
+		startReload(agent, def, now)
+	end
+
+	-- Acaba de perder de vista al enemigo: granada si se ha escondido cerca; si no, mira hacia allí
+	-- un momento (pre-apuntar) antes de ir a buscarle
+	local lostFor = agent.LastSeenTime and now - agent.LastSeenTime or math.huge
+	if lostFor < 3 and agent.LastSeenPosition then
+		local away = (agent.LastSeenPosition - root.Position).Magnitude
+		if lostFor > 0.6 and away > 14 and away < 48 and now >= (agent.NextGrenade or 0) and math.random() < 0.3 then
+			agent.NextGrenade = now + (CONFIG.GrenadeCooldown or 18) * (0.8 + math.random() * 0.4)
+			lookAt(root, agent.LastSeenPosition)
+			throwGrenade(agent, agent.LastSeenPosition)
+		end
+		if agent.Role ~= "Subfusil" and agent.Role ~= "Escopeta" and lostFor < 1.5 then
+			humanoid.AutoRotate = false
+			lookAt(root, agent.LastSeenPosition)
+			humanoid:MoveTo(root.Position)
+			return
+		end
+		if not agent.ChasedSeen then
+			agent.ChasedSeen = true
+			agent.AlertPosition, agent.AlertTime = agent.LastSeenPosition, now
+			agent.Waypoints, agent.GoalDeadline, agent.HoldUntil = nil, 0, 0
+		end
+	else
+		agent.ChasedSeen = false
+	end
+	-- Ha oído disparos cerca: deja lo que esté haciendo y va (el tirador solo se gira)
+	if heard and not agent.CarryingFlag and now > (agent.NextHeard or 0) then
+		agent.NextHeard = now + 4
+		if agent.Role == "Tirador" and (agent.HoldUntil or 0) > now then
+			agent.HoldLook = heard
+		elseif (heard - root.Position).Magnitude > 12 then
+			agent.AlertPosition, agent.AlertTime = heard, now
+			agent.Waypoints, agent.GoalDeadline, agent.HoldUntil = nil, 0, 0
+		end
+	end
+
+	-- Esperando en un sitio (el tirador vigila su línea; los demás echan un vistazo)
+	if (agent.HoldUntil or 0) > now then
+		humanoid:MoveTo(root.Position)
+		humanoid.AutoRotate = false
+		local look = agent.HoldLook or watchPoint(agent)
+		local scan = math.sin(now * 0.7 + (agent.Seed or 0)) * math.rad(agent.Role == "Tirador" and 25 or 50)
+		local direction = Vector3.new(look.X - root.Position.X, 0, look.Z - root.Position.Z)
+		if direction.Magnitude > 0.5 then
+			lookAt(root, root.Position + CFrame.Angles(0, scan, 0) * direction.Unit * 10)
+		end
+		return
+	end
+
 	-- Sin enemigos a la vista: seguir el camino o buscar uno nuevo
 	local waypoints = agent.Waypoints
 	if agent.Computing then
@@ -6672,9 +7122,19 @@ local function think(agent)
 		if now < agent.GoalDeadline and not waypoints then
 			return -- sin camino: va en línea recta un rato antes de volver a intentarlo
 		end
+		-- Ha llegado: se para un momento a mirar (el tirador se aposta un buen rato)
+		if waypoints and agent.WaypointIndex > #waypoints and not agent.Arrived then
+			agent.Arrived = true
+			agent.HoldLook = nil
+			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
+			return
+		end
+		agent.Arrived = false
 		local goal, objective = pickGoal(agent)
 		-- (las banderas se mueven: el camino hacia ellas se recalcula antes)
-		agent.GoalDeadline = now + (objective and 5 or 12)
+		agent.GoalDeadline = now + (objective and 5 or 14)
+		agent.GoalPosition = goal
+		agent.Urgent = objective
 		if goal then
 			agent.Computing = true
 			task.spawn(function()
@@ -6691,6 +7151,10 @@ local function think(agent)
 		end
 		return
 	end
+	-- De camino: corre si no espera encontrarse a nadie; anda (y atento) cerca de donde hay enemigos
+	local clue = bestIntel(agent, 6, 45)
+	humanoid.WalkSpeed = (clue or agent.Role == "Tirador" and agent.Urgent) and CONFIG.WalkSpeed or (CONFIG.SprintSpeed or CONFIG.WalkSpeed)
+	checkStuck(agent, humanoid, root, now)
 	local waypoint = waypoints[agent.WaypointIndex]
 	if (Vector3.new(waypoint.Position.X, root.Position.Y, waypoint.Position.Z) - root.Position).Magnitude < 3 then
 		agent.WaypointIndex += 1
@@ -6703,6 +7167,62 @@ local function think(agent)
 end
 
 local spawnAgent, safeSpawn
+
+-- Rol del bot (GameConfig.Bots.Roles): al azar según su peso, sin pasar del máximo por equipo, y el
+-- carril con menos compañeros. Cada bot tiene además su puntería y sus reflejos.
+chooseRole = function(agent)
+	local roles = CONFIG.Roles
+	agent.Skill = 0.85 + math.random() * 0.3
+	agent.Reaction = CONFIG.Reaction * (0.75 + math.random() * 0.5) / agent.Skill
+	agent.Seed = math.random() * 10
+	local laneCount = { [-1] = 0, [0] = 0, [1] = 0 }
+	local roleCount = {}
+	for _, other in agents do
+		if other ~= agent and other.Team == agent.Team then
+			if other.Lane then
+				laneCount[other.Lane] += 1
+			end
+			if other.Role then
+				roleCount[other.Role] = (roleCount[other.Role] or 0) + 1
+			end
+		end
+	end
+	local lane, fewest = 0, math.huge
+	for _, l in { 0, -1, 1 } do
+		if laneCount[l] < fewest then
+			lane, fewest = l, laneCount[l]
+		end
+	end
+	agent.Lane = lane
+	if not roles or #roles == 0 then
+		agent.Role = "Asalto"
+		return
+	end
+	local pool, total = {}, 0
+	for _, role in roles do
+		if not role.Max or (roleCount[role.Name] or 0) < role.Max then
+			table.insert(pool, role)
+			total += role.Weight or 1
+		end
+	end
+	local pick = math.random() * total
+	local chosen = pool[1] or roles[1]
+	for _, role in pool do
+		pick -= role.Weight or 1
+		if pick <= 0 then
+			chosen = role
+			break
+		end
+	end
+	agent.Role = chosen.Name
+	local options = {}
+	for _, name in chosen.Weapons do
+		if Weapons.Get(name) then
+			table.insert(options, name)
+		end
+	end
+	agent.RoleWeapon = #options > 0 and options[math.random(1, #options)] or nil
+end
 
 -- Estadísticas del bot para el marcador (Tab) de los clientes
 local function statsOf(agent)
@@ -6846,7 +7366,16 @@ spawnAgent = function(agent)
 	humanoid.Health = 100
 	humanoid.WalkSpeed = CONFIG.WalkSpeed
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
-	model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	-- Primera vez en la base; al reaparecer, en el punto más seguro (como los jugadores: SpawnPicker)
+	local spawnAt = spawnPoint(agent.Team)
+	if agent.HasSpawned and SpawnPicker.Enabled() then
+		local picked = SpawnPicker.Pick(agent.Team, nil)
+		if picked then
+			spawnAt = picked + Vector3.new(0, 4, 0)
+		end
+	end
+	agent.HasSpawned = true
+	model:PivotTo(CFrame.new(spawnAt) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = folder
 	pcall(function()
 		root:SetNetworkOwner(nil)
@@ -6854,7 +7383,15 @@ spawnAgent = function(agent)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
 	statsOf(agent)
 	animate(humanoid)
-	agent.Weapon = agent.Zombie and "Claws" or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	if agent.Zombie then
+		agent.Weapon = "Claws"
+	else
+		-- Rol y arma (los conserva al reaparecer), carril, puntería y reflejos propios
+		if not agent.Role then
+			chooseRole(agent)
+		end
+		agent.Weapon = agent.RoleWeapon or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	end
 	-- Traje de operador al azar (cada bot conserva el suyo al reaparecer)
 	if agent.Outfit == nil then
 		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false
@@ -6879,6 +7416,13 @@ spawnAgent = function(agent)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0
 	agent.AlertPosition, agent.AlertTime = nil, nil
 	agent.Waypoints, agent.Target = nil, nil
+	local weaponDef = Weapons.Get(agent.Weapon)
+	agent.Mag = weaponDef and weaponDef.MagSize or 30
+	agent.ReloadUntil, agent.BurstLeft, agent.RetreatUntil, agent.HoldUntil = 0, 0, 0, 0
+	agent.LastSeenPosition, agent.LastSeenTime, agent.Arrived = nil, nil, false
+	agent.NextGrenade = os.clock() + 8 + math.random() * 10
+	agent.StuckPosition, agent.StuckTime = nil, nil
+	humanoid.WalkSpeed = agent.Zombie and humanoid.WalkSpeed or (CONFIG.SprintSpeed or CONFIG.WalkSpeed)
 
 	Combat.WatchHumanoid(humanoid, nil, agent.Name, agent)
 	humanoid.Died:Connect(function()
@@ -7381,6 +7925,19 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 end
 
 -- Daño de un bot (ver Bots): deja su nombre como atacante
+-- Ruido de los disparos: los bots oyen los tiros cercanos (como el punto rojo del minimapa en los
+-- shooters de móvil) y van a ver. Las armas con silenciador apenas se oyen.
+Combat.Noise = {} -- { Position, Time, Team, Model, Range }
+local NOISE_KEEP = 24
+function Combat.ReportNoise(position, team, model, weaponName)
+	local def = Weapons.Get(weaponName or "")
+	local range = (def and def.Suppressed) and 25 or 110
+	table.insert(Combat.Noise, { Position = position, Time = os.clock(), Team = team, Model = model, Range = range })
+	if #Combat.Noise > NOISE_KEEP then
+		table.remove(Combat.Noise, 1)
+	end
+end
+
 function Combat.BotDamage(bot, humanoid, damage, weaponName)
 	if humanoid.Health <= 0 then
 		return 0, false
@@ -7543,6 +8100,7 @@ local function onFire(player, tool, origin, rays)
 	budget.Shots -= 1
 	tool:SetAttribute("Ammo", ammo - 1)
 	removeSpawnShield(character)
+	Combat.ReportNoise(head.Position, player.Team, character, weaponName)
 
 	if def.Explosive then
 		local ray = rays[1]
@@ -9157,6 +9715,46 @@ local function throw(player, direction)
 	end)
 end
 
+-- Granada lanzada por un bot hacia un punto (tiro parabólico). onExplode(position) se encarga del
+-- daño (los bots no son jugadores: ver Bots).
+function Grenades.BotThrow(model, from, target, onExplode)
+	if not folder or ReplicatedStorage:GetAttribute("Frozen") then
+		return false
+	end
+	local flight = math.clamp((target - from).Magnitude / 45, 0.6, 1.3)
+	local gravity = Vector3.new(0, -workspace.Gravity, 0)
+	local velocity = (target - from) / flight - gravity * flight / 2
+	local grenade, light = makeGrenade(CFrame.new(from))
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			local noCollide = Instance.new("NoCollisionConstraint")
+			noCollide.Part0 = grenade
+			noCollide.Part1 = part
+			noCollide.Parent = grenade
+		end
+	end
+	grenade.Parent = folder
+	pcall(function()
+		grenade:SetNetworkOwner(nil)
+	end)
+	grenade.AssemblyLinearVelocity = velocity
+	task.spawn(function()
+		local fuseEnd = os.clock() + DEF.Fuse
+		while os.clock() < fuseEnd and grenade.Parent do
+			light.Enabled = not light.Enabled
+			task.wait(math.max(0.06, (fuseEnd - os.clock()) * 0.15))
+		end
+		if not grenade.Parent then
+			return
+		end
+		local position = grenade.Position + Vector3.new(0, 0.6, 0)
+		grenade:Destroy()
+		Remotes.ExplosionFX:FireAllClients(position, DEF.Explosive.Radius)
+		onExplode(position)
+	end)
+	return true
+end
+
 function Grenades.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "Grenades"
@@ -9495,6 +10093,63 @@ return Hazards
         </Item>
         <Item class="ModuleScript" referent="42">
           <Properties>
+            <string name="Name">HealthRegen</string>
+            <string name="Source"><![CDATA[-- Vida que se recupera sola, como en los shooters de móvil: tras GameConfig.HealthRegen.Delay
+-- segundos sin recibir daño, la vida sube deprisa hasta llenarse. Para jugadores y bots.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+
+local HealthRegen = {}
+
+local STEP = 0.25
+
+local function regen(humanoid, now, config)
+	if humanoid.Health <= 0 or humanoid.Health >= humanoid.MaxHealth then
+		return
+	end
+	local hitTime = humanoid:GetAttribute("LastHitTime") or 0
+	if now - hitTime < config.Delay then
+		return
+	end
+	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + config.PerSecond * STEP)
+end
+
+function HealthRegen.Init()
+	local config = GameConfig.HealthRegen
+	if not config or not config.Enabled then
+		return
+	end
+	task.spawn(function()
+		while true do
+			task.wait(STEP)
+			local now = os.clock()
+			for _, player in Players:GetPlayers() do
+				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					regen(humanoid, now, config)
+				end
+			end
+			local bots = workspace:FindFirstChild("Bots")
+			if bots then
+				for _, model in bots:GetChildren() do
+					local humanoid = model:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						regen(humanoid, now, config)
+					end
+				end
+			end
+		end
+	end)
+end
+
+return HealthRegen
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="43">
+          <Properties>
             <string name="Name">Killstreaks</string>
             <string name="Source"><![CDATA[-- Recompensas por racha de bajas (sin morir):
 --   3 bajas: RADAR. Durante unos segundos tu equipo (o tú, en Todos contra todos) ve a los
@@ -9652,7 +10307,7 @@ return Killstreaks
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="44">
           <Properties>
             <string name="Name">Leaderboard</string>
             <string name="Source"><![CDATA[-- Clasificación global (todos los servidores): top 10 de bajas, de victorias y de rango (mejor RP).
@@ -9799,7 +10454,7 @@ return Leaderboard
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="44">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -10042,7 +10697,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="45">
+        <Item class="ModuleScript" referent="46">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -10144,11 +10799,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="46">
+        <Item class="Folder" referent="47">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">CandyArena</string>
               <string name="Source"><![CDATA[-- ARENA CARAMELO: arena pequeña y simétrica para duelos rápidos (pensada para Eliminación, pero vale
@@ -10424,7 +11079,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">Carnival</string>
               <string name="Source"><![CDATA[-- FERIA: parque de atracciones al atardecer. En el centro, un tiovivo con caballitos (se puede subir
@@ -10829,7 +11484,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">Castle</string>
               <string name="Source"><![CDATA[-- CASTILLO DEL REY: patio medieval de mañana. En el centro, la torre del homenaje con un túnel que
@@ -11072,7 +11727,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="50">
+          <Item class="ModuleScript" referent="51">
             <Properties>
               <string name="Name">ChristmasVillage</string>
               <string name="Source"><![CDATA[-- VILLA NAVIDEÑA (solo sale en la votación durante el evento de Navidad, ver Season): pueblo nevado
@@ -11360,7 +12015,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="51">
+          <Item class="ModuleScript" referent="52">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -11596,7 +12251,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="52">
+          <Item class="ModuleScript" referent="53">
             <Properties>
               <string name="Name">Crossroads</string>
               <string name="Source"><![CDATA[-- ENCRUCIJADA: ciudad en guerra al estilo de los mapas 5 contra 5 de los shooters de móvil.
@@ -12196,7 +12851,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="53">
+          <Item class="ModuleScript" referent="54">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -12962,7 +13617,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="54">
+          <Item class="ModuleScript" referent="55">
             <Properties>
               <string name="Name">FrostStation</string>
               <string name="Source"><![CDATA[-- FROST STATION: base de investigación polar. Lago helado resbaladizo en el centro bajo la torre
@@ -13317,7 +13972,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="55">
+          <Item class="ModuleScript" referent="56">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -13596,7 +14251,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">HauntedManor</string>
               <string name="Source"><![CDATA[-- MANSIÓN ENCANTADA (mapa de Halloween): de noche, con luna grande y niebla violeta. Mansión en el
@@ -13842,7 +14497,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
@@ -14176,7 +14831,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">MoonBase</string>
               <string name="Source"><![CDATA[-- BASE LUNAR: base espacial de dibujos animados en la Luna, de noche con la Tierra enorme en el
@@ -14436,7 +15091,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -14672,7 +15327,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -14901,7 +15556,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">PirateCove</string>
               <string name="Source"><![CDATA[-- BAHÍA PIRATA: dos orillas de arena separadas por un canal de agua. En el centro, un galeón
@@ -15154,7 +15809,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -15478,7 +16133,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -15720,7 +16375,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">ToyBox</string>
               <string name="Source"><![CDATA[-- CAJA DE JUGUETES: eres del tamaño de un juguete dentro del cuarto de un niño. Castillo de bloques
@@ -15979,7 +16634,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">WildWest</string>
               <string name="Source"><![CDATA[-- PUEBLO VAQUERO: calle mayor del Oeste a pleno sol. En el centro, el depósito de agua sobre patas
@@ -16327,7 +16982,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="66">
+        <Item class="ModuleScript" referent="67">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -17703,7 +18358,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="67">
+        <Item class="ModuleScript" referent="68">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -19708,7 +20363,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="68">
+        <Item class="ModuleScript" referent="69">
           <Properties>
             <string name="Name">Pumpkins</string>
             <string name="Source"><![CDATA[-- Modo Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza con el color de su equipo.
@@ -19890,7 +20545,7 @@ return Pumpkins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="69">
+        <Item class="ModuleScript" referent="70">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -20097,7 +20752,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="70">
+        <Item class="ModuleScript" referent="71">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -20129,6 +20784,7 @@ local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
 local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
+local SpawnPicker = require(script.Parent.SpawnPicker)
 local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
 local Pumpkins = require(script.Parent.Pumpkins)
@@ -20581,9 +21237,24 @@ end
 ---------------------------------------------------------------------------
 
 local ffaCache = { Map = nil, Points = {} }
+local spawnedThisRound = {} -- [player] = true: ya apareció en esta ronda (la siguiente vez, dinámica)
 
 local function ffaSpawnFor(player, character)
 	if isTeamMode() then
+		-- Por equipos: la primera vez en la base; al reaparecer, en el punto más seguro (SpawnPicker)
+		local first = not spawnedThisRound[player]
+		if ReplicatedStorage:GetAttribute("State") == "Playing" then
+			spawnedThisRound[player] = true
+		end
+		if first or not SpawnPicker.Enabled() then
+			return
+		end
+		local point = SpawnPicker.Pick(player.Team, character)
+		local root = point and character:WaitForChild("HumanoidRootPart", 5)
+		if root then
+			task.wait()
+			character:PivotTo(CFrame.new(point + Vector3.new(0, 3, 0)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+		end
 		return
 	end
 	local map = workspace:FindFirstChild("Map")
@@ -21304,6 +21975,7 @@ local function playRound()
 		roundOver = false
 		balanceTeams()
 		resetStats()
+		table.clear(spawnedThisRound)
 		setState("Playing")
 		-- Mapa destacado del día: aviso al empezar
 		local featured = ReplicatedStorage:GetAttribute("FeaturedMap")
@@ -21501,7 +22173,109 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="72">
+          <Properties>
+            <string name="Name">SpawnPicker</string>
+            <string name="Source"><![CDATA[-- Apariciones dinámicas en los modos por equipos (como en los shooters de móvil): al reaparecer
+-- no se vuelve siempre a la base, sino al punto del mapa (FFASpawn o una salida del equipo) más
+-- seguro: lejos de los enemigos y, a ser posible, cerca de los compañeros. La primera aparición de
+-- cada ronda sigue siendo en la base. Lo usan Round (jugadores) y Bots.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+
+local SpawnPicker = {}
+
+local MODES = { TDM = true, KOTH = true, CAL = true } -- (en bandera y eliminación, siempre en la base)
+local SAFE_DISTANCE = 40 -- un enemigo más cerca que esto descarta el punto
+
+local cache = { Map = nil, Free = {}, ByColor = {} }
+
+local function points()
+	local map = workspace:FindFirstChild("Map")
+	if cache.Map ~= map then
+		cache.Map, cache.Free, cache.ByColor = map, {}, {}
+		if map then
+			for _, d in map:GetDescendants() do
+				if d:IsA("SpawnLocation") then
+					local key = d.TeamColor.Name
+					cache.ByColor[key] = cache.ByColor[key] or {}
+					table.insert(cache.ByColor[key], d.Position)
+				elseif d:IsA("BasePart") and d.Name == "FFASpawn" then
+					table.insert(cache.Free, d.Position)
+				end
+			end
+		end
+	end
+	return cache
+end
+
+-- ¿Se usan apariciones dinámicas ahora mismo?
+function SpawnPicker.Enabled()
+	return GameConfig.DynamicSpawns ~= false
+		and ReplicatedStorage:GetAttribute("TeamMode") == true
+		and MODES[ReplicatedStorage:GetAttribute("Mode") or ""] == true
+		and not ReplicatedStorage:GetAttribute("Infection")
+end
+
+-- Mejor punto para alguien del equipo team (selfModel = su propio personaje, que no cuenta)
+function SpawnPicker.Pick(team, selfModel)
+	if not team then
+		return nil
+	end
+	local data = points()
+	local candidates = table.clone(data.Free)
+	for _, p in data.ByColor[team.TeamColor.Name] or {} do
+		table.insert(candidates, p)
+	end
+	if #candidates == 0 then
+		return nil
+	end
+	local enemies, friends = {}, {}
+	local function add(model, modelTeam)
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		local root = model:FindFirstChild("HumanoidRootPart")
+		if model ~= selfModel and humanoid and humanoid.Health > 0 and root then
+			table.insert(modelTeam == team.Name and friends or enemies, root.Position)
+		end
+	end
+	for _, player in Players:GetPlayers() do
+		if player.Character and player.Team and not player:GetAttribute("InMenu") then
+			add(player.Character, player.Team.Name)
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			add(model, model:GetAttribute("Team"))
+		end
+	end
+	local best, bestScore = nil, -math.huge
+	for _, point in candidates do
+		local nearestEnemy, nearestFriend = math.huge, math.huge
+		for _, p in enemies do
+			nearestEnemy = math.min(nearestEnemy, (p - point).Magnitude)
+		end
+		for _, p in friends do
+			nearestFriend = math.min(nearestFriend, (p - point).Magnitude)
+		end
+		local score = math.min(nearestEnemy, 140) - math.min(nearestFriend, 120) * 0.35 + math.random() * 12
+		if nearestEnemy < SAFE_DISTANCE then
+			score -= 1000 -- (solo si no queda otra)
+		end
+		if score > bestScore then
+			best, bestScore = point, score
+		end
+	end
+	return best
+end
+
+return SpawnPicker
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="73">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -21575,22 +22349,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="72">
+  <Item class="StarterPlayer" referent="74">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="73">
+    <Item class="StarterPlayerScripts" referent="75">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="74">
+      <Item class="Folder" referent="76">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="75">
+        <Item class="LocalScript" referent="77">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -21627,6 +22401,7 @@ local News = require(Modules.News)
 local Graffiti = require(Modules.Graffiti)
 local DamageIndicator = require(Modules.DamageIndicator)
 local BoostHUD = require(Modules.BoostHUD)
+local Minimap = require(Modules.Minimap)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -21648,6 +22423,7 @@ end
 
 start("Settings", Settings.Init)
 start("HUD", HUD.Init)
+start("Minimap", Minimap.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -21676,11 +22452,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="76">
+        <Item class="Folder" referent="78">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -21974,7 +22750,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">BoostHUD</string>
               <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
@@ -22062,7 +22838,7 @@ return BoostHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -22131,7 +22907,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -22156,6 +22932,7 @@ local ClientState = {
 	Stamina = 1, -- 0..1 (correr la gasta; Movement)
 	Exhausted = false, -- se agotó y aún no se ha recuperado lo bastante para correr
 	LandKick = 0, -- golpe de cámara al aterrizar desde alto; lo consume WeaponController
+	MinimapBottom = nil :: number?, -- borde de abajo del minimapa (para colocar lo de debajo)
 	Sliding = false,
 	CurrentTool = nil,
 	CurrentDef = nil,
@@ -22220,7 +22997,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -22397,7 +23174,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -22868,7 +23645,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -24024,7 +24801,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -24201,7 +24978,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -24325,7 +25102,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -24466,7 +25243,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -24539,7 +25316,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -24669,7 +25446,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -26362,7 +27139,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -26434,7 +27211,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -26499,7 +27276,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -26733,7 +27510,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -27480,7 +28257,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -29981,6 +30758,9 @@ function Menu.Init()
 	task.spawn(function()
 		while open.Parent do
 			open.Visible = not ClientState.InMainMenu
+			-- Debajo del minimapa durante la partida
+			local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
+			open.Position = UDim2.fromOffset(16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + 8 or 58)
 			task.wait(0.25)
 		end
 	end)
@@ -30137,7 +30917,295 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="97">
+            <Properties>
+              <string name="Name">Minimap</string>
+              <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
+-- los edificios y muros, tú en el centro (la flecha mira hacia donde miras), tus compañeros en azul,
+-- los enemigos que disparan sin silenciador como puntos rojos durante unos segundos y, con el
+-- Radar de la racha, todos los enemigos. También la zona de control y las banderas.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local Weapons = require(Shared.Weapons)
+local GameConfig = require(Shared.GameConfig)
+
+local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local Minimap = {}
+
+local RANGE = 170 -- studs que caben a lo ancho
+local RED_DOT_TIME = 2.5 -- segundos que se ve el punto rojo de un disparo
+local MAX_SHAPES = 900
+
+local gui, frame, world, me
+local size, scale = 160, 160 / RANGE
+local shapesFolder
+local builtFor = nil
+local shots = {} -- [modelo] = { Position, Time }
+local dots = {} -- círculos reutilizables
+local usedDots = 0
+
+-- ¿Está en el equipo contrario? (en todos contra todos, todos lo están)
+local function isEnemy(model)
+	if not ReplicatedStorage:GetAttribute("TeamMode") then
+		return model ~= player.Character
+	end
+	local owner = Players:GetPlayerFromCharacter(model)
+	local team = owner and owner.Team and owner.Team.Name or model:GetAttribute("Team")
+	return team ~= nil and team ~= "" and player.Team ~= nil and team ~= player.Team.Name
+end
+
+local function isTeammate(model)
+	if not ReplicatedStorage:GetAttribute("TeamMode") or model == player.Character then
+		return false
+	end
+	local owner = Players:GetPlayerFromCharacter(model)
+	local team = owner and owner.Team and owner.Team.Name or model:GetAttribute("Team")
+	return player.Team ~= nil and team == player.Team.Name
+end
+
+---------------------------------------------------------------------------
+-- Plano del mapa (se rehace al cambiar de mapa)
+---------------------------------------------------------------------------
+
+local function rebuild()
+	local map = workspace:FindFirstChild("Map")
+	builtFor = map
+	if shapesFolder then
+		shapesFolder:Destroy()
+	end
+	shapesFolder = UI.new("Folder", { Name = "Shapes", Parent = world })
+	if not map then
+		return
+	end
+	local boundary = map:FindFirstChild("Boundary")
+	local count = 0
+	for _, part in map:GetDescendants() do
+		if count >= MAX_SHAPES then
+			break
+		end
+		if part:IsA("BasePart") and part.CanCollide and part.Transparency < 0.9 and not (boundary and part:IsDescendantOf(boundary)) then
+			local cf = part.CFrame
+			local s = part.Size
+			-- Solo lo que es "de pie" (muros, edificios, coberturas): no suelos ni piezas inclinadas
+			if cf.UpVector.Y > 0.95 and s.Y >= 2.5 and s.X * s.Z >= 6 and cf.Position.Y + s.Y / 2 > 2.5 and part.Shape ~= Enum.PartType.Ball then
+				count += 1
+				local right = cf.RightVector
+				local tall = s.Y >= 6
+				UI.new("Frame", {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromOffset(cf.Position.X * scale, cf.Position.Z * scale),
+					Size = UDim2.fromOffset(math.max(1, s.X * scale), math.max(1, s.Z * scale)),
+					Rotation = math.deg(math.atan2(right.Z, right.X)),
+					BackgroundColor3 = tall and Color3.fromRGB(205, 205, 210) or Color3.fromRGB(150, 150, 158),
+					BackgroundTransparency = tall and 0.25 or 0.4,
+					BorderSizePixel = 0,
+					Parent = shapesFolder,
+				})
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------------
+-- Puntos
+---------------------------------------------------------------------------
+
+local function dot(position, color, radius, square)
+	usedDots += 1
+	local d = dots[usedDots]
+	if not d then
+		d = UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BorderSizePixel = 0,
+			ZIndex = 3,
+			Parent = frame,
+		}, { UI.new("UICorner", { CornerRadius = UDim.new(1, 0) }), UI.stroke(Color3.new(0, 0, 0), 1, 0.3) })
+		dots[usedDots] = d
+	end
+	local corner = d:FindFirstChildOfClass("UICorner")
+	if corner then
+		corner.CornerRadius = square and UDim.new(0, 2) or UDim.new(1, 0)
+	end
+	d.Visible = true
+	d.BackgroundTransparency = 0
+	d.BackgroundColor3 = color
+	d.Size = UDim2.fromOffset(radius * 2, radius * 2)
+	d.Position = UDim2.new(0.5, position.X, 0.5, position.Y)
+	return d
+end
+
+-- Posición en el minimapa (respecto al centro) de un punto del mundo; nil si se sale
+local function toMap(worldPosition, center)
+	local offset = Vector2.new(worldPosition.X - center.X, worldPosition.Z - center.Z) * scale
+	local half = size / 2 - 4
+	if math.abs(offset.X) > half or math.abs(offset.Y) > half then
+		-- (los objetivos se quedan pegados al borde para saber hacia dónde están)
+		return nil, Vector2.new(math.clamp(offset.X, -half, half), math.clamp(offset.Y, -half, half))
+	end
+	return offset
+end
+
+local function update()
+	local visible = not ClientState.InMainMenu and ReplicatedStorage:GetAttribute("State") == "Playing"
+	gui.Enabled = visible
+	if not visible then
+		return
+	end
+	local map = workspace:FindFirstChild("Map")
+	if map ~= builtFor then
+		rebuild()
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local center = root and root.Position or camera.CFrame.Position
+	world.Position = UDim2.new(0.5, -center.X * scale, 0.5, -center.Z * scale)
+	local look = camera.CFrame.LookVector
+	me.Rotation = math.deg(math.atan2(look.X, -look.Z))
+
+	usedDots = 0
+	local now = os.clock()
+	-- Compañeros (jugadores y bots)
+	local radar = workspace:GetServerTimeNow() < (player:GetAttribute("RadarUntil") or 0)
+	local models = {}
+	for _, other in Players:GetPlayers() do
+		if other ~= player and other.Character then
+			table.insert(models, other.Character)
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			table.insert(models, model)
+		end
+	end
+	for _, model in models do
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		local part = model:FindFirstChild("HumanoidRootPart")
+		if humanoid and humanoid.Health > 0 and part then
+			if isTeammate(model) then
+				local p = toMap(part.Position, center)
+				if p then
+					dot(p, Color3.fromRGB(70, 160, 255), 4)
+				end
+			elseif radar and isEnemy(model) then
+				local p = toMap(part.Position, center)
+				if p then
+					dot(p, Color3.fromRGB(255, 50, 50), 4)
+				end
+			end
+		end
+	end
+	-- Disparos enemigos recientes (puntos rojos donde dispararon)
+	for model, shot in shots do
+		if now - shot.Time > RED_DOT_TIME or not model.Parent then
+			shots[model] = nil
+		else
+			local p = toMap(shot.Position, center)
+			if p then
+				local d = dot(p, Color3.fromRGB(255, 40, 40), 4.5)
+				d.BackgroundTransparency = math.clamp((now - shot.Time) / RED_DOT_TIME, 0, 0.7)
+			end
+		end
+	end
+	-- Objetivos: zona de control y banderas (pegados al borde si están lejos)
+	local zone = ReplicatedStorage:GetAttribute("ZonePosition")
+	if typeof(zone) == "Vector3" then
+		local p, edge = toMap(zone, center)
+		dot(p or edge, Color3.fromRGB(255, 210, 40), 6, true)
+	end
+	for _, team in GameConfig.Teams do
+		local flag = ReplicatedStorage:GetAttribute("FlagPos_" .. team.Name)
+		if typeof(flag) == "Vector3" then
+			local p, edge = toMap(flag, center)
+			dot(p or edge, team.Color.Color, 5, true)
+		end
+	end
+	for i = usedDots + 1, #dots do
+		dots[i].Visible = false
+	end
+end
+
+Minimap.Update = update
+
+-- Disparo de otro jugador o bot (los mismos avisos que dibujan sus trazadoras)
+local function onShot(tool)
+	if typeof(tool) ~= "Instance" or not tool.Parent then
+		return
+	end
+	local model = tool.Parent
+	local def = Weapons.Get(tool:GetAttribute("Weapon"))
+	if def and def.Suppressed then
+		return -- con silenciador no sale en el minimapa
+	end
+	local part = model:FindFirstChild("HumanoidRootPart") or tool:FindFirstChild("Handle")
+	if part and part:IsA("BasePart") and isEnemy(model) then
+		shots[model] = { Position = part.Position, Time = os.clock() }
+	end
+end
+
+function Minimap.Init()
+	local viewport = camera.ViewportSize
+	size = (viewport.Y > 0 and viewport.Y < 500) and 112 or 160
+	scale = size / RANGE
+	gui = UI.new("ScreenGui", {
+		Name = "Minimap",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 2,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	frame = UI.new("Frame", {
+		Position = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(size, size),
+		BackgroundColor3 = Color3.fromRGB(22, 26, 30),
+		BackgroundTransparency = 0.3,
+		ClipsDescendants = true,
+		Parent = gui,
+	}, { UI.corner(8), UI.stroke(Color3.fromRGB(230, 230, 235), 2, 0.35) })
+	world = UI.new("Frame", {
+		Size = UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1,
+		Parent = frame,
+	})
+	me = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(16, 16),
+		Text = "▲",
+		TextSize = 15,
+		TextColor3 = Color3.fromRGB(255, 230, 90),
+		ZIndex = 5,
+		Parent = frame,
+	})
+	-- (el botón de PASE · TIENDA y lo demás de la izquierda van debajo)
+	ClientState.MinimapBottom = 14 + size
+	Remotes.ShotFX.OnClientEvent:Connect(onShot)
+	local accumulator = 0
+	RunService.Heartbeat:Connect(function(dt)
+		accumulator += dt
+		if accumulator < 1 / 30 then
+			return
+		end
+		accumulator = 0
+		update()
+	end)
+end
+
+return Minimap
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C), con sensación realista (GameConfig.Movement):
@@ -30565,7 +31633,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -30692,7 +31760,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -30863,7 +31931,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -31033,7 +32101,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -31360,7 +32428,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -31549,7 +32617,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -31635,7 +32703,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -31687,7 +32755,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -31844,7 +32912,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -31946,7 +33014,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -32134,7 +33202,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -33497,7 +34565,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -33554,7 +34622,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -33848,7 +34916,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -34067,19 +35135,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="110">
+  <Item class="Teams" referent="113">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="111">
+  <Item class="Workspace" referent="114">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="112">
+    <Item class="Terrain" referent="115">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

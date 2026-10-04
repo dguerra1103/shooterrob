@@ -344,6 +344,7 @@ Weapons.List = {
 
 	GhostlineXR = {
 		DisplayName = "Ghostline XR",
+		Suppressed = true, -- con silenciador: los bots casi no lo oyen
 		Category = "Francotirador",
 		Description = "Supresor y mira de largo alcance. Un tiro al cuerpo basta.",
 		Slot = 1,

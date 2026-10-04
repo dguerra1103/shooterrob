@@ -148,6 +148,19 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 end
 
 -- Daño de un bot (ver Bots): deja su nombre como atacante
+-- Ruido de los disparos: los bots oyen los tiros cercanos (como el punto rojo del minimapa en los
+-- shooters de móvil) y van a ver. Las armas con silenciador apenas se oyen.
+Combat.Noise = {} -- { Position, Time, Team, Model, Range }
+local NOISE_KEEP = 24
+function Combat.ReportNoise(position, team, model, weaponName)
+	local def = Weapons.Get(weaponName or "")
+	local range = (def and def.Suppressed) and 25 or 110
+	table.insert(Combat.Noise, { Position = position, Time = os.clock(), Team = team, Model = model, Range = range })
+	if #Combat.Noise > NOISE_KEEP then
+		table.remove(Combat.Noise, 1)
+	end
+end
+
 function Combat.BotDamage(bot, humanoid, damage, weaponName)
 	if humanoid.Health <= 0 then
 		return 0, false
@@ -310,6 +323,7 @@ local function onFire(player, tool, origin, rays)
 	budget.Shots -= 1
 	tool:SetAttribute("Ammo", ammo - 1)
 	removeSpawnShield(character)
+	Combat.ReportNoise(head.Position, player.Team, character, weaponName)
 
 	if def.Explosive then
 		local ray = rays[1]

@@ -20,6 +20,7 @@ local ClientState = {
 	Stamina = 1, -- 0..1 (correr la gasta; Movement)
 	Exhausted = false, -- se agotó y aún no se ha recuperado lo bastante para correr
 	LandKick = 0, -- golpe de cámara al aterrizar desde alto; lo consume WeaponController
+	MinimapBottom = nil :: number?, -- borde de abajo del minimapa (para colocar lo de debajo)
 	Sliding = false,
 	CurrentTool = nil,
 	CurrentDef = nil,

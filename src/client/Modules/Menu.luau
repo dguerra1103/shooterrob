@@ -2496,6 +2496,9 @@ function Menu.Init()
 	task.spawn(function()
 		while open.Parent do
 			open.Visible = not ClientState.InMainMenu
+			-- Debajo del minimapa durante la partida
+			local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
+			open.Position = UDim2.fromOffset(16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + 8 or 58)
 			task.wait(0.25)
 		end
 	end)

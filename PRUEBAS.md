@@ -2,7 +2,7 @@
 
 Abre `ShooterRob.rbxlx` (o conecta Rojo) y usa estas dos formas de probar:
 
-- **Jugar solo**: botón **Play** (F5). Con un solo jugador entran **bots** hasta llenar la partida (6), así
+- **Jugar solo**: botón **Play** (F5). Con un solo jugador entran **bots** hasta llenar la partida (10: 5 contra 5), así
   que se puede probar casi todo sin nadie más.
 - **Varios jugadores**: pestaña **Test → Clients and Servers → Local Server** con **2 o 3 jugadores**. Sirve
   para equipos, marcador, espectar y pantalla de muerte entre jugadores.
@@ -16,6 +16,11 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | Qué | Cómo comprobarlo | Qué debería pasar |
 |---|---|---|
 | **Bots** | Play solo y pulsa JUGAR | Aparecen bots con nombre "Bot …" en los dos equipos; caminan, te disparan (fallan más de lejos) y se pueden eliminar. Al entrar un segundo jugador se quita un bot de su equipo. |
+| **Bots realistas (5 contra 5)** | Play solo en Encrucijada, Duelo por equipos | Tu equipo y el rival tienen 5 cada uno (tú + 4 bots). Los bots se reparten por la avenida y los dos carriles; el tirador sube a una ventana o altura y se queda vigilando; los de subfusil y escopeta corren hacia ti. Si disparas cerca de un bot que no te ve, se gira y viene. Disparan en ráfagas de lejos, recargan (se nota la pausa), se esconden si les dejas con poca vida y vuelven, y si te escondes tras una esquina a veces te tiran una granada. |
+| **Encrucijada** | Primera partida (es el primer mapa) | Ciudad en guerra con luz de tarde y polvo. Tres carriles. Entra en el Hotel Central o las Oficinas, sube la escalera y dispara por las ventanas a la avenida. Sube por la rampa de madera a la estructura de las obras. Nadie aparece dentro de una pared. |
+| **Minimapa** | En partida | Arriba a la izquierda, con los edificios del mapa; tu flecha gira con la cámara; tus compañeros en azul; cuando un enemigo dispara (sin silenciador) aparece un punto rojo unos segundos; con el Radar de la racha se ven todos. PASE · TIENDA queda justo debajo. |
+| **Apariciones dinámicas** | Duelo por equipos en Encrucijada; muere varias veces | La primera vez sales en tu base. Después reapareces por el mapa, cerca de tus compañeros y lejos de los enemigos (no al lado de uno). |
+| **Vida que se recupera** | Recibe daño y escóndete | A los 4 s sin daño la vida sube sola hasta 100 en unos 2 s. |
 | **Eliminación** | `Modes = { "ELIM" }` | "RONDA 1 · ¡Una sola vida!", cuenta atrás con todos quietos (no se puede disparar ni saltar), "¡YA!". Al morir no hay Regenerar ni Revivir: se observa a compañeros. La ronda se la lleva el equipo que quede en pie. Arriba: "En pie: Rojo X – Y Azul". |
 | **Marcador** | Mantén **Tab** | Dos columnas por equipo (o una lista en Todos contra todos) con bajas, muertes y K/D; los bots salen con 🤖 y tu fila en amarillo. |
 | **Regalos por jugar** | Espera 2 minutos en partida | El botón 🎁 de la izquierda cuenta hacia atrás; al llegar a 0 late y se recoge con **H** (+40 monedas). Si sales y vuelves a entrar el mismo día, no se reinicia. |

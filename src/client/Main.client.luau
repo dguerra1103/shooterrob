@@ -32,6 +32,7 @@ local News = require(Modules.News)
 local Graffiti = require(Modules.Graffiti)
 local DamageIndicator = require(Modules.DamageIndicator)
 local BoostHUD = require(Modules.BoostHUD)
+local Minimap = require(Modules.Minimap)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -53,6 +54,7 @@ end
 
 start("Settings", Settings.Init)
 start("HUD", HUD.Init)
+start("Minimap", Minimap.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)

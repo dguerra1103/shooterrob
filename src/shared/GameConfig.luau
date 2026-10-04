@@ -21,7 +21,7 @@ GameConfig.IntermissionTime = 20
 -- Quita alguno de la lista si no lo quieres.
 GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
-	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
+	TDM = { Name = "Duelo por equipos", ScoreToWin = 50, RoundTime = 10 * 60, Teams = true }, -- puntos = bajas (50 en 10 min, como en los shooters de móvil)
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
 	KOTH = { Name = "Zona de control", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true }, -- 1 punto/seg en la zona
 	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
@@ -57,19 +57,31 @@ GameConfig.Abilities = {
 	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
 	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },
 }
--- Bots: rellenan la partida cuando hay pocos jugadores (se quitan solos al entrar gente)
+-- Bots: rellenan la partida cuando hay pocos jugadores (se quitan solos al entrar gente). Con
+-- FillTo = 10 las partidas por equipos son siempre 5 contra 5 (como en los shooters de móvil).
 GameConfig.Bots = {
 	Enabled = true,
-	FillTo = 6, -- jugadores + bots hasta este número
-	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift", "SplatX" },
-	Range = 140,
-	Accuracy = 0.55, -- probabilidad de acertar a corta distancia
-	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia
+	FillTo = 10, -- jugadores + bots hasta este número (10 = 5 contra 5)
+	-- Roles: cada bot sale con uno (y sus armas). Max = como mucho tantos por equipo.
+	Roles = {
+		{ Name = "Asalto", Weight = 4, Weapons = { "ARX27", "VortexBR" } }, -- fusil: equilibrado
+		{ Name = "Subfusil", Weight = 2.5, Weapons = { "Specter9", "NovaDrift" } }, -- corre y entra a por ti
+		{ Name = "Tirador", Weight = 1.5, Max = 1, Weapons = { "RaptorDMR", "Signal7" } }, -- se aposta lejos (ventanas, alturas)
+		{ Name = "Escopeta", Weight = 1, Max = 1, Weapons = { "HavocPump" } }, -- distancia corta, muy agresivo
+		{ Name = "Ametralladora", Weight = 1, Max = 1, Weapons = { "TitanLMG" } }, -- aguanta una línea
+	},
+	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift" }, -- (si no hay Roles)
+	Range = 160,
+	Accuracy = 0.55, -- probabilidad de acertar a corta distancia (con la puntería ya asentada)
+	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia (menos con fusiles de precisión)
 	DamageScale = 0.55, -- los bots hacen menos daño que un jugador
-	Reaction = 0.5, -- segundos antes de empezar a disparar a un objetivo nuevo
-	MaxFireRate = 6, -- disparos por segundo como máximo
-	WalkSpeed = 16,
-	JumpChance = 0.2, -- probabilidad de saltar en cada cambio de dirección mientras pelea
+	Reaction = 0.45, -- segundos antes de empezar a disparar a un objetivo nuevo (varía con cada bot)
+	MaxFireRate = 8, -- disparos por segundo como máximo
+	WalkSpeed = 18, -- peleando (como un jugador andando)
+	SprintSpeed = 25, -- de camino, sin enemigos cerca (como un jugador corriendo)
+	JumpChance = 0.06, -- probabilidad de saltar en cada cambio de dirección mientras pelea
+	Hearing = 1, -- multiplica la distancia a la que oyen los disparos (110 studs; con silenciador 25)
+	GrenadeCooldown = 18, -- segundos entre granadas de cada bot
 	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
 	-- Puntería y daño contra cada jugador según su rango (Bronce, Plata, Oro, Platino, Diamante,
 	-- Campeón): con los novatos son más blandos y con los mejores aprietan más
@@ -257,6 +269,12 @@ GameConfig.PlaytimeGifts = {
 	{ Minutes = 30, Revives = 2 },
 	{ Minutes = 45, Coins = 300 },
 }
+-- Vida que se recupera sola (como en los shooters de móvil): tras Delay segundos sin daño sube
+-- PerSecond puntos por segundo hasta llenarse
+GameConfig.HealthRegen = { Enabled = true, Delay = 4, PerSecond = 35 }
+-- Apariciones dinámicas (Duelo por equipos, Zona y Calabazas): al reaparecer, en el punto del mapa
+-- más seguro (lejos de los enemigos, cerca de tu equipo) en vez de en la base. false = siempre en la base
+GameConfig.DynamicSpawns = true
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = false -- muñecos de práctica quietos (ya no hacen falta: los bots sirven para practicar)
 

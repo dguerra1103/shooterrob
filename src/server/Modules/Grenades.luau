@@ -125,6 +125,46 @@ local function throw(player, direction)
 	end)
 end
 
+-- Granada lanzada por un bot hacia un punto (tiro parabólico). onExplode(position) se encarga del
+-- daño (los bots no son jugadores: ver Bots).
+function Grenades.BotThrow(model, from, target, onExplode)
+	if not folder or ReplicatedStorage:GetAttribute("Frozen") then
+		return false
+	end
+	local flight = math.clamp((target - from).Magnitude / 45, 0.6, 1.3)
+	local gravity = Vector3.new(0, -workspace.Gravity, 0)
+	local velocity = (target - from) / flight - gravity * flight / 2
+	local grenade, light = makeGrenade(CFrame.new(from))
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			local noCollide = Instance.new("NoCollisionConstraint")
+			noCollide.Part0 = grenade
+			noCollide.Part1 = part
+			noCollide.Parent = grenade
+		end
+	end
+	grenade.Parent = folder
+	pcall(function()
+		grenade:SetNetworkOwner(nil)
+	end)
+	grenade.AssemblyLinearVelocity = velocity
+	task.spawn(function()
+		local fuseEnd = os.clock() + DEF.Fuse
+		while os.clock() < fuseEnd and grenade.Parent do
+			light.Enabled = not light.Enabled
+			task.wait(math.max(0.06, (fuseEnd - os.clock()) * 0.15))
+		end
+		if not grenade.Parent then
+			return
+		end
+		local position = grenade.Position + Vector3.new(0, 0.6, 0)
+		grenade:Destroy()
+		Remotes.ExplosionFX:FireAllClients(position, DEF.Explosive.Radius)
+		onExplode(position)
+	end)
+	return true
+end
+
 function Grenades.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "Grenades"

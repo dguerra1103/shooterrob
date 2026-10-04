@@ -18,6 +18,8 @@ local Combat = require(script.Parent.Combat)
 local Pumpkins = require(script.Parent.Pumpkins)
 local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
+local Grenades = require(script.Parent.Grenades)
+local SpawnPicker = require(script.Parent.SpawnPicker)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 
@@ -48,7 +50,7 @@ table.sort(BOT_CHARMS)
 local Bots = {}
 
 local CONFIG = GameConfig.Bots
-local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega" }
+local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega", "Bruno", "Sofi", "Leo", "Iris", "Hugo", "Nala", "Thor", "Cleo" }
 
 local folder
 local statsFolder -- ReplicatedStorage.BotStats: una carpeta por bot con Team, Kills, Deaths y Score (marcador)
@@ -333,7 +335,9 @@ local function flagGoal(agent)
 	return nil
 end
 
--- Camino hasta un punto al azar del mapa (o la zona activa en Zona de control)
+local laneGoal, bestIntel, chooseRole -- (más abajo)
+
+-- Adónde ir: objetivo del modo, alerta, pista del equipo o su carril
 local function pickGoal(agent)
 	local flagTarget = flagGoal(agent)
 	if typeof(flagTarget) == "Vector3" then
@@ -359,11 +363,14 @@ local function pickGoal(agent)
 	if typeof(zone) == "Vector3" and math.random() < 0.75 then
 		return zone + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
 	end
-	refreshPoints()
-	if #ffaPoints == 0 then
-		return nil
+	-- Pista del equipo: va a donde se ha visto u oído al enemigo (los agresivos casi siempre)
+	local clue = bestIntel(agent, 10, 150)
+	local chase = ({ Subfusil = 0.85, Escopeta = 0.85, Asalto = 0.55, Ametralladora = 0.35, Tirador = 0 })[agent.Role or "Asalto"] or 0.5
+	if clue and math.random() < chase then
+		return clue.Position + Vector3.new(math.random(-6, 6), 0, math.random(-6, 6)), true
 	end
-	return ffaPoints[math.random(1, #ffaPoints)]
+	-- Si no, patrulla su carril hasta donde le toca según su rol
+	return laneGoal(agent)
 end
 
 local function computePath(agent, goal)
@@ -385,39 +392,317 @@ local function computePath(agent, goal)
 	end
 end
 
-local function shoot(agent, target, distance)
+---------------------------------------------------------------------------
+-- Comportamiento "de jugador": roles, carriles, información del equipo, oído y coberturas
+---------------------------------------------------------------------------
+
+-- Lo que sabe cada equipo de dónde está el enemigo (lo que ve u oye cualquier compañero).
+-- En todos contra todos cada bot tiene lo suyo.
+local intel = {} -- [clave] = { { Position, Time } }
+local INTEL_TIME = 12
+
+local function intelKey(agent)
+	return (teamMode() and agent.Team) and agent.Team.Name or agent.Name
+end
+
+local function reportEnemy(agent, position)
+	local key = intelKey(agent)
+	local list = intel[key]
+	if not list then
+		list = {}
+		intel[key] = list
+	end
+	local now = os.clock()
+	for _, entry in list do
+		if (entry.Position - position).Magnitude < 18 then
+			entry.Position, entry.Time = position, now
+			return
+		end
+	end
+	table.insert(list, { Position = position, Time = now })
+	if #list > 8 then
+		table.remove(list, 1)
+	end
+end
+
+-- La pista más reciente (y cercana) que tiene su equipo
+bestIntel = function(agent, maxAge, maxDistance)
+	local list = intel[intelKey(agent)]
+	if not list or not agent.Root then
+		return nil
+	end
+	local now = os.clock()
+	local best, bestScore = nil, math.huge
+	for _, entry in list do
+		local age = now - entry.Time
+		local distance = (entry.Position - agent.Root.Position).Magnitude
+		if age < maxAge and distance < maxDistance then
+			local score = distance + age * 12
+			if score < bestScore then
+				best, bestScore = entry, score
+			end
+		end
+	end
+	return best
+end
+
+-- Oído: disparos recientes de enemigos a su alcance
+local function hear(agent, now)
+	local noise = Combat.Noise
+	for i = #noise, 1, -1 do
+		local n = noise[i]
+		if now - n.Time > 1.2 then
+			break -- (van en orden: los más nuevos al final)
+		end
+		local enemy = n.Model ~= agent.Model and (not teamMode() or n.Team ~= agent.Team)
+		if enemy and n.Model and n.Model.Parent then
+			local distance = (n.Position - agent.Root.Position).Magnitude
+			if distance < n.Range * (CONFIG.Hearing or 1) then
+				reportEnemy(agent, n.Position)
+				return n.Position
+			end
+		end
+	end
+	return nil
+end
+
+-- Eje del mapa: de la base propia a la enemiga (para repartir carriles y saber hacia dónde avanzar)
+local function mapAxis(agent)
+	refreshPoints()
+	local own, enemy
+	if teamMode() and agent.Team then
+		for _, team in Teams:GetTeams() do
+			local points = spawnsByColor[team.TeamColor.Name]
+			if points and #points > 0 then
+				local sum = Vector3.zero
+				for _, p in points do
+					sum += p
+				end
+				if team == agent.Team then
+					own = sum / #points
+				else
+					enemy = sum / #points
+				end
+			end
+		end
+	end
+	if not own or not enemy or (enemy - own).Magnitude < 20 then
+		return nil
+	end
+	return own, enemy
+end
+
+-- Punto de patrulla según su rol y su carril: los de subfusil y escopeta se meten hasta el fondo,
+-- los de fusil por la mitad y el tirador se queda en su mitad, a ser posible en alto (ventanas).
+local ROLE_DEPTH = {
+	Asalto = { 0.3, 0.75 },
+	Subfusil = { 0.45, 0.98 },
+	Escopeta = { 0.45, 0.98 },
+	Ametralladora = { 0.25, 0.6 },
+	Tirador = { 0.12, 0.5 },
+}
+
+laneGoal = function(agent)
+	refreshPoints()
+	if #ffaPoints == 0 then
+		return nil
+	end
+	local own, enemy = mapAxis(agent)
+	if not own then
+		return ffaPoints[math.random(1, #ffaPoints)]
+	end
+	local axis = Vector3.new(enemy.X - own.X, 0, enemy.Z - own.Z)
+	local length = axis.Magnitude
+	axis = axis.Unit
+	local side = Vector3.new(-axis.Z, 0, axis.X)
+	local middle = (own + enemy) / 2
+	local maxSide = 1
+	for _, p in ffaPoints do
+		maxSide = math.max(maxSide, math.abs((p - middle):Dot(side)))
+	end
+	local depth = ROLE_DEPTH[agent.Role or "Asalto"] or ROLE_DEPTH.Asalto
+	local anyLane = math.random() < 0.2
+	local good, high = {}, {}
+	for _, p in ffaPoints do
+		local progress = (p - own):Dot(axis) / length
+		local lateral = (p - middle):Dot(side) / maxSide
+		local lane = lateral < -0.33 and -1 or (lateral > 0.33 and 1 or 0)
+		if progress >= depth[1] and progress <= depth[2] and (anyLane or lane == agent.Lane) then
+			table.insert(good, p)
+			if p.Y > own.Y + 4 then
+				table.insert(high, p)
+			end
+		end
+	end
+	if agent.Role == "Tirador" and #high > 0 then
+		return high[math.random(1, #high)]
+	end
+	if #good == 0 then
+		return ffaPoints[math.random(1, #ffaPoints)]
+	end
+	return good[math.random(1, #good)]
+end
+
+-- Hacia dónde mira mientras espera en un sitio: hacia el lado enemigo (o la pista más reciente)
+local function watchPoint(agent)
+	local clue = bestIntel(agent, INTEL_TIME, 200)
+	if clue then
+		return clue.Position
+	end
+	local own, enemy = mapAxis(agent)
+	if own then
+		return agent.Root.Position + Vector3.new(enemy.X - own.X, 0, enemy.Z - own.Z).Unit * 50
+	end
+	return agent.Root.Position + agent.Root.CFrame.LookVector * 50
+end
+
+-- Cobertura: un punto cercano desde el que el enemigo no le ve (para retirarse con poca vida)
+local function findCover(agent, target)
+	local root = agent.Root
+	local enemyHead = target.Head.Position
+	local away = Vector3.new(root.Position.X - enemyHead.X, 0, root.Position.Z - enemyHead.Z)
+	away = away.Magnitude > 0.1 and away.Unit or root.CFrame.LookVector * -1
+	local ignore = { agent.Model, target.Model }
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	rayParams.FilterDescendantsInstances = ignore
+	local best
+	for _, angle in { 70, -70, 110, -110, 40, -40, 150, -150 } do
+		local direction = CFrame.Angles(0, math.rad(angle), 0) * away
+		for _, distance in { 9, 15 } do
+			local point = root.Position + direction * distance
+			-- Que se pueda llegar en línea recta y que desde el enemigo no se vea
+			local path = workspace:Raycast(root.Position, direction * distance, rayParams)
+			if not path and safeGround(point) then
+				local seen = workspace:Raycast(enemyHead, (point + Vector3.new(0, 1.5, 0)) - enemyHead, rayParams)
+				if seen then
+					best = point
+					break
+				end
+			end
+		end
+		if best then
+			break
+		end
+	end
+	return best
+end
+
+-- Daño de un arma a una distancia (cae entre FalloffStart y FalloffEnd)
+local function damageAt(def, distance)
+	local start, finish = def.FalloffStart or 100, def.FalloffEnd or 300
+	if distance <= start then
+		return def.Damage
+	end
+	local alpha = math.clamp((distance - start) / math.max(1, finish - start), 0, 1)
+	return def.Damage + ((def.MinDamage or def.Damage) - def.Damage) * alpha
+end
+
+-- Recarga (los demás ven el arma recargando: atributo Reloading del Tool)
+local function startReload(agent, def, now)
+	local tool = agent.Tool
+	agent.Mag = def.MagSize
+	agent.ReloadUntil = now + def.ReloadTime * (1.05 + math.random() * 0.2)
+	if tool then
+		tool:SetAttribute("Reloading", true)
+		task.delay(agent.ReloadUntil - now, function()
+			if tool.Parent then
+				tool:SetAttribute("Reloading", false)
+			end
+		end)
+	end
+end
+
+local function shoot(agent, target, distance, now)
 	local tool = agent.Tool
 	local def = Weapons.Get(agent.Weapon)
 	if not tool or not tool.Parent or not def then
 		return
 	end
-	-- Recarga de vez en cuando (pausa breve)
-	agent.Shots += 1
-	if agent.Shots >= def.MagSize then
-		agent.Shots = 0
-		agent.NextShot = os.clock() + def.ReloadTime
+	-- Cargador de verdad: al vaciarlo recarga (y mientras tanto no dispara)
+	if agent.Mag <= 0 then
+		startReload(agent, def, now)
 		return
 	end
+	agent.Mag -= 1
 	-- Dificultad según el rango del jugador al que disparan (contra otros bots, normal)
 	local targetPlayer = Players:GetPlayerFromCharacter(target.Model)
-	local skill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
-	local accuracy = math.min(0.95, CONFIG.Accuracy * skill)
-	local chance = math.clamp(accuracy - distance * CONFIG.AccuracyFalloff, 0.06, accuracy)
+	local rankSkill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
+	local skill = rankSkill * (agent.Skill or 1)
+	-- La puntería se asienta: los primeros tiros sobre un objetivo nuevo fallan más
+	local settle = math.clamp((now - (agent.AimStart or now)) / 0.9 + 0.35, 0.35, 1)
+	local accuracy = math.min(0.95, CONFIG.Accuracy * skill) * settle
+	-- (los fusiles de precisión apenas pierden puntería de lejos; las escopetas, mucha)
+	local falloff = CONFIG.AccuracyFalloff * math.clamp((def.Spread or 1.6) / 1.6, 0.25, 3)
+	local chance = math.clamp(accuracy - distance * falloff, 0.04, accuracy)
+	if agent.Root.AssemblyLinearVelocity.Magnitude > 8 then
+		chance *= 0.8 -- disparar andando
+	end
 	local targetRoot = target.Model:FindFirstChild("HumanoidRootPart")
 	if targetRoot and targetRoot.AssemblyLinearVelocity.Magnitude > 12 then
 		chance *= 0.7 -- cuesta más acertar a quien se mueve rápido
 	end
-	local hit = math.random() < chance
-	local endpoint
-	if hit then
-		endpoint = target.Head.Position + Vector3.new(math.random() - 0.5, -math.random() * 1.5, math.random() - 0.5)
-		local damage = (distance > (def.FalloffStart or 100) and def.MinDamage or def.Damage) * CONFIG.DamageScale * skill
-		Combat.BotDamage(agent, target.Humanoid, damage, agent.Weapon)
-	else
-		local miss = Vector3.new(math.random() - 0.5, math.random() - 0.3, math.random() - 0.5).Unit * (2 + math.random() * 3)
-		endpoint = target.Head.Position + miss
+	local pellets = math.max(1, def.Pellets or 1)
+	local hits = 0
+	for _ = 1, pellets do
+		if math.random() < chance then
+			hits += 1
+		end
 	end
-	Remotes.ShotFX:FireAllClients(tool, { endpoint })
+	local endpoints = {}
+	if hits > 0 then
+		local headshot = math.random() < 0.12 * skill
+		local damage = damageAt(def, distance) * hits * CONFIG.DamageScale * rankSkill
+		if headshot then
+			damage *= def.HeadshotMultiplier or 1.5
+			table.insert(endpoints, target.Head.Position)
+		else
+			table.insert(endpoints, target.Head.Position + Vector3.new(math.random() - 0.5, -0.8 - math.random() * 1.2, math.random() - 0.5))
+		end
+		Combat.BotDamage(agent, target.Humanoid, damage, agent.Weapon)
+	end
+	while #endpoints < math.min(3, pellets) or #endpoints == 0 do
+		local miss = Vector3.new(math.random() - 0.5, math.random() - 0.3, math.random() - 0.5).Unit * (2 + math.random() * 3)
+		table.insert(endpoints, target.Head.Position + miss)
+	end
+	Remotes.ShotFX:FireAllClients(tool, endpoints)
+	local head = agent.Model:FindFirstChild("Head")
+	if head then
+		Combat.ReportNoise(head.Position, agent.Team, agent.Model, agent.Weapon)
+	end
+end
+
+-- Granada al último sitio donde vio al enemigo (si se ha escondido detrás de algo)
+local function throwGrenade(agent, position)
+	local head = agent.Model:FindFirstChild("Head")
+	if not head then
+		return false
+	end
+	local grenadeDef = Weapons.Grenade
+	return Grenades.BotThrow(agent.Model, head.Position + agent.Root.CFrame.LookVector * 2, position, function(blast)
+		local info = grenadeDef.Explosive
+		local ignore = { agent.Model }
+		local map = workspace:FindFirstChild("Map")
+		local boundary = map and map:FindFirstChild("Boundary")
+		if boundary then
+			table.insert(ignore, boundary)
+		end
+		for _, target in candidates(agent) do
+			local root = target.Model:FindFirstChild("HumanoidRootPart")
+			local distance = root and (root.Position - blast).Magnitude
+			if distance and distance <= info.Radius then
+				rayParams.FilterDescendantsInstances = ignore
+				local hit = workspace:Raycast(blast, root.Position - blast, rayParams)
+				if not hit or hit.Instance:IsDescendantOf(target.Model) then
+					local damage = info.Damage + (info.MinDamage - info.Damage) * (distance / info.Radius)
+					Combat.BotDamage(agent, target.Humanoid, damage * CONFIG.DamageScale, "Grenade")
+				end
+			end
+		end
+	end)
 end
 
 -- Zombi (Infección): persigue al superviviente más cercano (aunque no lo vea, con el buscador de
@@ -483,6 +768,117 @@ local function zombieThink(agent, humanoid, root, now)
 	end
 end
 
+local function lookAt(root, position)
+	local look = Vector3.new(position.X, root.Position.Y, position.Z)
+	if (look - root.Position).Magnitude > 0.5 then
+		root.CFrame = CFrame.lookAt(root.Position, look)
+	end
+end
+
+-- Pelea con un enemigo a la vista: se mueve según su rol, se cubre si le queda poca vida y dispara
+-- en ráfagas (a quemarropa, a todo lo que da el arma)
+local function fight(agent, humanoid, root, target, distance, now)
+	if agent.Target ~= target.Model then
+		agent.Target = target.Model
+		agent.AimStart = now + (agent.Reaction or CONFIG.Reaction)
+		agent.NextShot = math.max(agent.NextShot, agent.AimStart)
+		agent.BurstLeft = 0
+	end
+	agent.LastSeenPosition, agent.LastSeenTime = target.Head.Position, now
+	agent.HoldUntil = 0
+	reportEnemy(agent, target.Head.Position)
+	humanoid.WalkSpeed = CONFIG.WalkSpeed
+	humanoid.AutoRotate = false
+	lookAt(root, target.Head.Position)
+
+	-- Con poca vida se retira a cubierto (la vida se recupera sola) y luego vuelve
+	if humanoid.Health < humanoid.MaxHealth * 0.35 and agent.Role ~= "Escopeta" and now > (agent.NextRetreat or 0) then
+		agent.NextRetreat = now + 9
+		local cover = findCover(agent, target)
+		if cover then
+			agent.RetreatUntil = now + 2.2
+			humanoid.WalkSpeed = CONFIG.SprintSpeed or CONFIG.WalkSpeed
+			humanoid.AutoRotate = true
+			humanoid:MoveTo(cover)
+			return
+		end
+	end
+
+	-- Movimiento: cada rol pelea a su manera
+	if now >= agent.NextStrafe then
+		local role = agent.Role
+		local dest
+		if role == "Tirador" then
+			-- Quieto para apuntar; de vez en cuando un paso al lado
+			agent.NextStrafe = now + 2.5 + math.random() * 2
+			if math.random() < 0.35 then
+				dest = root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -4 or 4)
+			else
+				dest = root.Position
+			end
+		else
+			agent.NextStrafe = now + 0.45 + math.random() * 0.7
+			local strafe = (math.random() < 0.5 and -1 or 1) * (role == "Ametralladora" and 3 or 6)
+			dest = root.Position + root.CFrame.RightVector * strafe
+			-- Los de corta distancia se echan encima; todos se acercan si está muy lejos
+			local close = (role == "Subfusil" and 18) or (role == "Escopeta" and 9) or 75
+			if distance > close then
+				dest += root.CFrame.LookVector * math.min(10, distance - close)
+			end
+		end
+		if not safeGround(dest) then
+			dest = root.Position - (dest - root.Position) -- (al otro lado, si no hay agua)
+		end
+		if safeGround(dest) then
+			humanoid:MoveTo(dest)
+		end
+		if math.random() < CONFIG.JumpChance and role ~= "Tirador" then
+			humanoid.Jump = true
+		end
+	end
+
+	-- Disparo: ráfagas controladas de lejos con armas automáticas, a todo trapo de cerca
+	if now < (agent.ReloadUntil or 0) then
+		return
+	end
+	local def = Weapons.Get(agent.Weapon)
+	local interval = 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate)
+	local shots = 0
+	while now >= agent.NextShot and shots < 2 do
+		shots += 1
+		if def and def.Automatic and distance > 35 then
+			if agent.BurstLeft <= 0 then
+				agent.BurstLeft = math.random(3, 6)
+				agent.NextShot = now + 0.22 + math.random() * 0.3
+				break
+			end
+			agent.BurstLeft -= 1
+		end
+		shoot(agent, target, distance, now)
+		agent.NextShot = math.max(agent.NextShot + interval, now - interval) + math.random() * 0.04
+		if now < (agent.ReloadUntil or 0) then
+			break
+		end
+	end
+end
+
+-- Atascado contra algo: salta y, si sigue, busca otro camino
+local function checkStuck(agent, humanoid, root, now)
+	local moved = agent.StuckPosition and (root.Position - agent.StuckPosition).Magnitude or math.huge
+	if moved > 1.5 then
+		agent.StuckPosition, agent.StuckTime = root.Position, now
+		return
+	end
+	local stuck = now - (agent.StuckTime or now)
+	if stuck > 1.4 then
+		humanoid.Jump = true
+	end
+	if stuck > 3 then
+		agent.Waypoints, agent.GoalDeadline = nil, 0
+		agent.StuckPosition, agent.StuckTime = root.Position, now
+	end
+end
+
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
@@ -498,6 +894,7 @@ local function think(agent)
 		return
 	end
 	local target, distance = findTarget(agent)
+	local heard = hear(agent, now)
 	if not target then
 		checkAlert(agent, now)
 	end
@@ -505,46 +902,23 @@ local function think(agent)
 	if target and agent.CarryingFlag then
 		if agent.Target ~= target.Model then
 			agent.Target = target.Model
-			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
+			agent.AimStart = now + (agent.Reaction or CONFIG.Reaction)
+			agent.NextShot = math.max(agent.NextShot, agent.AimStart)
 		end
-		if now >= agent.NextShot then
+		reportEnemy(agent, target.Head.Position)
+		if now >= agent.NextShot and now >= (agent.ReloadUntil or 0) then
 			local def = Weapons.Get(agent.Weapon)
 			agent.NextShot = now + 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate) + math.random() * 0.12
-			shoot(agent, target, distance)
+			shoot(agent, target, distance, now)
 		end
 		target = nil
 	end
+	-- Retirándose a cubierto: sigue hasta llegar (sin pararse a pelear)
+	if now < (agent.RetreatUntil or 0) and not agent.CarryingFlag then
+		return
+	end
 	if target then
-		if agent.Target ~= target.Model then
-			agent.Target = target.Model
-			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
-		end
-		-- Mira al objetivo y se mueve un poco de lado mientras dispara (sin girar hacia donde camina)
-		humanoid.AutoRotate = false
-		local look = Vector3.new(target.Head.Position.X, root.Position.Y, target.Head.Position.Z)
-		if (look - root.Position).Magnitude > 0.5 then
-			root.CFrame = CFrame.lookAt(root.Position, look)
-		end
-		if now >= agent.NextStrafe then
-			agent.NextStrafe = now + 1.2 + math.random()
-			local side = math.random() < 0.5 and -6 or 6
-			local dest = root.Position + root.CFrame.RightVector * side
-			if not safeGround(dest) then
-				dest = root.Position - root.CFrame.RightVector * side -- (al otro lado, si no hay agua)
-			end
-			if safeGround(dest) then
-				humanoid:MoveTo(dest)
-			end
-			-- De vez en cuando salta mientras pelea (como un jugador)
-			if math.random() < CONFIG.JumpChance then
-				humanoid.Jump = true
-			end
-		end
-		if now >= agent.NextShot then
-			local def = Weapons.Get(agent.Weapon)
-			agent.NextShot = now + 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate) + math.random() * 0.12
-			shoot(agent, target, distance)
-		end
+		fight(agent, humanoid, root, target, distance, now)
 		return
 	end
 	-- (el portador de la bandera conserva su objetivo: si no, el retraso de reacción no acabaría nunca)
@@ -552,6 +926,61 @@ local function think(agent)
 		agent.Target = nil
 	end
 	humanoid.AutoRotate = true
+
+	-- Recarga táctica cuando no hay nadie delante
+	local def = Weapons.Get(agent.Weapon)
+	if def and agent.Mag < def.MagSize * 0.4 and now >= (agent.ReloadUntil or 0) then
+		startReload(agent, def, now)
+	end
+
+	-- Acaba de perder de vista al enemigo: granada si se ha escondido cerca; si no, mira hacia allí
+	-- un momento (pre-apuntar) antes de ir a buscarle
+	local lostFor = agent.LastSeenTime and now - agent.LastSeenTime or math.huge
+	if lostFor < 3 and agent.LastSeenPosition then
+		local away = (agent.LastSeenPosition - root.Position).Magnitude
+		if lostFor > 0.6 and away > 14 and away < 48 and now >= (agent.NextGrenade or 0) and math.random() < 0.3 then
+			agent.NextGrenade = now + (CONFIG.GrenadeCooldown or 18) * (0.8 + math.random() * 0.4)
+			lookAt(root, agent.LastSeenPosition)
+			throwGrenade(agent, agent.LastSeenPosition)
+		end
+		if agent.Role ~= "Subfusil" and agent.Role ~= "Escopeta" and lostFor < 1.5 then
+			humanoid.AutoRotate = false
+			lookAt(root, agent.LastSeenPosition)
+			humanoid:MoveTo(root.Position)
+			return
+		end
+		if not agent.ChasedSeen then
+			agent.ChasedSeen = true
+			agent.AlertPosition, agent.AlertTime = agent.LastSeenPosition, now
+			agent.Waypoints, agent.GoalDeadline, agent.HoldUntil = nil, 0, 0
+		end
+	else
+		agent.ChasedSeen = false
+	end
+	-- Ha oído disparos cerca: deja lo que esté haciendo y va (el tirador solo se gira)
+	if heard and not agent.CarryingFlag and now > (agent.NextHeard or 0) then
+		agent.NextHeard = now + 4
+		if agent.Role == "Tirador" and (agent.HoldUntil or 0) > now then
+			agent.HoldLook = heard
+		elseif (heard - root.Position).Magnitude > 12 then
+			agent.AlertPosition, agent.AlertTime = heard, now
+			agent.Waypoints, agent.GoalDeadline, agent.HoldUntil = nil, 0, 0
+		end
+	end
+
+	-- Esperando en un sitio (el tirador vigila su línea; los demás echan un vistazo)
+	if (agent.HoldUntil or 0) > now then
+		humanoid:MoveTo(root.Position)
+		humanoid.AutoRotate = false
+		local look = agent.HoldLook or watchPoint(agent)
+		local scan = math.sin(now * 0.7 + (agent.Seed or 0)) * math.rad(agent.Role == "Tirador" and 25 or 50)
+		local direction = Vector3.new(look.X - root.Position.X, 0, look.Z - root.Position.Z)
+		if direction.Magnitude > 0.5 then
+			lookAt(root, root.Position + CFrame.Angles(0, scan, 0) * direction.Unit * 10)
+		end
+		return
+	end
+
 	-- Sin enemigos a la vista: seguir el camino o buscar uno nuevo
 	local waypoints = agent.Waypoints
 	if agent.Computing then
@@ -561,9 +990,19 @@ local function think(agent)
 		if now < agent.GoalDeadline and not waypoints then
 			return -- sin camino: va en línea recta un rato antes de volver a intentarlo
 		end
+		-- Ha llegado: se para un momento a mirar (el tirador se aposta un buen rato)
+		if waypoints and agent.WaypointIndex > #waypoints and not agent.Arrived then
+			agent.Arrived = true
+			agent.HoldLook = nil
+			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
+			return
+		end
+		agent.Arrived = false
 		local goal, objective = pickGoal(agent)
 		-- (las banderas se mueven: el camino hacia ellas se recalcula antes)
-		agent.GoalDeadline = now + (objective and 5 or 12)
+		agent.GoalDeadline = now + (objective and 5 or 14)
+		agent.GoalPosition = goal
+		agent.Urgent = objective
 		if goal then
 			agent.Computing = true
 			task.spawn(function()
@@ -580,6 +1019,10 @@ local function think(agent)
 		end
 		return
 	end
+	-- De camino: corre si no espera encontrarse a nadie; anda (y atento) cerca de donde hay enemigos
+	local clue = bestIntel(agent, 6, 45)
+	humanoid.WalkSpeed = (clue or agent.Role == "Tirador" and agent.Urgent) and CONFIG.WalkSpeed or (CONFIG.SprintSpeed or CONFIG.WalkSpeed)
+	checkStuck(agent, humanoid, root, now)
 	local waypoint = waypoints[agent.WaypointIndex]
 	if (Vector3.new(waypoint.Position.X, root.Position.Y, waypoint.Position.Z) - root.Position).Magnitude < 3 then
 		agent.WaypointIndex += 1
@@ -592,6 +1035,62 @@ local function think(agent)
 end
 
 local spawnAgent, safeSpawn
+
+-- Rol del bot (GameConfig.Bots.Roles): al azar según su peso, sin pasar del máximo por equipo, y el
+-- carril con menos compañeros. Cada bot tiene además su puntería y sus reflejos.
+chooseRole = function(agent)
+	local roles = CONFIG.Roles
+	agent.Skill = 0.85 + math.random() * 0.3
+	agent.Reaction = CONFIG.Reaction * (0.75 + math.random() * 0.5) / agent.Skill
+	agent.Seed = math.random() * 10
+	local laneCount = { [-1] = 0, [0] = 0, [1] = 0 }
+	local roleCount = {}
+	for _, other in agents do
+		if other ~= agent and other.Team == agent.Team then
+			if other.Lane then
+				laneCount[other.Lane] += 1
+			end
+			if other.Role then
+				roleCount[other.Role] = (roleCount[other.Role] or 0) + 1
+			end
+		end
+	end
+	local lane, fewest = 0, math.huge
+	for _, l in { 0, -1, 1 } do
+		if laneCount[l] < fewest then
+			lane, fewest = l, laneCount[l]
+		end
+	end
+	agent.Lane = lane
+	if not roles or #roles == 0 then
+		agent.Role = "Asalto"
+		return
+	end
+	local pool, total = {}, 0
+	for _, role in roles do
+		if not role.Max or (roleCount[role.Name] or 0) < role.Max then
+			table.insert(pool, role)
+			total += role.Weight or 1
+		end
+	end
+	local pick = math.random() * total
+	local chosen = pool[1] or roles[1]
+	for _, role in pool do
+		pick -= role.Weight or 1
+		if pick <= 0 then
+			chosen = role
+			break
+		end
+	end
+	agent.Role = chosen.Name
+	local options = {}
+	for _, name in chosen.Weapons do
+		if Weapons.Get(name) then
+			table.insert(options, name)
+		end
+	end
+	agent.RoleWeapon = #options > 0 and options[math.random(1, #options)] or nil
+end
 
 -- Estadísticas del bot para el marcador (Tab) de los clientes
 local function statsOf(agent)
@@ -735,7 +1234,16 @@ spawnAgent = function(agent)
 	humanoid.Health = 100
 	humanoid.WalkSpeed = CONFIG.WalkSpeed
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
-	model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	-- Primera vez en la base; al reaparecer, en el punto más seguro (como los jugadores: SpawnPicker)
+	local spawnAt = spawnPoint(agent.Team)
+	if agent.HasSpawned and SpawnPicker.Enabled() then
+		local picked = SpawnPicker.Pick(agent.Team, nil)
+		if picked then
+			spawnAt = picked + Vector3.new(0, 4, 0)
+		end
+	end
+	agent.HasSpawned = true
+	model:PivotTo(CFrame.new(spawnAt) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = folder
 	pcall(function()
 		root:SetNetworkOwner(nil)
@@ -743,7 +1251,15 @@ spawnAgent = function(agent)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
 	statsOf(agent)
 	animate(humanoid)
-	agent.Weapon = agent.Zombie and "Claws" or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	if agent.Zombie then
+		agent.Weapon = "Claws"
+	else
+		-- Rol y arma (los conserva al reaparecer), carril, puntería y reflejos propios
+		if not agent.Role then
+			chooseRole(agent)
+		end
+		agent.Weapon = agent.RoleWeapon or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	end
 	-- Traje de operador al azar (cada bot conserva el suyo al reaparecer)
 	if agent.Outfit == nil then
 		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false
@@ -768,6 +1284,13 @@ spawnAgent = function(agent)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0
 	agent.AlertPosition, agent.AlertTime = nil, nil
 	agent.Waypoints, agent.Target = nil, nil
+	local weaponDef = Weapons.Get(agent.Weapon)
+	agent.Mag = weaponDef and weaponDef.MagSize or 30
+	agent.ReloadUntil, agent.BurstLeft, agent.RetreatUntil, agent.HoldUntil = 0, 0, 0, 0
+	agent.LastSeenPosition, agent.LastSeenTime, agent.Arrived = nil, nil, false
+	agent.NextGrenade = os.clock() + 8 + math.random() * 10
+	agent.StuckPosition, agent.StuckTime = nil, nil
+	humanoid.WalkSpeed = agent.Zombie and humanoid.WalkSpeed or (CONFIG.SprintSpeed or CONFIG.WalkSpeed)
 
 	Combat.WatchHumanoid(humanoid, nil, agent.Name, agent)
 	humanoid.Died:Connect(function()

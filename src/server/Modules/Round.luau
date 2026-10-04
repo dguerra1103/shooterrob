@@ -27,6 +27,7 @@ local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
 local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
+local SpawnPicker = require(script.Parent.SpawnPicker)
 local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
 local Pumpkins = require(script.Parent.Pumpkins)
@@ -479,9 +480,24 @@ end
 ---------------------------------------------------------------------------
 
 local ffaCache = { Map = nil, Points = {} }
+local spawnedThisRound = {} -- [player] = true: ya apareció en esta ronda (la siguiente vez, dinámica)
 
 local function ffaSpawnFor(player, character)
 	if isTeamMode() then
+		-- Por equipos: la primera vez en la base; al reaparecer, en el punto más seguro (SpawnPicker)
+		local first = not spawnedThisRound[player]
+		if ReplicatedStorage:GetAttribute("State") == "Playing" then
+			spawnedThisRound[player] = true
+		end
+		if first or not SpawnPicker.Enabled() then
+			return
+		end
+		local point = SpawnPicker.Pick(player.Team, character)
+		local root = point and character:WaitForChild("HumanoidRootPart", 5)
+		if root then
+			task.wait()
+			character:PivotTo(CFrame.new(point + Vector3.new(0, 3, 0)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+		end
 		return
 	end
 	local map = workspace:FindFirstChild("Map")
@@ -1202,6 +1218,7 @@ local function playRound()
 		roundOver = false
 		balanceTeams()
 		resetStats()
+		table.clear(spawnedThisRound)
 		setState("Playing")
 		-- Mapa destacado del día: aviso al empezar
 		local featured = ReplicatedStorage:GetAttribute("FeaturedMap")

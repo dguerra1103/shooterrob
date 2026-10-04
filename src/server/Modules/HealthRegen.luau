@@ -1,0 +1,51 @@
+-- Vida que se recupera sola, como en los shooters de móvil: tras GameConfig.HealthRegen.Delay
+-- segundos sin recibir daño, la vida sube deprisa hasta llenarse. Para jugadores y bots.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+
+local HealthRegen = {}
+
+local STEP = 0.25
+
+local function regen(humanoid, now, config)
+	if humanoid.Health <= 0 or humanoid.Health >= humanoid.MaxHealth then
+		return
+	end
+	local hitTime = humanoid:GetAttribute("LastHitTime") or 0
+	if now - hitTime < config.Delay then
+		return
+	end
+	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + config.PerSecond * STEP)
+end
+
+function HealthRegen.Init()
+	local config = GameConfig.HealthRegen
+	if not config or not config.Enabled then
+		return
+	end
+	task.spawn(function()
+		while true do
+			task.wait(STEP)
+			local now = os.clock()
+			for _, player in Players:GetPlayers() do
+				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					regen(humanoid, now, config)
+				end
+			end
+			local bots = workspace:FindFirstChild("Bots")
+			if bots then
+				for _, model in bots:GetChildren() do
+					local humanoid = model:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						regen(humanoid, now, config)
+					end
+				end
+			end
+		end
+	end)
+end
+
+return HealthRegen
