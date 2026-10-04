@@ -268,6 +268,8 @@ KillEffects.List = {
 	Rayo = { Name = "Rayo", Rarity = "Legendario", Icon = "⚡", Price = 1500, Description = "Un rayo cae del cielo." },
 	Monedas = { Name = "Lluvia de monedas", Rarity = "Legendario", Icon = "🪙", Price = 1500, Description = "Revienta en monedas de oro." },
 	AgujeroNegro = { Name = "Agujero negro", Rarity = "Mítico", Icon = "🌀", Price = 3000, Description = "Se lo traga un agujero negro." },
+	Pintura = { Name = "Pintura", Rarity = "Épico", Icon = "🎨", Price = 900, Description = "Revienta en bolas de pintura y lo deja todo manchado." },
+	Arcoiris = { Name = "Arcoíris", Rarity = "Legendario", Icon = "🌈", Price = 1800, Description = "Un arcoíris sale disparado de tu rival." },
 }
 
 function KillEffects.Get(id)
@@ -15577,6 +15579,52 @@ KILL_FX.AgujeroNegro = function(position)
 end
 
 -- Dibuja el efecto de eliminación indicado (color = color del equipo de la víctima, para el normal)
+-- Pintura: bolas de pintura de colores que saltan y manchas en el suelo alrededor
+KILL_FX.Pintura = function(position)
+	debrisBurst(position, 18, function()
+		local ball = fxPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.6, 0.6, 0.6),
+			Color = PAINT_COLORS[math.random(1, #PAINT_COLORS)],
+			Material = Enum.Material.SmoothPlastic,
+		})
+		return ball
+	end, 20, 1.4)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { folder }
+	for i = 1, 6 do
+		local angle = i / 6 * math.pi * 2
+		local origin = position + Vector3.new(math.cos(angle) * 2.5, 1, math.sin(angle) * 2.5)
+		local hit = workspace:Raycast(origin, Vector3.new(0, -8, 0), params)
+		if hit and not hit.Instance.Parent:FindFirstChildOfClass("Humanoid") then
+			local anchor = emitterAnchor(hit.Position, hit.Normal, 1)
+			paintSplat(anchor, hit.Position, hit.Normal, false)
+		end
+	end
+	floatingText(position + Vector3.new(0, 2, 0), "🎨", 80, Vector3.new(0, 4, 0), 1.3)
+end
+
+-- Arcoíris: un arco de bolas de colores que sale del enemigo y se desvanece
+KILL_FX.Arcoiris = function(position)
+	for i = 0, 13 do
+		task.delay(i * 0.035, function()
+			local t = i / 13
+			local offset = Vector3.new((t - 0.5) * 9, math.sin(t * math.pi) * 6 + 1, 0)
+			local ball = fxPart({
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(1.1, 1.1, 1.1),
+				Color = Color3.fromHSV(t * 0.85, 0.8, 1),
+				CFrame = CFrame.new(position + offset),
+			})
+			TweenService:Create(ball, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Size = Vector3.new(0.2, 0.2, 0.2) }):Play()
+			Debris:AddItem(ball, 1.3)
+		end)
+	end
+	flashBall(position, Color3.fromRGB(255, 255, 255), 5, 0.3)
+	floatingText(position + Vector3.new(0, 3, 0), "🌈", 90, Vector3.new(0, 3, 0), 1.5)
+end
+
 function Effects.KillEffect(effectId, position, color)
 	local fn = KILL_FX[effectId]
 	if fn then
