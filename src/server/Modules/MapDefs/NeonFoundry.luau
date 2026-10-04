@@ -6,6 +6,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "NeonFoundry",
 	Name = "Neon Foundry",
+	Icon = "🔥",
 	Description = "Industrial · noche · lava y neón",
 }
 

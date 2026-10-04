@@ -6,6 +6,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "ContainerClash",
 	Name = "Container Clash",
+	Icon = "📦",
 	Description = "Puerto · atardecer · pasillos y pasarelas",
 }
 

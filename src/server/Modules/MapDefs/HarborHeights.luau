@@ -6,6 +6,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "HarborHeights",
 	Name = "Harbor Heights",
+	Icon = "⚓",
 	Description = "Costa · día · canal, puentes y azoteas",
 }
 

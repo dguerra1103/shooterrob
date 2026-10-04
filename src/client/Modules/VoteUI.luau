@@ -25,6 +25,7 @@ local MODE_ICONS = {
 	["Zona de control"] = "◆",
 	["Todos contra todos"] = "💀",
 	["Escalada de armas"] = "🔫",
+	["Eliminación"] = "☠",
 }
 
 local function setOpen(value)

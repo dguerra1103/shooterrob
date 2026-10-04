@@ -7,6 +7,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "TikiBeach",
 	Name = "Playa Tiki",
+	Icon = "🏝",
 	Description = "Isla tropical · mediodía · torre y chozas",
 }
 

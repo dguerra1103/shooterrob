@@ -427,7 +427,7 @@ local function publishVotes()
 	end
 	for i, option in voteOptions do
 		local def = MapBuilder.Get(option.Map)
-		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and def.Name or "Mapa propio")
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and ((def.Icon and def.Icon .. " " or "") .. def.Name) or "Mapa propio")
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", GameConfig.ModeSettings[option.Mode].Name)
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Count", counts[i])
 	end

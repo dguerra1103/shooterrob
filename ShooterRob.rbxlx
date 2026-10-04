@@ -6786,6 +6786,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "CandyArena",
 	Name = "Arena Caramelo",
+	Icon = "🍬",
 	Description = "Arena pequeña · duelos rápidos · tarta central",
 }
 
@@ -7060,6 +7061,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "ContainerClash",
 	Name = "Container Clash",
+	Icon = "📦",
 	Description = "Puerto · atardecer · pasillos y pasarelas",
 }
 
@@ -7293,6 +7295,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "Downtown",
 	Name = "Downtown",
+	Icon = "🏙",
 	Description = "Ciudad · día · calles y azoteas",
 }
 
@@ -8058,6 +8061,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "FrostStation",
 	Name = "Frost Station",
+	Icon = "❄",
 	Description = "Polar · tarde · lago helado y nieve",
 }
 
@@ -8410,6 +8414,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "HarborHeights",
 	Name = "Harbor Heights",
+	Icon = "⚓",
 	Description = "Costa · día · canal, puentes y azoteas",
 }
 
@@ -8688,6 +8693,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "JungleTemple",
 	Name = "Jungle Temple",
+	Icon = "🌴",
 	Description = "Selva · mediodía · pirámide y cascadas",
 }
 
@@ -9019,6 +9025,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "NeonFoundry",
 	Name = "Neon Foundry",
+	Icon = "🔥",
 	Description = "Industrial · noche · lava y neón",
 }
 
@@ -9255,6 +9262,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "PastelPlaza",
 	Name = "Pastel Plaza",
+	Icon = "🏰",
 	Description = "Arena · mediodía · torre central y azoteas",
 }
 
@@ -9482,6 +9490,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "SakuraGarden",
 	Name = "Jardín Sakura",
+	Icon = "🌸",
 	Description = "Jardín japonés · tarde · pagoda y estanques",
 }
 
@@ -9805,6 +9814,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "TikiBeach",
 	Name = "Playa Tiki",
+	Icon = "🏝",
 	Description = "Isla tropical · mediodía · torre y chozas",
 }
 
@@ -10047,6 +10057,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "ToyBox",
 	Name = "Caja de Juguetes",
+	Icon = "🧸",
 	Description = "Cuarto de juegos · castillo de bloques · ladrillos gigantes",
 }
 
@@ -13342,7 +13353,7 @@ local function publishVotes()
 	end
 	for i, option in voteOptions do
 		local def = MapBuilder.Get(option.Map)
-		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and def.Name or "Mapa propio")
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and ((def.Icon and def.Icon .. " " or "") .. def.Name) or "Mapa propio")
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", GameConfig.ModeSettings[option.Mode].Name)
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Count", counts[i])
 	end
@@ -21466,6 +21477,7 @@ local MODE_ICONS = {
 	["Zona de control"] = "◆",
 	["Todos contra todos"] = "💀",
 	["Escalada de armas"] = "🔫",
+	["Eliminación"] = "☠",
 }
 
 local function setOpen(value)

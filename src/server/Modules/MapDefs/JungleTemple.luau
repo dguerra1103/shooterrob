@@ -7,6 +7,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "JungleTemple",
 	Name = "Jungle Temple",
+	Icon = "🌴",
 	Description = "Selva · mediodía · pirámide y cascadas",
 }
 

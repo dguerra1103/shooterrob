@@ -7,6 +7,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "CandyArena",
 	Name = "Arena Caramelo",
+	Icon = "🍬",
 	Description = "Arena pequeña · duelos rápidos · tarta central",
 }
 

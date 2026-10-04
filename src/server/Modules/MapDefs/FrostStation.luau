@@ -7,6 +7,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "FrostStation",
 	Name = "Frost Station",
+	Icon = "❄",
 	Description = "Polar · tarde · lago helado y nieve",
 }
 

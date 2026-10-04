@@ -5,6 +5,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "Downtown",
 	Name = "Downtown",
+	Icon = "🏙",
 	Description = "Ciudad · día · calles y azoteas",
 }
 

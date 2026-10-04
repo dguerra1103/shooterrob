@@ -8,6 +8,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Map = {
 	Id = "ToyBox",
 	Name = "Caja de Juguetes",
+	Icon = "🧸",
 	Description = "Cuarto de juegos · castillo de bloques · ladrillos gigantes",
 }
 
