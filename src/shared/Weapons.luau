@@ -548,7 +548,8 @@ do
 		Damage = 70,
 		Range = 9,
 		Cooldown = 0.8,
-		ViewOffset = CFrame.new(0.85, -0.8, -1.4) * CFrame.Angles(rad(25), rad(20), 0),
+		-- Más a la derecha y hacia abajo para no tapar la mira
+		ViewOffset = CFrame.new(0.95, -0.9, -1.3) * CFrame.Angles(rad(10), rad(-10), rad(-20)),
 		RightHand = V(0, 0, 0.15),
 	}
 	katana.Parts = Classic.Katana(katana)

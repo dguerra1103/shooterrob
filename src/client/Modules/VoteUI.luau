@@ -110,7 +110,10 @@ function VoteUI.Init()
 		}, { UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 150, 200)), Rotation = 90 }) })
 		local stroke = UI.stroke(Color3.fromRGB(90, 100, 140), 2, 0)
 		stroke.Parent = card
-		local mapLabel = UI.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 30), Text = "", TextSize = 24, Parent = card })
+		-- Los nombres largos con icono se encogen para caber en la tarjeta
+		local mapLabel = UI.label({ Position = UDim2.fromOffset(6, 8), Size = UDim2.new(1, -12, 0, 30), Text = "", TextScaled = true, Parent = card }, {
+			UI.new("UITextSizeConstraint", { MaxTextSize = 24, MinTextSize = 12 }),
+		})
 		local modeLabel = UI.label({ Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 0, 24), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(150, 220, 255), Parent = card })
 		local countLabel = UI.label({ Position = UDim2.fromOffset(0, 74), Size = UDim2.new(1, 0, 0, 24), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(255, 210, 60), Parent = card })
 		card.Activated:Connect(function()

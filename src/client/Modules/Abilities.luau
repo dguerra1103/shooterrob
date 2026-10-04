@@ -126,8 +126,9 @@ local function superJump()
 	root.AssemblyLinearVelocity = launch
 	-- Otra vez en el siguiente paso de física: el salto del Humanoid podría pisar la velocidad
 	task.defer(function()
-		RunService.Heartbeat:Wait()
-		if root.Parent and root.AssemblyLinearVelocity.Y < config.Power * 0.9 then
+		local dt = RunService.Heartbeat:Wait()
+		-- (lo esperado tras un paso es Power - gravedad·dt; solo se corrige si quedó muy por debajo)
+		if root.Parent and humanoid.Health > 0 and root.AssemblyLinearVelocity.Y < config.Power - workspace.Gravity * dt - 8 then
 			root.AssemblyLinearVelocity = launch
 		end
 	end)

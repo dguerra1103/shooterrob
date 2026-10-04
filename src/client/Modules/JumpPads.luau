@@ -40,9 +40,10 @@ function JumpPads.Init()
 		root.AssemblyLinearVelocity = Vector3.new(v.X, power, v.Z)
 		-- Otra vez en el siguiente paso de física: el salto del Humanoid podría pisar la velocidad
 		task.defer(function()
-			RunService.Heartbeat:Wait()
+			local dt = RunService.Heartbeat:Wait()
 			local now = root.AssemblyLinearVelocity
-			if root.Parent and now.Y < power * 0.9 then
+			-- (lo esperado tras un paso es power - gravedad·dt; solo se corrige si quedó muy por debajo)
+			if root.Parent and humanoid.Health > 0 and now.Y < power - workspace.Gravity * dt - 8 then
 				root.AssemblyLinearVelocity = Vector3.new(now.X, power, now.Z)
 			end
 		end)
