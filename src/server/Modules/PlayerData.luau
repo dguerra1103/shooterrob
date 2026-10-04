@@ -168,21 +168,7 @@ end
 local function challengesView(player, data)
 	local state = ensureChallenges(player, data)
 	local weekly = ensureWeekly(player, data)
-	local list = {}
-	for _, entry in state.List do
-		local def = Challenges.Get(entry.Id)
-		if def then
-			table.insert(list, {
-				Id = entry.Id,
-				Text = def.Text,
-				Goal = def.Goal,
-				Progress = math.min(entry.Progress, def.Goal),
-				Done = entry.Done,
-				Coins = def.Coins,
-				XP = def.XP,
-			})
-		end
-	end
+	local list = entriesView(state.List)
 	return {
 		List = list,
 		RerollsLeft = math.max(0, Challenges.RerollsPerDay - (state.Rerolls or 0)),

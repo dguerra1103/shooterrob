@@ -75,7 +75,7 @@ local function carousel(cf)
 		local y = (i % 2 == 0) and 3.2 or 4.2 -- unos arriba y otros abajo, como si subieran y bajaran
 		local horse = spot * CFrame.new(0, y, 0) * CFrame.Angles(0, rad(90), 0)
 		Kit.block("HorseBody", V(3.4, 1.5, 1.2), horse, horseColor, SMOOTH)
-		Kit.block("HorseNeck", V(0.9, 1.6, 0.9), horse * CFrame.new(-1.6, 1, 0) * CFrame.Angles(0, 0, rad(-20)), horseColor, SMOOTH)
+		Kit.deco("HorseNeck", V(0.9, 1.6, 0.9), horse * CFrame.new(-1.6, 1, 0) * CFrame.Angles(0, 0, rad(-20)), horseColor, SMOOTH)
 		Kit.deco("HorseHead", V(1.6, 0.8, 0.8), horse * CFrame.new(-2.2, 1.8, 0), horseColor, SMOOTH)
 		Kit.deco("HorseMane", V(0.3, 1.4, 0.3), horse * CFrame.new(-1.3, 1.3, 0) * CFrame.Angles(0, 0, rad(-20)), GOLD, SMOOTH)
 		Kit.deco("HorseSaddle", V(1.2, 0.3, 1.3), horse * CFrame.new(0.2, 0.85, 0), RED, SMOOTH)
@@ -172,7 +172,7 @@ local function strengthTester(cf)
 		Kit.deco("TesterLight", V(1, 1.2, 0.3), cf * CFrame.new(0, 2.4 + i * 1.8, -0.5), color, Enum.Material.Neon)
 	end
 	Kit.ball("TesterBell", 2, cf * CFrame.new(0, 15.6, 0), GOLD, Enum.Material.Metal, true)
-	Kit.block("TesterPad", V(2, 0.4, 2), cf * CFrame.new(0, 1.4, -2.4), RGB(60, 60, 70), SMOOTH)
+	Kit.deco("TesterPad", V(2, 0.3, 2), cf * CFrame.new(0, 0.15, -2.4), RGB(60, 60, 70), SMOOTH)
 end
 
 -- Carrito de globos
@@ -303,7 +303,6 @@ function Map.Build()
 		-- Coches de choque (muro bajo) y casa de la risa con azotea
 		bumperCars(m * CFrame.new(-30, 0, -28), teamColor, GOLD)
 		funhouse(m * CFrame.new(-70, 0, -48), side == "A" and PINK or TEAL)
-		Kit.jumpPad((m * CFrame.new(-52, 0, -56)).Position, 64, teamColor)
 
 		-- Cobertura media: cajas, barriles, carrito de globos y palomitas
 		balloonCart(m * CFrame.new(-30, 0, 14) * CFrame.Angles(0, rad(20), 0))

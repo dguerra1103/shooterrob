@@ -16,6 +16,9 @@ local TIPS = {
 	"⚡ E impulso · Z supersalto · X poción",
 	"🍬 Recoge caramelos durante las partidas de Halloween",
 	"🎁 Cada pocos minutos jugando hay un regalo (tecla H)",
+	"💰 Con 5 bajas seguidas te buscan: quien te elimine cobra la recompensa",
+	"🎨 Pulsa J para pintar tu grafiti en la pared",
+	"📅 Los retos semanales dan hasta 1000 monedas cada uno",
 }
 
 local player = Players.LocalPlayer

@@ -49,6 +49,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **XP doble** | Los sábados y domingos (hora UTC) toda la XP vale el doble, con aviso en la pantalla de inicio (`GameConfig.XPBoost`: días, multiplicador o apagarlo). |
 | **Novedades** | Tras una actualización, quien ya había jugado ve una vez una tarjeta con lo nuevo al entrar (`GameConfig.News`: cambia los textos y sube `Version` para anunciar la siguiente). |
 | **Interfaz** | Pantalla de inicio, menú con pestañas (Perfil con rango y estadísticas, Pase, Retos, Armas, Skins, Trajes, Efectos, Tienda, Ajustes), iconos 3D de las armas, killfeed, rachas, marcador, aviso de zona/bandera y pantalla de victoria con MVP. |
+| **Indicador de daño** | Al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia quien te ha dado (jugador o bot) y lo sigue mientras se desvanece. |
 | **Ajustes** | Pestaña ⚙ del menú: calidad gráfica **Auto / Baja / Media / Alta / Ultra** (Auto: Baja en móvil, Media en PC) (sombras, brillo, rayos de sol, nubes, partículas del mapa y desenfoque de distancia en Ultra), **campo de visión** (70–100°), **sensibilidad** y **sensibilidad al apuntar** (baja en proporción al zoom). Se guardan con el progreso. |
 | **Práctica** | Muñecos en el mapa para probar las armas aunque juegues solo en Studio. |
 
