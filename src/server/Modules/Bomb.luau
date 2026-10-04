@@ -28,6 +28,8 @@ local sites = {} -- { Letter, Position, Radius, Visual }
 local PICKUP_RADIUS = 5
 local carrier -- { Model, Player, Name, LastPosition }
 local droppedAt -- Vector3: la bomba está en el suelo
+local droppedTime = 0
+local RETURN_TIME = 20 -- si nadie la recoge en este tiempo (p. ej. cayó al agua), vuelve a un atacante
 local droppedVisual
 local thread
 local visuals = {}
@@ -222,6 +224,7 @@ local function dropBomb(position, attackers)
 	carrier = nil
 	setAttr("Carrier", nil)
 	droppedAt = position
+	droppedTime = os.clock()
 	setAttr("Dropped", position)
 	local part = Instance.new("Part")
 	part.Name = "DroppedBomb"
@@ -272,6 +275,9 @@ local function updateCarrier(attackers)
 				setCarrier(member)
 				return
 			end
+		end
+		if os.clock() - droppedTime > RETURN_TIME and #members > 0 then
+			setCarrier(members[math.random(1, #members)])
 		end
 	elseif #members > 0 then
 		setCarrier(members[math.random(1, #members)])
