@@ -1349,8 +1349,10 @@ function Kit.terrainPatch(cf, size, material)
 	workspace.Terrain:FillBlock(cf * CFrame.new(0, -2, 0), V(size.X, 4, size.Z), material)
 end
 
--- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain)
-function Kit.Begin(name)
+-- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain). options.Realistic: este
+-- mapa usa materiales y luz realistas aunque el juego esté en estilo Cartoon (mapas tipo CoD)
+function Kit.Begin(name, options)
+	Kit.Cartoon = GameConfig.VisualStyle ~= "Realista" and not (options and options.Realistic)
 	local old = workspace:FindFirstChild("Map")
 	if old then
 		old:Destroy()
