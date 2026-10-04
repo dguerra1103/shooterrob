@@ -190,6 +190,7 @@ Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se
 3. En el Creator Hub, rellena el **cuestionario de madurez** y, como hay cajas, marca que tiene artículos aleatorios de pago (aunque solo se compren con monedas, las monedas se venden por Robux).
 4. En **Game Settings → Places**, pon el máximo de jugadores por servidor en **20** (10 contra 10) o menos de 30: Roblox solo dibuja 31 contornos a la vez (compañeros y radar).
 5. Cambia la experiencia a **Public** y ponle un icono y miniaturas llamativas (puedes usar las imágenes del concept pack).
+6. Temporadas: el evento de Halloween se apaga solo el 4 de noviembre (`GameConfig.Event.EndsAt`). Para el siguiente evento cambia `Id`, textos, premios y fecha; y para anunciar una actualización, cambia `GameConfig.News` y sube su `Version`.
 
 ## Estructura del proyecto
 
