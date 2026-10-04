@@ -7624,12 +7624,19 @@ end
 
 -- Nueva ronda de Eliminación: los muertos reaparecen y los vivos vuelven a su base con la vida llena
 function Bots.RespawnAll()
+	table.clear(intel)
 	for _, agent in table.clone(agents) do
 		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 			agent.Waypoints, agent.Target, agent.Shots, agent.GoalDeadline = nil, nil, 0, 0
 			agent.AlertPosition, agent.AlertTime = nil, nil
+			-- (nada de la ronda anterior: cargador lleno y sin esperas ni pistas viejas)
+			local weaponDef = Weapons.Get(agent.Weapon)
+			agent.Mag = weaponDef and weaponDef.MagSize or agent.Mag
+			agent.ReloadUntil, agent.RetreatUntil, agent.HoldUntil, agent.BurstLeft = 0, 0, 0, 0
+			agent.HoldLook, agent.SpotLook, agent.Arrived = nil, nil, false
+			agent.LastSeenPosition, agent.LastSeenTime = nil, nil
 		elseif not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
@@ -8533,9 +8540,24 @@ local function makeVisual(point)
 	ring.Shape = Enum.PartType.Cylinder
 	local fill = part("Fill", Vector3.new(0.32, radius * 2 - 1, radius * 2 - 1), CFrame.new(base + Vector3.new(0, 0.21, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.ForceField, 0.35)
 	fill.Shape = Enum.PartType.Cylinder
-	local pole = part("Pole", Vector3.new(0.4, 9, 0.4), CFrame.new(base + Vector3.new(0, 4.5, 0)), Enum.Material.Metal)
+	-- Mástil: en el centro si hay sitio; si hay algo justo encima (un monumento), hacia el borde de
+	-- la zona; bajo techo (dentro de un edificio), más bajo
+	local poleBase, poleHeight = base, 9
+	local bestRoom = -1
+	for _, offset in { Vector3.zero, Vector3.new(radius * 0.6, 0, 0), Vector3.new(0, 0, radius * 0.6), Vector3.new(-radius * 0.6, 0, 0), Vector3.new(0, 0, -radius * 0.6) } do
+		local hit = workspace:Raycast(base + offset + Vector3.new(0, 1, 0), Vector3.new(0, 10, 0))
+		local room = hit and hit.Distance or 10
+		if room > bestRoom then
+			bestRoom, poleBase = room, base + offset
+		end
+		if room >= 9 then
+			break
+		end
+	end
+	poleHeight = math.clamp(bestRoom + 1 - 0.6, 3, 9)
+	local pole = part("Pole", Vector3.new(0.4, poleHeight, 0.4), CFrame.new(poleBase + Vector3.new(0, poleHeight / 2, 0)), Enum.Material.Metal)
 	pole.Color = Color3.fromRGB(60, 60, 64)
-	part("Flag", Vector3.new(0.15, 2.4, 3.6), CFrame.new(base + Vector3.new(0, 7.6, 1.8)), Enum.Material.Fabric)
+	part("Flag", Vector3.new(0.15, math.min(2.4, poleHeight * 0.3), 3.6), CFrame.new(poleBase + Vector3.new(0, poleHeight - 1.4, 1.8)), Enum.Material.Fabric)
 	local light = Instance.new("PointLight")
 	light.Range = radius * 2
 	light.Brightness = 1.5
@@ -10145,6 +10167,18 @@ function Grenades.BotThrow(model, from, target, onExplode)
 	if not folder or ReplicatedStorage:GetAttribute("Frozen") then
 		return false
 	end
+	-- Nunca al otro lado de una pared: si hay algo entre la cabeza y el punto de salida, se queda de este lado
+	local head = model:FindFirstChild("Head")
+	if head then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { model, folder }
+		local offset = from - head.Position
+		local hit = offset.Magnitude > 0.05 and workspace:Raycast(head.Position, offset, params)
+		if hit then
+			from = hit.Position - offset.Unit * 0.6
+		end
+	end
 	local flight = math.clamp((target - from).Magnitude / 45, 0.6, 1.3)
 	local gravity = Vector3.new(0, -workspace.Gravity, 0)
 	local velocity = (target - from) / flight - gravity * flight / 2
@@ -10504,6 +10538,7 @@ function Hazards.Init()
 					humanoid:SetAttribute("LastAttacker", nil)
 					humanoid:SetAttribute("LastBot", nil)
 					humanoid:SetAttribute("LastWeapon", nil)
+					humanoid:SetAttribute("LastHitTime", os.clock()) -- (la vida no se recupera dentro)
 					humanoid:TakeDamage(LAVA_DAMAGE)
 				end
 			end
@@ -12967,10 +13002,10 @@ function Map.Build()
 	end
 	-- Puestos de los tiradores (ventanas que dan a la avenida, la torre del callejón y las obras)
 	for _, spot in {
-		{ V(-108, FLOOR_H, 26), V(-20, 4, 0) }, -- hotel, ventana a la avenida
-		{ V(-100, FLOOR_H, 26), V(-30, 4, 10) },
-		{ V(-112, FLOOR_H, -26), V(-20, 4, 0) }, -- oficinas, ventana a la avenida
-		{ V(-120, FLOOR_H, 104), V(-20, 4, 90) }, -- casa con torre, mirando el callejón
+		{ V(-110, FLOOR_H, 26.7), V(-110, 4, -20) }, -- hotel, ventanas a la avenida
+		{ V(-100, FLOOR_H, 26.7), V(-100, 4, -20) },
+		{ V(-114, FLOOR_H, -26.7), V(-114, 4, 20) }, -- oficinas, ventana a la avenida
+		{ V(-119.7, FLOOR_H, 108), V(-20, 4, 108) }, -- casa con torre, ventana al callejón
 		{ V(-58, FLOOR_H, -86), V(0, 4, -90) }, -- forjado de las obras
 	} do
 		Kit.botSpot(spot[1], spot[2])
@@ -15064,10 +15099,13 @@ local function fence(a, b, height)
 	local direction = b - a
 	local length = direction.Magnitude
 	local cf = CFrame.lookAt((a + b) / 2, b)
-	local mesh = block("Fence", V(0.15, height, length), cf * CFrame.new(0, height / 2, 0), RGB(150, 155, 160), M.DiamondPlate)
+	local mesh = deco("Fence", V(0.15, height, length), cf * CFrame.new(0, height / 2, 0), RGB(150, 155, 160), M.DiamondPlate)
 	mesh.Transparency = 0.75
-	mesh.CanQuery = false -- (las balas la atraviesan)
 	mesh.CastShadow = false
+	-- Lo que choca va aparte, donde las balas y la vista no lo ven (se dispara a través)
+	local collider = block("FenceCollider", V(0.4, height, length), cf * CFrame.new(0, height / 2, 0), RGB(150, 155, 160), nil, Kit.shootThroughFolder())
+	collider.Transparency = 1
+	collider.CastShadow = false
 	local posts = math.max(1, math.floor(length / 8))
 	for i = 0, posts do
 		local p = a:Lerp(b, i / posts)
@@ -15192,7 +15230,7 @@ function Map.Build()
 		Floors = 2,
 		Color = CONCRETE,
 		Material = M.Concrete,
-		Doors = { Front = { 6 }, Back = { -6 }, Left = { 0 }, Right = { 0 } },
+		Doors = { Front = { 6 }, Back = { -6 }, Right = { 0 } }, -- (por la izquierda va la escalera)
 		Sign = "MANDO",
 	})
 	Kit.cylinder("Antenna", 16, 0.5, CFrame.new(10, 25, 8), RGB(70, 72, 76), M.Metal, nil, true)
@@ -15335,8 +15373,8 @@ function Map.Build()
 	-- Puestos de los tiradores (torre de vigilancia, barracones y búnker de arriba)
 	for _, spot in {
 		{ V(-40, 14, -100), V(40, 4, -80) }, -- torre de vigilancia
-		{ V(-110, FLOOR_H, -74), V(-20, 4, -40) }, -- barracones, planta de arriba
-		{ V(4, FLOOR_H, -10), V(-60, 4, -40) }, -- búnker, planta de arriba
+		{ V(-112, FLOOR_H, -74.7), V(-112, 4, -20) }, -- barracones, ventana de arriba
+		{ V(0, FLOOR_H, -10.3), V(0, 4, -60) }, -- búnker, ventana de arriba
 	} do
 		Kit.botSpot(spot[1], spot[2])
 		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
@@ -16778,7 +16816,9 @@ local function cableStation(cf)
 	end
 	-- Parapeto delantero (cobertura) y barandillas
 	block("StationParapet", V(26, 2.6, 0.8), cf * CFrame.new(0, height + 1.3, -8.6), RGB(140, 142, 148), M.Concrete)
-	Kit.railing(cf * V(-13, height, 8.6), cf * V(13, height, 8.6), 3, RGB(60, 62, 66))
+	-- (con hueco donde llega la rampa)
+	Kit.railing(cf * V(-13, height, 8.6), cf * V(-9.5, height, 8.6), 3, RGB(60, 62, 66))
+	Kit.railing(cf * V(-2.5, height, 8.6), cf * V(13, height, 8.6), 3, RGB(60, 62, 66))
 	-- Cabina colgada del cable (se puede usar como cobertura arriba)
 	local cabin = block("CableCabin", V(8, 6, 5), cf * CFrame.new(4, height + 3, 2), RGB(200, 40, 40), M.Metal)
 	deco("CabinWindows", V(8.1, 2, 5.1), cf * CFrame.new(4, height + 4.4, 2), RGB(40, 48, 58), M.Glass)
@@ -16818,7 +16858,7 @@ function Map.Build()
 		Floors = 2,
 		Color = RGB(150, 112, 80),
 		Material = M.WoodPlanks,
-		Doors = { Front = { 7 }, Back = { -7 }, Left = { 0 }, Right = { 0 } },
+		Doors = { Front = { 7 }, Back = { -7 }, Right = { 0 } }, -- (por la izquierda va la escalera)
 		Sign = "REFUGIO",
 	})
 	Kit.cylinder("Chimney", 6, 2.4, CFrame.new(-10, 19, 6), STONE, M.Slate, nil, true)
@@ -16949,7 +16989,7 @@ function Map.Build()
 	-- Puestos de los tiradores: la estación del teleférico y la planta de arriba del refugio
 	for _, spot in {
 		{ V(-96, 9, 82), V(-20, 4, 70) },
-		{ V(6, FLOOR_H, -8), V(-60, 4, -30) },
+		{ V(-4, FLOOR_H, -9.3), V(-4, 4, -60) }, -- ventana de arriba del refugio
 	} do
 		Kit.botSpot(spot[1], spot[2])
 		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
@@ -18068,11 +18108,23 @@ function Kit.railing(a, b, h, color)
 		local p = a:Lerp(b, i / posts)
 		deco("RailPost", V(0.25, h, 0.25), CFrame.new(p + V(0, h / 2, 0)), color, Enum.Material.Metal)
 	end
-	-- colisión invisible para no caerse
-	local wall = block("RailCollider", V(0.4, h, length), cf * CFrame.new(0, h / 2, 0), color)
+	-- colisión invisible para no caerse (en la carpeta Boundary: las balas y la vista la atraviesan)
+	local wall = block("RailCollider", V(0.4, h, length), cf * CFrame.new(0, h / 2, 0), color, nil, Kit.shootThroughFolder())
 	wall.Transparency = 1
-	wall.CanQuery = false
 	wall.CastShadow = false
+end
+
+-- Carpeta para lo que choca pero no para las balas ni la vista (barandillas, alambradas): es la de
+-- los muros del borde (Map.Boundary), que todos los raycasts del juego excluyen. CanQuery = false
+-- no sirve en piezas que colisionan.
+function Kit.shootThroughFolder()
+	local folder = Kit.folder:FindFirstChild("Boundary")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Boundary"
+		folder.Parent = Kit.folder
+	end
+	return folder
 end
 
 ---------------------------------------------------------------------------
@@ -21487,12 +21539,11 @@ function RealKit.facadeOpenings(length, floors, doors, windows)
 		for f = 0, floors - 1 do
 			for i = 1, count do
 				local x = -length / 2 + (i - 0.5) * length / count
+				-- (ni al lado de una puerta ni encima: el muro de sobre la puerta taparía la ventana)
 				local clash = false
-				if f == 0 then
-					for _, d in doors or {} do
-						if math.abs(d - x) < 6 then
-							clash = true
-						end
+				for _, d in doors or {} do
+					if math.abs(d - x) < (f == 0 and 6 or 4.6) then
+						clash = true
 					end
 				end
 				if not clash and math.abs(x) < length / 2 - 2.5 then

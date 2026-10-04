@@ -1456,12 +1456,19 @@ end
 
 -- Nueva ronda de Eliminación: los muertos reaparecen y los vivos vuelven a su base con la vida llena
 function Bots.RespawnAll()
+	table.clear(intel)
 	for _, agent in table.clone(agents) do
 		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 			agent.Waypoints, agent.Target, agent.Shots, agent.GoalDeadline = nil, nil, 0, 0
 			agent.AlertPosition, agent.AlertTime = nil, nil
+			-- (nada de la ronda anterior: cargador lleno y sin esperas ni pistas viejas)
+			local weaponDef = Weapons.Get(agent.Weapon)
+			agent.Mag = weaponDef and weaponDef.MagSize or agent.Mag
+			agent.ReloadUntil, agent.RetreatUntil, agent.HoldUntil, agent.BurstLeft = 0, 0, 0, 0
+			agent.HoldLook, agent.SpotLook, agent.Arrived = nil, nil, false
+			agent.LastSeenPosition, agent.LastSeenTime = nil, nil
 		elseif not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end

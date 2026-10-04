@@ -117,7 +117,9 @@ local function cableStation(cf)
 	end
 	-- Parapeto delantero (cobertura) y barandillas
 	block("StationParapet", V(26, 2.6, 0.8), cf * CFrame.new(0, height + 1.3, -8.6), RGB(140, 142, 148), M.Concrete)
-	Kit.railing(cf * V(-13, height, 8.6), cf * V(13, height, 8.6), 3, RGB(60, 62, 66))
+	-- (con hueco donde llega la rampa)
+	Kit.railing(cf * V(-13, height, 8.6), cf * V(-9.5, height, 8.6), 3, RGB(60, 62, 66))
+	Kit.railing(cf * V(-2.5, height, 8.6), cf * V(13, height, 8.6), 3, RGB(60, 62, 66))
 	-- Cabina colgada del cable (se puede usar como cobertura arriba)
 	local cabin = block("CableCabin", V(8, 6, 5), cf * CFrame.new(4, height + 3, 2), RGB(200, 40, 40), M.Metal)
 	deco("CabinWindows", V(8.1, 2, 5.1), cf * CFrame.new(4, height + 4.4, 2), RGB(40, 48, 58), M.Glass)
@@ -157,7 +159,7 @@ function Map.Build()
 		Floors = 2,
 		Color = RGB(150, 112, 80),
 		Material = M.WoodPlanks,
-		Doors = { Front = { 7 }, Back = { -7 }, Left = { 0 }, Right = { 0 } },
+		Doors = { Front = { 7 }, Back = { -7 }, Right = { 0 } }, -- (por la izquierda va la escalera)
 		Sign = "REFUGIO",
 	})
 	Kit.cylinder("Chimney", 6, 2.4, CFrame.new(-10, 19, 6), STONE, M.Slate, nil, true)
@@ -288,7 +290,7 @@ function Map.Build()
 	-- Puestos de los tiradores: la estación del teleférico y la planta de arriba del refugio
 	for _, spot in {
 		{ V(-96, 9, 82), V(-20, 4, 70) },
-		{ V(6, FLOOR_H, -8), V(-60, 4, -30) },
+		{ V(-4, FLOOR_H, -9.3), V(-4, 4, -60) }, -- ventana de arriba del refugio
 	} do
 		Kit.botSpot(spot[1], spot[2])
 		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])

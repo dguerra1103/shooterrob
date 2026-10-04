@@ -131,6 +131,18 @@ function Grenades.BotThrow(model, from, target, onExplode)
 	if not folder or ReplicatedStorage:GetAttribute("Frozen") then
 		return false
 	end
+	-- Nunca al otro lado de una pared: si hay algo entre la cabeza y el punto de salida, se queda de este lado
+	local head = model:FindFirstChild("Head")
+	if head then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { model, folder }
+		local offset = from - head.Position
+		local hit = offset.Magnitude > 0.05 and workspace:Raycast(head.Position, offset, params)
+		if hit then
+			from = hit.Position - offset.Unit * 0.6
+		end
+	end
 	local flight = math.clamp((target - from).Magnitude / 45, 0.6, 1.3)
 	local gravity = Vector3.new(0, -workspace.Gravity, 0)
 	local velocity = (target - from) / flight - gravity * flight / 2

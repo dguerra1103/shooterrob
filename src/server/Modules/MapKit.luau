@@ -247,11 +247,23 @@ function Kit.railing(a, b, h, color)
 		local p = a:Lerp(b, i / posts)
 		deco("RailPost", V(0.25, h, 0.25), CFrame.new(p + V(0, h / 2, 0)), color, Enum.Material.Metal)
 	end
-	-- colisión invisible para no caerse
-	local wall = block("RailCollider", V(0.4, h, length), cf * CFrame.new(0, h / 2, 0), color)
+	-- colisión invisible para no caerse (en la carpeta Boundary: las balas y la vista la atraviesan)
+	local wall = block("RailCollider", V(0.4, h, length), cf * CFrame.new(0, h / 2, 0), color, nil, Kit.shootThroughFolder())
 	wall.Transparency = 1
-	wall.CanQuery = false
 	wall.CastShadow = false
+end
+
+-- Carpeta para lo que choca pero no para las balas ni la vista (barandillas, alambradas): es la de
+-- los muros del borde (Map.Boundary), que todos los raycasts del juego excluyen. CanQuery = false
+-- no sirve en piezas que colisionan.
+function Kit.shootThroughFolder()
+	local folder = Kit.folder:FindFirstChild("Boundary")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Boundary"
+		folder.Parent = Kit.folder
+	end
+	return folder
 end
 
 ---------------------------------------------------------------------------

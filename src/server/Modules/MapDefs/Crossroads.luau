@@ -287,10 +287,10 @@ function Map.Build()
 	end
 	-- Puestos de los tiradores (ventanas que dan a la avenida, la torre del callejón y las obras)
 	for _, spot in {
-		{ V(-108, FLOOR_H, 26), V(-20, 4, 0) }, -- hotel, ventana a la avenida
-		{ V(-100, FLOOR_H, 26), V(-30, 4, 10) },
-		{ V(-112, FLOOR_H, -26), V(-20, 4, 0) }, -- oficinas, ventana a la avenida
-		{ V(-120, FLOOR_H, 104), V(-20, 4, 90) }, -- casa con torre, mirando el callejón
+		{ V(-110, FLOOR_H, 26.7), V(-110, 4, -20) }, -- hotel, ventanas a la avenida
+		{ V(-100, FLOOR_H, 26.7), V(-100, 4, -20) },
+		{ V(-114, FLOOR_H, -26.7), V(-114, 4, 20) }, -- oficinas, ventana a la avenida
+		{ V(-119.7, FLOOR_H, 108), V(-20, 4, 108) }, -- casa con torre, ventana al callejón
 		{ V(-58, FLOOR_H, -86), V(0, 4, -90) }, -- forjado de las obras
 	} do
 		Kit.botSpot(spot[1], spot[2])

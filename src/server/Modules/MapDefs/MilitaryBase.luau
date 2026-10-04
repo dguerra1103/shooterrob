@@ -77,10 +77,13 @@ local function fence(a, b, height)
 	local direction = b - a
 	local length = direction.Magnitude
 	local cf = CFrame.lookAt((a + b) / 2, b)
-	local mesh = block("Fence", V(0.15, height, length), cf * CFrame.new(0, height / 2, 0), RGB(150, 155, 160), M.DiamondPlate)
+	local mesh = deco("Fence", V(0.15, height, length), cf * CFrame.new(0, height / 2, 0), RGB(150, 155, 160), M.DiamondPlate)
 	mesh.Transparency = 0.75
-	mesh.CanQuery = false -- (las balas la atraviesan)
 	mesh.CastShadow = false
+	-- Lo que choca va aparte, donde las balas y la vista no lo ven (se dispara a través)
+	local collider = block("FenceCollider", V(0.4, height, length), cf * CFrame.new(0, height / 2, 0), RGB(150, 155, 160), nil, Kit.shootThroughFolder())
+	collider.Transparency = 1
+	collider.CastShadow = false
 	local posts = math.max(1, math.floor(length / 8))
 	for i = 0, posts do
 		local p = a:Lerp(b, i / posts)
@@ -205,7 +208,7 @@ function Map.Build()
 		Floors = 2,
 		Color = CONCRETE,
 		Material = M.Concrete,
-		Doors = { Front = { 6 }, Back = { -6 }, Left = { 0 }, Right = { 0 } },
+		Doors = { Front = { 6 }, Back = { -6 }, Right = { 0 } }, -- (por la izquierda va la escalera)
 		Sign = "MANDO",
 	})
 	Kit.cylinder("Antenna", 16, 0.5, CFrame.new(10, 25, 8), RGB(70, 72, 76), M.Metal, nil, true)
@@ -348,8 +351,8 @@ function Map.Build()
 	-- Puestos de los tiradores (torre de vigilancia, barracones y búnker de arriba)
 	for _, spot in {
 		{ V(-40, 14, -100), V(40, 4, -80) }, -- torre de vigilancia
-		{ V(-110, FLOOR_H, -74), V(-20, 4, -40) }, -- barracones, planta de arriba
-		{ V(4, FLOOR_H, -10), V(-60, 4, -40) }, -- búnker, planta de arriba
+		{ V(-112, FLOOR_H, -74.7), V(-112, 4, -20) }, -- barracones, ventana de arriba
+		{ V(0, FLOOR_H, -10.3), V(0, 4, -60) }, -- búnker, ventana de arriba
 	} do
 		Kit.botSpot(spot[1], spot[2])
 		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])

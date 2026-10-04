@@ -93,12 +93,11 @@ function RealKit.facadeOpenings(length, floors, doors, windows)
 		for f = 0, floors - 1 do
 			for i = 1, count do
 				local x = -length / 2 + (i - 0.5) * length / count
+				-- (ni al lado de una puerta ni encima: el muro de sobre la puerta taparía la ventana)
 				local clash = false
-				if f == 0 then
-					for _, d in doors or {} do
-						if math.abs(d - x) < 6 then
-							clash = true
-						end
+				for _, d in doors or {} do
+					if math.abs(d - x) < (f == 0 and 6 or 4.6) then
+						clash = true
 					end
 				end
 				if not clash and math.abs(x) < length / 2 - 2.5 then

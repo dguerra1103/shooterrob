@@ -65,6 +65,7 @@ function Hazards.Init()
 					humanoid:SetAttribute("LastAttacker", nil)
 					humanoid:SetAttribute("LastBot", nil)
 					humanoid:SetAttribute("LastWeapon", nil)
+					humanoid:SetAttribute("LastHitTime", os.clock()) -- (la vida no se recupera dentro)
 					humanoid:TakeDamage(LAVA_DAMAGE)
 				end
 			end

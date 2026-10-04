@@ -118,9 +118,24 @@ local function makeVisual(point)
 	ring.Shape = Enum.PartType.Cylinder
 	local fill = part("Fill", Vector3.new(0.32, radius * 2 - 1, radius * 2 - 1), CFrame.new(base + Vector3.new(0, 0.21, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.ForceField, 0.35)
 	fill.Shape = Enum.PartType.Cylinder
-	local pole = part("Pole", Vector3.new(0.4, 9, 0.4), CFrame.new(base + Vector3.new(0, 4.5, 0)), Enum.Material.Metal)
+	-- Mástil: en el centro si hay sitio; si hay algo justo encima (un monumento), hacia el borde de
+	-- la zona; bajo techo (dentro de un edificio), más bajo
+	local poleBase, poleHeight = base, 9
+	local bestRoom = -1
+	for _, offset in { Vector3.zero, Vector3.new(radius * 0.6, 0, 0), Vector3.new(0, 0, radius * 0.6), Vector3.new(-radius * 0.6, 0, 0), Vector3.new(0, 0, -radius * 0.6) } do
+		local hit = workspace:Raycast(base + offset + Vector3.new(0, 1, 0), Vector3.new(0, 10, 0))
+		local room = hit and hit.Distance or 10
+		if room > bestRoom then
+			bestRoom, poleBase = room, base + offset
+		end
+		if room >= 9 then
+			break
+		end
+	end
+	poleHeight = math.clamp(bestRoom + 1 - 0.6, 3, 9)
+	local pole = part("Pole", Vector3.new(0.4, poleHeight, 0.4), CFrame.new(poleBase + Vector3.new(0, poleHeight / 2, 0)), Enum.Material.Metal)
 	pole.Color = Color3.fromRGB(60, 60, 64)
-	part("Flag", Vector3.new(0.15, 2.4, 3.6), CFrame.new(base + Vector3.new(0, 7.6, 1.8)), Enum.Material.Fabric)
+	part("Flag", Vector3.new(0.15, math.min(2.4, poleHeight * 0.3), 3.6), CFrame.new(poleBase + Vector3.new(0, poleHeight - 1.4, 1.8)), Enum.Material.Fabric)
 	local light = Instance.new("PointLight")
 	light.Range = radius * 2
 	light.Brightness = 1.5
