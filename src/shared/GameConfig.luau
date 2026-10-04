@@ -317,13 +317,15 @@ GameConfig.Movement = {
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
 -- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1 }
+-- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
 	AimSensitivity = { 0.2, 1.5 },
 	CrossColor = { 1, 6 }, -- índice de GameConfig.CrosshairColors
 	CrossSize = { 0.6, 2 },
+	AutoFire = { 0, 2 },
 }
 -- Colores de la mira que se pueden elegir en Ajustes
 GameConfig.CrosshairColors = {

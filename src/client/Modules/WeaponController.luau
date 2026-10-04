@@ -742,6 +742,22 @@ end
 -- Animación procedural del viewmodel (cada frame)
 ---------------------------------------------------------------------------
 
+-- ¿Hay un enemigo vivo justo en el centro de la mira (al alcance del arma)?
+local function enemyInSights()
+	local hit = workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * math.min(def.Range or 300, 400), rayParams)
+	local model = hit and hit.Instance:FindFirstAncestorOfClass("Model")
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or model == character then
+		return false
+	end
+	if not ReplicatedStorage:GetAttribute("TeamMode") then
+		return true
+	end
+	local owner = Players:GetPlayerFromCharacter(model)
+	local team = owner and owner.Team and owner.Team.Name or model:GetAttribute("Team")
+	return team ~= nil and team ~= "" and player.Team ~= nil and team ~= player.Team.Name
+end
+
 local function renderStep(dt)
 	if not character or not humanoid then
 		return
@@ -750,6 +766,17 @@ local function renderStep(dt)
 	-- Disparo automático
 	if triggerHeld and def and def.Type == "Gun" and def.Automatic then
 		fire()
+	end
+	-- Disparo automático (modo sencillo de los shooters de móvil): con la mira sobre un enemigo,
+	-- el arma dispara sola. Ajustes: 2 = solo en pantallas táctiles (por defecto), 1 = siempre, 0 = no
+	local autoMode = math.floor(((ClientState.Settings or GameConfig.DefaultSettings).AutoFire or 2) + 0.5)
+	if autoMode ~= 0 and (autoMode == 1 or UserInputService.TouchEnabled) and def and def.Type == "Gun"
+		and not reloadStart and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then
+		if def.Burst then
+			startBurst()
+		else
+			fire()
+		end
 	end
 	-- Disparo pendiente de la salida del sprint (si se tarda demasiado, se descarta)
 	if pendingShot then

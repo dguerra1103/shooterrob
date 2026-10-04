@@ -764,13 +764,15 @@ GameConfig.Movement = {
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
 -- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1 }
+-- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
 	AimSensitivity = { 0.2, 1.5 },
 	CrossColor = { 1, 6 }, -- índice de GameConfig.CrosshairColors
 	CrossSize = { 0.6, 2 },
+	AutoFire = { 0, 2 },
 }
 -- Colores de la mira que se pueden elegir en Ajustes
 GameConfig.CrosshairColors = {
@@ -31957,8 +31959,27 @@ local function buildSettingsPage()
 			sizeLabel.Text = "Tamaño " .. string.format("%.1f", current.CrossSize or 1)
 		end)
 	end
+	-- Disparo automático (como el modo sencillo de los shooters de móvil)
+	local auto = section(6, "🔫 Disparo automático (con la mira sobre un enemigo)", 92)
+	local autoMode = math.floor(current.AutoFire or 2)
+	for i, info in { { 2, "Solo en móvil" }, { 1, "Siempre" }, { 0, "No" } } do
+		local selected = autoMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = auto,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("AutoFire", info[1])
+			refresh()
+		end)
+	end
 	UI.label({
-		LayoutOrder = 6,
+		LayoutOrder = 7,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,
@@ -36256,6 +36277,22 @@ end
 -- Animación procedural del viewmodel (cada frame)
 ---------------------------------------------------------------------------
 
+-- ¿Hay un enemigo vivo justo en el centro de la mira (al alcance del arma)?
+local function enemyInSights()
+	local hit = workspace:Raycast(camera.CFrame.Position, camera.CFrame.LookVector * math.min(def.Range or 300, 400), rayParams)
+	local model = hit and hit.Instance:FindFirstAncestorOfClass("Model")
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or model == character then
+		return false
+	end
+	if not ReplicatedStorage:GetAttribute("TeamMode") then
+		return true
+	end
+	local owner = Players:GetPlayerFromCharacter(model)
+	local team = owner and owner.Team and owner.Team.Name or model:GetAttribute("Team")
+	return team ~= nil and team ~= "" and player.Team ~= nil and team ~= player.Team.Name
+end
+
 local function renderStep(dt)
 	if not character or not humanoid then
 		return
@@ -36264,6 +36301,17 @@ local function renderStep(dt)
 	-- Disparo automático
 	if triggerHeld and def and def.Type == "Gun" and def.Automatic then
 		fire()
+	end
+	-- Disparo automático (modo sencillo de los shooters de móvil): con la mira sobre un enemigo,
+	-- el arma dispara sola. Ajustes: 2 = solo en pantallas táctiles (por defecto), 1 = siempre, 0 = no
+	local autoMode = math.floor(((ClientState.Settings or GameConfig.DefaultSettings).AutoFire or 2) + 0.5)
+	if autoMode ~= 0 and (autoMode == 1 or UserInputService.TouchEnabled) and def and def.Type == "Gun"
+		and not reloadStart and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then
+		if def.Burst then
+			startBurst()
+		else
+			fire()
+		end
 	end
 	-- Disparo pendiente de la salida del sprint (si se tarda demasiado, se descarta)
 	if pendingShot then

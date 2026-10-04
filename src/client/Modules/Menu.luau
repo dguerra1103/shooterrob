@@ -1457,8 +1457,27 @@ local function buildSettingsPage()
 			sizeLabel.Text = "Tamaño " .. string.format("%.1f", current.CrossSize or 1)
 		end)
 	end
+	-- Disparo automático (como el modo sencillo de los shooters de móvil)
+	local auto = section(6, "🔫 Disparo automático (con la mira sobre un enemigo)", 92)
+	local autoMode = math.floor(current.AutoFire or 2)
+	for i, info in { { 2, "Solo en móvil" }, { 1, "Siempre" }, { 0, "No" } } do
+		local selected = autoMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = auto,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("AutoFire", info[1])
+			refresh()
+		end)
+	end
 	UI.label({
-		LayoutOrder = 6,
+		LayoutOrder = 7,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,
