@@ -176,6 +176,45 @@ local function watchtower(cf, height)
 	Kit.light(lamp, "SpotLight", RGB(255, 236, 200), 40, 1.2, Enum.NormalId.Bottom)
 end
 
+-- Tienda de campaña militar: dos faldones inclinados y la lona de detrás (cobertura que tapa la vista)
+local function tent(cf, length, width)
+	local canvas = RGB(98, 102, 74)
+	local h = width * 0.55
+	for _, side in { -1, 1 } do
+		local slope = math.sqrt((width / 2) ^ 2 + h ^ 2)
+		local angle = math.atan2(h, width / 2)
+		block("TentRoof", V(length, 0.3, slope), cf * CFrame.new(0, h / 2, side * width / 4) * CFrame.Angles(side * angle, 0, 0), canvas, M.Fabric)
+	end
+	block("TentBack", V(0.3, h * 0.8, width * 0.6), cf * CFrame.new(length / 2 - 0.2, h * 0.4, 0), canvas:Lerp(RGB(0, 0, 0), 0.1), M.Fabric)
+	deco("TentRidge", V(length + 0.6, 0.35, 0.35), cf * CFrame.new(0, h + 0.05, 0), RGB(70, 60, 44), M.Wood)
+end
+
+-- Red de camuflaje sobre postes (sombra y vista, no para las balas)
+local function camoNet(cf, sx, sz, height)
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			Kit.cylinder("NetPole", height, 0.35, cf * CFrame.new(x * (sx / 2 - 0.5), height / 2, z * (sz / 2 - 0.5)), RGB(80, 66, 48), M.Wood, nil, true)
+		end
+	end
+	local net = deco("CamoNet", V(sx, 0.2, sz), cf * CFrame.new(0, height, 0), RGB(78, 88, 58), M.Fabric)
+	net.CastShadow = true
+	-- Manchas del camuflaje
+	for i, spot in { { -0.25, -0.2, RGB(58, 66, 42) }, { 0.2, 0.15, RGB(104, 96, 66) }, { -0.05, 0.3, RGB(50, 58, 38) } } do
+		deco("CamoSpot", V(sx * 0.35, 0.22, sz * 0.3), cf * CFrame.new(spot[1] * sx, height + 0.02, spot[2] * sz) * CFrame.Angles(0, i, 0), spot[3], M.Fabric)
+	end
+end
+
+-- Torre de focos (de noche no se encienden: solo silueta)
+local function floodlight(cf)
+	local metal = RGB(96, 98, 100)
+	Kit.cylinder("FloodPole", 18, 0.6, cf * CFrame.new(0, 9, 0), metal, M.Metal, nil, true)
+	deco("FloodBar", V(5, 0.4, 0.4), cf * CFrame.new(0, 17.6, 0), metal, M.Metal)
+	for _, x in { -1.8, 0, 1.8 } do
+		deco("FloodLamp", V(1.3, 1.1, 0.8), cf * CFrame.new(x, 18.4, 0.3) * CFrame.Angles(rad(-20), 0, 0), RGB(60, 62, 64), M.Metal)
+		deco("FloodGlass", V(1, 0.8, 0.1), cf * CFrame.new(x, 18.4, 0.75) * CFrame.Angles(rad(-20), 0, 0), RGB(230, 230, 210), M.Glass)
+	end
+end
+
 -- Diana de la galería de tiro
 local function target(cf)
 	deco("TargetPost", V(0.3, 3, 0.3), cf * CFrame.new(0, 1.5, 0), RGB(100, 80, 60), M.Wood)
@@ -311,6 +350,21 @@ function Map.Build()
 				Kit.cartoonPine(m * V(x + z * 6, 0, z * (WIDTH / 2 + 24 + (i % 3) * 8)), 1.5 + (i % 2) * 0.4, true)
 			end
 		end
+
+		------------------------------------------------------------------
+		-- Ambiente: caminos de tierra, tiendas, red de camuflaje, focos y postes de la luz
+		------------------------------------------------------------------
+		Kit.terrainPatch(m * CFrame.new(-95, 0, 62), V(150, 1, 7), M.Ground)
+		Kit.terrainPatch(m * CFrame.new(-90, 0, -56), V(150, 1, 7), M.Ground)
+		Kit.terrainPatch(m * CFrame.new(-65, 0, -70), V(26, 1, 16), M.Mud)
+		Kit.terrainPatch(m * CFrame.new(-150, 0, -64), V(18, 1, 10), M.Mud)
+		tent(m * CFrame.new(-176, 0, -90) * CFrame.Angles(0, rad(90), 0), 11, 8)
+		tent(m * CFrame.new(-176, 0, -108) * CFrame.Angles(0, rad(90), 0), 11, 8)
+		camoNet(m * CFrame.new(-150, 0, 108) * CFrame.Angles(0, rad(10), 0), 16, 12, 9)
+		for _, p in { V(-178, 0, 48), V(-178, 0, -48) } do
+			floodlight(m * CFrame.new(p) * CFrame.Angles(0, rad(p.Z > 0 and -90 or 90), 0))
+		end
+		RealKit.utilityLine(m * CFrame.new(0, 0, 22.5), -175, -23, 38)
 
 		-- Base: el muro de detrás de la zona de salida, con sus banderas
 		for _, z in { -30, 30 } do

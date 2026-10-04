@@ -109,6 +109,52 @@ function RealKit.facadeOpenings(length, floors, doors, windows)
 	return list
 end
 
+-- Número "al azar" pero fijo para cada sitio (el mapa sale igual siempre)
+local function hash(cf, i)
+	local p = cf.Position
+	return (math.floor(math.abs(p.X * 7.13 + p.Z * 3.71 + i * 17.3)) % 97) / 97
+end
+
+-- Detalles de fachada que no chocan (sin tocar la jugabilidad): banda de piedra entre plantas,
+-- bajante en una esquina, aparatos de aire bajo algunas ventanas de arriba y trastos en la azotea.
+-- windowXs = posiciones X de las ventanas de la fachada delantera/trasera (de facadeOpenings)
+local function facadeDetails(cf, sx, sz, height, floors, roofed, windowXs)
+	local trim = RealKit.PALETTE.Trim
+	for f = 1, floors - 1 do
+		local y = f * FLOOR_H - 0.6
+		for _, z in { -1, 1 } do
+			deco("Band", V(sx + 0.5, 0.45, 0.5), cf * CFrame.new(0, y, z * (sz / 2 + 0.05)), trim, M.Limestone)
+		end
+		for _, x in { -1, 1 } do
+			deco("Band", V(0.5, 0.45, sz + 0.5), cf * CFrame.new(x * (sx / 2 + 0.05), y, 0), trim, M.Limestone)
+		end
+	end
+	-- Bajante de la azotea (esquina delantera derecha)
+	Kit.cylinder("Downpipe", height, 0.45, cf * CFrame.new(sx / 2 - 0.7, height / 2, -sz / 2 - 0.35), RGB(88, 84, 78), M.Metal, nil, true)
+	-- Aparatos de aire bajo algunas ventanas de la planta de arriba (delante y detrás)
+	if floors >= 2 and windowXs then
+		for i, x in windowXs do
+			for side = -1, 1, 2 do
+				if hash(cf, i * 3 + side) < 0.32 then
+					local y = (floors - 1) * FLOOR_H + 1.6
+					local unit = cf * CFrame.new(x, y, side * (sz / 2 + 0.75))
+					deco("ACUnit", V(2.2, 1.5, 1.2), unit, RGB(196, 196, 190), M.Metal)
+					deco("ACGrille", V(1.4, 1.1, 0.1), unit * CFrame.new(0, 0, side * 0.62), RGB(70, 72, 74), M.DiamondPlate)
+				end
+			end
+		end
+	end
+	if roofed then
+		-- Azotea: máquina del aire, chimenea de ventilación y antena
+		deco("RoofAC", V(3.2, 1.8, 2.6), cf * CFrame.new(-sx / 4, height + 0.9, -sz / 5), RGB(170, 170, 166), M.Metal)
+		Kit.cylinder("RoofVent", 2.4, 0.9, cf * CFrame.new(sx / 5, height + 1.2, -sz / 4), RGB(110, 108, 104), M.Metal, nil, true)
+		if hash(cf, 7) < 0.6 then
+			Kit.cylinder("Antenna", 7, 0.25, cf * CFrame.new(-sx / 2 + 1.5, height + 3.5, sz / 2 - 1.5), RGB(60, 60, 62), M.Metal, nil, true)
+			deco("AntennaBar", V(3, 0.2, 0.2), cf * CFrame.new(-sx / 2 + 1.5, height + 5.8, sz / 2 - 1.5), RGB(60, 60, 62), M.Metal)
+		end
+	end
+end
+
 -- Edificio en el que se entra. cf = centro de la planta baja (suelo en y = 0); sx = ancho (X local),
 -- sz = fondo (Z local, el frente mira a -Z). opts:
 --   Floors (1 o 2), Color, Material, Doors = { Front = {x...}, Back = {...}, Left = {...}, Right = {...} },
@@ -168,6 +214,16 @@ function RealKit.building(cf, sx, sz, opts)
 		-- Depósito de agua y antena en la azotea (silueta de ciudad)
 		Kit.cylinder("WaterTank", 3, 3, cf * CFrame.new(sx / 4, height + 1.5, sz / 4), RGB(70, 72, 76), M.Metal, nil, true)
 	end
+	-- Ventanas de la fachada (para colocar los aparatos de aire debajo)
+	local windowXs = {}
+	if not blind.Front then
+		for _, o in RealKit.facadeOpenings(sx, floors, doors.Front, true) do
+			if o.Y0 > (floors - 1) * FLOOR_H then
+				table.insert(windowXs, o.X)
+			end
+		end
+	end
+	facadeDetails(cf, sx, sz, height, floors, not opts.Ruined, windowXs)
 	if opts.Sign then
 		local plate = deco("ShopSign", V(math.min(sx - 4, 14), 2.2, 0.3), cf * CFrame.new(0, 8.6, -sz / 2 - 0.3), RGB(40, 38, 36), M.Wood)
 		Kit.sign(plate, Enum.NormalId.Front, opts.Sign, RGB(235, 225, 200), RGB(20, 20, 20))
@@ -227,11 +283,76 @@ function RealKit.solidBlock(cf, sx, sz, height, color, opts)
 			end
 		end
 	end
+	local floorsHigh = math.max(1, math.floor(height / FLOOR_H))
+	local windowXs = {}
+	if opts.Windows ~= false then
+		local count = math.max(1, math.floor(sx / 8))
+		for i = 1, count do
+			table.insert(windowXs, -sx / 2 + (i - 0.5) * sx / count)
+		end
+	end
+	facadeDetails(cf, sx, sz, height, floorsHigh, true, windowXs)
 	if opts.Sign then
 		local plate = deco("ShopSign", V(math.min(sx - 4, 14), 2.2, 0.3), cf * CFrame.new(0, 8.2, -sz / 2 - 0.3), RGB(40, 38, 36), M.Wood)
 		Kit.sign(plate, Enum.NormalId.Front, opts.Sign, RGB(235, 225, 200), RGB(20, 20, 20))
 	end
 	Kit.contactShadow(cf, sx + 0.4, sz + 0.4)
+end
+
+---------------------------------------------------------------------------
+-- Detalles de calle (no chocan: solo vista)
+---------------------------------------------------------------------------
+
+-- Postes de la luz en fila a lo largo del eje X local de cf (desde x0 hasta x1, cada `step`) con
+-- dos cables entre poste y poste
+function RealKit.utilityLine(cf, x0, x1, step)
+	local wood, wire = RGB(92, 74, 56), RGB(30, 30, 32)
+	local last
+	for x = x0, x1, step do
+		local base = cf * CFrame.new(x, 0, 0)
+		Kit.cylinder("UtilityPole", 15, 0.7, base * CFrame.new(0, 7.5, 0), wood, M.Wood, nil, true)
+		deco("Crossarm", V(0.4, 0.4, 4), base * CFrame.new(0, 13.8, 0), wood, M.Wood)
+		deco("Transformer", V(1.2, 1.8, 1.2), base * CFrame.new(0.7, 11.8, 0), RGB(110, 112, 110), M.Metal)
+		if last then
+			for _, z in { -1.6, 1.6 } do
+				deco("Wire", V(x - last, 0.1, 0.1), cf * CFrame.new((x + last) / 2, 13.2, z), wire, M.SmoothPlastic)
+			end
+		end
+		last = x
+	end
+end
+
+-- Parche de asfalto (más oscuro) con un bache y grietas
+function RealKit.roadPatch(cf, sx, sz)
+	deco("RoadPatch", V(sx, 0.06, sz), cf * CFrame.new(0, 0.42, 0), RGB(48, 48, 50), M.Asphalt)
+	deco("Pothole", V(sx * 0.35, 0.07, sz * 0.4), cf * CFrame.new(sx * 0.15, 0.44, -sz * 0.1) * CFrame.Angles(0, 0.6, 0), RGB(36, 34, 33), M.Slate)
+	for i = 1, 2 do
+		deco("Crack", V(sx * 0.6, 0.07, 0.18), cf * CFrame.new(-sx * 0.1, 0.44, (i - 1.5) * sz * 0.4) * CFrame.Angles(0, (i - 1.5) * 0.7, 0), RGB(30, 30, 30), M.Asphalt)
+	end
+end
+
+-- Basura junto a una pared: bolsas, cajas de cartón y papeles
+function RealKit.trashPile(cf)
+	for i, offset in { V(0, 0, 0), V(1.3, 0, 0.5), V(0.5, 0, -1.1) } do
+		local size = 1.2 + (i % 2) * 0.3
+		Kit.ball("TrashBag", size, cf * CFrame.new(offset + V(0, size / 2 - 0.1, 0)), i == 2 and RGB(40, 60, 40) or RGB(28, 28, 30), M.Plastic, true)
+	end
+	deco("Cardboard", V(1.6, 1.1, 1.3), cf * CFrame.new(-1.4, 0.55, 0.4) * CFrame.Angles(0, 0.4, 0), RGB(160, 124, 82), M.Cardboard)
+	deco("Cardboard", V(1.2, 0.8, 1), cf * CFrame.new(-1.2, 1.5, 0.3) * CFrame.Angles(0, -0.3, 0.1), RGB(150, 116, 76), M.Cardboard)
+	for i = 1, 3 do
+		deco("Paper", V(0.8, 0.03, 0.6), cf * CFrame.new(-2 + i * 1.4, 0.45, 1.6 + (i % 2)) * CFrame.Angles(0, i, 0), RGB(220, 214, 200), M.SmoothPlastic)
+	end
+end
+
+-- Semáforo (apagado por la guerra) en la esquina: poste, brazo y caja de luces
+function RealKit.trafficLight(cf)
+	local metal = RGB(56, 58, 60)
+	Kit.cylinder("SignalPole", 11, 0.5, cf * CFrame.new(0, 5.5, 0), metal, M.Metal, nil, true)
+	deco("SignalArm", V(0.35, 0.35, 6), cf * CFrame.new(0, 10.6, 3), metal, M.Metal)
+	local box = deco("SignalBox", V(1.2, 3.2, 1.1), cf * CFrame.new(0, 9.4, 5.6), RGB(40, 42, 40), M.Metal)
+	for i, color in { RGB(90, 30, 28), RGB(90, 80, 30), RGB(30, 80, 40) } do
+		deco("SignalLamp", V(0.75, 0.75, 0.1), box.CFrame * CFrame.new(-0.62, 1.05 - (i - 1) * 1.05, 0) * CFrame.Angles(0, math.pi / 2, 0), color, M.Glass)
+	end
 end
 
 -- Muro de sacos terreros (cobertura baja, hasta el pecho)

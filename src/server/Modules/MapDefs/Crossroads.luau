@@ -141,6 +141,17 @@ function Map.Build()
 		for _, x in { -150, -100, -50 } do
 			Kit.streetLamp(m * CFrame.new(x, 0, 19.5) * CFrame.Angles(0, math.pi, 0), RGB(255, 225, 180))
 		end
+		-- Detalles de calle: postes de la luz con cables por la acera sur, asfalto parcheado y con baches,
+		-- semáforo en la esquina del cruce y basura junto a las fachadas
+		RealKit.utilityLine(m * CFrame.new(0, 0, -21.5), -170, -30, 35)
+		for _, patch in { { -150, 6, 7, 5 }, { -108, -8, 9, 6 }, { -76, 10, 6, 4 }, { -40, -5, 8, 5 } } do
+			RealKit.roadPatch(m * CFrame.new(patch[1], 0, patch[2]) * CFrame.Angles(0, rad(patch[1] % 40), 0), patch[3], patch[4])
+		end
+		RealKit.trafficLight(m * CFrame.new(-14, 0, -19.5))
+		RealKit.trafficLight(m * CFrame.new(-14, 0, 19.5) * CFrame.Angles(0, math.pi, 0))
+		for _, t in { V(-160, 0, 22), V(-92, 0, 22.2), V(-132, 0, -22.4), V(-86, 0, -22.2) } do
+			RealKit.trashPile(m * CFrame.new(t) * CFrame.Angles(0, rad(t.X * 7 % 360), 0))
+		end
 
 		------------------------------------------------------------------
 		-- Carril norte: callejón del mercado (z 50..125)
