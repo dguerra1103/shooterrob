@@ -2570,17 +2570,20 @@ Titles.List = {
 	Diamante = { Name = "Diamante", Color = RGB(120, 230, 255), Stat = "RankBest", Goal = 5, Order = 8 },
 	Leyenda = { Name = "Leyenda", Color = RGB(255, 200, 40), Stat = "TotalKills", Goal = 5000, Order = 9 },
 	Campeon = { Name = "Campeón", Color = RGB(255, 120, 255), Stat = "RankBest", Goal = 6, Order = 10 },
+	Companero = { Name = "Compañero fiel", Color = RGB(130, 200, 255), Stat = "Assists", Goal = 100, Order = 11 },
 	-- Con monedas
-	Payaso = { Name = "Payaso de feria", Color = RGB(255, 120, 180), Price = 800, Order = 11 },
-	Cazazombis = { Name = "Cazazombis", Color = RGB(120, 230, 90), Price = 1200, Order = 12 },
-	ReyDelBarrio = { Name = "Rey del barrio", Color = RGB(255, 170, 60), Price = 2500, Order = 13 },
-	Millonario = { Name = "Millonario", Color = RGB(255, 225, 90), Price = 10000, Order = 14 },
+	Payaso = { Name = "Payaso de feria", Color = RGB(255, 120, 180), Price = 800, Order = 12 },
+	Cazazombis = { Name = "Cazazombis", Color = RGB(120, 230, 90), Price = 1200, Order = 13 },
+	Forajido = { Name = "Forajido", Color = RGB(215, 140, 80), Price = 1500, Order = 14 },
+	ReyDelBarrio = { Name = "Rey del barrio", Color = RGB(255, 170, 60), Price = 2500, Order = 15 },
+	Sheriff = { Name = "Sheriff", Color = RGB(255, 205, 70), Price = 3000, Order = 16 },
+	Millonario = { Name = "Millonario", Color = RGB(255, 225, 90), Price = 10000, Order = 17 },
 	-- Pase VIP
-	VIP = { Name = "VIP", Color = RGB(255, 200, 60), VIPOnly = true, Order = 15 },
+	VIP = { Name = "VIP", Color = RGB(255, 200, 60), VIPOnly = true, Order = 18 },
 }
 
 -- Los datos que se usan para los títulos ganados jugando (deben estar en los datos del jugador)
-Titles.Stats = { "TotalKills", "Headshots", "Matches", "BestStreak", "Wins", "RankBest" }
+Titles.Stats = { "TotalKills", "Headshots", "Matches", "BestStreak", "Wins", "RankBest", "Assists" }
 
 function Titles.Get(id)
 	return Titles.List[id] or Titles.List.Novato
@@ -2619,6 +2622,8 @@ function Titles.Requirement(id)
 		return title.Goal .. " victorias"
 	elseif title.Stat == "RankBest" then
 		return title.Goal >= 6 and "rango Campeón" or "rango Diamante"
+	elseif title.Stat == "Assists" then
+		return title.Goal .. " asistencias"
 	elseif title.VIPOnly then
 		return "👑 Solo VIP"
 	end
