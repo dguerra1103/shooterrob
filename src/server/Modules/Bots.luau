@@ -228,7 +228,11 @@ local function shoot(agent, target, distance)
 		agent.NextShot = os.clock() + def.ReloadTime
 		return
 	end
-	local chance = math.clamp(CONFIG.Accuracy - distance * CONFIG.AccuracyFalloff, 0.06, CONFIG.Accuracy)
+	-- Dificultad según el rango del jugador al que disparan (contra otros bots, normal)
+	local targetPlayer = Players:GetPlayerFromCharacter(target.Model)
+	local skill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
+	local accuracy = math.min(0.95, CONFIG.Accuracy * skill)
+	local chance = math.clamp(accuracy - distance * CONFIG.AccuracyFalloff, 0.06, accuracy)
 	local targetRoot = target.Model:FindFirstChild("HumanoidRootPart")
 	if targetRoot and targetRoot.AssemblyLinearVelocity.Magnitude > 12 then
 		chance *= 0.7 -- cuesta más acertar a quien se mueve rápido
@@ -237,7 +241,7 @@ local function shoot(agent, target, distance)
 	local endpoint
 	if hit then
 		endpoint = target.Head.Position + Vector3.new(math.random() - 0.5, -math.random() * 1.5, math.random() - 0.5)
-		local damage = (distance > (def.FalloffStart or 100) and def.MinDamage or def.Damage) * CONFIG.DamageScale
+		local damage = (distance > (def.FalloffStart or 100) and def.MinDamage or def.Damage) * CONFIG.DamageScale * skill
 		Combat.BotDamage(agent, target.Humanoid, damage, agent.Weapon)
 	else
 		local miss = Vector3.new(math.random() - 0.5, math.random() - 0.3, math.random() - 0.5).Unit * (2 + math.random() * 3)
