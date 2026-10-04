@@ -95,6 +95,21 @@ GameConfig.Event = {
 	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
 }
 
+-- Novedades: tarjeta que ven una vez (en la pantalla de inicio) los jugadores que ya habían jugado.
+-- Para anunciar otra actualización, cambia los textos y sube Version.
+GameConfig.News = {
+	Version = 1,
+	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
+	Items = {
+		{ "🧟", "Modo Infección: sobrevive a los zombis... o conviértete en uno" },
+		{ "🚀", "Mapa nuevo: Base Lunar, con la Tierra en el cielo" },
+		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
+		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
+		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza y skin Embrujada" },
+		{ "👤", "Pestaña Perfil con tus estadísticas y tu arma favorita" },
+	},
+}
+
 -- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)
 GameConfig.PlaytimeGifts = {
 	{ Minutes = 2, Coins = 40 },

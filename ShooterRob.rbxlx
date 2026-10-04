@@ -206,6 +206,21 @@ GameConfig.Event = {
 	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
 }
 
+-- Novedades: tarjeta que ven una vez (en la pantalla de inicio) los jugadores que ya habían jugado.
+-- Para anunciar otra actualización, cambia los textos y sube Version.
+GameConfig.News = {
+	Version = 1,
+	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
+	Items = {
+		{ "🧟", "Modo Infección: sobrevive a los zombis... o conviértete en uno" },
+		{ "🚀", "Mapa nuevo: Base Lunar, con la Tierra en el cielo" },
+		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
+		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
+		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza y skin Embrujada" },
+		{ "👤", "Pestaña Perfil con tus estadísticas y tu arma favorita" },
+	},
+}
+
 -- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)
 GameConfig.PlaytimeGifts = {
 	{ Minutes = 2, Coins = 40 },
@@ -763,6 +778,7 @@ local EVENTS = {
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
 	"SetMelee", -- cliente -> servidor: elegir arma cuerpo a cuerpo (cuchillo, martillo, katana)
 	"TutorialDone", -- cliente -> servidor: ya ha visto la tarjeta de controles
+	"NewsSeen", -- cliente -> servidor: ya ha visto las novedades (GameConfig.News)
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma
@@ -13365,6 +13381,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
+		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
@@ -13472,6 +13489,7 @@ local function publicView(player, data)
 		WheelSpins = data.WheelSpins,
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
+		NewsSeen = data.NewsSeen,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
@@ -13665,6 +13683,10 @@ local function load(player)
 		merged.EventProgress = { Id = "", Count = 0 }
 	end
 	-- Quien ya jugaba antes de existir el tutorial no lo ve
+	-- Los nuevos no ven las novedades (ven la tarjeta de controles)
+	if isNew or type(merged.NewsSeen) ~= "number" then
+		merged.NewsSeen = isNew and GameConfig.News.Version or 0
+	end
 	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
 		merged.TutorialDone = true
 	end
@@ -14469,6 +14491,14 @@ function PlayerData.Init()
 		local data = profiles[player]
 		if data and not data.TutorialDone then
 			data.TutorialDone = true
+			dirty[player] = true
+			sendUpdate(player)
+		end
+	end)
+	Remotes.NewsSeen.OnServerEvent:Connect(function(player)
+		local data = profiles[player]
+		if data and data.NewsSeen ~= GameConfig.News.Version then
+			data.NewsSeen = GameConfig.News.Version
 			dirty[player] = true
 			sendUpdate(player)
 		end
@@ -16106,6 +16136,7 @@ local Tutorial = require(Modules.Tutorial)
 local EventHUD = require(Modules.EventHUD)
 local ChatTags = require(Modules.ChatTags)
 local InfectionFX = require(Modules.InfectionFX)
+local News = require(Modules.News)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -16144,6 +16175,7 @@ start("Tutorial", Tutorial.Init)
 start("EventHUD", EventHUD.Init)
 start("ChatTags", ChatTags.Init)
 start("InfectionFX", InfectionFX.Init)
+start("News", News.Init)
 start("VoteUI", VoteUI.Init)
 start("GrenadeController", GrenadeController.Init)
 start("KillstreakController", KillstreakController.Init)
@@ -23540,6 +23572,112 @@ return Movement
           </Item>
           <Item class="ModuleScript" referent="79">
             <Properties>
+              <string name="Name">News</string>
+              <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
+-- vez lo nuevo de la actualización. Se cierra con el botón y el servidor lo apunta (NewsSeen).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+local Sounds = require(Shared.Sounds)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+
+local News = {}
+
+local shown = false
+
+local function show()
+	shown = true
+	local news = GameConfig.News
+	local height = 120 + #news.Items * 46
+	local gui = UI.new("ScreenGui", {
+		Name = "News",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 15,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	-- (Active: tapa los botones de la pantalla de inicio mientras se lee)
+	UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, Active = true, Parent = gui })
+	local card = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(560, height),
+		BackgroundColor3 = Color3.fromRGB(26, 20, 40),
+		Parent = gui,
+	}, { UI.corner(18), UI.stroke(Color3.fromRGB(255, 140, 30), 3, 0) })
+	local scale = UI.new("UIScale", { Scale = 0.6, Parent = card })
+	local viewport = workspace.CurrentCamera.ViewportSize
+	local fit = math.clamp(math.min((viewport.X - 20) / 560, (viewport.Y - 20) / height), 0.45, 1)
+	TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = fit }):Play()
+	UI.label({ Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 40), Text = news.Title, TextSize = 30, TextColor3 = Color3.fromRGB(255, 170, 50), Parent = card })
+	for i, item in news.Items do
+		local row = UI.new("Frame", {
+			Position = UDim2.fromOffset(20, 62 + (i - 1) * 46),
+			Size = UDim2.new(1, -40, 0, 40),
+			BackgroundColor3 = Color3.fromRGB(50, 40, 74),
+			BackgroundTransparency = 0.2,
+			Parent = card,
+		}, { UI.corner(10) })
+		UI.label({ Size = UDim2.fromOffset(44, 40), Text = item[1], TextSize = 24, Parent = row })
+		UI.label({
+			Position = UDim2.fromOffset(48, 0),
+			Size = UDim2.new(1, -56, 1, 0),
+			Text = item[2],
+			TextSize = 18,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextWrapped = true,
+			Parent = row,
+		})
+	end
+	local button = UI.button({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -14),
+		Size = UDim2.fromOffset(220, 44),
+		Text = "¡A JUGAR!",
+		TextSize = 24,
+		BackgroundColor3 = Color3.fromRGB(255, 130, 30),
+		Parent = card,
+	}, { UI.gloss() })
+	button.Modal = true
+	button.Activated:Connect(function()
+		Sounds.Play("Click")
+		Remotes.NewsSeen:FireServer()
+		gui:Destroy()
+	end)
+end
+
+function News.Init()
+	task.spawn(function()
+		while not shown do
+			task.wait(1)
+			local data = ClientState.Data
+			local news = GameConfig.News
+			if news and data and ClientState.InMainMenu and data.TutorialDone and (data.NewsSeen or 0) < news.Version then
+				task.wait(1) -- que primero se vea la pantalla de inicio
+				if ClientState.InMainMenu then
+					show()
+				end
+			elseif data and news and (data.NewsSeen or 0) >= news.Version then
+				return
+			end
+		end
+	end)
+end
+
+return News
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="80">
+            <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
 -- siguiente regalo y, cuando está listo, brilla y se recoge con la tecla H (en partida el ratón está
@@ -23709,7 +23847,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -23879,7 +24017,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -24197,7 +24335,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -24386,7 +24524,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -24472,7 +24610,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -24629,7 +24767,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -24731,7 +24869,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -24888,7 +25026,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -25792,7 +25930,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -25849,7 +25987,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -26143,7 +26281,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -26338,19 +26476,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="91">
+  <Item class="Teams" referent="92">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="92">
+  <Item class="Workspace" referent="93">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="93">
+    <Item class="Terrain" referent="94">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

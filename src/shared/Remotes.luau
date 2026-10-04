@@ -14,6 +14,7 @@ local EVENTS = {
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
 	"SetMelee", -- cliente -> servidor: elegir arma cuerpo a cuerpo (cuchillo, martillo, katana)
 	"TutorialDone", -- cliente -> servidor: ya ha visto la tarjeta de controles
+	"NewsSeen", -- cliente -> servidor: ya ha visto las novedades (GameConfig.News)
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma

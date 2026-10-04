@@ -92,6 +92,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
+		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
@@ -199,6 +200,7 @@ local function publicView(player, data)
 		WheelSpins = data.WheelSpins,
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
+		NewsSeen = data.NewsSeen,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
@@ -392,6 +394,10 @@ local function load(player)
 		merged.EventProgress = { Id = "", Count = 0 }
 	end
 	-- Quien ya jugaba antes de existir el tutorial no lo ve
+	-- Los nuevos no ven las novedades (ven la tarjeta de controles)
+	if isNew or type(merged.NewsSeen) ~= "number" then
+		merged.NewsSeen = isNew and GameConfig.News.Version or 0
+	end
 	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
 		merged.TutorialDone = true
 	end
@@ -1196,6 +1202,14 @@ function PlayerData.Init()
 		local data = profiles[player]
 		if data and not data.TutorialDone then
 			data.TutorialDone = true
+			dirty[player] = true
+			sendUpdate(player)
+		end
+	end)
+	Remotes.NewsSeen.OnServerEvent:Connect(function(player)
+		local data = profiles[player]
+		if data and data.NewsSeen ~= GameConfig.News.Version then
+			data.NewsSeen = GameConfig.News.Version
 			dirty[player] = true
 			sendUpdate(player)
 		end
