@@ -352,6 +352,38 @@ GameConfig.Event = {
 	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
 }
 
+-- Logros: metas a largo plazo que se reclaman en la pestaña Perfil (monedas al reclamar).
+-- Stat es un campo de los datos del jugador (TotalKills, Wins, Headshots, Matches, BestStreak, Level,
+-- RankBest = rango más alto alcanzado, 1 = Bronce ... 6 = Campeón).
+GameConfig.Achievements = {}
+do
+	local tiers = {
+		{ "TotalKills", "🎯", "Consigue %d bajas", { 10, 100, 500, 1000, 5000 }, { 100, 300, 800, 1500, 5000 } },
+		{ "Wins", "🏆", "Gana %d partidas", { 1, 10, 50, 200 }, { 100, 300, 1000, 3000 } },
+		{ "Headshots", "🧠", "Haz %d bajas a la cabeza", { 10, 100, 500 }, { 150, 600, 2000 } },
+		{ "Matches", "🎮", "Juega %d partidas", { 10, 50, 200 }, { 150, 500, 1500 } },
+		{ "BestStreak", "🔥", "Consigue una racha de %d bajas", { 5, 10, 20 }, { 150, 500, 1500 } },
+		{ "Level", "⭐", "Llega al nivel %d", { 10, 25, 50 }, { 300, 800, 2000 } },
+		{ "RankBest", "👑", "Llega al rango %s", { 3, 5, 6 }, { 500, 1500, 4000 } },
+	}
+	local rankNames = { [3] = "Oro", [5] = "Diamante", [6] = "Campeón" }
+	for _, tier in tiers do
+		local stat, icon, text, goals, coins = tier[1], tier[2], tier[3], tier[4], tier[5]
+		for i, goal in goals do
+			table.insert(GameConfig.Achievements, {
+				Id = stat .. goal,
+				Stat = stat,
+				Goal = goal,
+				Icon = icon,
+				Text = (stat == "RankBest" and string.format(text, rankNames[goal]))
+					or (stat == "Wins" and goal == 1 and "Gana tu primera partida")
+					or string.format(text, goal),
+				Coins = coins[i],
+			})
+		end
+	end
+end
+
 -- XP extra por días de la semana (hora UTC): Days usa os.date("!*t").wday (1 = domingo ... 7 = sábado).
 -- Multiplica solo la XP (no las monedas). Pon Enabled = false para quitarlo.
 GameConfig.XPBoost = { Enabled = true, Multiplier = 2, Days = { 1, 7 }, Text = "⚡ ¡FIN DE SEMANA DE XP DOBLE!" }
@@ -1001,6 +1033,7 @@ local FUNCTIONS = {
 	"UsePotion", -- habilidad Poción: cura con el tiempo (el servidor controla la recarga)
 	"ClaimGift", -- recoger el siguiente regalo por tiempo jugado
 	"SpinWheel", -- girar la ruleta diaria (gratis o gastando un giro comprado)
+	"ClaimAchievement", -- reclamar el premio de un logro (GameConfig.Achievements)
 }
 
 local Remotes = {}
@@ -13708,6 +13741,7 @@ local function defaults()
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
+		Achievements = {}, -- logros reclamados ([Id] = true)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
@@ -13816,6 +13850,8 @@ local function publicView(player, data)
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		NewsSeen = data.NewsSeen,
+		Achievements = data.Achievements,
+		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
@@ -14004,6 +14040,9 @@ local function load(player)
 	end
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
+	end
+	if type(merged.Achievements) ~= "table" then
+		merged.Achievements = {}
 	end
 	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
 		merged.WheelSpins = 0
@@ -14958,6 +14997,29 @@ function PlayerData.Init()
 	Remotes.BuyItem.OnServerInvoke = buyItem
 	Remotes.ClaimDaily.OnServerInvoke = claimDaily
 	Remotes.SpinWheel.OnServerInvoke = spinWheel
+	-- Logros: se reclaman si el dato llega a la meta y no se habían reclamado
+	Remotes.ClaimAchievement.OnServerInvoke = function(player, id)
+		local data = profiles[player]
+		if not data or type(id) ~= "string" then
+			return false
+		end
+		for _, achievement in GameConfig.Achievements do
+			if achievement.Id == id then
+				if data.Achievements[id] then
+					return false, "Ya lo tienes"
+				end
+				if (tonumber(data[achievement.Stat]) or 0) < achievement.Goal then
+					return false, "Aún no lo has conseguido"
+				end
+				data.Achievements[id] = true
+				data.Coins += achievement.Coins
+				dirty[player] = true
+				sendUpdate(player)
+				return true, achievement.Coins
+			end
+		end
+		return false, "No existe"
+	end
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 
@@ -22182,6 +22244,29 @@ end
 -- Pestaña: Retos diarios
 ---------------------------------------------------------------------------
 
+-- Logros: para cada estadística, el siguiente sin reclamar (o nil si ya están todos)
+local function nextAchievements(data)
+	local list, seen = {}, {}
+	for _, achievement in GameConfig.Achievements do
+		if not seen[achievement.Stat] and not (data.Achievements or {})[achievement.Id] then
+			seen[achievement.Stat] = true
+			table.insert(list, achievement)
+		end
+	end
+	return list
+end
+
+-- ¿Cuántos logros se pueden reclamar ya? (aviso en la pestaña Perfil)
+local function claimableAchievements(data)
+	local count = 0
+	for _, achievement in GameConfig.Achievements do
+		if not (data.Achievements or {})[achievement.Id] and (tonumber(data[achievement.Stat]) or 0) >= achievement.Goal then
+			count += 1
+		end
+	end
+	return count
+end
+
 -- Perfil: rango, nivel, estadísticas de siempre, arma favorita y colección
 local function buildProfilePage(data)
 	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
@@ -22289,6 +22374,82 @@ local function buildProfilePage(data)
 		UI.label({ Position = UDim2.fromOffset(14, y), Size = UDim2.fromOffset(110, 22), Text = row[1], TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = collection })
 		progressBar(collection, UDim2.fromOffset(124, y + 5), UDim2.new(1, -210, 0, 12), row[2] / math.max(1, row[3]), BLUE)
 		UI.label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, y), Size = UDim2.fromOffset(70, 22), Text = row[2] .. "/" .. row[3], TextSize = 16, TextXAlignment = Enum.TextXAlignment.Right, Parent = collection })
+	end
+
+	-- Logros (el siguiente de cada tipo)
+	local claimedCount = 0
+	for _ in data.Achievements or {} do
+		claimedCount += 1
+	end
+	UI.label({
+		LayoutOrder = 4,
+		Size = UDim2.new(1, -12, 0, 30),
+		Text = "🏅 LOGROS  ·  " .. claimedCount .. "/" .. #GameConfig.Achievements,
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = scroll,
+	})
+	local pending = nextAchievements(data)
+	if #pending == 0 then
+		UI.label({ LayoutOrder = 5, Size = UDim2.new(1, -12, 0, 40), Text = "¡Los tienes todos! 👑", TextSize = 20, Parent = scroll })
+	end
+	for i, achievement in pending do
+		local value = tonumber(data[achievement.Stat]) or 0
+		local ready = value >= achievement.Goal
+		local card = UI.new("Frame", {
+			LayoutOrder = 4 + i,
+			Size = UDim2.new(1, -12, 0, 58),
+			BackgroundColor3 = ready and Color3.fromRGB(40, 80, 50) or CARD_BG,
+			Parent = scroll,
+		}, { UI.corner(10), UI.stroke(ready and GREEN or Color3.fromRGB(90, 100, 140), 2, 0.2) })
+		UI.label({ Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(40, 58), Text = achievement.Icon, TextSize = 28, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(54, 6),
+			Size = UDim2.new(1, -250, 0, 24),
+			Text = achievement.Text,
+			TextSize = 18,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		progressBar(card, UDim2.fromOffset(54, 36), UDim2.new(1, -330, 0, 10), math.min(value, achievement.Goal) / achievement.Goal, ready and GREEN or BLUE)
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -196, 0, 30),
+			Size = UDim2.fromOffset(70, 22),
+			Text = math.min(value, achievement.Goal) .. "/" .. achievement.Goal,
+			TextSize = 14,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = card,
+		})
+		local button = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -10, 0.5, 0),
+			Size = UDim2.fromOffset(170, 38),
+			Text = ready and ("🎁 Reclamar " .. coinsText(achievement.Coins)) or coinsText(achievement.Coins),
+			TextSize = 16,
+			BackgroundColor3 = ready and GREEN or GREY,
+			AutoButtonColor = ready,
+			Parent = card,
+		}, { UI.gloss() })
+		if ready then
+			button.Activated:Connect(function()
+				if busy then
+					return
+				end
+				busy = true
+				local ok, success, result = pcall(function()
+					return Remotes.ClaimAchievement:InvokeServer(achievement.Id)
+				end)
+				busy = false
+				if ok and success then
+					Sounds.Play("Kill")
+					showToast("🏅 ¡Logro conseguido! +" .. tostring(result) .. " 🪙", GREEN)
+				else
+					showToast(ok and tostring(result) or "No se pudo reclamar", Color3.fromRGB(255, 90, 90))
+				end
+			end)
+		end
 	end
 end
 
@@ -23564,6 +23725,11 @@ function refresh()
 	end
 	for name, button in tabButtons do
 		button.BackgroundColor3 = name == currentTab and BLUE or CARD_BG
+	end
+	-- Aviso en Perfil si hay logros por reclamar
+	if tabButtons.Perfil and data then
+		local claimable = claimableAchievements(data)
+		tabButtons.Perfil.Text = claimable > 0 and ("Perfil 🔴" .. claimable) or "Perfil"
 	end
 	if not data then
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })

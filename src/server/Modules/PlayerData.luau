@@ -93,6 +93,7 @@ local function defaults()
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
+		Achievements = {}, -- logros reclamados ([Id] = true)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
@@ -201,6 +202,8 @@ local function publicView(player, data)
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		NewsSeen = data.NewsSeen,
+		Achievements = data.Achievements,
+		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
@@ -389,6 +392,9 @@ local function load(player)
 	end
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
+	end
+	if type(merged.Achievements) ~= "table" then
+		merged.Achievements = {}
 	end
 	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
 		merged.WheelSpins = 0
@@ -1343,6 +1349,29 @@ function PlayerData.Init()
 	Remotes.BuyItem.OnServerInvoke = buyItem
 	Remotes.ClaimDaily.OnServerInvoke = claimDaily
 	Remotes.SpinWheel.OnServerInvoke = spinWheel
+	-- Logros: se reclaman si el dato llega a la meta y no se habían reclamado
+	Remotes.ClaimAchievement.OnServerInvoke = function(player, id)
+		local data = profiles[player]
+		if not data or type(id) ~= "string" then
+			return false
+		end
+		for _, achievement in GameConfig.Achievements do
+			if achievement.Id == id then
+				if data.Achievements[id] then
+					return false, "Ya lo tienes"
+				end
+				if (tonumber(data[achievement.Stat]) or 0) < achievement.Goal then
+					return false, "Aún no lo has conseguido"
+				end
+				data.Achievements[id] = true
+				data.Coins += achievement.Coins
+				dirty[player] = true
+				sendUpdate(player)
+				return true, achievement.Coins
+			end
+		end
+		return false, "No existe"
+	end
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 

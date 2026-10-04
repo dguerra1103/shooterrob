@@ -408,6 +408,29 @@ end
 -- Pestaña: Retos diarios
 ---------------------------------------------------------------------------
 
+-- Logros: para cada estadística, el siguiente sin reclamar (o nil si ya están todos)
+local function nextAchievements(data)
+	local list, seen = {}, {}
+	for _, achievement in GameConfig.Achievements do
+		if not seen[achievement.Stat] and not (data.Achievements or {})[achievement.Id] then
+			seen[achievement.Stat] = true
+			table.insert(list, achievement)
+		end
+	end
+	return list
+end
+
+-- ¿Cuántos logros se pueden reclamar ya? (aviso en la pestaña Perfil)
+local function claimableAchievements(data)
+	local count = 0
+	for _, achievement in GameConfig.Achievements do
+		if not (data.Achievements or {})[achievement.Id] and (tonumber(data[achievement.Stat]) or 0) >= achievement.Goal then
+			count += 1
+		end
+	end
+	return count
+end
+
 -- Perfil: rango, nivel, estadísticas de siempre, arma favorita y colección
 local function buildProfilePage(data)
 	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
@@ -515,6 +538,82 @@ local function buildProfilePage(data)
 		UI.label({ Position = UDim2.fromOffset(14, y), Size = UDim2.fromOffset(110, 22), Text = row[1], TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = collection })
 		progressBar(collection, UDim2.fromOffset(124, y + 5), UDim2.new(1, -210, 0, 12), row[2] / math.max(1, row[3]), BLUE)
 		UI.label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, y), Size = UDim2.fromOffset(70, 22), Text = row[2] .. "/" .. row[3], TextSize = 16, TextXAlignment = Enum.TextXAlignment.Right, Parent = collection })
+	end
+
+	-- Logros (el siguiente de cada tipo)
+	local claimedCount = 0
+	for _ in data.Achievements or {} do
+		claimedCount += 1
+	end
+	UI.label({
+		LayoutOrder = 4,
+		Size = UDim2.new(1, -12, 0, 30),
+		Text = "🏅 LOGROS  ·  " .. claimedCount .. "/" .. #GameConfig.Achievements,
+		TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = scroll,
+	})
+	local pending = nextAchievements(data)
+	if #pending == 0 then
+		UI.label({ LayoutOrder = 5, Size = UDim2.new(1, -12, 0, 40), Text = "¡Los tienes todos! 👑", TextSize = 20, Parent = scroll })
+	end
+	for i, achievement in pending do
+		local value = tonumber(data[achievement.Stat]) or 0
+		local ready = value >= achievement.Goal
+		local card = UI.new("Frame", {
+			LayoutOrder = 4 + i,
+			Size = UDim2.new(1, -12, 0, 58),
+			BackgroundColor3 = ready and Color3.fromRGB(40, 80, 50) or CARD_BG,
+			Parent = scroll,
+		}, { UI.corner(10), UI.stroke(ready and GREEN or Color3.fromRGB(90, 100, 140), 2, 0.2) })
+		UI.label({ Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(40, 58), Text = achievement.Icon, TextSize = 28, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(54, 6),
+			Size = UDim2.new(1, -250, 0, 24),
+			Text = achievement.Text,
+			TextSize = 18,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		progressBar(card, UDim2.fromOffset(54, 36), UDim2.new(1, -330, 0, 10), math.min(value, achievement.Goal) / achievement.Goal, ready and GREEN or BLUE)
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -196, 0, 30),
+			Size = UDim2.fromOffset(70, 22),
+			Text = math.min(value, achievement.Goal) .. "/" .. achievement.Goal,
+			TextSize = 14,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = card,
+		})
+		local button = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -10, 0.5, 0),
+			Size = UDim2.fromOffset(170, 38),
+			Text = ready and ("🎁 Reclamar " .. coinsText(achievement.Coins)) or coinsText(achievement.Coins),
+			TextSize = 16,
+			BackgroundColor3 = ready and GREEN or GREY,
+			AutoButtonColor = ready,
+			Parent = card,
+		}, { UI.gloss() })
+		if ready then
+			button.Activated:Connect(function()
+				if busy then
+					return
+				end
+				busy = true
+				local ok, success, result = pcall(function()
+					return Remotes.ClaimAchievement:InvokeServer(achievement.Id)
+				end)
+				busy = false
+				if ok and success then
+					Sounds.Play("Kill")
+					showToast("🏅 ¡Logro conseguido! +" .. tostring(result) .. " 🪙", GREEN)
+				else
+					showToast(ok and tostring(result) or "No se pudo reclamar", Color3.fromRGB(255, 90, 90))
+				end
+			end)
+		end
 	end
 end
 
@@ -1790,6 +1889,11 @@ function refresh()
 	end
 	for name, button in tabButtons do
 		button.BackgroundColor3 = name == currentTab and BLUE or CARD_BG
+	end
+	-- Aviso en Perfil si hay logros por reclamar
+	if tabButtons.Perfil and data then
+		local claimable = claimableAchievements(data)
+		tabButtons.Perfil.Text = claimable > 0 and ("Perfil 🔴" .. claimable) or "Perfil"
 	end
 	if not data then
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })

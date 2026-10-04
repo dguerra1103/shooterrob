@@ -44,6 +44,7 @@ local FUNCTIONS = {
 	"UsePotion", -- habilidad Poción: cura con el tiempo (el servidor controla la recarga)
 	"ClaimGift", -- recoger el siguiente regalo por tiempo jugado
 	"SpinWheel", -- girar la ruleta diaria (gratis o gastando un giro comprado)
+	"ClaimAchievement", -- reclamar el premio de un logro (GameConfig.Achievements)
 }
 
 local Remotes = {}

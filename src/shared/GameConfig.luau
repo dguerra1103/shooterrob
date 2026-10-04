@@ -96,6 +96,38 @@ GameConfig.Event = {
 	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
 }
 
+-- Logros: metas a largo plazo que se reclaman en la pestaña Perfil (monedas al reclamar).
+-- Stat es un campo de los datos del jugador (TotalKills, Wins, Headshots, Matches, BestStreak, Level,
+-- RankBest = rango más alto alcanzado, 1 = Bronce ... 6 = Campeón).
+GameConfig.Achievements = {}
+do
+	local tiers = {
+		{ "TotalKills", "🎯", "Consigue %d bajas", { 10, 100, 500, 1000, 5000 }, { 100, 300, 800, 1500, 5000 } },
+		{ "Wins", "🏆", "Gana %d partidas", { 1, 10, 50, 200 }, { 100, 300, 1000, 3000 } },
+		{ "Headshots", "🧠", "Haz %d bajas a la cabeza", { 10, 100, 500 }, { 150, 600, 2000 } },
+		{ "Matches", "🎮", "Juega %d partidas", { 10, 50, 200 }, { 150, 500, 1500 } },
+		{ "BestStreak", "🔥", "Consigue una racha de %d bajas", { 5, 10, 20 }, { 150, 500, 1500 } },
+		{ "Level", "⭐", "Llega al nivel %d", { 10, 25, 50 }, { 300, 800, 2000 } },
+		{ "RankBest", "👑", "Llega al rango %s", { 3, 5, 6 }, { 500, 1500, 4000 } },
+	}
+	local rankNames = { [3] = "Oro", [5] = "Diamante", [6] = "Campeón" }
+	for _, tier in tiers do
+		local stat, icon, text, goals, coins = tier[1], tier[2], tier[3], tier[4], tier[5]
+		for i, goal in goals do
+			table.insert(GameConfig.Achievements, {
+				Id = stat .. goal,
+				Stat = stat,
+				Goal = goal,
+				Icon = icon,
+				Text = (stat == "RankBest" and string.format(text, rankNames[goal]))
+					or (stat == "Wins" and goal == 1 and "Gana tu primera partida")
+					or string.format(text, goal),
+				Coins = coins[i],
+			})
+		end
+	end
+end
+
 -- XP extra por días de la semana (hora UTC): Days usa os.date("!*t").wday (1 = domingo ... 7 = sábado).
 -- Multiplica solo la XP (no las monedas). Pon Enabled = false para quitarlo.
 GameConfig.XPBoost = { Enabled = true, Multiplier = 2, Days = { 1, 7 }, Text = "⚡ ¡FIN DE SEMANA DE XP DOBLE!" }
