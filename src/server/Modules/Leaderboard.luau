@@ -1,6 +1,6 @@
--- Clasificación global (todos los servidores): top 10 de bajas y de victorias.
+-- Clasificación global (todos los servidores): top 10 de bajas, de victorias y de rango (mejor RP).
 -- Se guarda en OrderedDataStores y se publica a los clientes como texto JSON en atributos de
--- ReplicatedStorage ("Leaderboard_Kills", "Leaderboard_Wins") para la pantalla de inicio.
+-- ReplicatedStorage ("Leaderboard_Kills", "Leaderboard_Wins", "Leaderboard_Rank") para la pantalla de inicio.
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
@@ -16,6 +16,7 @@ local TOP = 10
 local BOARDS = {
 	{ Id = "Kills", Store = "TopBajas_v1", Field = "TotalKills" },
 	{ Id = "Wins", Store = "TopVictorias_v1", Field = "Wins" },
+	{ Id = "Rank", Store = "TopRango_v1", Field = "RankPoints" },
 }
 
 local stores = {}

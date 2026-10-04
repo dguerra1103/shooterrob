@@ -159,7 +159,7 @@ local function buildLeaderboard(parent)
 	UI.label({
 		Position = UDim2.fromOffset(14, 6),
 		Size = UDim2.new(1, -28, 0, 30),
-		Text = "🏆 TOP MUNDIAL",
+		Text = "🏆 TOP",
 		TextSize = 24,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(255, 210, 60),
@@ -223,7 +223,8 @@ local function buildLeaderboard(parent)
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.new(1, -8, 0, 0),
 				Size = UDim2.fromOffset(80, 21),
-				Text = tostring(row.Value or 0),
+				Text = board == "Rank" and (Ranks.Get(tonumber(row.Value) or 0).Icon .. " " .. tostring(row.Value or 0))
+					or tostring(row.Value or 0),
 				TextSize = 16,
 				TextXAlignment = Enum.TextXAlignment.Right,
 				TextColor3 = Color3.fromRGB(255, 210, 60),
@@ -231,11 +232,11 @@ local function buildLeaderboard(parent)
 			})
 		end
 	end
-	for i, info in { { "Kills", "Bajas" }, { "Wins", "Victorias" } } do
+	for i, info in { { "Kills", "Bajas" }, { "Wins", "Victorias" }, { "Rank", "Rango" } } do
 		local button = UI.button({
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -12 - (2 - i) * 84, 0, 9),
-			Size = UDim2.fromOffset(80, 26),
+			Position = UDim2.new(1, -12 - (3 - i) * 74, 0, 9),
+			Size = UDim2.fromOffset(70, 26),
 			Text = info[2],
 			TextSize = 14,
 			Parent = panel,

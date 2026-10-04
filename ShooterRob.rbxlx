@@ -7139,9 +7139,9 @@ return Killstreaks
         <Item class="ModuleScript" referent="36">
           <Properties>
             <string name="Name">Leaderboard</string>
-            <string name="Source"><![CDATA[-- Clasificación global (todos los servidores): top 10 de bajas y de victorias.
+            <string name="Source"><![CDATA[-- Clasificación global (todos los servidores): top 10 de bajas, de victorias y de rango (mejor RP).
 -- Se guarda en OrderedDataStores y se publica a los clientes como texto JSON en atributos de
--- ReplicatedStorage ("Leaderboard_Kills", "Leaderboard_Wins") para la pantalla de inicio.
+-- ReplicatedStorage ("Leaderboard_Kills", "Leaderboard_Wins", "Leaderboard_Rank") para la pantalla de inicio.
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
@@ -7157,6 +7157,7 @@ local TOP = 10
 local BOARDS = {
 	{ Id = "Kills", Store = "TopBajas_v1", Field = "TotalKills" },
 	{ Id = "Wins", Store = "TopVictorias_v1", Field = "Wins" },
+	{ Id = "Rank", Store = "TopRango_v1", Field = "RankPoints" },
 }
 
 local stores = {}
@@ -19483,7 +19484,7 @@ local function buildLeaderboard(parent)
 	UI.label({
 		Position = UDim2.fromOffset(14, 6),
 		Size = UDim2.new(1, -28, 0, 30),
-		Text = "🏆 TOP MUNDIAL",
+		Text = "🏆 TOP",
 		TextSize = 24,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(255, 210, 60),
@@ -19547,7 +19548,8 @@ local function buildLeaderboard(parent)
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.new(1, -8, 0, 0),
 				Size = UDim2.fromOffset(80, 21),
-				Text = tostring(row.Value or 0),
+				Text = board == "Rank" and (Ranks.Get(tonumber(row.Value) or 0).Icon .. " " .. tostring(row.Value or 0))
+					or tostring(row.Value or 0),
 				TextSize = 16,
 				TextXAlignment = Enum.TextXAlignment.Right,
 				TextColor3 = Color3.fromRGB(255, 210, 60),
@@ -19555,11 +19557,11 @@ local function buildLeaderboard(parent)
 			})
 		end
 	end
-	for i, info in { { "Kills", "Bajas" }, { "Wins", "Victorias" } } do
+	for i, info in { { "Kills", "Bajas" }, { "Wins", "Victorias" }, { "Rank", "Rango" } } do
 		local button = UI.button({
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -12 - (2 - i) * 84, 0, 9),
-			Size = UDim2.fromOffset(80, 26),
+			Position = UDim2.new(1, -12 - (3 - i) * 74, 0, 9),
+			Size = UDim2.fromOffset(70, 26),
 			Text = info[2],
 			TextSize = 14,
 			Parent = panel,
