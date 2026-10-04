@@ -354,6 +354,12 @@ local function load(player)
 		merged.Settings.Quality = "Auto"
 		merged.Settings.QualityVersion = GameConfig.DefaultSettings.QualityVersion
 	end
+	-- Ajustes nuevos que aún no tenía guardados (después de la migración de calidad)
+	for key, value in GameConfig.DefaultSettings do
+		if merged.Settings[key] == nil then
+			merged.Settings[key] = value
+		end
+	end
 	if type(merged.KillEffects) ~= "table" then
 		merged.KillEffects = { Default = true }
 	end

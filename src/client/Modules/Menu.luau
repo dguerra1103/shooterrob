@@ -1018,8 +1018,51 @@ local function buildSettingsPage()
 	stepper(2, "🔭 Campo de visión (FOV)", "FOV", 5, "%d°")
 	stepper(3, "🖱 Sensibilidad", "Sensitivity", 0.1, "%.1f")
 	stepper(4, "🎯 Sensibilidad al apuntar", "AimSensitivity", 0.05, "%.2f")
+
+	-- Mira: color (muestras) y tamaño
+	local cross = section(5, "➕ Mira", 92)
+	for i, color in GameConfig.CrosshairColors do
+		local selected = math.floor(current.CrossColor or 1) == i
+		local swatch = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 46, 44),
+			Size = UDim2.fromOffset(38, 36),
+			Text = selected and "✔" or "",
+			TextSize = 20,
+			TextColor3 = Color3.new(0, 0, 0),
+			BackgroundColor3 = color,
+			Parent = cross,
+		}, { UI.stroke(selected and GOLD or Color3.new(0, 0, 0), selected and 3 or 1, 0) })
+		swatch.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("CrossColor", i)
+			refresh()
+		end)
+	end
+	local sizeLabel = UI.label({
+		Position = UDim2.fromOffset(360, 44),
+		Size = UDim2.fromOffset(110, 36),
+		Text = "Tamaño " .. string.format("%.1f", current.CrossSize or 1),
+		TextSize = 20,
+		TextColor3 = GOLD,
+		Parent = cross,
+	})
+	for _, info in { { "−", -0.2, 300 }, { "+", 0.2, 476 } } do
+		local button = UI.button({
+			Position = UDim2.fromOffset(info[3], 44),
+			Size = UDim2.fromOffset(52, 36),
+			Text = info[1],
+			TextSize = 26,
+			BackgroundColor3 = BLUE,
+			Parent = cross,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("CrossSize", (current.CrossSize or 1) + info[2])
+			sizeLabel.Text = "Tamaño " .. string.format("%.1f", current.CrossSize or 1)
+		end)
+	end
 	UI.label({
-		LayoutOrder = 5,
+		LayoutOrder = 6,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,

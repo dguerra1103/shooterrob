@@ -246,11 +246,22 @@ GameConfig.FieldOfView = 80
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
 -- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
 	AimSensitivity = { 0.2, 1.5 },
+	CrossColor = { 1, 6 }, -- índice de GameConfig.CrosshairColors
+	CrossSize = { 0.6, 2 },
+}
+-- Colores de la mira que se pueden elegir en Ajustes
+GameConfig.CrosshairColors = {
+	Color3.fromRGB(255, 255, 255),
+	Color3.fromRGB(90, 255, 110),
+	Color3.fromRGB(70, 230, 255),
+	Color3.fromRGB(255, 230, 60),
+	Color3.fromRGB(255, 90, 200),
+	Color3.fromRGB(255, 70, 70),
 }
 
 -- Progresión (pase de batalla)
@@ -13651,6 +13662,12 @@ local function load(player)
 		merged.Settings.Quality = "Auto"
 		merged.Settings.QualityVersion = GameConfig.DefaultSettings.QualityVersion
 	end
+	-- Ajustes nuevos que aún no tenía guardados (después de la migración de calidad)
+	for key, value in GameConfig.DefaultSettings do
+		if merged.Settings[key] == nil then
+			merged.Settings[key] = value
+		end
+	end
 	if type(merged.KillEffects) ~= "table" then
 		merged.KillEffects = { Default = true }
 	end
@@ -18729,6 +18746,7 @@ local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponController = require(script.Parent.WeaponController)
 local WeaponIcon = require(script.Parent.WeaponIcon)
+local Settings = require(script.Parent.Settings)
 
 local player = Players.LocalPlayer
 
@@ -20238,13 +20256,26 @@ local function render(dt)
 	renderCrosshair(def)
 end
 
--- Mira
+-- Mira (color y tamaño elegidos en Ajustes)
 function renderCrosshair(def)
+	local settings = Settings.Get()
+	local colorIndex = math.clamp(math.floor(settings.CrossColor or 1), 1, #GameConfig.CrosshairColors)
+	local size = settings.CrossSize or 1
+	if colorIndex ~= hudCache.CrossColor or size ~= hudCache.CrossSize then
+		hudCache.CrossColor, hudCache.CrossSize = colorIndex, size
+		local color = GameConfig.CrosshairColors[colorIndex]
+		for _, line in refs.CrossLines do
+			local vertical = line.Dir.X == 0
+			line.Frame.BackgroundColor3 = color
+			line.Frame.Size = vertical and UDim2.fromOffset(2, math.floor(9 * size + 0.5)) or UDim2.fromOffset(math.floor(9 * size + 0.5), 2)
+		end
+		refs.CrossDot.BackgroundColor3 = color
+	end
 	local aim = ClientState.AimAlpha
 	local isGun = def and def.Type == "Gun"
-	local gap = 6 + ClientState.Spread * 6
+	local gap = (6 + ClientState.Spread * 6) * size
 	for _, line in refs.CrossLines do
-		line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4), line.Dir.Y * (gap + 4))
+		line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4 * size), line.Dir.Y * (gap + 4 * size))
 		line.Frame.Visible = isGun and aim < 0.5
 	end
 	refs.CrossDot.Visible = aim < 0.5
@@ -22339,8 +22370,51 @@ local function buildSettingsPage()
 	stepper(2, "🔭 Campo de visión (FOV)", "FOV", 5, "%d°")
 	stepper(3, "🖱 Sensibilidad", "Sensitivity", 0.1, "%.1f")
 	stepper(4, "🎯 Sensibilidad al apuntar", "AimSensitivity", 0.05, "%.2f")
+
+	-- Mira: color (muestras) y tamaño
+	local cross = section(5, "➕ Mira", 92)
+	for i, color in GameConfig.CrosshairColors do
+		local selected = math.floor(current.CrossColor or 1) == i
+		local swatch = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 46, 44),
+			Size = UDim2.fromOffset(38, 36),
+			Text = selected and "✔" or "",
+			TextSize = 20,
+			TextColor3 = Color3.new(0, 0, 0),
+			BackgroundColor3 = color,
+			Parent = cross,
+		}, { UI.stroke(selected and GOLD or Color3.new(0, 0, 0), selected and 3 or 1, 0) })
+		swatch.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("CrossColor", i)
+			refresh()
+		end)
+	end
+	local sizeLabel = UI.label({
+		Position = UDim2.fromOffset(360, 44),
+		Size = UDim2.fromOffset(110, 36),
+		Text = "Tamaño " .. string.format("%.1f", current.CrossSize or 1),
+		TextSize = 20,
+		TextColor3 = GOLD,
+		Parent = cross,
+	})
+	for _, info in { { "−", -0.2, 300 }, { "+", 0.2, 476 } } do
+		local button = UI.button({
+			Position = UDim2.fromOffset(info[3], 44),
+			Size = UDim2.fromOffset(52, 36),
+			Text = info[1],
+			TextSize = 26,
+			BackgroundColor3 = BLUE,
+			Parent = cross,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("CrossSize", (current.CrossSize or 1) + info[2])
+			sizeLabel.Text = "Tamaño " .. string.format("%.1f", current.CrossSize or 1)
+		end)
+	end
 	UI.label({
-		LayoutOrder = 5,
+		LayoutOrder = 6,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,

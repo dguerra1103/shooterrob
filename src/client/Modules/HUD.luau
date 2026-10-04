@@ -19,6 +19,7 @@ local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local WeaponController = require(script.Parent.WeaponController)
 local WeaponIcon = require(script.Parent.WeaponIcon)
+local Settings = require(script.Parent.Settings)
 
 local player = Players.LocalPlayer
 
@@ -1528,13 +1529,26 @@ local function render(dt)
 	renderCrosshair(def)
 end
 
--- Mira
+-- Mira (color y tamaño elegidos en Ajustes)
 function renderCrosshair(def)
+	local settings = Settings.Get()
+	local colorIndex = math.clamp(math.floor(settings.CrossColor or 1), 1, #GameConfig.CrosshairColors)
+	local size = settings.CrossSize or 1
+	if colorIndex ~= hudCache.CrossColor or size ~= hudCache.CrossSize then
+		hudCache.CrossColor, hudCache.CrossSize = colorIndex, size
+		local color = GameConfig.CrosshairColors[colorIndex]
+		for _, line in refs.CrossLines do
+			local vertical = line.Dir.X == 0
+			line.Frame.BackgroundColor3 = color
+			line.Frame.Size = vertical and UDim2.fromOffset(2, math.floor(9 * size + 0.5)) or UDim2.fromOffset(math.floor(9 * size + 0.5), 2)
+		end
+		refs.CrossDot.BackgroundColor3 = color
+	end
 	local aim = ClientState.AimAlpha
 	local isGun = def and def.Type == "Gun"
-	local gap = 6 + ClientState.Spread * 6
+	local gap = (6 + ClientState.Spread * 6) * size
 	for _, line in refs.CrossLines do
-		line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4), line.Dir.Y * (gap + 4))
+		line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4 * size), line.Dir.Y * (gap + 4 * size))
 		line.Frame.Visible = isGun and aim < 0.5
 	end
 	refs.CrossDot.Visible = aim < 0.5
