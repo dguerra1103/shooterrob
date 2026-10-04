@@ -21,6 +21,8 @@ local ClientState = {
 	Reloading = false,
 	ReloadProgress = 0,
 	LastShotTime = 0,
+	LastHitPosition = nil :: Vector3?, -- dónde dio tu último disparo a un personaje (números de daño)
+	LastHitTime = 0,
 	Bloom = 0, -- apertura extra de la mira por disparos
 	Spread = 0, -- dispersión actual (grados)
 

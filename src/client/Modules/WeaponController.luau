@@ -402,6 +402,11 @@ local function fire()
 		Effects.Tracer(muzzlePos, hitPosition, tracerColor)
 		if result then
 			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material)
+			local model = result.Instance:FindFirstAncestorOfClass("Model")
+			if model and model:FindFirstChildOfClass("Humanoid") then
+				ClientState.LastHitPosition = result.Position
+				ClientState.LastHitTime = os.clock()
+			end
 		end
 	end
 	Remotes.Fire:FireServer(equippedTool, origin, rays)

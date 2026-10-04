@@ -11640,6 +11640,8 @@ local ClientState = {
 	Reloading = false,
 	ReloadProgress = 0,
 	LastShotTime = 0,
+	LastHitPosition = nil :: Vector3?, -- dónde dio tu último disparo a un personaje (números de daño)
+	LastHitTime = 0,
 	Bloom = 0, -- apertura extra de la mira por disparos
 	Spread = 0, -- dispersión actual (grados)
 
@@ -14238,8 +14240,34 @@ local function onHitConfirm(damage, headshot, killed)
 	end)
 	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
 
-	-- Número de daño
-	if type(damage) == "number" then
+	-- Número de daño en el mundo, encima de donde le diste (si lo sabemos), con un rebote
+	local hitPosition = ClientState.LastHitPosition
+	if type(damage) == "number" and hitPosition and os.clock() - ClientState.LastHitTime < 0.6 then
+		local anchor = Instance.new("Attachment")
+		anchor.WorldPosition = hitPosition + Vector3.new(math.random(-10, 10) / 10, 1.2, math.random(-10, 10) / 10)
+		anchor.Parent = workspace.Terrain
+		local board = Instance.new("BillboardGui")
+		board.Size = UDim2.fromOffset(120, 50)
+		board.AlwaysOnTop = true
+		board.LightInfluence = 0
+		board.Adornee = anchor
+		board.Parent = gui.Parent -- (un BillboardGui dentro de un ScreenGui no se dibuja)
+		local label = UI.label({
+			Size = UDim2.fromScale(1, 1),
+			Text = (killed and "💀 " or "") .. tostring(damage) .. (headshot and "!" or ""),
+			TextSize = killed and 34 or (headshot and 32 or 26),
+			TextColor3 = color,
+			Parent = board,
+		})
+		local scale = UI.new("UIScale", { Scale = 1.6, Parent = label })
+		tween(scale, 0.18, { Scale = 1 }, Enum.EasingStyle.Back)
+		task.delay(0.35, function()
+			tween(label, 0.5, { TextTransparency = 1, TextStrokeTransparency = 1 })
+			tween(board, 0.5, { StudsOffsetWorldSpace = Vector3.new(0, 2, 0) })
+		end)
+		Debris:AddItem(board, 1)
+		Debris:AddItem(anchor, 1)
+	elseif type(damage) == "number" then
 		local label = UI.label({
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.new(0.5, math.random(30, 60), 0.5, math.random(-40, -20)),
@@ -18470,6 +18498,11 @@ local function fire()
 		Effects.Tracer(muzzlePos, hitPosition, tracerColor)
 		if result then
 			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material)
+			local model = result.Instance:FindFirstAncestorOfClass("Model")
+			if model and model:FindFirstChildOfClass("Humanoid") then
+				ClientState.LastHitPosition = result.Position
+				ClientState.LastHitTime = os.clock()
+			end
 		end
 	end
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
