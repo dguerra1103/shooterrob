@@ -3,6 +3,7 @@
 --   Z  Supersalto : salto muy alto con un poco de impulso hacia delante
 --   X  Poción     : cura con el tiempo (la valida el servidor)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -219,6 +220,8 @@ local function build()
 			Size = UDim2.fromOffset(30, 26),
 			BackgroundColor3 = Color3.fromRGB(20, 22, 34),
 			ZIndex = 4,
+			-- (en el móvil no hay teclas: solo se toca el botón)
+			Visible = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
 			Parent = button,
 		}, { UI.corner(6), UI.stroke(Color3.new(1, 1, 1), 2, 0) })
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Key, TextSize = 18, ZIndex = 5, Parent = badge })

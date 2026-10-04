@@ -443,9 +443,13 @@ local function buildPlayerPanel()
 		BackgroundColor3 = Color3.fromRGB(255, 180, 30),
 		Parent = streakBar,
 	}, { UI.corner(5) })
+	-- Móvil (pantalla baja): sin la barra vertical (pisaría la tienda, el regalo y el contador del
+	-- evento) y el texto de la racha encima de la barra de vida
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	streakBar.Visible = not touchOnly
 	refs.StreakText = UI.label({
-		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 14, 0.55, 126),
+		AnchorPoint = Vector2.new(0, touchOnly and 1 or 0),
+		Position = touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126),
 		Size = UDim2.fromOffset(120, 22),
 		Text = "Racha x0",
 		TextSize = 18,

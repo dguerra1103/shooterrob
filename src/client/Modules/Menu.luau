@@ -2321,6 +2321,13 @@ function Menu.Init()
 		Parent = gui,
 	}, { UI.stroke(Color3.new(0, 0, 0), 2, 0.3), UI.gloss() })
 	open.Activated:Connect(Menu.Toggle)
+	-- En la pantalla de inicio no hace falta (ya tiene su botón TIENDA) y taparía el título
+	task.spawn(function()
+		while open.Parent do
+			open.Visible = not ClientState.InMainMenu
+			task.wait(0.25)
+		end
+	end)
 
 	panel = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),

@@ -19246,6 +19246,7 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 --   Z  Supersalto : salto muy alto con un poco de impulso hacia delante
 --   X  Poción     : cura con el tiempo (la valida el servidor)
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -19462,6 +19463,8 @@ local function build()
 			Size = UDim2.fromOffset(30, 26),
 			BackgroundColor3 = Color3.fromRGB(20, 22, 34),
 			ZIndex = 4,
+			-- (en el móvil no hay teclas: solo se toca el botón)
+			Visible = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
 			Parent = button,
 		}, { UI.corner(6), UI.stroke(Color3.new(1, 1, 1), 2, 0) })
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Key, TextSize = 18, ZIndex = 5, Parent = badge })
@@ -22532,9 +22535,13 @@ local function buildPlayerPanel()
 		BackgroundColor3 = Color3.fromRGB(255, 180, 30),
 		Parent = streakBar,
 	}, { UI.corner(5) })
+	-- Móvil (pantalla baja): sin la barra vertical (pisaría la tienda, el regalo y el contador del
+	-- evento) y el texto de la racha encima de la barra de vida
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	streakBar.Visible = not touchOnly
 	refs.StreakText = UI.label({
-		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 14, 0.55, 126),
+		AnchorPoint = Vector2.new(0, touchOnly and 1 or 0),
+		Position = touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126),
 		Size = UDim2.fromOffset(120, 22),
 		Text = "Racha x0",
 		TextSize = 18,
@@ -27175,6 +27182,13 @@ function Menu.Init()
 		Parent = gui,
 	}, { UI.stroke(Color3.new(0, 0, 0), 2, 0.3), UI.gloss() })
 	open.Activated:Connect(Menu.Toggle)
+	-- En la pantalla de inicio no hace falta (ya tiene su botón TIENDA) y taparía el título
+	task.spawn(function()
+		while open.Parent do
+			open.Visible = not ClientState.InMainMenu
+			task.wait(0.25)
+		end
+	end)
 
 	panel = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
