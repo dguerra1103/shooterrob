@@ -37,11 +37,16 @@ local function award(player, name)
 	if awarded[player][name] then
 		return
 	end
-	awarded[player][name] = true
+	awarded[player][name] = "pending"
 	task.spawn(function()
 		local ok, has = pcall(BadgeService.UserHasBadgeAsync, BadgeService, player.UserId, id)
+		local done = ok and has
 		if ok and not has and player.Parent then
-			pcall(BadgeService.AwardBadge, BadgeService, player.UserId, id)
+			done = pcall(BadgeService.AwardBadge, BadgeService, player.UserId, id)
+		end
+		-- Si falló (p. ej. demasiadas peticiones), se reintenta la próxima vez que se compruebe
+		if awarded[player] then
+			awarded[player][name] = done and true or nil
 		end
 	end)
 end

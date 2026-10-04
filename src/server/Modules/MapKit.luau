@@ -1085,11 +1085,17 @@ end
 -- Calabaza de Halloween con cara iluminada (decoración del evento; se atraviesa)
 function Kit.pumpkin(cf, scale)
 	scale = scale or 1
+	-- Esferas achatadas: una Ball de Roblox siempre es redonda, así que se usa una malla de esfera
+	local function squashed(part)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = part
+	end
 	local body = deco("Pumpkin", V(3 * scale, 2.4 * scale, 3 * scale), cf * CFrame.new(0, 1.2 * scale, 0), RGB(255, 130, 20), Enum.Material.SmoothPlastic)
-	body.Shape = Enum.PartType.Ball
+	squashed(body)
 	for _, a in { 0, 60, 120 } do
-		local rib = deco("PumpkinRib", V(0.5 * scale, 2.3 * scale, 3.05 * scale), cf * CFrame.new(0, 1.2 * scale, 0) * CFrame.Angles(0, rad(a), 0), RGB(230, 100, 10), Enum.Material.SmoothPlastic)
-		rib.Shape = Enum.PartType.Ball
+		local rib = deco("PumpkinRib", V(0.6 * scale, 2.3 * scale, 3.06 * scale), cf * CFrame.new(0, 1.2 * scale, 0) * CFrame.Angles(0, rad(a), 0), RGB(230, 100, 10), Enum.Material.SmoothPlastic)
+		squashed(rib)
 	end
 	Kit.cylinder("PumpkinStem", 0.6 * scale, 0.35 * scale, cf * CFrame.new(0, 2.5 * scale, 0), RGB(80, 120, 40), Enum.Material.SmoothPlastic, nil, true)
 	-- Ojos y boca brillantes (hacia -Z del cf)

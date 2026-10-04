@@ -25,6 +25,9 @@ local CANDY_COLORS = {
 
 local folder
 local candies = {}
+local lastPickup = {} -- [player] = os.clock() (límite de recogida)
+local LIFETIME = 60 -- segundos que dura un caramelo sin recoger
+local PICKUP_RANGE = 9 -- distancia máxima real al caramelo (contra trampas de "toque" a distancia)
 
 local function enabled()
 	return CONFIG and CONFIG.Enabled
@@ -55,6 +58,15 @@ local function collect(player, candy)
 	if not candy.Parent or candy:GetAttribute("Taken") then
 		return
 	end
+	-- Comprobaciones del servidor: de verdad cerca y no demasiado seguido
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root or (root.Position - candy.Position).Magnitude > PICKUP_RANGE then
+		return
+	end
+	if os.clock() - (lastPickup[player] or 0) < 0.25 then
+		return
+	end
+	lastPickup[player] = os.clock()
 	candy:SetAttribute("Taken", true)
 	local index = table.find(candies, candy)
 	if index then
@@ -70,14 +82,28 @@ local function collect(player, candy)
 	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count
-	PlayerData.AddCoins(player, CONFIG.CandyCoins)
+	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins)
 	PlayerData.MarkDirty(player)
 	PlayerData.SendUpdate(player)
-	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. CONFIG.CandyCoins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
-	if count == CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
+	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
 		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")
 	end
+end
+
+-- Raycast solo contra el mapa (ni jugadores ni bots)
+local mapParams = RaycastParams.new()
+mapParams.FilterType = Enum.RaycastFilterType.Include
+
+local function groundAt(position, up, down)
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return nil
+	end
+	mapParams.FilterDescendantsInstances = { map, workspace.Terrain }
+	local hit = workspace:Raycast(position + Vector3.new(0, up, 0), Vector3.new(0, -(up + down), 0), mapParams)
+	return hit and hit.Instance.CanCollide and hit.Position or nil
 end
 
 local function spawnCandy()
@@ -86,7 +112,29 @@ local function spawnCandy()
 		return
 	end
 	local base = points[math.random(1, #points)]
-	local position = base + Vector3.new(math.random(-40, 40) / 10, 2.2, math.random(-40, 40) / 10)
+	-- Cerca del punto, sobre el suelo y sin meterse en paredes (si no, en el propio punto)
+	local position = base + Vector3.new(0, 2.2, 0)
+	for _ = 1, 4 do
+		local candidate = base + Vector3.new(math.random(-40, 40) / 10, 0, math.random(-40, 40) / 10)
+		local floor = groundAt(candidate, 2, 4)
+		if floor and math.abs(floor.Y - base.Y) < 1.5 then
+			local mapFolder = workspace:FindFirstChild("Map")
+			local overlap = OverlapParams.new()
+			overlap.FilterType = Enum.RaycastFilterType.Include
+			overlap.FilterDescendantsInstances = { mapFolder }
+			local blocking = false
+			for _, part in workspace:GetPartBoundsInRadius(floor + Vector3.new(0, 2.2, 0), 0.9, overlap) do
+				if part.CanCollide then
+					blocking = true
+					break
+				end
+			end
+			if not blocking then
+				position = floor + Vector3.new(0, 2.2, 0)
+				break
+			end
+		end
+	end
 	local candy = Instance.new("Part")
 	candy.Name = "Candy"
 	candy.Shape = Enum.PartType.Ball
@@ -125,6 +173,16 @@ local function spawnCandy()
 	end)
 	candy.Parent = folder
 	table.insert(candies, candy)
+	-- Si nadie lo coge, desaparece (y deja sitio a otro)
+	task.delay(LIFETIME, function()
+		if candy.Parent then
+			local index = table.find(candies, candy)
+			if index then
+				table.remove(candies, index)
+			end
+			candy:Destroy()
+		end
+	end)
 end
 
 -- Calabazas junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios)
@@ -141,10 +199,9 @@ function Event.Decorate()
 				offset = Vector3.xAxis
 			end
 			-- Sobre el suelo que haya debajo (si el punto está en una plataforma, que no flote en el aire)
-			local probe = point + offset.Unit * 5 + Vector3.new(0, 3, 0)
-			local hit = workspace:Raycast(probe, Vector3.new(0, -7, 0))
-			if hit and hit.Instance.CanCollide then
-				Kit.pumpkin(CFrame.new(hit.Position) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
+			local ground = groundAt(point + offset.Unit * 5, 3, 4)
+			if ground then
+				Kit.pumpkin(CFrame.new(ground) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
 			end
 		end
 	end
@@ -159,6 +216,9 @@ function Event.Init()
 	folder.Parent = workspace
 	ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
 	ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	Players.PlayerRemoving:Connect(function(player)
+		lastPickup[player] = nil
+	end)
 	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
 		if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
 			clear()

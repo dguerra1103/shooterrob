@@ -41,6 +41,9 @@ local function show()
 		return
 	end
 	shown = true
+	-- Mientras se lee: ratón libre y visible, sin disparar
+	ClientState.TutorialOpen = true
+	ClientState.UpdateMouse()
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	local gui = UI.new("ScreenGui", {
 		Name = "Tutorial",
@@ -105,6 +108,8 @@ local function show()
 			return
 		end
 		closed = true
+		ClientState.TutorialOpen = false
+		ClientState.UpdateMouse()
 		Sounds.Play("Click")
 		Remotes.TutorialDone:FireServer()
 		TweenService:Create(scale, TweenInfo.new(0.2), { Scale = 0 }):Play()
@@ -114,6 +119,15 @@ local function show()
 	end
 	button.Activated:Connect(close)
 	task.delay(20, close)
+	-- Se quita si mueres o vuelves a la pantalla de inicio
+	task.spawn(function()
+		while not closed do
+			if ClientState.Dead or ClientState.InMainMenu then
+				close()
+			end
+			task.wait(0.2)
+		end
+	end)
 end
 
 function Tutorial.Init()
@@ -124,7 +138,7 @@ function Tutorial.Init()
 			local data = ClientState.Data
 			if data and data.TutorialDone == false and not ClientState.InMainMenu and not ClientState.Dead then
 				task.wait(1.5) -- que primero vea el mapa
-				if not ClientState.InMainMenu then
+				if not ClientState.InMainMenu and not ClientState.Dead then
 					show()
 				end
 			elseif data and data.TutorialDone then

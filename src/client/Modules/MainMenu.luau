@@ -126,6 +126,24 @@ local function buildLeaderboard(parent)
 		BackgroundTransparency = 0.2,
 		Parent = parent,
 	}, { UI.corner(14), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.2) })
+	-- Invitar amigos, justo debajo de la clasificación (cada amigo en el servidor da +10% de XP y
+	-- monedas, ver Friends en el servidor)
+	local invite = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 0, panel)
+	invite.Position = UDim2.new(0, 0, 1, 10)
+	invite.Size = UDim2.new(1, 0, 0, 44)
+	invite.TextSize = 22
+	invite.Activated:Connect(function()
+		Sounds.Play("Click")
+		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
+		if ok and canInvite then
+			pcall(SocialService.PromptGameInvite, SocialService, player)
+		else
+			invite.Text = "No puedes invitar desde aquí"
+			task.delay(2, function()
+				invite.Text = "👥  INVITAR AMIGOS  +10%"
+			end)
+		end
+	end)
 	fitToScreen(panel)
 	UI.label({
 		Position = UDim2.fromOffset(14, 6),
@@ -405,7 +423,7 @@ function MainMenu.Init()
 
 	local buttons = UI.new("Frame", {
 		Position = UDim2.fromOffset(0, 182),
-		Size = UDim2.fromOffset(300, 500),
+		Size = UDim2.fromOffset(300, 440),
 		BackgroundTransparency = 1,
 		Parent = left,
 	}, {
@@ -443,18 +461,6 @@ function MainMenu.Init()
 		Sounds.Play("Click")
 		Menu.Open("Tienda")
 	end)
-	-- Invitar amigos (cada amigo en el servidor da +10% de XP y monedas, ver Friends en el servidor)
-	local inviteButton = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 7, buttons)
-	inviteButton.Size = UDim2.fromOffset(300, 44)
-	inviteButton.TextSize = 22
-	inviteButton.Activated:Connect(function()
-		Sounds.Play("Click")
-		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
-		if ok and canInvite then
-			pcall(SocialService.PromptGameInvite, SocialService, player)
-		end
-	end)
-
 	-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
 		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }

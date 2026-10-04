@@ -1015,7 +1015,7 @@ local function crateAnimation(result)
 	-- Rellenamos con objetos aleatorios y el premio en la posición 32
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and not skin.Mastery then
+		if id ~= "Default" and not skin.Mastery and not skin.Event then
 			table.insert(pool, { "Skin", id })
 		end
 	end

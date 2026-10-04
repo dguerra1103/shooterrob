@@ -4200,11 +4200,16 @@ local function award(player, name)
 	if awarded[player][name] then
 		return
 	end
-	awarded[player][name] = true
+	awarded[player][name] = "pending"
 	task.spawn(function()
 		local ok, has = pcall(BadgeService.UserHasBadgeAsync, BadgeService, player.UserId, id)
+		local done = ok and has
 		if ok and not has and player.Parent then
-			pcall(BadgeService.AwardBadge, BadgeService, player.UserId, id)
+			done = pcall(BadgeService.AwardBadge, BadgeService, player.UserId, id)
+		end
+		-- Si falló (p. ej. demasiadas peticiones), se reintenta la próxima vez que se compruebe
+		if awarded[player] then
+			awarded[player][name] = done and true or nil
 		end
 	end)
 end
@@ -5497,6 +5502,9 @@ local CANDY_COLORS = {
 
 local folder
 local candies = {}
+local lastPickup = {} -- [player] = os.clock() (límite de recogida)
+local LIFETIME = 60 -- segundos que dura un caramelo sin recoger
+local PICKUP_RANGE = 9 -- distancia máxima real al caramelo (contra trampas de "toque" a distancia)
 
 local function enabled()
 	return CONFIG and CONFIG.Enabled
@@ -5527,6 +5535,15 @@ local function collect(player, candy)
 	if not candy.Parent or candy:GetAttribute("Taken") then
 		return
 	end
+	-- Comprobaciones del servidor: de verdad cerca y no demasiado seguido
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root or (root.Position - candy.Position).Magnitude > PICKUP_RANGE then
+		return
+	end
+	if os.clock() - (lastPickup[player] or 0) < 0.25 then
+		return
+	end
+	lastPickup[player] = os.clock()
 	candy:SetAttribute("Taken", true)
 	local index = table.find(candies, candy)
 	if index then
@@ -5542,14 +5559,28 @@ local function collect(player, candy)
 	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count
-	PlayerData.AddCoins(player, CONFIG.CandyCoins)
+	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins)
 	PlayerData.MarkDirty(player)
 	PlayerData.SendUpdate(player)
-	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. CONFIG.CandyCoins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
-	if count == CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
+	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
 		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")
 	end
+end
+
+-- Raycast solo contra el mapa (ni jugadores ni bots)
+local mapParams = RaycastParams.new()
+mapParams.FilterType = Enum.RaycastFilterType.Include
+
+local function groundAt(position, up, down)
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return nil
+	end
+	mapParams.FilterDescendantsInstances = { map, workspace.Terrain }
+	local hit = workspace:Raycast(position + Vector3.new(0, up, 0), Vector3.new(0, -(up + down), 0), mapParams)
+	return hit and hit.Instance.CanCollide and hit.Position or nil
 end
 
 local function spawnCandy()
@@ -5558,7 +5589,29 @@ local function spawnCandy()
 		return
 	end
 	local base = points[math.random(1, #points)]
-	local position = base + Vector3.new(math.random(-40, 40) / 10, 2.2, math.random(-40, 40) / 10)
+	-- Cerca del punto, sobre el suelo y sin meterse en paredes (si no, en el propio punto)
+	local position = base + Vector3.new(0, 2.2, 0)
+	for _ = 1, 4 do
+		local candidate = base + Vector3.new(math.random(-40, 40) / 10, 0, math.random(-40, 40) / 10)
+		local floor = groundAt(candidate, 2, 4)
+		if floor and math.abs(floor.Y - base.Y) < 1.5 then
+			local mapFolder = workspace:FindFirstChild("Map")
+			local overlap = OverlapParams.new()
+			overlap.FilterType = Enum.RaycastFilterType.Include
+			overlap.FilterDescendantsInstances = { mapFolder }
+			local blocking = false
+			for _, part in workspace:GetPartBoundsInRadius(floor + Vector3.new(0, 2.2, 0), 0.9, overlap) do
+				if part.CanCollide then
+					blocking = true
+					break
+				end
+			end
+			if not blocking then
+				position = floor + Vector3.new(0, 2.2, 0)
+				break
+			end
+		end
+	end
 	local candy = Instance.new("Part")
 	candy.Name = "Candy"
 	candy.Shape = Enum.PartType.Ball
@@ -5597,6 +5650,16 @@ local function spawnCandy()
 	end)
 	candy.Parent = folder
 	table.insert(candies, candy)
+	-- Si nadie lo coge, desaparece (y deja sitio a otro)
+	task.delay(LIFETIME, function()
+		if candy.Parent then
+			local index = table.find(candies, candy)
+			if index then
+				table.remove(candies, index)
+			end
+			candy:Destroy()
+		end
+	end)
 end
 
 -- Calabazas junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios)
@@ -5613,10 +5676,9 @@ function Event.Decorate()
 				offset = Vector3.xAxis
 			end
 			-- Sobre el suelo que haya debajo (si el punto está en una plataforma, que no flote en el aire)
-			local probe = point + offset.Unit * 5 + Vector3.new(0, 3, 0)
-			local hit = workspace:Raycast(probe, Vector3.new(0, -7, 0))
-			if hit and hit.Instance.CanCollide then
-				Kit.pumpkin(CFrame.new(hit.Position) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
+			local ground = groundAt(point + offset.Unit * 5, 3, 4)
+			if ground then
+				Kit.pumpkin(CFrame.new(ground) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
 			end
 		end
 	end
@@ -5631,6 +5693,9 @@ function Event.Init()
 	folder.Parent = workspace
 	ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
 	ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	Players.PlayerRemoving:Connect(function(player)
+		lastPickup[player] = nil
+	end)
 	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
 		if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
 			clear()
@@ -6100,6 +6165,9 @@ local function onPlayer(player)
 			task.spawn(function()
 				local ok, isFriend = pcall(player.IsFriendsWith, player, other.UserId)
 				if ok and isFriend and player.Parent and other.Parent then
+					if friendsOf[player][other] then
+						return -- ya contados (y avisados)
+					end
 					friendsOf[player][other] = true
 					friendsOf[other] = friendsOf[other] or {}
 					friendsOf[other][player] = true
@@ -11956,11 +12024,17 @@ end
 -- Calabaza de Halloween con cara iluminada (decoración del evento; se atraviesa)
 function Kit.pumpkin(cf, scale)
 	scale = scale or 1
+	-- Esferas achatadas: una Ball de Roblox siempre es redonda, así que se usa una malla de esfera
+	local function squashed(part)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = part
+	end
 	local body = deco("Pumpkin", V(3 * scale, 2.4 * scale, 3 * scale), cf * CFrame.new(0, 1.2 * scale, 0), RGB(255, 130, 20), Enum.Material.SmoothPlastic)
-	body.Shape = Enum.PartType.Ball
+	squashed(body)
 	for _, a in { 0, 60, 120 } do
-		local rib = deco("PumpkinRib", V(0.5 * scale, 2.3 * scale, 3.05 * scale), cf * CFrame.new(0, 1.2 * scale, 0) * CFrame.Angles(0, rad(a), 0), RGB(230, 100, 10), Enum.Material.SmoothPlastic)
-		rib.Shape = Enum.PartType.Ball
+		local rib = deco("PumpkinRib", V(0.6 * scale, 2.3 * scale, 3.06 * scale), cf * CFrame.new(0, 1.2 * scale, 0) * CFrame.Angles(0, rad(a), 0), RGB(230, 100, 10), Enum.Material.SmoothPlastic)
+		squashed(rib)
 	end
 	Kit.cylinder("PumpkinStem", 0.6 * scale, 0.35 * scale, cf * CFrame.new(0, 2.5 * scale, 0), RGB(80, 120, 40), Enum.Material.SmoothPlastic, nil, true)
 	-- Ojos y boca brillantes (hacia -Z del cf)
@@ -12393,7 +12467,8 @@ local function publicView(player, data)
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
 		Revives = data.Revives,
-		TutorialDone = data.TutorialDone == true,
+		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
+		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
@@ -12792,7 +12867,9 @@ function PlayerData.AddCoins(player, amount, earned)
 		end
 		data.Coins += amount
 		sendUpdate(player)
+		return amount -- lo que se ha sumado de verdad (con VIP y amigos)
 	end
+	return 0
 end
 
 function PlayerData.Increment(player, field, amount)
@@ -12960,7 +13037,7 @@ local function claimDaily(player)
 		data.FreeCrates += 1 -- caja diaria extra del VIP
 	end
 	sendUpdate(player)
-	return true, { Streak = streak, Coins = coins * multiplier(player), Crate = crate }
+	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
 end
 
 -- Abre una caja. Devuelve lo que ha tocado para la animación del cliente.
@@ -14806,6 +14883,7 @@ local ClientState = {
 	Dead = false, -- pantalla de muerte abierta (la rellena DeathScreen)
 	Emoting = false, -- haciendo un emote (cámara en tercera persona, arma oculta)
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
+	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
 	FovKick = 0, -- empujón de campo de visión (habilidades); lo consume WeaponController
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
@@ -14836,7 +14914,7 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
@@ -18737,6 +18815,24 @@ local function buildLeaderboard(parent)
 		BackgroundTransparency = 0.2,
 		Parent = parent,
 	}, { UI.corner(14), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.2) })
+	-- Invitar amigos, justo debajo de la clasificación (cada amigo en el servidor da +10% de XP y
+	-- monedas, ver Friends en el servidor)
+	local invite = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 0, panel)
+	invite.Position = UDim2.new(0, 0, 1, 10)
+	invite.Size = UDim2.new(1, 0, 0, 44)
+	invite.TextSize = 22
+	invite.Activated:Connect(function()
+		Sounds.Play("Click")
+		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
+		if ok and canInvite then
+			pcall(SocialService.PromptGameInvite, SocialService, player)
+		else
+			invite.Text = "No puedes invitar desde aquí"
+			task.delay(2, function()
+				invite.Text = "👥  INVITAR AMIGOS  +10%"
+			end)
+		end
+	end)
 	fitToScreen(panel)
 	UI.label({
 		Position = UDim2.fromOffset(14, 6),
@@ -19016,7 +19112,7 @@ function MainMenu.Init()
 
 	local buttons = UI.new("Frame", {
 		Position = UDim2.fromOffset(0, 182),
-		Size = UDim2.fromOffset(300, 500),
+		Size = UDim2.fromOffset(300, 440),
 		BackgroundTransparency = 1,
 		Parent = left,
 	}, {
@@ -19054,18 +19150,6 @@ function MainMenu.Init()
 		Sounds.Play("Click")
 		Menu.Open("Tienda")
 	end)
-	-- Invitar amigos (cada amigo en el servidor da +10% de XP y monedas, ver Friends en el servidor)
-	local inviteButton = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 7, buttons)
-	inviteButton.Size = UDim2.fromOffset(300, 44)
-	inviteButton.TextSize = 22
-	inviteButton.Activated:Connect(function()
-		Sounds.Play("Click")
-		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
-		if ok and canInvite then
-			pcall(SocialService.PromptGameInvite, SocialService, player)
-		end
-	end)
-
 	-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
 		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
@@ -20157,7 +20241,7 @@ local function crateAnimation(result)
 	-- Rellenamos con objetos aleatorios y el premio en la posición 32
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and not skin.Mastery then
+		if id ~= "Default" and not skin.Mastery and not skin.Event then
 			table.insert(pool, { "Skin", id })
 		end
 	end
@@ -22180,6 +22264,9 @@ local function show()
 		return
 	end
 	shown = true
+	-- Mientras se lee: ratón libre y visible, sin disparar
+	ClientState.TutorialOpen = true
+	ClientState.UpdateMouse()
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	local gui = UI.new("ScreenGui", {
 		Name = "Tutorial",
@@ -22244,6 +22331,8 @@ local function show()
 			return
 		end
 		closed = true
+		ClientState.TutorialOpen = false
+		ClientState.UpdateMouse()
 		Sounds.Play("Click")
 		Remotes.TutorialDone:FireServer()
 		TweenService:Create(scale, TweenInfo.new(0.2), { Scale = 0 }):Play()
@@ -22253,6 +22342,15 @@ local function show()
 	end
 	button.Activated:Connect(close)
 	task.delay(20, close)
+	-- Se quita si mueres o vuelves a la pantalla de inicio
+	task.spawn(function()
+		while not closed do
+			if ClientState.Dead or ClientState.InMainMenu then
+				close()
+			end
+			task.wait(0.2)
+		end
+	end)
 end
 
 function Tutorial.Init()
@@ -22263,7 +22361,7 @@ function Tutorial.Init()
 			local data = ClientState.Data
 			if data and data.TutorialDone == false and not ClientState.InMainMenu and not ClientState.Dead then
 				task.wait(1.5) -- que primero vea el mapa
-				if not ClientState.InMainMenu then
+				if not ClientState.InMainMenu and not ClientState.Dead then
 					show()
 				end
 			elseif data and data.TutorialDone then

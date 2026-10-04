@@ -181,7 +181,8 @@ local function publicView(player, data)
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
 		Revives = data.Revives,
-		TutorialDone = data.TutorialDone == true,
+		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
+		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
@@ -580,7 +581,9 @@ function PlayerData.AddCoins(player, amount, earned)
 		end
 		data.Coins += amount
 		sendUpdate(player)
+		return amount -- lo que se ha sumado de verdad (con VIP y amigos)
 	end
+	return 0
 end
 
 function PlayerData.Increment(player, field, amount)
@@ -748,7 +751,7 @@ local function claimDaily(player)
 		data.FreeCrates += 1 -- caja diaria extra del VIP
 	end
 	sendUpdate(player)
-	return true, { Streak = streak, Coins = coins * multiplier(player), Crate = crate }
+	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
 end
 
 -- Abre una caja. Devuelve lo que ha tocado para la animación del cliente.

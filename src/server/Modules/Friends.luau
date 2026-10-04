@@ -36,6 +36,9 @@ local function onPlayer(player)
 			task.spawn(function()
 				local ok, isFriend = pcall(player.IsFriendsWith, player, other.UserId)
 				if ok and isFriend and player.Parent and other.Parent then
+					if friendsOf[player][other] then
+						return -- ya contados (y avisados)
+					end
 					friendsOf[player][other] = true
 					friendsOf[other] = friendsOf[other] or {}
 					friendsOf[other][player] = true
