@@ -1461,19 +1461,31 @@ local function processReceipt(receipt)
 			Effect = data.KillEffects[bundle.KillEffect] == true,
 			Charm = data.Charms[bundle.Charm] == true,
 			Spray = data.Sprays[bundle.Spray] == true,
+			Outfits = {},
 		}
+		for _, outfitId in bundle.Outfits or {} do
+			had.Outfits[outfitId] = data.Outfits[outfitId] == true
+		end
 		grant = function()
 			data.Coins += bundle.Coins
 			if not repeated then
 				data.KillEffects[bundle.KillEffect] = true
 				data.Charms[bundle.Charm] = true
 				data.Sprays[bundle.Spray] = true
+				for _, outfitId in bundle.Outfits or {} do
+					data.Outfits[outfitId] = true
+				end
 				data.Bundles[bundle.Id] = true
 			end
 		end
 		undo = function()
 			data.Coins -= bundle.Coins
 			if not repeated then
+				for outfitId, hadIt in had.Outfits do
+					if not hadIt then
+						data.Outfits[outfitId] = nil
+					end
+				end
 				if not had.Effect then
 					data.KillEffects[bundle.KillEffect] = nil
 				end

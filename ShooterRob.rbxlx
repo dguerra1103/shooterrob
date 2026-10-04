@@ -1801,6 +1801,21 @@ Shop.Bundles = {
 		Value = 5000,
 		Colors = { RGB(210, 30, 40), RGB(30, 120, 60) },
 	},
+	-- Pack permanente (sin fechas): los dos trajes de aventura y sus extras
+	{
+		Id = "Aventurero",
+		Name = "PACK AVENTURERO",
+		Icon = "🏴‍☠️",
+		ProductId = 0, -- pega aquí el ID del Developer Product
+		Robux = 299,
+		Coins = 1500,
+		Outfits = { "Vaquero", "Pirata" },
+		KillEffect = "Rodadora",
+		Charm = "Calavera",
+		Spray = "Pirata",
+		Value = 8000,
+		Colors = { RGB(170, 100, 50), RGB(25, 60, 110) },
+	},
 }
 Shop.HalloweenBundle = Shop.Bundles[1] -- (nombre antiguo)
 
@@ -18014,19 +18029,31 @@ local function processReceipt(receipt)
 			Effect = data.KillEffects[bundle.KillEffect] == true,
 			Charm = data.Charms[bundle.Charm] == true,
 			Spray = data.Sprays[bundle.Spray] == true,
+			Outfits = {},
 		}
+		for _, outfitId in bundle.Outfits or {} do
+			had.Outfits[outfitId] = data.Outfits[outfitId] == true
+		end
 		grant = function()
 			data.Coins += bundle.Coins
 			if not repeated then
 				data.KillEffects[bundle.KillEffect] = true
 				data.Charms[bundle.Charm] = true
 				data.Sprays[bundle.Spray] = true
+				for _, outfitId in bundle.Outfits or {} do
+					data.Outfits[outfitId] = true
+				end
 				data.Bundles[bundle.Id] = true
 			end
 		end
 		undo = function()
 			data.Coins -= bundle.Coins
 			if not repeated then
+				for outfitId, hadIt in had.Outfits do
+					if not hadIt then
+						data.Outfits[outfitId] = nil
+					end
+				end
 				if not had.Effect then
 					data.KillEffects[bundle.KillEffect] = nil
 				end
@@ -28155,7 +28182,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(18, 8),
 			Size = UDim2.new(1, -280, 0, 36),
-			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
+			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (not bundle.EndsAt and "¡NUEVO!" or (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días"))),
 			TextSize = 26,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = card,
@@ -28163,7 +28190,14 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(18, 48),
 			Size = UDim2.new(1, -280, 0, 72),
-			Text = string.format(
+			Text = (function()
+				-- (los packs con trajes los nombran primero)
+				local names = {}
+				for _, outfitId in bundle.Outfits or {} do
+					table.insert(names, Outfits.Get(outfitId).Name)
+				end
+				return #names > 0 and ("👕 Trajes " .. table.concat(names, " y ") .. "  ·  ") or ""
+			end)() .. string.format(
 				"🪙 %d monedas  ·  %s Efecto %s  ·  %s Colgante %s  ·  🎨 Grafiti %s\n¡Todo vale %d monedas! Solo se puede comprar una vez.",
 				bundle.Coins,
 				KillEffects.Get(bundle.KillEffect).Icon,

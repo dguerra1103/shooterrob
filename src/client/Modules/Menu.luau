@@ -1903,7 +1903,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(18, 8),
 			Size = UDim2.new(1, -280, 0, 36),
-			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
+			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (not bundle.EndsAt and "¡NUEVO!" or (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días"))),
 			TextSize = 26,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = card,
@@ -1911,7 +1911,14 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(18, 48),
 			Size = UDim2.new(1, -280, 0, 72),
-			Text = string.format(
+			Text = (function()
+				-- (los packs con trajes los nombran primero)
+				local names = {}
+				for _, outfitId in bundle.Outfits or {} do
+					table.insert(names, Outfits.Get(outfitId).Name)
+				end
+				return #names > 0 and ("👕 Trajes " .. table.concat(names, " y ") .. "  ·  ") or ""
+			end)() .. string.format(
 				"🪙 %d monedas  ·  %s Efecto %s  ·  %s Colgante %s  ·  🎨 Grafiti %s\n¡Todo vale %d monedas! Solo se puede comprar una vez.",
 				bundle.Coins,
 				KillEffects.Get(bundle.KillEffect).Icon,
