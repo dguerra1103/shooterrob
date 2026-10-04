@@ -152,7 +152,7 @@ local function teaHouse(cf)
 	Kit.block("TeaFloor", V(w, 0.6, d), cf * CFrame.new(0, 0.3, 0), WOOD, Enum.Material.WoodPlanks)
 	-- Tejado de dos aguas en voladizo
 	for _, s in { -1, 1 } do
-		Kit.deco("TeaRoof", V(w + 4, 0.8, d / 2 + 3), cf * CFrame.new(0, h + 1.6, s * (d / 4 + 0.6)) * CFrame.Angles(rad(s * -22), 0, 0), TILE, Enum.Material.SmoothPlastic)
+		Kit.deco("TeaRoof", V(w + 4, 0.8, d / 2 + 3), cf * CFrame.new(0, h + 1.6, s * (d / 4 + 0.6)) * CFrame.Angles(rad(s * 22), 0, 0), TILE, Enum.Material.SmoothPlastic)
 	end
 	Kit.deco("TeaRidge", V(w + 4.4, 0.8, 1.2), cf * CFrame.new(0, h + 3.2, 0), RGB(40, 70, 80), Enum.Material.SmoothPlastic)
 	Kit.block("TeaCeiling", V(w, 0.6, d), cf * CFrame.new(0, h + 0.3, 0), WOOD, Enum.Material.Wood)
