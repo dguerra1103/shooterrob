@@ -14558,6 +14558,7 @@ local SkinFX = require(Modules.SkinFX)
 local JumpPads = require(Modules.JumpPads)
 local Tutorial = require(Modules.Tutorial)
 local EventHUD = require(Modules.EventHUD)
+local ChatTags = require(Modules.ChatTags)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -14586,6 +14587,7 @@ SkinFX.Init()
 JumpPads.Init()
 Tutorial.Init()
 EventHUD.Init()
+ChatTags.Init()
 VoteUI.Init()
 GrenadeController.Init()
 KillstreakController.Init()
@@ -14874,6 +14876,62 @@ return Abilities
           </Item>
           <Item class="ModuleScript" referent="60">
             <Properties>
+              <string name="Name">ChatTags</string>
+              <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP y el nivel de cada jugador,
+-- con color según el nivel. Solo cambia cómo se ve el mensaje (TextChatService, chat nuevo de Roblox).
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+
+local ChatTags = {}
+
+-- Color del nivel: gris, verde, azul, morado y dorado según se sube
+local function levelColor(level)
+	if level >= 40 then
+		return "#FFC83C"
+	elseif level >= 25 then
+		return "#C064FF"
+	elseif level >= 12 then
+		return "#4AA8FF"
+	elseif level >= 5 then
+		return "#6EE06E"
+	end
+	return "#C8C8D2"
+end
+
+local function tagsFor(player)
+	local tags = ""
+	if player:GetAttribute("VIP") then
+		tags ..= '<font color="#FFC83C">[VIP]</font> '
+	end
+	local stats = player:FindFirstChild("leaderstats")
+	local level = stats and stats:FindFirstChild("Nivel")
+	if level and typeof(level.Value) == "number" then
+		tags ..= string.format('<font color="%s">[Nv %d]</font> ', levelColor(level.Value), level.Value)
+	end
+	return tags
+end
+
+function ChatTags.Init()
+	if TextChatService.ChatVersion ~= Enum.ChatVersion.TextChatService then
+		return -- chat antiguo: no se puede personalizar así
+	end
+	TextChatService.OnIncomingMessage = function(message)
+		local properties = Instance.new("TextChatMessageProperties")
+		local source = message.TextSource
+		local player = source and Players:GetPlayerByUserId(source.UserId)
+		if player then
+			properties.PrefixText = tagsFor(player) .. message.PrefixText
+		end
+		return properties
+	end
+end
+
+return ChatTags
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="61">
+            <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
 local ClientState = {
@@ -14948,7 +15006,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -15419,7 +15477,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -16389,7 +16447,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -16565,7 +16623,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos / objetivo.
@@ -16634,7 +16692,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -16775,7 +16833,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -16897,7 +16955,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -18392,7 +18450,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -18453,7 +18511,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -18684,7 +18742,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -19221,7 +19279,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -21010,7 +21068,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -21303,7 +21361,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -21472,7 +21530,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -21642,7 +21700,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -21943,7 +22001,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -22132,7 +22190,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -22218,7 +22276,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -22375,7 +22433,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -22477,7 +22535,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -22634,7 +22692,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -23514,7 +23572,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -23571,7 +23629,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -23765,19 +23823,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="84">
+  <Item class="Teams" referent="85">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="85">
+  <Item class="Workspace" referent="86">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="86">
+    <Item class="Terrain" referent="87">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
