@@ -400,14 +400,19 @@ local function fire()
 		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
 		Effects.Rocket(muzzlePos, hitPosition, def.ProjectileSpeed or 200, tracerColor, def.Explosive.Radius)
 	end
-	for _ = 1, def.Explosive and 0 or def.Pellets do
+	for pellet = 1, def.Explosive and 0 or def.Pellets do
 		local direction = randomInCone(look, spread)
 		local result = workspace:Raycast(origin, direction * def.Range, rayParams)
 		local hitPosition = result and result.Position or origin + direction * def.Range
 		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
-		Effects.Tracer(muzzlePos, hitPosition, tracerColor)
+		-- (escopetas: basta con dibujar unos pocos perdigones; el daño cuenta todos)
+		if pellet <= 3 then
+			Effects.Tracer(muzzlePos, hitPosition, tracerColor)
+		end
 		if result then
-			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material, def.ImpactStyle)
+			if pellet <= 4 then
+				Effects.Impact(result.Position, result.Normal, result.Instance, result.Material, def.ImpactStyle)
+			end
 			local model = result.Instance:FindFirstAncestorOfClass("Model")
 			if model and model:FindFirstChildOfClass("Humanoid") then
 				ClientState.LastHitPosition = result.Position
@@ -850,8 +855,8 @@ local function onShotFX(tool, endpoints)
 	local color = WeaponModels.GetPalette(tool:GetAttribute("Weapon"), tool:GetAttribute("Skin")).Accent
 	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
 	local cheap = ClientState.EffectiveQuality == "Baja" or (muzzle.WorldPosition - camera.CFrame.Position).Magnitude > FAR_SHOT
-	for _, position in endpoints do
-		if typeof(position) == "Vector3" then
+	for index, position in endpoints do
+		if typeof(position) == "Vector3" and index <= 3 then
 			if weaponDef and weaponDef.Explosive then
 				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
 			else
@@ -870,7 +875,7 @@ local function onShotFX(tool, endpoints)
 		end
 	end
 	if not cheap then
-		Effects.MuzzleFlash(muzzle)
+		Effects.MuzzleFlash(muzzle, nil, true)
 	end
 	local now = os.clock()
 	if now - (lastRemoteSound[tool] or 0) >= 0.1 then

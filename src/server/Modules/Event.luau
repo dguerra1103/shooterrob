@@ -35,18 +35,21 @@ local function enabled()
 	return CONFIG and CONFIG.Enabled and (CONFIG.EndsAt == nil or os.time() < CONFIG.EndsAt)
 end
 
--- Puntos libres del mapa actual (FFASpawn)
+-- Puntos libres del mapa actual (FFASpawn); se guardan mientras no cambie el mapa
+local cachedMap, cachedPoints = nil, {}
 local function spawnPoints()
-	local points = {}
 	local map = workspace:FindFirstChild("Map")
-	if map then
-		for _, d in map:GetDescendants() do
-			if d:IsA("BasePart") and d.Name == "FFASpawn" then
-				table.insert(points, d.Position)
+	if map ~= cachedMap then
+		cachedMap, cachedPoints = map, {}
+		if map then
+			for _, d in map:GetDescendants() do
+				if d:IsA("BasePart") and d.Name == "FFASpawn" then
+					table.insert(cachedPoints, d.Position)
+				end
 			end
 		end
 	end
-	return points
+	return cachedPoints
 end
 
 local function clear()

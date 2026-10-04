@@ -66,6 +66,77 @@ local function emit(parent, props, count)
 	return emitter
 end
 
+-- Reutilización para los efectos de cada disparo: en un tiroteo se creaban decenas de piezas y
+-- emisores por segundo (y cada uno avisaba a Settings). Ahora hay un juego de anclas que se van
+-- turnando, cada una con sus emisores guardados por tipo; las partículas ya emitidas no se mueven
+-- al recolocar el ancla (están en el mundo).
+local ANCHOR_POOL = 24
+local anchorPool, anchorIndex = {}, 0
+local emitterCache = {} -- [ancla] = { [tipo] = ParticleEmitter }
+
+local function pooledAnchor(position, direction)
+	direction = (direction and direction.Magnitude > 0.01) and direction.Unit or Vector3.yAxis
+	anchorIndex = anchorIndex % ANCHOR_POOL + 1
+	local anchor = anchorPool[anchorIndex]
+	if not anchor or not anchor.Parent then
+		if anchor then
+			emitterCache[anchor] = nil
+		end
+		anchor = fxPart({ Name = "FXAnchor", Size = Vector3.new(0.1, 0.1, 0.1), Transparency = 1 })
+		anchorPool[anchorIndex] = anchor
+		emitterCache[anchor] = {}
+	end
+	anchor.CFrame = safeLookAt(position, direction) * CFrame.Angles(-math.pi / 2, 0, 0)
+	return anchor
+end
+
+-- Como emit, pero con el emisor guardado en el ancla (se crea la primera vez; el color se actualiza)
+local function emitPooled(anchor, key, props, count)
+	local cache = emitterCache[anchor]
+	if not cache then
+		return emit(anchor, props, count)
+	end
+	local emitter = cache[key]
+	if not emitter then
+		emitter = emit(anchor, props, 0)
+		cache[key] = emitter
+	elseif props.Color then
+		emitter.Color = props.Color
+	end
+	emitter:Emit(count)
+	return emitter
+end
+
+-- Piezas que se reutilizan por turnos (trazadoras y marcas de bala)
+local function partRing(size)
+	return { Parts = {}, Index = 0, Size = size, Tokens = {} }
+end
+local function ringPart(ring, props)
+	ring.Index = ring.Index % ring.Size + 1
+	local part = ring.Parts[ring.Index]
+	if not part or not part.Parent then
+		part = fxPart(props)
+		ring.Parts[ring.Index] = part
+	else
+		for key, value in props do
+			part[key] = value
+		end
+	end
+	local token = (ring.Tokens[ring.Index] or 0) + 1
+	ring.Tokens[ring.Index] = token
+	return part, ring.Index, token
+end
+-- Oculta la pieza al acabar, si nadie la ha reutilizado mientras tanto
+local function hideLater(ring, index, token, delay)
+	task.delay(delay, function()
+		local part = ring.Parts[index]
+		if ring.Tokens[index] == token and part then
+			part.Transparency = 1
+		end
+	end)
+end
+local bulletRing, trailRing, markRing, chipRing = partRing(30), partRing(30), partRing(40), partRing(20)
+
 ---------------------------------------------------------------------------
 
 -- Bala trazadora que viaja desde el cañón hasta el impacto, con una estela tenue
@@ -78,39 +149,39 @@ function Effects.Tracer(from, to, color)
 	local direction = safeLookAt(from, to - from)
 
 	-- Estela fina que se desvanece
-	local trail = fxPart({
+	local trail = ringPart(trailRing, {
 		Color = color,
 		Size = Vector3.new(0.03, 0.03, distance),
 		CFrame = direction * CFrame.new(0, 0, -distance / 2),
 		Transparency = 0.6,
 	})
 	TweenService:Create(trail, TweenInfo.new(0.1), { Transparency = 1 }):Play()
-	Debris:AddItem(trail, 0.12)
 
 	-- La bala
 	local length = math.min(6, distance)
 	local travel = math.max(distance - length, 0.01)
 	local duration = math.clamp(distance / 900, 0.02, 0.25)
-	local bullet = fxPart({
+	local bullet, index, token = ringPart(bulletRing, {
 		Color = color,
 		Size = Vector3.new(0.12, 0.12, length),
 		CFrame = direction * CFrame.new(0, 0, -length / 2),
+		Transparency = 0,
 	})
 	TweenService
 		:Create(bullet, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = direction * CFrame.new(0, 0, -length / 2 - travel) })
 		:Play()
-	Debris:AddItem(bullet, duration + 0.02)
+	hideLater(bulletRing, index, token, duration + 0.02)
 end
 
--- Fogonazo: estrella de luz, llamas y humo
-function Effects.MuzzleFlash(attachment, color)
+-- Fogonazo: estrella de luz, llamas y humo. remote = disparo de otro (más barato: sin luz ni estrella)
+function Effects.MuzzleFlash(attachment, color, remote)
 	if not attachment then
 		return
 	end
 	color = color or Color3.fromRGB(255, 200, 90)
 	local cf = attachment.WorldCFrame
 	local spin = math.random() * math.pi
-	for i = 0, 1 do
+	for i = 0, remote and -1 or 1 do
 		local star = fxPart({
 			Color = color:Lerp(Color3.new(1, 1, 1), 0.4),
 			Size = Vector3.new(0.08, 0.7, 0.3),
@@ -124,15 +195,17 @@ function Effects.MuzzleFlash(attachment, color)
 		Shape = Enum.PartType.Ball,
 		CFrame = cf * CFrame.new(0, 0, -0.15),
 	})
-	local light = Instance.new("PointLight")
-	light.Color = color
-	light.Range = 12
-	light.Brightness = 4
-	light.Parent = core
+	if not remote then
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Range = 12
+		light.Brightness = 4
+		light.Parent = core
+	end
 	Debris:AddItem(core, 0.05)
 
-	local anchor = emitterAnchor(cf.Position, cf.LookVector, 1.2)
-	emit(anchor, {
+	local anchor = pooledAnchor(cf.Position, cf.LookVector)
+	emitPooled(anchor, "MuzzleFire", {
 		Texture = TEX.Fire,
 		Color = ColorSequence.new(Color3.fromRGB(255, 240, 180), color),
 		LightEmission = 1,
@@ -142,7 +215,7 @@ function Effects.MuzzleFlash(attachment, color)
 		Speed = NumberRange.new(4, 8),
 		SpreadAngle = Vector2.new(12, 12),
 	}, 5)
-	emit(anchor, {
+	emitPooled(anchor, "MuzzleSmoke", {
 		Texture = TEX.Smoke,
 		Color = ColorSequence.new(Color3.fromRGB(220, 220, 220)),
 		Size = seq(0.2, 0.9),
@@ -205,7 +278,7 @@ local splats = {}
 
 local function paintSplat(anchor, position, normal, isCharacter)
 	local color = PAINT_COLORS[math.random(1, #PAINT_COLORS)]
-	emit(anchor, {
+	emitPooled(anchor, "Paint", {
 		Texture = TEX.Sparkle,
 		Color = ColorSequence.new(color),
 		LightEmission = 0.2,
@@ -255,7 +328,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	local isCharacter = hitPart ~= nil
 		and hitPart.Parent ~= nil
 		and (hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil or hitPart.Parent:IsA("Accessory"))
-	local anchor = emitterAnchor(position + (normal or Vector3.yAxis) * 0.05, normal, 1.5)
+	local anchor = pooledAnchor(position + (normal or Vector3.yAxis) * 0.05, normal)
 	if style == "Paint" then
 		paintSplat(anchor, position, normal, isCharacter)
 		return
@@ -263,7 +336,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 
 	if isCharacter then
 		-- Destello de golpe (estilo cartoon, sin sangre)
-		emit(anchor, {
+		emitPooled(anchor, "Hit", {
 			Texture = TEX.Sparkle,
 			Color = ColorSequence.new(Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 220, 120)),
 			LightEmission = 1,
@@ -282,7 +355,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 
 	if kind == "Water" then
 		-- Salpicadura: gotas hacia arriba que caen y un poco de espuma
-		emit(anchor, {
+		emitPooled(anchor, "WaterDrops", {
 			Texture = TEX.Sparkle,
 			Color = ColorSequence.new(Color3.fromRGB(220, 240, 255)),
 			LightEmission = 0.3,
@@ -292,7 +365,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 			SpreadAngle = Vector2.new(18, 18),
 			Acceleration = Vector3.new(0, -50, 0),
 		}, 12)
-		emit(anchor, {
+		emitPooled(anchor, "WaterFoam", {
 			Texture = TEX.Smoke,
 			Color = ColorSequence.new(Color3.fromRGB(240, 248, 255)),
 			Size = seq(0.6, 2),
@@ -307,7 +380,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	-- Chispas: muchas en metal, pocas en piedra y cristal, ninguna en materiales blandos
 	local sparks = (kind == "Metal" and 12) or ((kind == "Stone" or kind == "Glass" or kind == "Plastic") and 4) or 0
 	if sparks > 0 then
-		emit(anchor, {
+		emitPooled(anchor, "Sparks" .. kind, {
 			Texture = TEX.Sparkle,
 			Color = ColorSequence.new(Color3.fromRGB(255, 230, 150), Color3.fromRGB(255, 150, 60)),
 			LightEmission = 1,
@@ -322,7 +395,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	-- Esquirlas que saltan y caen (astillas de madera, trozos de piedra, terrones, cristal)
 	if kind == "Wood" or kind == "Stone" or kind == "Dirt" or kind == "Glass" or kind == "Snow" then
 		local chipColor = kind == "Glass" and Color3.fromRGB(220, 240, 255) or baseColor:Lerp(Color3.new(0, 0, 0), kind == "Wood" and 0.25 or 0.1)
-		emit(anchor, {
+		emitPooled(anchor, "Chips" .. kind, {
 			Texture = TEX.Smoke,
 			Color = ColorSequence.new(chipColor),
 			LightInfluence = 1,
@@ -340,7 +413,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	local soft = kind == "Dirt" or kind == "Snow"
 	local dustColor = baseColor:Lerp(Color3.new(1, 1, 1), kind == "Snow" and 0.5 or 0.3)
 	if kind ~= "Metal" and kind ~= "Glass" then
-		emit(anchor, {
+		emitPooled(anchor, soft and "DustSoft" or "Dust", {
 			Texture = TEX.Smoke,
 			Color = ColorSequence.new(dustColor),
 			LightInfluence = 1,
@@ -362,7 +435,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 		or (kind == "Wood" and Color3.fromRGB(45, 30, 20))
 		or (kind == "Glass" and Color3.fromRGB(230, 240, 250))
 		or Color3.fromRGB(25, 25, 28)
-	local mark = fxPart({
+	local mark = ringPart(markRing, {
 		Color = markColor,
 		Material = kind == "Metal" and Enum.Material.Metal or Enum.Material.SmoothPlastic,
 		Size = Vector3.new(0.22, 0.22, 0.03),
@@ -372,7 +445,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	})
 	if kind == "Stone" then
 		-- Desconchón claro alrededor del agujero
-		local chip = fxPart({
+		local chip = ringPart(chipRing, {
 			Color = baseColor:Lerp(Color3.new(1, 1, 1), 0.25),
 			Material = Enum.Material.SmoothPlastic,
 			Size = Vector3.new(0.45, 0.45, 0.012),
@@ -380,17 +453,22 @@ function Effects.Impact(position, normal, hitPart, material, style)
 			Transparency = 0.35,
 		})
 		TweenService:Create(chip, TweenInfo.new(5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
-		Debris:AddItem(chip, 5.2)
 	end
 	TweenService:Create(mark, TweenInfo.new(5, Enum.EasingStyle.Linear), { Transparency = 1 }):Play()
-	Debris:AddItem(mark, 5.2)
 end
 
 -- Casquillo que sale disparado por la derecha del arma
+local liveCasings = 0
+local MAX_CASINGS = 8 -- con fuego automático no hace falta simular más a la vez
+
 function Effects.ShellCasing(attachment, cameraCFrame, color)
-	if not attachment then
+	if not attachment or liveCasings >= MAX_CASINGS then
 		return
 	end
+	liveCasings += 1
+	task.delay(1.5, function()
+		liveCasings -= 1
+	end)
 	local casing = Instance.new("Part")
 	casing.Size = Vector3.new(0.06, 0.06, 0.16)
 	casing.Color = color or Color3.fromRGB(230, 180, 60)

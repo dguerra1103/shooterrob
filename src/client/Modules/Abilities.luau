@@ -229,14 +229,26 @@ end
 
 local function update()
 	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen and not ClientState.VotePanelVisible
+	if not gui.Enabled then
+		return
+	end
 	local now = os.clock()
 	for _, action in ACTIONS do
 		local slot = slots[action.Name]
 		local left = readyAt[action.Name] - now
 		local ready = left <= 0
+		-- (solo se escribe cuando cambia: el contador va por segundos y la barra en pasos de 1/50)
 		local fraction = ready and 0 or math.clamp(left / CONFIG[action.Name].Cooldown, 0, 1)
-		slot.Cover.Size = UDim2.fromScale(1, fraction)
-		slot.Timer.Text = ready and "" or tostring(math.ceil(left))
+		local step = math.ceil(fraction * 50)
+		if step ~= slot.LastStep then
+			slot.LastStep = step
+			slot.Cover.Size = UDim2.fromScale(1, step / 50)
+		end
+		local seconds = ready and 0 or math.ceil(left)
+		if seconds ~= slot.LastSeconds then
+			slot.LastSeconds = seconds
+			slot.Timer.Text = ready and "" or tostring(seconds)
+		end
 		if ready and not slot.WasReady then
 			-- Lista otra vez: pequeño salto del icono
 			local s = slot.Frame:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = slot.Frame })

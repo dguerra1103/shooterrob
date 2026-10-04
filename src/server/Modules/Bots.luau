@@ -179,16 +179,27 @@ local function canSee(agent, target)
 	return hit == nil or hit.Instance:IsDescendantOf(target.Model)
 end
 
+-- El enemigo visible más cercano: se ordenan por distancia y solo se lanzan rayos hasta encontrar
+-- uno a la vista (antes se comprobaban todos)
 local function findTarget(agent)
 	local root = agent.Root
-	local best, bestDistance = nil, CONFIG.Range
+	local inRange = {}
 	for _, target in candidates(agent) do
 		local distance = (target.Head.Position - root.Position).Magnitude
-		if distance < bestDistance and canSee(agent, target) then
-			best, bestDistance = target, distance
+		if distance < CONFIG.Range then
+			target.Distance = distance
+			table.insert(inRange, target)
 		end
 	end
-	return best, bestDistance
+	table.sort(inRange, function(x, y)
+		return x.Distance < y.Distance
+	end)
+	for _, target in inRange do
+		if canSee(agent, target) then
+			return target, target.Distance
+		end
+	end
+	return nil, CONFIG.Range
 end
 
 -- Camino hasta un punto al azar del mapa (o la zona activa en Zona de control)

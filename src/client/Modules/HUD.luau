@@ -1238,6 +1238,9 @@ local function updatePlayerRow()
 	end
 end
 
+-- Últimos valores escritos en el HUD (para no reescribir textos iguales cada fotograma)
+local hudCache: { [string]: any } = {}
+
 local function updateScoreboard()
 	local teamA = ReplicatedStorage:GetAttribute("TeamA")
 	local teamB = ReplicatedStorage:GetAttribute("TeamB")
@@ -1340,8 +1343,20 @@ local function updateScoreboard()
 	end
 
 	-- La bandera que llevamos a la espalda no nos tapa la vista
+	-- (solo se repasa cuando cambia qué banderas llevamos: este aviso llega con cada atributo)
 	local flagsFolder = workspace:FindFirstChild("Flags")
+	local carrying = ""
 	if flagsFolder then
+		for _, model in flagsFolder:GetChildren() do
+			local teamName = string.gsub(model.Name, "^Flag_", "")
+			if ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) == player.Name then
+				carrying ..= teamName
+			end
+		end
+		carrying ..= "#" .. #flagsFolder:GetChildren()
+	end
+	if flagsFolder and carrying ~= hudCache.Carrying then
+		hudCache.Carrying = carrying
 		for _, model in flagsFolder:GetChildren() do
 			local teamName = string.gsub(model.Name, "^Flag_", "")
 			local mine = ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) == player.Name
@@ -1369,6 +1384,8 @@ local lastHealth = 100
 local lastDamageTime = 0
 local lowHealthCC: ColorCorrectionEffect? = nil
 local chipRatio = 1
+local renderCrosshair
+
 local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
 	if ClientState.InMainMenu then
@@ -1381,12 +1398,19 @@ local function render(dt)
 	if humanoid then
 		local health = math.max(0, humanoid.Health)
 		local ratio = health / math.max(humanoid.MaxHealth, 1)
-		refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
-		refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
-		refs.HealthText.Text = tostring(math.ceil(health))
+		local healthChanged = ratio ~= hudCache.HealthRatio or not (lowHealthCC and lowHealthCC.Parent)
+		hudCache.HealthRatio = ratio
+		if healthChanged then
+			refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
+			refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
+			refs.HealthText.Text = tostring(math.ceil(health))
+		end
 		-- La parte blanca baja despacio y deja ver el daño recibido
-		chipRatio = ratio > chipRatio and ratio or math.max(ratio, chipRatio - dt * 0.5)
-		refs.HealthChip.Size = UDim2.fromScale(chipRatio, 1)
+		local newChip = ratio > chipRatio and ratio or math.max(ratio, chipRatio - dt * 0.5)
+		if newChip ~= chipRatio or healthChanged then
+			chipRatio = newChip
+			refs.HealthChip.Size = UDim2.fromScale(chipRatio, 1)
+		end
 		if health < lastHealth - 0.5 then
 			lastDamageTime = os.clock()
 			refs.DamageStroke.Transparency = 0.35
@@ -1398,22 +1422,27 @@ local function render(dt)
 		lastHealth = health
 		-- Vida baja: el mundo pierde color poco a poco (corrección de color solo en este cliente)
 		local lowCC = lowHealthCC
-		if not lowCC or not lowCC.Parent then
-			lowCC = Instance.new("ColorCorrectionEffect")
-			lowCC.Name = "LowHealthCC"
-			lowCC.Parent = game:GetService("Lighting")
-			lowHealthCC = lowCC
+		if healthChanged then
+			if not lowCC or not lowCC.Parent then
+				lowCC = Instance.new("ColorCorrectionEffect")
+				lowCC.Name = "LowHealthCC"
+				lowCC.Parent = game:GetService("Lighting")
+				lowHealthCC = lowCC
+			end
+			local danger = (health > 0 and ratio < 0.4) and (1 - ratio / 0.4) or 0
+			lowCC.Saturation = -0.7 * danger
+			lowCC.TintColor = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(255, 200, 200), danger)
+			lowCC.Contrast = 0.1 * danger
 		end
-		local danger = (health > 0 and ratio < 0.4) and (1 - ratio / 0.4) or 0
-		lowCC.Saturation = -0.7 * danger
-		lowCC.TintColor = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(255, 200, 200), danger)
-		lowCC.Contrast = 0.1 * danger
 	end
 
-	-- Racha
+	-- Racha (los textos solo se reescriben cuando cambia el valor: cada escritura recoloca la interfaz)
 	local streak = player:GetAttribute("Streak") or 0
-	refs.StreakText.Text = "Racha x" .. streak
-	refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
+	if streak ~= hudCache.Streak then
+		hudCache.Streak = streak
+		refs.StreakText.Text = "Racha x" .. streak
+		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
+	end
 
 	-- Arma
 	local def = ClientState.CurrentDef
@@ -1422,20 +1451,26 @@ local function render(dt)
 		refs.WeaponName.Text = def.DisplayName
 		if def.Type == "Gun" then
 			local reserve = tool:GetAttribute("Reserve") or 0
-			local ammoColor = ClientState.Ammo <= math.ceil(def.MagSize * 0.25) and "#FF5050" or "#FFFFFF"
-			refs.Ammo.Text = string.format(
-				'<font color="%s">%d</font><font size="28" color="#C8C8C8"> | %d</font>',
-				ammoColor,
-				ClientState.Ammo,
-				reserve
-			)
+			local low = ClientState.Ammo <= math.ceil(def.MagSize * 0.25)
+			if ClientState.Ammo ~= hudCache.Ammo or reserve ~= hudCache.Reserve or low ~= hudCache.Low then
+				hudCache.Ammo, hudCache.Reserve, hudCache.Low = ClientState.Ammo, reserve, low
+				refs.Ammo.Text = string.format(
+					'<font color="%s">%d</font><font size="28" color="#C8C8C8"> | %d</font>',
+					low and "#FF5050" or "#FFFFFF",
+					ClientState.Ammo,
+					reserve
+				)
+			end
 			refs.AmmoBar.Visible = true
 			local fill = ClientState.Reloading and ClientState.ReloadProgress or ClientState.Ammo / def.MagSize
 			refs.AmmoFill.Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1)
 			refs.AmmoFill.BackgroundColor3 = ClientState.Reloading and Color3.fromRGB(120, 200, 255)
 				or (ClientState.Ammo <= math.ceil(def.MagSize * 0.25) and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 210, 80))
+			local percent = ClientState.Reloading and math.floor(ClientState.ReloadProgress * 100) or -1
 			if ClientState.Reloading then
-				refs.ReloadHint.Text = "RECARGANDO " .. math.floor(ClientState.ReloadProgress * 100) .. "%"
+				if percent ~= hudCache.ReloadPercent then
+					refs.ReloadHint.Text = "RECARGANDO " .. percent .. "%"
+				end
 			elseif ClientState.Ammo == 0 and reserve == 0 then
 				refs.ReloadHint.Text = "SIN MUNICIÓN"
 			elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
@@ -1443,19 +1478,28 @@ local function render(dt)
 			else
 				refs.ReloadHint.Text = ""
 			end
+			hudCache.ReloadPercent = percent
 		else
+			hudCache.Ammo = nil
 			refs.Ammo.Text = "∞"
 			refs.ReloadHint.Text = ""
 			refs.AmmoBar.Visible = false
 		end
 	else
+		hudCache.Ammo = nil
 		refs.WeaponName.Text = ""
 		refs.Ammo.Text = ""
 		refs.ReloadHint.Text = ""
 		refs.AmmoBar.Visible = false
 	end
 
-	-- Ranuras
+	-- Ranuras: se revisan al cambiar de arma y, si no, unas 4 veces por segundo
+	local now = os.clock()
+	if tool == hudCache.SlotTool and now - (hudCache.SlotsAt or 0) < 0.25 then
+		renderCrosshair(def)
+		return
+	end
+	hudCache.SlotTool, hudCache.SlotsAt = tool, now
 	local tools = WeaponController.GetTools()
 	for slot, row in refs.Slots do
 		local slotTool = tools[slot]
@@ -1480,7 +1524,11 @@ local function render(dt)
 		end
 	end
 
-	-- Mira
+	renderCrosshair(def)
+end
+
+-- Mira
+function renderCrosshair(def)
 	local aim = ClientState.AimAlpha
 	local isGun = def and def.Type == "Gun"
 	local gap = 6 + ClientState.Spread * 6
