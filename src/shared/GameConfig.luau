@@ -131,7 +131,7 @@ GameConfig.Events = {
 		EndsAt = 1799366400, -- 8 ene 2027, 00:00 UTC
 		-- Novedades propias del evento (salen solas al empezar; Version mayor que la de GameConfig.News)
 		News = {
-			Version = 2,
+			Version = 3,
 			Title = "🎄 ¡LLEGA LA NAVIDAD!",
 			Items = {
 				{ "🎁", "Evento de Navidad: recoge los regalos que aparecen por el mapa" },
@@ -231,18 +231,18 @@ GameConfig.XPBoost = { Enabled = true, Multiplier = 2, Days = { 1, 7 }, Text = "
 -- Novedades: tarjeta que ven una vez (en la pantalla de inicio) los jugadores que ya habían jugado.
 -- Para anunciar otra actualización, cambia los textos y sube Version.
 GameConfig.News = {
-	Version = 1,
-	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
+	Version = 2, -- (súbelo en cada actualización; la de Navidad tiene que quedar por encima)
+	Title = "🎃 ¡NOVEDADES DE OCTUBRE!",
 	Items = {
+		{ "🤠", "Mapa nuevo: Pueblo Vaquero, y traje Sheriff Vaquero en la tienda" },
 		{ "🧟", "Modos de Halloween: Infección (zombis) y Calabazas (recoge las de tus enemigos)" },
-		{ "🎡", "Mapas nuevos: Base Lunar (gravedad lunar) y Feria, con noria y tiovivo" },
-		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
-		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
-		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },
-		{ "👤", "Pestaña Perfil con tus estadísticas y 24 logros con premio" },
-		{ "🔪", "Guadaña, colgantes para tu arma y efectos de Halloween en la tienda" },
-		{ "💰", "SE BUSCA: con 5 bajas seguidas hay recompensa por tu cabeza" },
-		{ "📅", "Retos semanales con grandes premios y grafitis (tecla J)" },
+		{ "🏁", "Temporadas de rango: al acabar, premio según el mejor rango que logres" },
+		{ "🏆", "Primera victoria del día: +150 monedas extra cada día" },
+		{ "🎁", "Caja sorpresa al acabar las partidas (segura cada 15)" },
+		{ "⚡", "Potenciadores de XP doble y monedas dobles en la Tienda" },
+		{ "🍬", "Caramelos del evento: Cabeza de Calabaza, Calabazooka y skin Embrujada" },
+		{ "🏹", "Ballesta nueva, trajes de Vampiro y Momia y efectos de Halloween" },
+		{ "💰", "SE BUSCA, retos semanales, títulos y grafitis (tecla J)" },
 	},
 }
 
