@@ -13,10 +13,12 @@ local PlayerData = require(script.Parent.PlayerData)
 local Graffiti = {}
 
 local lastSpray = {}
+local lastTry = {} -- (freno a peticiones seguidas, aunque fallen)
 local current = {}
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
 
 local function finite(v)
 	return typeof(v) == "Vector3" and v.X == v.X and v.Y == v.Y and v.Z == v.Z
@@ -54,6 +56,10 @@ function Graffiti.Paint(player, position)
 	if lastSpray[player] and now - lastSpray[player] < Sprays.Cooldown then
 		return false
 	end
+	if lastTry[player] and now - lastTry[player] < 0.25 then
+		return false
+	end
+	lastTry[player] = now
 	local offset = position - head.Position
 	if offset.Magnitude > Sprays.Range + 3 or offset.Magnitude < 0.5 then
 		return false
@@ -105,6 +111,7 @@ function Graffiti.Init()
 		end
 		current[player] = nil
 		lastSpray[player] = nil
+		lastTry[player] = nil
 	end)
 end
 

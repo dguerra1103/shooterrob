@@ -139,7 +139,7 @@ GameConfig.News = {
 	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
 	Items = {
 		{ "🧟", "Modo Infección: sobrevive a los zombis... o conviértete en uno" },
-		{ "🚀", "Mapa nuevo: Base Lunar, con la Tierra en el cielo" },
+		{ "🎡", "Mapas nuevos: Base Lunar (gravedad lunar) y Feria, con noria y tiovivo" },
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
 		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },

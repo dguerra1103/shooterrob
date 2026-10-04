@@ -18,6 +18,7 @@ local Graffiti = {}
 local lastSpray = -math.huge
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
 
 local function spray()
 	if ClientState.IsBlocked() then
@@ -42,7 +43,8 @@ local function spray()
 	local origin = camera.CFrame.Position
 	local hit = workspace:Raycast(origin, camera.CFrame.LookVector * (Sprays.Range + 4), rayParams)
 	local head = character:FindFirstChild("Head")
-	if not hit or not head or (hit.Position - head.Position).Magnitude > Sprays.Range then
+	-- (el servidor solo pinta en cosas fijas: si no, ni sonido ni recarga)
+	if not hit or not head or (hit.Position - head.Position).Magnitude > Sprays.Range or not hit.Instance.Anchored then
 		return
 	end
 	lastSpray = os.clock()
@@ -58,7 +60,7 @@ function Graffiti.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J)
 	ContextActionService:SetTitle("Spray", "🎨")
-	ContextActionService:SetPosition("Spray", UDim2.new(1, -200, 1, -360))
+	ContextActionService:SetPosition("Spray", UDim2.new(1, -200, 1, -340))
 end
 
 return Graffiti

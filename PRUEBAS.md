@@ -34,6 +34,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Pantalla de carga** | Play | Antes del juego sale "SHOOTER NEW" con una calabaza que bota y consejos; se desvanece sola. |
 | **Novedades** | Con datos guardados de antes (o pon `NewsSeen = 0` desde la consola) | En la pantalla de inicio sale la tarjeta "¡NOVEDADES DE HALLOWEEN!"; "¡A JUGAR!" la cierra y no vuelve a salir. |
 | **Base Lunar** | Vota la Base Lunar | Noche con la Tierra en el cielo, cohete central con pasarela, cúpulas, rover, paneles solares y plataformas con propulsores. |
+| **Feria** | Vota la Feria | Atardecer con tiovivo en el centro (se puede subir), casetas con premios, coches de choque, casa de la risa con escaleras a la azotea, noria y montaña rusa al fondo. |
 | **Bots en Captura la bandera** | `Modes = { "CTF" }` y Play solo | Los bots van a por tu bandera, se la llevan a su base y puntúan; si los eliminas, la bandera cae. |
 | **Escalada de armas solo** | `Modes = { "GUN" }` | Hay bots; cada baja (también a bots) te sube de arma. |
 | **Guadaña y Calabazooka** | Menú → Armas | Guadaña (cuerpo a cuerpo, 1500 monedas). Calabazooka (lanzacohetes) sale bloqueada con "🎃 75 caramelos"; al conseguirla dispara calabazas. |

@@ -538,7 +538,7 @@ GameConfig.News = {
 	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
 	Items = {
 		{ "🧟", "Modo Infección: sobrevive a los zombis... o conviértete en uno" },
-		{ "🚀", "Mapa nuevo: Base Lunar, con la Tierra en el cielo" },
+		{ "🎡", "Mapas nuevos: Base Lunar (gravedad lunar) y Feria, con noria y tiovivo" },
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
 		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },
@@ -7676,10 +7676,12 @@ local PlayerData = require(script.Parent.PlayerData)
 local Graffiti = {}
 
 local lastSpray = {}
+local lastTry = {} -- (freno a peticiones seguidas, aunque fallen)
 local current = {}
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
 
 local function finite(v)
 	return typeof(v) == "Vector3" and v.X == v.X and v.Y == v.Y and v.Z == v.Z
@@ -7717,6 +7719,10 @@ function Graffiti.Paint(player, position)
 	if lastSpray[player] and now - lastSpray[player] < Sprays.Cooldown then
 		return false
 	end
+	if lastTry[player] and now - lastTry[player] < 0.25 then
+		return false
+	end
+	lastTry[player] = now
 	local offset = position - head.Position
 	if offset.Magnitude > Sprays.Range + 3 or offset.Magnitude < 0.5 then
 		return false
@@ -7768,6 +7774,7 @@ function Graffiti.Init()
 		end
 		current[player] = nil
 		lastSpray[player] = nil
+		lastTry[player] = nil
 	end)
 end
 
@@ -8782,7 +8789,7 @@ for _, module in script.Parent.MapDefs:GetChildren() do
 end
 
 -- Orden de rotación (también son las opciones de la votación)
-MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "HauntedManor", "MoonBase", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
+MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "HauntedManor", "MoonBase", "Carnival", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
 
 MapBuilder.Current = nil
 -- (la pantalla de inicio dice cuántos mapas hay)
@@ -9110,6 +9117,400 @@ return Map
           </Item>
           <Item class="ModuleScript" referent="47">
             <Properties>
+              <string name="Name">Carnival</string>
+              <string name="Source"><![CDATA[-- FERIA: parque de atracciones al atardecer. En el centro, un tiovivo con caballitos (se puede subir
+-- a la plataforma y los caballos cubren); a cada lado, una fila de casetas de juegos con toldos de
+-- rayas, los coches de choque (muro bajo), la casa de la risa con azotea por escaleras y el martillo
+-- de fuerza. De fondo, la noria gigante, la montaña rusa y la carpa del circo. Simétrico.
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+local Kit = require(script.Parent.Parent.MapKit)
+
+local Map = {
+	Id = "Carnival",
+	Name = "Feria",
+	Icon = "🎡",
+	Description = "Atardecer · tiovivo central · casetas, coches de choque y noria",
+}
+
+Map.Lighting = {
+	CartoonNeutral = { Hue = 0.07, Sat = 0.12 }, -- grises cálidos de atardecer
+	ClockTime = 17.6,
+	Latitude = 20,
+	Brightness = 2.6,
+	Exposure = 0.1,
+	Ambient = Color3.fromRGB(130, 105, 120),
+	OutdoorAmbient = Color3.fromRGB(185, 150, 160),
+	Atmosphere = { Density = 0.22, Offset = 0.15, Color = Color3.fromRGB(255, 200, 170), Decay = Color3.fromRGB(200, 110, 140), Glare = 0.2, Haze = 0.8 },
+	Color = { Saturation = 0.25, Contrast = 0.08, Brightness = 0.02, Tint = Color3.fromRGB(255, 240, 230) },
+	Bloom = { Intensity = 0.6, Size = 24, Threshold = 1.6 },
+	Clouds = 0.35,
+	SunRays = 0.08,
+	ShadowSoftness = 0.25,
+	Wind = Vector3.new(3, 0, 1),
+	TerrainColors = {
+		Grass = Color3.fromRGB(120, 200, 100),
+		LeafyGrass = Color3.fromRGB(100, 180, 90),
+	},
+}
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local rad = math.rad
+
+local PATH = RGB(235, 210, 170) -- paseo de arena
+local GRASS = RGB(120, 200, 100)
+local CREAM = RGB(255, 245, 225)
+local GOLD = RGB(255, 200, 60)
+local RED = RGB(230, 60, 70)
+local TEAL = RGB(40, 190, 200)
+local PURPLE = RGB(150, 90, 220)
+local PINK = RGB(255, 120, 180)
+local NEON_BULB = RGB(255, 230, 150)
+local SMOOTH = Enum.Material.SmoothPlastic
+
+local LENGTH, WIDTH = 200, 130
+
+-- Cono de rayas (tejado de carpa o tiovivo): cilindros apilados cada vez más estrechos
+local function stripedCone(cf, diameter, height, colorA, colorB, steps)
+	steps = steps or 6
+	for i = 0, steps - 1 do
+		local d = diameter * (1 - i / steps) + 1
+		Kit.cylinder("ConeRoof", height / steps, d, cf * CFrame.new(0, (i + 0.5) * height / steps, 0), i % 2 == 0 and colorA or colorB, SMOOTH, nil, true)
+	end
+	Kit.cylinder("ConeTopPole", 2.5, 0.3, cf * CFrame.new(0, height + 1.2, 0), GOLD, SMOOTH, nil, true)
+	Kit.ball("ConeTop", 1.2, cf * CFrame.new(0, height + 2.6, 0), GOLD, Enum.Material.Neon, true)
+end
+
+-- Tiovivo: plataforma baja transitable, columna central, caballitos (cobertura) y tejado
+local function carousel(cf)
+	Kit.cylinder("CarouselBase", 1, 30, cf * CFrame.new(0, 0.5, 0), CREAM, SMOOTH)
+	Kit.cylinder("CarouselRim", 1.05, 30.6, cf * CFrame.new(0, 0.45, 0), RED, SMOOTH, nil, true)
+	Kit.cylinder("CarouselColumn", 10, 5, cf * CFrame.new(0, 6, 0), GOLD, SMOOTH)
+	Kit.cylinder("CarouselColumnBand", 1.2, 5.3, cf * CFrame.new(0, 4, 0), PINK, SMOOTH, nil, true)
+	local colors = { CREAM, PINK, TEAL, PURPLE }
+	for i = 0, 7 do
+		local spot = cf * CFrame.Angles(0, rad(i * 45 + 22.5), 0) * CFrame.new(0, 1, -10.5)
+		Kit.cylinder("CarouselPole", 10, 0.35, spot * CFrame.new(0, 5, 0), GOLD, Enum.Material.Metal, nil, true)
+		local horseColor = colors[i % 4 + 1]
+		local y = (i % 2 == 0) and 3.2 or 4.2 -- unos arriba y otros abajo, como si subieran y bajaran
+		local horse = spot * CFrame.new(0, y, 0) * CFrame.Angles(0, rad(90), 0)
+		Kit.block("HorseBody", V(3.4, 1.5, 1.2), horse, horseColor, SMOOTH)
+		Kit.block("HorseNeck", V(0.9, 1.6, 0.9), horse * CFrame.new(-1.6, 1, 0) * CFrame.Angles(0, 0, rad(-20)), horseColor, SMOOTH)
+		Kit.deco("HorseHead", V(1.6, 0.8, 0.8), horse * CFrame.new(-2.2, 1.8, 0), horseColor, SMOOTH)
+		Kit.deco("HorseMane", V(0.3, 1.4, 0.3), horse * CFrame.new(-1.3, 1.3, 0) * CFrame.Angles(0, 0, rad(-20)), GOLD, SMOOTH)
+		Kit.deco("HorseSaddle", V(1.2, 0.3, 1.3), horse * CFrame.new(0.2, 0.85, 0), RED, SMOOTH)
+		for _, lx in { -1.2, 1.2 } do
+			Kit.deco("HorseLeg", V(0.35, 1.4, 0.35), horse * CFrame.new(lx, -1.3, 0) * CFrame.Angles(0, 0, rad(lx * 12)), horseColor, SMOOTH)
+		end
+		Kit.deco("HorseTail", V(0.3, 1.2, 0.3), horse * CFrame.new(1.8, 0.1, 0) * CFrame.Angles(0, 0, rad(-30)), GOLD, SMOOTH)
+	end
+	-- Tejado con borde festoneado y bombillas
+	Kit.cylinder("CarouselCanopy", 1.2, 32, cf * CFrame.new(0, 11.6, 0), RED, SMOOTH, nil, true)
+	for i = 0, 23 do
+		local edge = cf * CFrame.Angles(0, rad(i * 15), 0) * CFrame.new(0, 10.6, -15.6)
+		Kit.deco("CanopyScallop", V(3.6, 1.1, 0.3), edge, i % 2 == 0 and CREAM or GOLD, SMOOTH)
+		Kit.ball("CanopyBulb", 0.5, edge * CFrame.new(0, -0.8, -0.2), NEON_BULB, Enum.Material.Neon, true).CastShadow = false
+	end
+	stripedCone(cf * CFrame.new(0, 12.2, 0), 31, 6, RED, CREAM, 6)
+end
+
+-- Caseta de juegos: mostrador (cobertura), paredes, toldo de rayas, premios y letrero
+local function booth(cf, color, text)
+	Kit.block("BoothCounter", V(8, 3.2, 1.6), cf * CFrame.new(0, 1.6, 0), CREAM, SMOOTH)
+	Kit.deco("BoothCounterStripe", V(8.05, 0.8, 1.65), cf * CFrame.new(0, 2.2, 0), color, SMOOTH)
+	Kit.block("BoothBack", V(8, 7, 0.6), cf * CFrame.new(0, 3.5, 5), color:Lerp(CREAM, 0.35), SMOOTH)
+	for _, x in { -3.7, 3.7 } do
+		Kit.block("BoothSide", V(0.6, 7, 5.4), cf * CFrame.new(x, 3.5, 2.5), CREAM, SMOOTH)
+		Kit.cylinder("BoothPost", 7.6, 0.5, cf * CFrame.new(x, 3.8, -0.6), GOLD, SMOOTH, nil, true)
+	end
+	Kit.deco("BoothRoof", V(8.6, 0.5, 6.6), cf * CFrame.new(0, 7.3, 2.4), color, SMOOTH)
+	Kit.awning(cf * CFrame.new(0, 7.2, -0.6), 8, 2.6, color)
+	-- Premios: peluches (bolas) y globos en las estanterías
+	local prizeColors = { PINK, TEAL, GOLD, PURPLE, RED }
+	for i = 0, 4 do
+		local p = cf * CFrame.new(-2.8 + i * 1.4, 4.2, 4.4)
+		Kit.ball("PrizeBody", 1.1, p, prizeColors[i + 1], SMOOTH, true)
+		Kit.ball("PrizeHead", 0.8, p * CFrame.new(0, 0.85, 0), prizeColors[i + 1], SMOOTH, true)
+		Kit.ball("PrizeShelfToy", 0.7, cf * CFrame.new(-2.8 + i * 1.4, 6.2, 4.4), prizeColors[(i + 2) % 5 + 1], SMOOTH, true)
+	end
+	Kit.deco("BoothShelf", V(7, 0.3, 0.8), cf * CFrame.new(0, 3.5, 4.4), RGB(150, 100, 60), Enum.Material.Wood)
+	Kit.deco("BoothShelf", V(7, 0.3, 0.8), cf * CFrame.new(0, 5.6, 4.4), RGB(150, 100, 60), Enum.Material.Wood)
+	Kit.neonSign(cf * CFrame.new(0, 8.6, 2), 7, 1.6, text, color:Lerp(Color3.new(1, 1, 1), 0.3), GOLD)
+end
+
+-- Coches de choque: pista con muro bajo (cobertura) y cochecitos con su poste
+local function bumperCars(cf, colorA, colorB)
+	local sx, sz = 24, 16
+	Kit.deco("BumperFloor", V(sx, 0.2, sz), cf * CFrame.new(0, 0.1, 0), RGB(70, 70, 90), SMOOTH)
+	for _, z in { -1, 1 } do
+		-- (con un hueco en medio de los lados largos para entrar)
+		for _, x in { -1, 1 } do
+			Kit.block("BumperWall", V(sx / 2 - 2.5, 2.6, 1), cf * CFrame.new(x * (sx / 4 + 1.25), 1.3, z * sz / 2), colorA, SMOOTH)
+			Kit.deco("BumperWallTop", V(sx / 2 - 2.5, 0.4, 1.1), cf * CFrame.new(x * (sx / 4 + 1.25), 2.7, z * sz / 2), GOLD, SMOOTH)
+		end
+	end
+	for _, x in { -1, 1 } do
+		Kit.block("BumperWall", V(1, 2.6, sz), cf * CFrame.new(x * sx / 2, 1.3, 0), colorA, SMOOTH)
+		Kit.deco("BumperWallTop", V(1.1, 0.4, sz), cf * CFrame.new(x * sx / 2, 2.7, 0), GOLD, SMOOTH)
+	end
+	local cars = { { -6, -3, 20, colorB }, { 4, 3, -35, GOLD }, { 7, -4, 70, TEAL }, { -3, 4, 160, PINK } }
+	for _, c in cars do
+		local car = cf * CFrame.new(c[1], 0, c[2]) * CFrame.Angles(0, rad(c[3]), 0)
+		Kit.block("BumperCar", V(2.6, 1.4, 3.6), car * CFrame.new(0, 0.9, 0), c[4], SMOOTH)
+		Kit.deco("BumperRubber", V(2.9, 0.5, 3.9), car * CFrame.new(0, 0.4, 0), RGB(40, 40, 45), SMOOTH)
+		Kit.deco("BumperSeat", V(1.8, 1, 0.6), car * CFrame.new(0, 1.9, 0.9), RGB(40, 40, 45), SMOOTH)
+		Kit.cylinder("BumperPole", 5, 0.2, car * CFrame.new(0, 4, 1.5), RGB(180, 180, 190), Enum.Material.Metal, nil, true)
+	end
+end
+
+-- Casa de la risa: bloque con cara de payaso (mirando al centro del mapa, +Z local), azotea transitable (murete) y escaleras
+local function funhouse(cf, color)
+	local h = 9
+	Kit.block("Funhouse", V(16, h, 12), cf * CFrame.new(0, h / 2, 0), color, SMOOTH)
+	Kit.deco("FunhouseRoofEdge", V(16.4, 0.5, 12.4), cf * CFrame.new(0, h + 0.25, 0), GOLD, SMOOTH)
+	Kit.deco("FunhouseMouth", V(5, 3.6, 0.3), cf * CFrame.new(0, 1.8, 6.05), RGB(40, 20, 30), SMOOTH)
+	Kit.deco("FunhouseLip", V(6, 0.6, 0.35), cf * CFrame.new(0, 3.8, 6.1), RED, SMOOTH)
+	for _, x in { -3.6, 3.6 } do
+		Kit.ball("FunhouseEye", 3, cf * CFrame.new(x, 6.2, 5.6), Color3.new(1, 1, 1), SMOOTH, true)
+		Kit.ball("FunhousePupil", 1.4, cf * CFrame.new(x * 0.9, 6, 7), RGB(30, 30, 40), SMOOTH, true)
+	end
+	Kit.ball("FunhouseNose", 2, cf * CFrame.new(0, 4.8, 6.4), RED, SMOOTH, true)
+	-- Murete de la azotea (con hueco donde llega la escalera)
+	Kit.block("FunhouseParapet", V(16, 1.6, 0.6), cf * CFrame.new(0, h + 0.8, -5.7), color:Lerp(CREAM, 0.3), SMOOTH)
+	Kit.block("FunhouseParapet", V(16, 1.6, 0.6), cf * CFrame.new(0, h + 0.8, 5.7), color:Lerp(CREAM, 0.3), SMOOTH)
+	Kit.block("FunhouseParapet", V(0.6, 1.6, 12), cf * CFrame.new(-7.7, h + 0.8, 0), color:Lerp(CREAM, 0.3), SMOOTH)
+	Kit.stairs((cf * CFrame.new(26, 0, 0)).Position, (cf * CFrame.new(8, h, 0)).Position, 5, CREAM, SMOOTH)
+	return h
+end
+
+-- Martillo de fuerza: torre con escala de luces y campana
+local function strengthTester(cf)
+	Kit.block("TesterBase", V(3, 1.2, 3), cf * CFrame.new(0, 0.6, 0), RED, SMOOTH)
+	Kit.deco("TesterTower", V(1.4, 14, 0.8), cf * CFrame.new(0, 8, 0), CREAM, SMOOTH)
+	for i = 0, 6 do
+		local color = RGB(80, 220, 90):Lerp(RGB(255, 60, 60), i / 6)
+		Kit.deco("TesterLight", V(1, 1.2, 0.3), cf * CFrame.new(0, 2.4 + i * 1.8, -0.5), color, Enum.Material.Neon)
+	end
+	Kit.ball("TesterBell", 2, cf * CFrame.new(0, 15.6, 0), GOLD, Enum.Material.Metal, true)
+	Kit.block("TesterPad", V(2, 0.4, 2), cf * CFrame.new(0, 1.4, -2.4), RGB(60, 60, 70), SMOOTH)
+end
+
+-- Carrito de globos
+local function balloonCart(cf)
+	Kit.block("BalloonCart", V(4, 2.4, 2.4), cf * CFrame.new(0, 1.6, 0), CREAM, SMOOTH)
+	for _, x in { -1.4, 1.4 } do
+		Kit.cylinder("CartWheel", 0.4, 1.4, cf * CFrame.new(x, 0.7, -1.3) * CFrame.Angles(rad(90), 0, 0), RGB(60, 60, 70), SMOOTH, nil, true)
+	end
+	local colors = { RED, TEAL, GOLD, PINK, PURPLE, RGB(90, 200, 90) }
+	local rng = Random.new(5)
+	for i = 1, 9 do
+		local top = cf * CFrame.new(rng:NextNumber(-1.8, 1.8), 8 + rng:NextNumber(-1, 1.5), rng:NextNumber(-1.2, 1.2))
+		Kit.ball("Balloon", 1.5, top, colors[(i - 1) % #colors + 1], SMOOTH, true)
+		local mid = (top.Position + (cf * CFrame.new(0, 3, 0)).Position) / 2
+		Kit.deco("BalloonString", V(0.06, 0.06, (top.Position - (cf * CFrame.new(0, 3, 0)).Position).Magnitude), CFrame.lookAt(mid, top.Position), Color3.new(1, 1, 1), SMOOTH)
+	end
+end
+
+-- Puesto de palomitas
+local function popcornStand(cf)
+	Kit.block("PopcornCart", V(3.4, 3, 2.4), cf * CFrame.new(0, 1.5, 0), RED, SMOOTH)
+	Kit.deco("PopcornGlass", V(3, 2.4, 2), cf * CFrame.new(0, 4.2, 0), RGB(255, 240, 200), Enum.Material.Glass).Transparency = 0.4
+	Kit.deco("Popcorn", V(2.8, 1, 1.8), cf * CFrame.new(0, 3.5, 0), RGB(255, 245, 210), SMOOTH)
+	Kit.deco("PopcornRoof", V(3.8, 0.5, 2.8), cf * CFrame.new(0, 5.7, 0), CREAM, SMOOTH)
+	Kit.deco("PopcornSign", V(3.6, 0.8, 0.2), cf * CFrame.new(0, 6.3, -1.2), GOLD, SMOOTH)
+end
+
+-- Farola de feria con bombillas (y de donde cuelgan las guirnaldas)
+local function lampPost(cf)
+	Kit.cylinder("FairLamp", 9, 0.5, cf * CFrame.new(0, 4.5, 0), RGB(60, 50, 70), Enum.Material.Metal, nil, true)
+	Kit.ball("FairLampGlobe", 1.4, cf * CFrame.new(0, 9.4, 0), NEON_BULB, Enum.Material.Neon, true)
+	return (cf * CFrame.new(0, 9, 0)).Position
+end
+
+-- Noria gigante de fondo (en el plano XY local, mirando hacia el mapa)
+local function ferrisWheel(cf, radius)
+	local hub = cf * CFrame.new(0, radius + 5, 0)
+	for _, z in { -3.5, 3.5 } do
+		for _, s in { -1, 1 } do
+			local foot = (cf * CFrame.new(s * radius * 0.6, 0, z * 1.6)).Position
+			local top = (hub * CFrame.new(0, 0, z)).Position
+			Kit.deco("WheelLeg", V(1.2, 1.2, (top - foot).Magnitude), CFrame.lookAt((foot + top) / 2, top), CREAM, SMOOTH)
+		end
+	end
+	Kit.cylinder("WheelHub", 8, 3, hub * CFrame.Angles(rad(90), 0, 0), GOLD, SMOOTH, nil, true)
+	local segments = 28
+	local segLength = 2 * math.pi * radius / segments + 0.4
+	for i = 0, segments - 1 do
+		local around = hub * CFrame.Angles(0, 0, i / segments * 2 * math.pi)
+		for _, z in { -1.6, 1.6 } do
+			Kit.deco("WheelRim", V(segLength, 0.7, 0.7), around * CFrame.new(0, radius, z), i % 2 == 0 and RED or CREAM, SMOOTH)
+		end
+		if i % 2 == 0 then
+			Kit.deco("WheelSpoke", V(0.35, radius, 0.35), around * CFrame.new(0, radius / 2, 0), CREAM, SMOOTH)
+			Kit.ball("WheelBulb", 0.7, around * CFrame.new(0, radius + 0.6, 0), NEON_BULB, Enum.Material.Neon, true).CastShadow = false
+		end
+		if i % 4 == 0 then
+			-- Cabina colgando (siempre derecha)
+			local p = (around * CFrame.new(0, radius, 0)).Position
+			local cabinColors = { TEAL, PINK, GOLD, PURPLE, RGB(90, 200, 90), RED, RGB(60, 140, 240) }
+			local color = cabinColors[(i / 4) % #cabinColors + 1]
+			local base = CFrame.new(p) * (cf - cf.Position)
+			Kit.deco("WheelCabin", V(4, 2.6, 3.4), base * CFrame.new(0, -2.6, 0), color, SMOOTH)
+			Kit.deco("WheelCabinRoof", V(4.4, 0.5, 3.8), base * CFrame.new(0, -1.1, 0), CREAM, SMOOTH)
+			Kit.deco("WheelCabinBar", V(0.3, 1, 0.3), base * CFrame.new(0, -0.5, 0), CREAM, SMOOTH)
+		end
+	end
+end
+
+-- Montaña rusa de fondo: vía ondulada sobre pilares, con un vagón
+local function rollerCoaster(fromX, toX, z)
+	local function height(x)
+		return 14 + 9 * math.sin(x / 16) + 4 * math.sin(x / 7)
+	end
+	local stepX = 6
+	local last
+	local count = 0
+	for x = fromX, toX, stepX do
+		local p = V(x, height(x), z)
+		if last then
+			local mid = (last + p) / 2
+			local look = CFrame.lookAt(mid, p)
+			local length = (p - last).Magnitude + 0.3
+			for _, side in { -1, 1 } do
+				Kit.deco("CoasterRail", V(0.4, 0.4, length), look * CFrame.new(side * 1.1, 0, 0), RED, Enum.Material.Metal)
+			end
+			Kit.deco("CoasterTie", V(2.8, 0.25, 0.6), look * CFrame.new(0, -0.2, 0), RGB(90, 80, 90), SMOOTH)
+		end
+		count += 1
+		if count % 2 == 0 then
+			Kit.cylinder("CoasterPillar", p.Y, 0.8, CFrame.new(x, p.Y / 2, z), CREAM, SMOOTH, nil, true)
+		end
+		last = p
+	end
+	-- Vagón en una bajada
+	local x = fromX + (toX - fromX) * 0.35
+	local a, b = V(x, height(x), z), V(x + 3, height(x + 3), z)
+	local car = CFrame.lookAt(a, b) * CFrame.new(0, 1.1, 0)
+	Kit.deco("CoasterCar", V(2.6, 1.6, 4.6), car, GOLD, SMOOTH)
+	Kit.deco("CoasterCarFront", V(2.7, 1.2, 0.5), car * CFrame.new(0, 0.3, -2.3), RED, SMOOTH)
+end
+
+function Map.Build()
+	local folder = Kit.Begin(Map.Name)
+	Kit.applyLighting(Map.Lighting)
+	local block, deco = Kit.block, Kit.deco
+	local teams = GameConfig.Teams
+
+	-- Suelo: césped con paseos de arena (cruz central y anillo alrededor del tiovivo)
+	block("Floor", V(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), GRASS, Enum.Material.SmoothPlastic)
+	deco("Path", V(LENGTH, 0.1, 14), CFrame.new(0, 0.05, 0), PATH, SMOOTH)
+	deco("Path", V(14, 0.1, WIDTH), CFrame.new(0, 0.05, 0), PATH, SMOOTH)
+	Kit.cylinder("PathRing", 0.1, 44, CFrame.new(0, 0.06, 0), PATH, SMOOTH, nil, true)
+	for _, z in { -1, 1 } do
+		deco("Path", V(LENGTH - 30, 0.1, 10), CFrame.new(0, 0.05, z * 38), PATH, SMOOTH)
+	end
+
+	carousel(CFrame.new(0, 0, 0))
+
+	Kit.symmetric(function(m, side)
+		local teamColor = side == "A" and RGB(235, 70, 70) or RGB(60, 130, 240)
+		-- Casetas de juegos mirando al centro
+		booth(m * CFrame.new(-60, 0, 50), RED, "TIRO AL PATO")
+		booth(m * CFrame.new(-48, 0, 50), TEAL, "ARO")
+		booth(m * CFrame.new(-36, 0, 50), PURPLE, "PREMIOS")
+		strengthTester(m * CFrame.new(-22, 0, 52))
+
+		-- Coches de choque (muro bajo) y casa de la risa con azotea
+		bumperCars(m * CFrame.new(-30, 0, -28), teamColor, GOLD)
+		funhouse(m * CFrame.new(-70, 0, -48), side == "A" and PINK or TEAL)
+		Kit.jumpPad((m * CFrame.new(-52, 0, -56)).Position, 64, teamColor)
+
+		-- Cobertura media: cajas, barriles, carrito de globos y palomitas
+		balloonCart(m * CFrame.new(-30, 0, 14) * CFrame.Angles(0, rad(20), 0))
+		popcornStand(m * CFrame.new(-12, 0, -13) * CFrame.Angles(0, rad(-30), 0))
+		Kit.crate(m * CFrame.new(-48, 0, 14), 4, RGB(200, 150, 90))
+		Kit.crate(m * CFrame.new(-51, 0, 18), 3.5, RGB(200, 150, 90))
+		Kit.crate(m * CFrame.new(-46, 0, -12), 4, RGB(200, 150, 90))
+		Kit.barrel(m * CFrame.new(-22, 0, 28), RED)
+		Kit.barrel(m * CFrame.new(-24, 0, 30.5), TEAL)
+		Kit.barrel(m * CFrame.new(-56, 0, -18), GOLD)
+		Kit.crate(m * CFrame.new(-12, 0, 44), 4, RGB(200, 150, 90))
+
+		-- Farolas con guirnaldas de bombillas a lo largo de los paseos
+		local a = lampPost(m * CFrame.new(-20, 0, 32))
+		local b = lampPost(m * CFrame.new(-52, 0, 32))
+		local c = lampPost(m * CFrame.new(-20, 0, -44))
+		local d = lampPost(m * CFrame.new(-52, 0, -44))
+		Kit.stringLights(a, b, RGB(255, 220, 140))
+		Kit.stringLights(c, d, RGB(255, 220, 140))
+		Kit.stringLights(a, V(0, 20, 0), RGB(255, 160, 200))
+
+		-- Taquilla junto a la base
+		block("TicketBooth", V(5, 5, 5), m * CFrame.new(-78, 2.5, 44), teamColor:Lerp(CREAM, 0.4), SMOOTH)
+		deco("TicketWindow", V(3, 1.8, 0.3), m * CFrame.new(-78, 3, 41.4), RGB(255, 240, 200), Enum.Material.Neon)
+		stripedCone(m * CFrame.new(-78, 5, 44), 6.5, 3, teamColor, CREAM, 3)
+
+		-- Banderines del equipo
+		Kit.banner(m * CFrame.new(-68, 12, 30) * CFrame.Angles(0, rad(90), 0), 4, 6, teamColor, GOLD)
+		Kit.banner(m * CFrame.new(-68, 12, -30) * CFrame.Angles(0, rad(90), 0), 4, 6, teamColor, GOLD)
+	end)
+
+	-- Bases y banderas
+	local spawnStyle = { Floor = RGB(255, 235, 210), Roof = CREAM }
+	Kit.spawnArea(teams[1], CFrame.new(-85, 0, 0), spawnStyle)
+	Kit.spawnArea(teams[2], Kit.MIRROR * CFrame.new(-85, 0, 0), spawnStyle)
+	Kit.flagBase(teams[1], CFrame.new(-62, 0, 0))
+	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-62, 0, 0))
+
+	-- Fondo: noria, montaña rusa, carpa del circo, pinos y colinas
+	Kit.bounds(LENGTH, WIDTH, 60)
+	ferrisWheel(CFrame.new(-10, 0, WIDTH / 2 + 26) * CFrame.Angles(0, rad(180), 0), 26)
+	rollerCoaster(-110, 110, -(WIDTH / 2 + 24))
+	stripedCone(CFrame.new(70, 0, WIDTH / 2 + 34), 34, 22, RED, CREAM, 8)
+	stripedCone(CFrame.new(-75, 0, -(WIDTH / 2 + 40)), 26, 16, PURPLE, CREAM, 6)
+	local rng = Random.new(31)
+	for x = -130, 130, 22 do
+		for _, z in { -1, 1 } do
+			Kit.cartoonPine(V(x + rng:NextNumber(-6, 6), 0, z * (WIDTH / 2 + 52 + rng:NextNumber(0, 12))), 1.6, true)
+		end
+	end
+	for _, sx in { -1, 1 } do
+		for z = -60, 60, 30 do
+			Kit.cartoonPine(V(sx * (LENGTH / 2 + 14 + rng:NextNumber(0, 8)), 0, z + rng:NextNumber(-6, 6)), 1.5, true)
+		end
+		for z = -80, 80, 55 do
+			Kit.naturalHill(V(sx * 165, -16, z), 42, Enum.Material.Grass, { Inward = V(-sx, 0, 0), Top = Enum.Material.LeafyGrass, RockCount = 1 })
+		end
+	end
+	for x = -200, 200, 60 do
+		for _, z in { -1, 1 } do
+			Kit.naturalHill(V(x, -16, z * 160), 42, Enum.Material.Grass, { Inward = V(0, 0, -z), Top = Enum.Material.LeafyGrass, RockCount = 1 })
+		end
+	end
+
+	-- Modos
+	for _, p in {
+		V(-76, 0.5, 8), V(-76, 0.5, -16), V(-54, 0.5, 6), V(-40, 0.5, 22), V(-26, 0.5, 40),
+		V(-30, 0.5, -28), V(-14, 0.5, -36), V(-70, 9.5, -48), V(-8, 1.5, 12), V(-40, 0.5, -56),
+	} do
+		Kit.ffaSpawn(p)
+		Kit.ffaSpawn(Kit.MIRROR * p)
+	end
+	Kit.zone(V(0, 1, 0), 6, 1)
+	Kit.zone(V(-30, 0, -28), 6, 2)
+	Kit.zone(V(30, 0, 28), 6, 3)
+	Kit.zone(V(-70, 9, -48), 5, 4)
+	Kit.zone(V(70, 9, 48), 5, 5)
+	Kit.dustMotes(CFrame.new(0, 6, 0), V(140, 10, 90), Color3.fromRGB(255, 220, 180), 8)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="48">
+            <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
 -- pasillos laterales entre contenedores, pasarelas elevadas y almacenes como zonas de salida.
@@ -9344,7 +9745,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -10109,7 +10510,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">FrostStation</string>
               <string name="Source"><![CDATA[-- FROST STATION: base de investigación polar. Lago helado resbaladizo en el centro bajo la torre
@@ -10464,7 +10865,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="50">
+          <Item class="ModuleScript" referent="51">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -10743,7 +11144,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="51">
+          <Item class="ModuleScript" referent="52">
             <Properties>
               <string name="Name">HauntedManor</string>
               <string name="Source"><![CDATA[-- MANSIÓN ENCANTADA (mapa de Halloween): de noche, con luna grande y niebla violeta. Mansión en el
@@ -10989,7 +11390,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="52">
+          <Item class="ModuleScript" referent="53">
             <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
@@ -11323,7 +11724,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="53">
+          <Item class="ModuleScript" referent="54">
             <Properties>
               <string name="Name">MoonBase</string>
               <string name="Source"><![CDATA[-- BASE LUNAR: base espacial de dibujos animados en la Luna, de noche con la Tierra enorme en el
@@ -11583,7 +11984,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="54">
+          <Item class="ModuleScript" referent="55">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -11819,7 +12220,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="55">
+          <Item class="ModuleScript" referent="56">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -12048,7 +12449,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -12372,7 +12773,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -12614,7 +13015,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">ToyBox</string>
               <string name="Source"><![CDATA[-- CAJA DE JUGUETES: eres del tamaño de un juguete dentro del cuarto de un niño. Castillo de bloques
@@ -12874,7 +13275,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="59">
+        <Item class="ModuleScript" referent="60">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -14221,7 +14622,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="60">
+        <Item class="ModuleScript" referent="61">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -15736,7 +16137,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="61">
+        <Item class="ModuleScript" referent="62">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -15941,7 +16342,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="62">
+        <Item class="ModuleScript" referent="63">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -17167,7 +17568,7 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="63">
+        <Item class="ModuleScript" referent="64">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -17241,22 +17642,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="64">
+  <Item class="StarterPlayer" referent="65">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="65">
+    <Item class="StarterPlayerScripts" referent="66">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="66">
+      <Item class="Folder" referent="67">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="67">
+        <Item class="LocalScript" referent="68">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -17338,11 +17739,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="68">
+        <Item class="Folder" referent="69">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -17633,7 +18034,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo
@@ -17696,7 +18097,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -17753,7 +18154,7 @@ function ClientState.UpdateMouse()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
-	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Scoreboard" } do
+	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Spray", "Scoreboard" } do
 		local button = cas:GetButton(name)
 		if button then
 			button.Visible = not blocked
@@ -17773,7 +18174,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -18244,7 +18645,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -19336,7 +19737,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -19512,7 +19913,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -19622,7 +20023,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -19763,7 +20164,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -19786,6 +20187,7 @@ local Graffiti = {}
 local lastSpray = -math.huge
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
+rayParams.IgnoreWater = true
 
 local function spray()
 	if ClientState.IsBlocked() then
@@ -19810,7 +20212,8 @@ local function spray()
 	local origin = camera.CFrame.Position
 	local hit = workspace:Raycast(origin, camera.CFrame.LookVector * (Sprays.Range + 4), rayParams)
 	local head = character:FindFirstChild("Head")
-	if not hit or not head or (hit.Position - head.Position).Magnitude > Sprays.Range then
+	-- (el servidor solo pinta en cosas fijas: si no, ni sonido ni recarga)
+	if not hit or not head or (hit.Position - head.Position).Magnitude > Sprays.Range or not hit.Instance.Anchored then
 		return
 	end
 	lastSpray = os.clock()
@@ -19826,14 +20229,14 @@ function Graffiti.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J)
 	ContextActionService:SetTitle("Spray", "🎨")
-	ContextActionService:SetPosition("Spray", UDim2.new(1, -200, 1, -360))
+	ContextActionService:SetPosition("Spray", UDim2.new(1, -200, 1, -340))
 end
 
 return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -19962,7 +20365,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -21623,7 +22026,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -21695,7 +22098,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -21760,7 +22163,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -21991,7 +22394,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -22489,7 +22892,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 13, #GameConfig.Modes, weaponCount()),
+		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 14, #GameConfig.Modes, weaponCount()),
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -22685,7 +23088,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -24924,7 +25327,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -25217,7 +25620,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -25323,7 +25726,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -25494,7 +25897,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -25664,7 +26067,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -25982,7 +26385,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -26171,7 +26574,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -26257,7 +26660,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -26414,7 +26817,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -26516,7 +26919,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -26673,7 +27076,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -27621,7 +28024,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -27678,7 +28081,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -27972,7 +28375,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -28167,19 +28570,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="99">
+  <Item class="Teams" referent="100">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="100">
+  <Item class="Workspace" referent="101">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="101">
+    <Item class="Terrain" referent="102">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
