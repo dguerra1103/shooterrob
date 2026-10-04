@@ -275,7 +275,7 @@ local function zombieThink(agent, humanoid, root, now)
 		return
 	end
 	local targetRoot = best.Model:FindFirstChild("HumanoidRootPart") or best.Head
-	if bestDistance <= def.Range + 1 then
+	if bestDistance <= def.Range + 1 and math.abs(targetRoot.Position.Y - root.Position.Y) < 4 and canSee(agent, best) then
 		humanoid:MoveTo(targetRoot.Position)
 		if now >= agent.NextShot then
 			agent.NextShot = now + def.Cooldown + math.random() * 0.3
@@ -697,7 +697,7 @@ function Bots.Infect(agent, zombieTeam)
 	if entry then
 		entry:SetAttribute("Team", zombieTeam.Name)
 	end
-	if agent.Humanoid and agent.Model then
+	if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 		-- Paciente cero: se cambia el cuerpo por uno de zombi (sin contar como muerte)
 		local model = agent.Model
 		agent.Humanoid = nil

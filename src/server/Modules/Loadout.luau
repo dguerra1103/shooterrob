@@ -52,7 +52,10 @@ local function giveLoadout(player, character)
 	local list = Loadout.Override and Loadout.Override(player) or Loadout.DefaultList(data)
 
 	-- Traje de operador (solo R15)
-	if data and data.EquippedOutfit ~= "Default" then
+	-- (los zombis de la Infección no llevan traje: taparía la piel verde y los ojos)
+	local zombie = ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team ~= nil
+		and player.Team.Name == ReplicatedStorage:GetAttribute("TeamB")
+	if data and data.EquippedOutfit ~= "Default" and not zombie then
 		character:WaitForChild("UpperTorso", 5)
 		-- Espera a que cargue la ropa del avatar: si no, sus BodyColors y camisa taparían el traje
 		local started = os.clock()

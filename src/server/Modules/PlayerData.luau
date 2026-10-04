@@ -715,8 +715,8 @@ end
 -- Cuenta una baja con un arma y entrega la maestría al subir de nivel
 function PlayerData.AddWeaponKill(player, weaponName)
 	local data = profiles[player]
-	if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] then
-		return
+	if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] or Weapons.List[weaponName].Hidden then
+		return -- (las garras de zombi no tienen maestría)
 	end
 	local before = data.WeaponKills[weaponName] or 0
 	local after = before + 1

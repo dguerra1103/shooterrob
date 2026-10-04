@@ -49,7 +49,8 @@ end
 
 -- Lo llama Round cada vez que alguien suma una baja a su racha
 function Killstreaks.OnStreak(player, streak)
-	if not enabled() then
+	-- (los zombis de la Infección no tienen recompensas por racha)
+	if not enabled() or (player.Character and player.Character:GetAttribute("Zombie")) then
 		return
 	end
 	if streak == Killstreaks.RadarStreak then
@@ -100,6 +101,9 @@ local function callAirstrike(player, target)
 		return
 	end
 	if not enabled() or player:GetAttribute("InMenu") or (player:GetAttribute("Airstrikes") or 0) <= 0 then
+		return
+	end
+	if player.Character and player.Character:GetAttribute("Zombie") then
 		return
 	end
 	if ReplicatedStorage:GetAttribute("State") ~= "Playing" or ReplicatedStorage:GetAttribute("Frozen") then

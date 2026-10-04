@@ -37,6 +37,20 @@ local currentMode = "TDM"
 local votes = {} -- [player] = índice
 local voteOptions = {}
 
+local onInfectionDeath -- (Infección: quien cae ante los zombis se convierte; ver más abajo)
+
+-- ¿Ha ganado la partida este jugador? En Infección, si ganan los zombis solo cuentan como ganadores
+-- los que ya eran zombis al empezar (los supervivientes convertidos han perdido)
+local function wonTeam(player, winner)
+	if winner == nil or player.Team ~= winner then
+		return false
+	end
+	if currentMode == "INF" and winner == teams[2] then
+		return player:GetAttribute("InfZombieStart") == true
+	end
+	return true
+end
+
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
 local function setState(state)
@@ -137,6 +151,9 @@ local function assignTeam(player)
 	if infection then
 		player.Neutral = false
 		player.Team = infection == "On" and teams[2] or teams[1]
+		if infection == "On" then
+			player:SetAttribute("InfZombieStart", true)
+		end
 		return
 	end
 	if isTeamMode() then
@@ -192,6 +209,7 @@ local function resetStats()
 		-- Participación para el rango: desde cuándo juega esta partida (Loadout lo pone al salir del menú)
 		player:SetAttribute("MatchJoinedAt", if player:GetAttribute("InMenu") then nil else workspace:GetServerTimeNow())
 		player:SetAttribute("ElimPlayed", nil)
+		player:SetAttribute("InfZombieStart", nil)
 		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
@@ -349,6 +367,10 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Weapon = weapon and weapon.DisplayName or "",
 		Headshot = headshot,
 	})
+	-- Infección: el superviviente que cae se convierte en zombi en el acto (antes de que pueda revivir)
+	if ReplicatedStorage:GetAttribute("Infection") == "On" and onInfectionDeath then
+		onInfectionDeath(victim, victimBot)
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -537,6 +559,7 @@ local function infectPlayer(player, announce)
 	end
 	player.Neutral = false
 	player.Team = teams[2]
+	player:SetAttribute("Airstrikes", 0) -- (los zombis no tienen recompensas por racha)
 	if announce then
 		Remotes.Notify:FireAllClients("Streak", "🧟 " .. player.Name .. " se ha convertido en zombi")
 	end
@@ -584,14 +607,27 @@ local function infectRandom(count)
 			table.insert(pool, agent)
 		end
 	end
+	local infected = 0
 	for _ = 1, math.min(count, #pool - 1) do
 		local chosen = table.remove(pool, math.random(1, #pool))
+		infected += 1
 		if typeof(chosen) == "Instance" then
+			chosen:SetAttribute("InfZombieStart", true)
 			infectPlayer(chosen, true)
 		else
 			Bots.Infect(chosen, teams[2])
 			Remotes.Notify:FireAllClients("Streak", "🧟 " .. chosen.Name .. " se ha convertido en zombi")
 		end
+	end
+	return infected
+end
+
+onInfectionDeath = function(victim, victimBot)
+	if victim and victim.Team == teams[1] then
+		infectPlayer(victim, true)
+	elseif victimBot and victimBot.Team == teams[1] then
+		Bots.Infect(victimBot, teams[2])
+		Remotes.Notify:FireAllClients("Streak", "🧟 " .. victimBot.Name .. " se ha convertido en zombi")
 	end
 end
 
@@ -609,16 +645,32 @@ local function infectionRound(s)
 		task.wait(1)
 	end
 	ReplicatedStorage:SetAttribute("Infection", "On")
+	-- Quien sigue en la pantalla de inicio no es superviviente: si entra, lo hará como zombi
+	for _, player in Players:GetPlayers() do
+		if player.Team == a and player:GetAttribute("InMenu") then
+			player.Team = b
+			player:SetAttribute("InfZombieStart", true)
+		end
+	end
 	local survivors = infectionCounts()
-	infectRandom(math.max(1, math.floor(survivors / (s.ZombieRatio or 5))))
+	if infectRandom(math.max(1, math.floor(survivors / (s.ZombieRatio or 5)))) == 0 then
+		Remotes.Notify:FireAllClients("Big", "Hacen falta al menos 2 jugadores para la infección")
+		task.wait(2)
+		return
+	end
 	Remotes.Notify:FireAllClients("Big", "🧟 ¡HAN LLEGADO LOS ZOMBIS! ¡Sobrevive!")
 	local roundEnd = os.clock() + s.RoundTime
 	local winner
 	while not roundOver do
-		-- Los supervivientes que caen (por lo que sea) se convierten en zombis
+		-- Los supervivientes que caen (por lo que sea) se convierten en zombis; quien vuelve al menú
+		-- deja de ser superviviente
 		for _, player in Players:GetPlayers() do
-			if player.Team == a and not player:GetAttribute("InMenu") and not Respawn.IsLoading(player) and isDeadPlayer(player) then
-				infectPlayer(player, true)
+			if player.Team == a then
+				if player:GetAttribute("InMenu") then
+					infectPlayer(player, false)
+				elseif not Respawn.IsLoading(player) and isDeadPlayer(player) then
+					infectPlayer(player, true)
+				end
 			end
 		end
 		for _, agent in table.clone(Bots.Agents) do
@@ -853,7 +905,7 @@ local function endRound()
 			PlayerData.Increment(player, "Matches", 1)
 			local won
 			if teamMode then
-				won = winner ~= nil and player.Team == winner
+				won = wonTeam(player, winner)
 			else
 				won = leader == player and leaderScore > 0
 			end
@@ -871,7 +923,7 @@ local function endRound()
 		end
 		local won
 		if teamMode then
-			won = winner ~= nil and player.Team == winner
+			won = wonTeam(player, winner)
 		else
 			won = leader == player and leaderScore > 0
 		end

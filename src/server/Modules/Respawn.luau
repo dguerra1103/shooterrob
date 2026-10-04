@@ -116,6 +116,10 @@ local function reviveCheck(player)
 	if noRespawn() then
 		return nil, "Una sola vida por ronda"
 	end
+	-- Infección: un superviviente que cae ya es zombi (no vuelve como humano)
+	if ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team and player.Team.Name == ReplicatedStorage:GetAttribute("TeamA") then
+		return nil, "¡Te han infectado!"
+	end
 	if ReplicatedStorage:GetAttribute("Frozen") or loading[player] then
 		return nil, "Ya estás reapareciendo"
 	end
