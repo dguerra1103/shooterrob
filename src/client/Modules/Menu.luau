@@ -362,7 +362,8 @@ local function buildPassPage(data)
 	})
 	-- Solo se dibujan los niveles cercanos al tuyo (cada premio lleva un modelo 3D: con 50 a la vez el
 	-- menú iría lento)
-	local first = math.max(1, data.Level - 2)
+	-- (al final del pase la ventana se queda en los últimos niveles: si no, quedaría vacía)
+	local first = math.max(1, math.min(data.Level - 2, #GameConfig.BattlePass - 14))
 	local last = math.min(#GameConfig.BattlePass, first + 14)
 	for tier = first, last do
 		local rewards = GameConfig.BattlePass[tier]
