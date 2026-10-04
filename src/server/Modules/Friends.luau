@@ -23,6 +23,11 @@ local function publish(player)
 	player:SetAttribute("FriendsHere", count)
 end
 
+-- ¿Son amigos de Roblox (y están los dos en este servidor)? Round lo usa para ponerlos en el mismo equipo
+function Friends.AreFriends(a, b)
+	return friendsOf[a] ~= nil and friendsOf[a][b] == true
+end
+
 -- Multiplicador por amigos (1 = sin bonus)
 function Friends.Multiplier(player)
 	return 1 + Friends.BonusPerFriend * math.min(Friends.MaxFriends, player:GetAttribute("FriendsHere") or 0)

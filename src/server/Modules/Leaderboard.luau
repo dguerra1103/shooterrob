@@ -78,8 +78,8 @@ local function push(player)
 	for _, board in BOARDS do
 		local store = stores[board.Id]
 		local value = math.floor(tonumber(data[board.Field]) or 0)
-		if board.Seasonal and data.RankSeason ~= Ranks.CurrentSeason().Id then
-			value = 0 -- (sus RP aún son de la temporada anterior: se suben cuando cambie)
+		if board.Seasonal and (data.RankSeason ~= Ranks.CurrentSeason().Id or (tonumber(data.SeasonBest) or 0) <= 0) then
+			value = 0 -- (RP de la temporada anterior, o aún no ha jugado de rango en esta: no sale en el top)
 		end
 		local k = player.UserId .. (storeNames[board.Id] or board.Id)
 		if store and value > 0 and pushed[k] ~= value then

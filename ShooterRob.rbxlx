@@ -8270,6 +8270,11 @@ local function publish(player)
 	player:SetAttribute("FriendsHere", count)
 end
 
+-- ¿Son amigos de Roblox (y están los dos en este servidor)? Round lo usa para ponerlos en el mismo equipo
+function Friends.AreFriends(a, b)
+	return friendsOf[a] ~= nil and friendsOf[a][b] == true
+end
+
 -- Multiplicador por amigos (1 = sin bonus)
 function Friends.Multiplier(player)
 	return 1 + Friends.BonusPerFriend * math.min(Friends.MaxFriends, player:GetAttribute("FriendsHere") or 0)
@@ -9315,8 +9320,8 @@ local function push(player)
 	for _, board in BOARDS do
 		local store = stores[board.Id]
 		local value = math.floor(tonumber(data[board.Field]) or 0)
-		if board.Seasonal and data.RankSeason ~= Ranks.CurrentSeason().Id then
-			value = 0 -- (sus RP aún son de la temporada anterior: se suben cuando cambie)
+		if board.Seasonal and (data.RankSeason ~= Ranks.CurrentSeason().Id or (tonumber(data.SeasonBest) or 0) <= 0) then
+			value = 0 -- (RP de la temporada anterior, o aún no ha jugado de rango en esta: no sale en el top)
 		end
 		local k = player.UserId .. (storeNames[board.Id] or board.Id)
 		if store and value > 0 and pushed[k] ~= value then
@@ -16468,7 +16473,11 @@ function PlayerData.WaitFor(player, timeout)
 end
 
 -- Potenciador comprado activo (Shop.Boosters) para "XP" o "Coins"
-local function boosterMultiplier(data, kind)
+-- (solo cuenta en partida: lo que se reclama desde la portada, como la recompensa diaria, no se dobla)
+local function boosterMultiplier(player, data, kind)
+	if player:GetAttribute("InMenu") ~= false then
+		return 1
+	end
 	for _, booster in Shop.Boosters do
 		if booster.Kind == kind and (tonumber(data[booster.Field]) or 0) > 0 then
 			return booster.Multiplier
@@ -16712,6 +16721,10 @@ function PlayerData.CheckSeason(player)
 		return false
 	end
 	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	-- (el resumen de la partida compara con los RP ya recortados: el recorte no es de la partida)
+	if match[player] then
+		match[player].StartRank = data.RankPoints
+	end
 	Remotes.Notify:FireClient(player, "Big", text)
 	dirty[player] = true
 	sendUpdate(player)
@@ -16724,12 +16737,9 @@ function PlayerData.AddRankPoints(player, delta)
 	if not data or delta == 0 then
 		return 0
 	end
-	local entry = matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
-	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar; el resumen
-	-- compara con los RP ya recortados para no enseñar una bajada que no es de la partida)
-	if PlayerData.CheckSeason(player) then
-		entry.StartRank = data.RankPoints
-	end
+	matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
+	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar)
+	PlayerData.CheckSeason(player)
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
 	local index = Ranks.Index(data.RankPoints)
@@ -16764,7 +16774,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		return
 	end
 	if not fixed then
-		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(data, "XP"))
+		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(player, data, "XP"))
 		matchOf(player, data).XP += amount
 	end
 	data.XP += amount
@@ -16791,11 +16801,12 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 end
 
 -- earned = true para monedas ganadas jugando (el VIP las duplica)
-function PlayerData.AddCoins(player, amount, earned)
+-- noBoost = true: le aplican VIP y amigos pero no los potenciadores (p. ej. la recompensa diaria)
+function PlayerData.AddCoins(player, amount, earned, noBoost)
 	local data = profiles[player]
 	if data then
 		if earned ~= false then
-			amount = math.floor(amount * multiplier(player) * boosterMultiplier(data, "Coins"))
+			amount = math.floor(amount * multiplier(player) * (noBoost and 1 or boosterMultiplier(player, data, "Coins")))
 			matchOf(player, data).Coins += amount
 		end
 		data.Coins += amount
@@ -17050,7 +17061,7 @@ local function claimDaily(player)
 	data.DailyStreak = streak
 	data.LastDailyDay = today
 	local coins = Shop.DailyRewards[streak]
-	local given = PlayerData.AddCoins(player, coins, true)
+	local given = PlayerData.AddCoins(player, coins, true, true)
 	local crate = streak == Shop.DailyCrateDay
 	if crate then
 		data.FreeCrates += 1
@@ -17384,7 +17395,7 @@ function PlayerData.Init()
 				if player:GetAttribute("InMenu") ~= false then
 					continue -- (en la portada o aún sin entrar en partida)
 				end
-				local changed = false
+				local changed, update = false, false
 				for _, booster in Shop.Boosters do
 					local left = tonumber(data[booster.Field]) or 0
 					if left > 0 then
@@ -17392,14 +17403,17 @@ function PlayerData.Init()
 						changed = true
 						if data[booster.Field] == 0 then
 							Remotes.Notify:FireClient(player, "Challenge", booster.Icon .. " Se acabó tu " .. booster.Name)
-							sendUpdate(player)
+							update = true
 						elseif data[booster.Field] % 60 < STEP then
-							sendUpdate(player) -- (el cliente cuenta los segundos; se corrige cada minuto)
+							update = true -- (el cliente cuenta los segundos; se corrige cada minuto)
 						end
 					end
 				end
 				if changed then
 					dirty[player] = true
+				end
+				if update then
+					sendUpdate(player)
 				end
 			end
 		end
@@ -18178,6 +18192,7 @@ local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
 local Pumpkins = require(script.Parent.Pumpkins)
 local Combat = require(script.Parent.Combat)
+local Friends = require(script.Parent.Friends)
 
 local Round = {}
 
@@ -18283,8 +18298,21 @@ end
 -- Equipos
 ---------------------------------------------------------------------------
 
+-- Amigos de Roblox de player que hay en ese equipo
+local function friendsIn(team, player)
+	local count = 0
+	for _, p in team:GetPlayers() do
+		if p ~= player and Friends.AreFriends(player, p) then
+			count += 1
+		end
+	end
+	return count
+end
+
+-- El equipo con menos jugadores (sin contar a exclude). Si empatan, el que tiene amigos suyos
+-- (los amigos juegan juntos) y si no, al azar.
 local function smallestTeam(exclude)
-	local best, bestCount = nil, math.huge
+	local best, bestCount, bestFriends = nil, math.huge, -1
 	for _, team in teams do
 		local count = 0
 		for _, p in team:GetPlayers() do
@@ -18292,8 +18320,9 @@ local function smallestTeam(exclude)
 				count += 1
 			end
 		end
-		if count < bestCount or (count == bestCount and math.random() < 0.5) then
-			best, bestCount = team, count
+		local friends = exclude and friendsIn(team, exclude) or 0
+		if count < bestCount or (count == bestCount and (friends > bestFriends or (friends == bestFriends and math.random() < 0.5))) then
+			best, bestCount, bestFriends = team, count, friends
 		end
 	end
 	return best
@@ -18345,8 +18374,16 @@ local function balanceTeams()
 	while math.abs(#a:GetPlayers() - #b:GetPlayers()) > 1 do
 		local big = #a:GetPlayers() > #b:GetPlayers() and a or b
 		local small = big == a and b or a
+		-- (se cambia preferiblemente a quien tiene menos amigos en su equipo)
 		local list = big:GetPlayers()
-		list[math.random(1, #list)].Team = small
+		local pick, pickFriends = nil, math.huge
+		for _, p in list do
+			local friends = friendsIn(big, p) - friendsIn(small, p) + math.random() * 0.5
+			if friends < pickFriends then
+				pick, pickFriends = p, friends
+			end
+		end
+		pick.Team = small
 	end
 end
 
@@ -19186,7 +19223,8 @@ local function endRound()
 				PlayerData.Increment(player, "Wins", 1)
 			end
 			if playedMatch[player] then
-				local firstWin = PlayerData.ClaimFirstWin(player, winScale)
+				-- (completa también contra bots: es una vez al día, no se puede abusar)
+				local firstWin = PlayerData.ClaimFirstWin(player, 1)
 				if firstWin then
 					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 🪙")
 				end
@@ -19995,7 +20033,7 @@ function BoostHUD.Init()
 	})
 	label = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 84),
+		Position = UDim2.new(0.5, 0, 0, 140), -- (debajo de la fila de jugadores del marcador)
 		Size = UDim2.fromOffset(320, 22),
 		Text = "",
 		TextSize = 17,
@@ -20008,7 +20046,13 @@ function BoostHUD.Init()
 			return
 		end
 		for _, booster in Shop.Boosters do
-			left[booster.Field] = tonumber(data[booster.Field]) or 0
+			-- (el servidor descuenta de 5 en 5 s: solo se corrige si se ha ido más que eso, para que
+			-- el reloj no salte hacia arriba con cada baja)
+			local server = tonumber(data[booster.Field]) or 0
+			local mine = left[booster.Field]
+			if not mine or math.abs(server - mine) > 6 or server == 0 then
+				left[booster.Field] = server
+			end
 		end
 		render()
 	end

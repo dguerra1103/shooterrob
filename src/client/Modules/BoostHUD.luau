@@ -41,7 +41,7 @@ function BoostHUD.Init()
 	})
 	label = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 84),
+		Position = UDim2.new(0.5, 0, 0, 140), -- (debajo de la fila de jugadores del marcador)
 		Size = UDim2.fromOffset(320, 22),
 		Text = "",
 		TextSize = 17,
@@ -54,7 +54,13 @@ function BoostHUD.Init()
 			return
 		end
 		for _, booster in Shop.Boosters do
-			left[booster.Field] = tonumber(data[booster.Field]) or 0
+			-- (el servidor descuenta de 5 en 5 s: solo se corrige si se ha ido más que eso, para que
+			-- el reloj no salte hacia arriba con cada baja)
+			local server = tonumber(data[booster.Field]) or 0
+			local mine = left[booster.Field]
+			if not mine or math.abs(server - mine) > 6 or server == 0 then
+				left[booster.Field] = server
+			end
 		end
 		render()
 	end

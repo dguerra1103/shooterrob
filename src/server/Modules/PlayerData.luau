@@ -656,7 +656,11 @@ function PlayerData.WaitFor(player, timeout)
 end
 
 -- Potenciador comprado activo (Shop.Boosters) para "XP" o "Coins"
-local function boosterMultiplier(data, kind)
+-- (solo cuenta en partida: lo que se reclama desde la portada, como la recompensa diaria, no se dobla)
+local function boosterMultiplier(player, data, kind)
+	if player:GetAttribute("InMenu") ~= false then
+		return 1
+	end
 	for _, booster in Shop.Boosters do
 		if booster.Kind == kind and (tonumber(data[booster.Field]) or 0) > 0 then
 			return booster.Multiplier
@@ -900,6 +904,10 @@ function PlayerData.CheckSeason(player)
 		return false
 	end
 	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	-- (el resumen de la partida compara con los RP ya recortados: el recorte no es de la partida)
+	if match[player] then
+		match[player].StartRank = data.RankPoints
+	end
 	Remotes.Notify:FireClient(player, "Big", text)
 	dirty[player] = true
 	sendUpdate(player)
@@ -912,12 +920,9 @@ function PlayerData.AddRankPoints(player, delta)
 	if not data or delta == 0 then
 		return 0
 	end
-	local entry = matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
-	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar; el resumen
-	-- compara con los RP ya recortados para no enseñar una bajada que no es de la partida)
-	if PlayerData.CheckSeason(player) then
-		entry.StartRank = data.RankPoints
-	end
+	matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
+	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar)
+	PlayerData.CheckSeason(player)
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
 	local index = Ranks.Index(data.RankPoints)
@@ -952,7 +957,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		return
 	end
 	if not fixed then
-		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(data, "XP"))
+		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(player, data, "XP"))
 		matchOf(player, data).XP += amount
 	end
 	data.XP += amount
@@ -979,11 +984,12 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 end
 
 -- earned = true para monedas ganadas jugando (el VIP las duplica)
-function PlayerData.AddCoins(player, amount, earned)
+-- noBoost = true: le aplican VIP y amigos pero no los potenciadores (p. ej. la recompensa diaria)
+function PlayerData.AddCoins(player, amount, earned, noBoost)
 	local data = profiles[player]
 	if data then
 		if earned ~= false then
-			amount = math.floor(amount * multiplier(player) * boosterMultiplier(data, "Coins"))
+			amount = math.floor(amount * multiplier(player) * (noBoost and 1 or boosterMultiplier(player, data, "Coins")))
 			matchOf(player, data).Coins += amount
 		end
 		data.Coins += amount
@@ -1238,7 +1244,7 @@ local function claimDaily(player)
 	data.DailyStreak = streak
 	data.LastDailyDay = today
 	local coins = Shop.DailyRewards[streak]
-	local given = PlayerData.AddCoins(player, coins, true)
+	local given = PlayerData.AddCoins(player, coins, true, true)
 	local crate = streak == Shop.DailyCrateDay
 	if crate then
 		data.FreeCrates += 1
@@ -1572,7 +1578,7 @@ function PlayerData.Init()
 				if player:GetAttribute("InMenu") ~= false then
 					continue -- (en la portada o aún sin entrar en partida)
 				end
-				local changed = false
+				local changed, update = false, false
 				for _, booster in Shop.Boosters do
 					local left = tonumber(data[booster.Field]) or 0
 					if left > 0 then
@@ -1580,14 +1586,17 @@ function PlayerData.Init()
 						changed = true
 						if data[booster.Field] == 0 then
 							Remotes.Notify:FireClient(player, "Challenge", booster.Icon .. " Se acabó tu " .. booster.Name)
-							sendUpdate(player)
+							update = true
 						elseif data[booster.Field] % 60 < STEP then
-							sendUpdate(player) -- (el cliente cuenta los segundos; se corrige cada minuto)
+							update = true -- (el cliente cuenta los segundos; se corrige cada minuto)
 						end
 					end
 				end
 				if changed then
 					dirty[player] = true
+				end
+				if update then
+					sendUpdate(player)
 				end
 			end
 		end

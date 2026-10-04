@@ -31,6 +31,7 @@ local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
 local Pumpkins = require(script.Parent.Pumpkins)
 local Combat = require(script.Parent.Combat)
+local Friends = require(script.Parent.Friends)
 
 local Round = {}
 
@@ -136,8 +137,21 @@ end
 -- Equipos
 ---------------------------------------------------------------------------
 
+-- Amigos de Roblox de player que hay en ese equipo
+local function friendsIn(team, player)
+	local count = 0
+	for _, p in team:GetPlayers() do
+		if p ~= player and Friends.AreFriends(player, p) then
+			count += 1
+		end
+	end
+	return count
+end
+
+-- El equipo con menos jugadores (sin contar a exclude). Si empatan, el que tiene amigos suyos
+-- (los amigos juegan juntos) y si no, al azar.
 local function smallestTeam(exclude)
-	local best, bestCount = nil, math.huge
+	local best, bestCount, bestFriends = nil, math.huge, -1
 	for _, team in teams do
 		local count = 0
 		for _, p in team:GetPlayers() do
@@ -145,8 +159,9 @@ local function smallestTeam(exclude)
 				count += 1
 			end
 		end
-		if count < bestCount or (count == bestCount and math.random() < 0.5) then
-			best, bestCount = team, count
+		local friends = exclude and friendsIn(team, exclude) or 0
+		if count < bestCount or (count == bestCount and (friends > bestFriends or (friends == bestFriends and math.random() < 0.5))) then
+			best, bestCount, bestFriends = team, count, friends
 		end
 	end
 	return best
@@ -198,8 +213,16 @@ local function balanceTeams()
 	while math.abs(#a:GetPlayers() - #b:GetPlayers()) > 1 do
 		local big = #a:GetPlayers() > #b:GetPlayers() and a or b
 		local small = big == a and b or a
+		-- (se cambia preferiblemente a quien tiene menos amigos en su equipo)
 		local list = big:GetPlayers()
-		list[math.random(1, #list)].Team = small
+		local pick, pickFriends = nil, math.huge
+		for _, p in list do
+			local friends = friendsIn(big, p) - friendsIn(small, p) + math.random() * 0.5
+			if friends < pickFriends then
+				pick, pickFriends = p, friends
+			end
+		end
+		pick.Team = small
 	end
 end
 
@@ -1039,7 +1062,8 @@ local function endRound()
 				PlayerData.Increment(player, "Wins", 1)
 			end
 			if playedMatch[player] then
-				local firstWin = PlayerData.ClaimFirstWin(player, winScale)
+				-- (completa también contra bots: es una vez al día, no se puede abusar)
+				local firstWin = PlayerData.ClaimFirstWin(player, 1)
 				if firstWin then
 					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 🪙")
 				end
