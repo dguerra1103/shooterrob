@@ -25,6 +25,8 @@ local RED_DOT_TIME = 2.5 -- segundos que se ve el punto rojo de un disparo
 local MAX_SHAPES = 900
 
 local gui, frame, world, me
+local border, enemyRadarLabel
+local lastEnemyRadar, nextRadarCheck = false, 0
 local size, scale = 160, 160 / RANGE
 local shapesFolder
 local builtFor = nil
@@ -158,6 +160,29 @@ local function update()
 	local now = os.clock()
 	-- Compañeros (jugadores y bots)
 	local radar = workspace:GetServerTimeNow() < (player:GetAttribute("RadarUntil") or 0)
+	-- Radar enemigo: borde rojo y aviso mientras otro equipo lo tenga (se mira 3 veces por segundo)
+	local enemyRadar = lastEnemyRadar
+	if now >= nextRadarCheck then
+		nextRadarCheck = now + 0.3
+		enemyRadar = false
+		if ReplicatedStorage:GetAttribute("TeamMode") ~= false and player.Team then
+			local serverNow = workspace:GetServerTimeNow()
+			for name, value in ReplicatedStorage:GetAttributes() do
+				if string.sub(name, 1, 6) == "Radar_" and name ~= "Radar_" .. player.Team.Name and type(value) == "number" and value > serverNow then
+					enemyRadar = true
+					break
+				end
+			end
+		end
+	end
+	if enemyRadar ~= lastEnemyRadar then
+		lastEnemyRadar = enemyRadar
+		if border then
+			border.Color = enemyRadar and Color3.fromRGB(255, 60, 60) or Color3.fromRGB(230, 230, 235)
+			border.Transparency = enemyRadar and 0 or 0.35
+		end
+		enemyRadarLabel.Visible = enemyRadar
+	end
 	local models = {}
 	for _, other in Players:GetPlayers() do
 		if other ~= player and other.Character then
@@ -295,6 +320,19 @@ function Minimap.Init()
 		ClipsDescendants = true,
 		Parent = gui,
 	}, { UI.corner(8), UI.stroke(Color3.fromRGB(230, 230, 235), 2, 0.35) })
+	border = frame:FindFirstChildOfClass("UIStroke")
+	enemyRadarLabel = UI.label({
+		Position = UDim2.new(0, 0, 1, -16),
+		Size = UDim2.new(1, 0, 0, 16),
+		Text = "📡 RADAR ENEMIGO",
+		TextSize = 11,
+		TextColor3 = Color3.fromRGB(255, 120, 120),
+		BackgroundColor3 = Color3.fromRGB(60, 0, 0),
+		BackgroundTransparency = 0.35,
+		ZIndex = 6,
+		Visible = false,
+		Parent = frame,
+	})
 	world = UI.new("Frame", {
 		Size = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,

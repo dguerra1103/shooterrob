@@ -34,8 +34,18 @@ local function enabled()
 	return ReplicatedStorage:GetAttribute("Mode") ~= "GUN"
 end
 
+-- Radar de un equipo (Radar_<equipo> en ReplicatedStorage = hasta cuándo): el minimapa del rival
+-- se pone rojo mientras dura, como el radar enemigo de los shooters
+local function markTeamRadar(team, untilTime)
+	if team and ReplicatedStorage:GetAttribute("TeamMode") ~= false then
+		local key = "Radar_" .. team.Name
+		ReplicatedStorage:SetAttribute(key, math.max(ReplicatedStorage:GetAttribute(key) or 0, untilTime))
+	end
+end
+
 local function activateRadar(player)
 	local untilTime = now() + RADAR_TIME
+	markTeamRadar(player.Team, untilTime)
 	for _, other in Players:GetPlayers() do
 		local ally = other == player or (player.Team ~= nil and other.Team == player.Team and ReplicatedStorage:GetAttribute("TeamMode") ~= false)
 		if other == player then
@@ -57,6 +67,7 @@ function Killstreaks.OnBotStreak(botName, team, streak)
 		return false
 	end
 	local untilTime = now() + RADAR_TIME
+	markTeamRadar(team, untilTime)
 	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	for _, other in Players:GetPlayers() do
 		if team ~= nil and teamMode and other.Team == team then
@@ -85,6 +96,11 @@ end
 
 -- Al empezar una ronda nadie conserva recompensas
 function Killstreaks.Reset()
+	for name in ReplicatedStorage:GetAttributes() do
+		if string.sub(name, 1, 6) == "Radar_" then
+			ReplicatedStorage:SetAttribute(name, nil)
+		end
+	end
 	for _, player in Players:GetPlayers() do
 		player:SetAttribute("Airstrikes", 0)
 		player:SetAttribute("RadarUntil", 0)
