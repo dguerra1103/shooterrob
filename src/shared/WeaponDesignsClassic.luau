@@ -668,6 +668,32 @@ function Classic.ToyHammer(_pt)
 	return p
 end
 
+-- Guadaña (Halloween): mango largo de madera oscura con anillas y una hoja curva que sale hacia
+-- un lado en la punta y se curva hacia el mango, con el filo morado brillante por dentro
+function Classic.Scythe(_pt)
+	local p = {
+		B("Handle", 0, 0, -0.35, 0.13, 0.13, 2.3, "Body"),
+		B("Grip", 0, 0, 0.55, 0.16, 0.16, 0.5, "Rubber"),
+		B("Pommel", 0, 0, 0.85, 0.2, 0.2, 0.12, "Dark"),
+	}
+	for i, z in { -0.2, -1.1 } do
+		table.insert(p, B("ShaftRing" .. i, 0, 0, z, 0.17, 0.17, 0.08, "Accent2"))
+	end
+	table.insert(p, B("BladeMount", 0, 0, -1.55, 0.2, 0.22, 0.2, "Dark"))
+	-- Hoja: tramos cada vez más girados (curva hacia +X y hacia atrás)
+	local x, z, angle = 0.1, -1.55, 0
+	for i = 1, 5 do
+		local length = 0.42 - i * 0.03
+		local rad = math.rad(angle)
+		local cx, cz = x + math.cos(rad) * length / 2, z - math.sin(rad) * length / 2
+		table.insert(p, B("Blade" .. i, cx, 0, cz, length, 0.05, 0.3 - i * 0.035, "Accent", 0, angle, 0))
+		table.insert(p, B("BladeEdge" .. i, cx + math.sin(rad) * (0.15 - i * 0.017), 0, cz + math.cos(rad) * (0.15 - i * 0.017), length, 0.055, 0.04, "Accent2", 0, angle, 0))
+		x, z = x + math.cos(rad) * length, z - math.sin(rad) * length
+		angle -= 16
+	end
+	return p
+end
+
 -- Garras de zombi (modo Infección): mano verde con tres uñas de hueso largas y curvas
 function Classic.Claws(_pt)
 	local p = {

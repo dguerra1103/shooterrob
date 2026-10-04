@@ -571,6 +571,24 @@ do
 	}
 	hammer.Parts = Classic.ToyHammer(hammer)
 	Weapons.List.ToyHammer = hammer
+	-- Halloween
+	local scythe = {
+		DisplayName = "Guadaña",
+		Category = "Cuerpo a cuerpo",
+		Description = "¡Edición Halloween! Mucho alcance y golpes que dan miedo.",
+		Slot = 3,
+		Type = "Melee",
+		Palette = { Body = RGB(70, 45, 35), Panel = RGB(70, 45, 35), Dark = RGB(35, 30, 40), Accent = RGB(215, 220, 235), Accent2 = RGB(170, 70, 255), Lens = RGB(70, 120, 175), BodyMaterial = Enum.Material.Wood, AccentMaterial = Enum.Material.Metal, Accent2Material = Enum.Material.Neon },
+		UnlockLevel = 3,
+		Price = 1500,
+		Damage = 65,
+		Range = 10,
+		Cooldown = 0.85,
+		ViewOffset = CFrame.new(0.95, -0.95, -1.2) * CFrame.Angles(rad(15), rad(-8), rad(-25)),
+		RightHand = V(0, 0, 0.45),
+	}
+	scythe.Parts = Classic.Scythe(scythe)
+	Weapons.List.Scythe = scythe
 end
 
 -- Garras: arma de los zombis en el modo Infección (no se elige ni se vende: Hidden)
@@ -665,7 +683,7 @@ Weapons.Primaries = {
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
 Weapons.Melee = "Knife" -- cuerpo a cuerpo por defecto (y el de la Escalada de armas)
-Weapons.Melees = { "Knife", "ToyHammer", "Katana" } -- los que se pueden elegir
+Weapons.Melees = { "Knife", "ToyHammer", "Katana", "Scythe" } -- los que se pueden elegir
 
 -- Orden del modo "Escalada de armas": cada baja te da la siguiente
 Weapons.GunGameOrder = {

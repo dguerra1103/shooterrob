@@ -57,7 +57,7 @@ Challenges.Pool = {
 	{ Id = "Shotguns", Stat = "Kill", Weapons = { "HavocPump", "BreachHammer" }, Goal = 6, Text = "6 bajas con escopeta", Coins = 200, XP = 300 },
 	{ Id = "Snipers", Stat = "Kill", Weapons = { "Signal7", "GhostlineXR", "RaptorDMR" }, Goal = 4, Text = "4 bajas con francotirador o DMR", Coins = 250, XP = 350, MinLevel = 3 },
 	{ Id = "Pistols", Stat = "Kill", Weapons = { "Viper", "HandCannon", "PhantomSidewind" }, Goal = 4, Text = "4 bajas con pistola", Coins = 200, XP = 300 },
-	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife", "ToyHammer", "Katana" }, Goal = 2, Text = "2 bajas cuerpo a cuerpo", Coins = 300, XP = 400 },
+	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife", "ToyHammer", "Katana", "Scythe" }, Goal = 2, Text = "2 bajas cuerpo a cuerpo", Coins = 300, XP = 400 },
 	{ Id = "Grenades", Stat = "Kill", Weapons = { "Grenade" }, Goal = 3, Text = "3 bajas con granada", Coins = 250, XP = 350 },
 	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher" }, Goal = 3, Text = "3 bajas con el Tempest Core", Coins = 250, XP = 350, MinLevel = 14 },
 	-- Modo Infección (Halloween)
@@ -3169,6 +3169,32 @@ function Classic.ToyHammer(_pt)
 	return p
 end
 
+-- Guadaña (Halloween): mango largo de madera oscura con anillas y una hoja curva que sale hacia
+-- un lado en la punta y se curva hacia el mango, con el filo morado brillante por dentro
+function Classic.Scythe(_pt)
+	local p = {
+		B("Handle", 0, 0, -0.35, 0.13, 0.13, 2.3, "Body"),
+		B("Grip", 0, 0, 0.55, 0.16, 0.16, 0.5, "Rubber"),
+		B("Pommel", 0, 0, 0.85, 0.2, 0.2, 0.12, "Dark"),
+	}
+	for i, z in { -0.2, -1.1 } do
+		table.insert(p, B("ShaftRing" .. i, 0, 0, z, 0.17, 0.17, 0.08, "Accent2"))
+	end
+	table.insert(p, B("BladeMount", 0, 0, -1.55, 0.2, 0.22, 0.2, "Dark"))
+	-- Hoja: tramos cada vez más girados (curva hacia +X y hacia atrás)
+	local x, z, angle = 0.1, -1.55, 0
+	for i = 1, 5 do
+		local length = 0.42 - i * 0.03
+		local rad = math.rad(angle)
+		local cx, cz = x + math.cos(rad) * length / 2, z - math.sin(rad) * length / 2
+		table.insert(p, B("Blade" .. i, cx, 0, cz, length, 0.05, 0.3 - i * 0.035, "Accent", 0, angle, 0))
+		table.insert(p, B("BladeEdge" .. i, cx + math.sin(rad) * (0.15 - i * 0.017), 0, cz + math.cos(rad) * (0.15 - i * 0.017), length, 0.055, 0.04, "Accent2", 0, angle, 0))
+		x, z = x + math.cos(rad) * length, z - math.sin(rad) * length
+		angle -= 16
+	end
+	return p
+end
+
 -- Garras de zombi (modo Infección): mano verde con tres uñas de hueso largas y curvas
 function Classic.Claws(_pt)
 	local p = {
@@ -4038,6 +4064,24 @@ do
 	}
 	hammer.Parts = Classic.ToyHammer(hammer)
 	Weapons.List.ToyHammer = hammer
+	-- Halloween
+	local scythe = {
+		DisplayName = "Guadaña",
+		Category = "Cuerpo a cuerpo",
+		Description = "¡Edición Halloween! Mucho alcance y golpes que dan miedo.",
+		Slot = 3,
+		Type = "Melee",
+		Palette = { Body = RGB(70, 45, 35), Panel = RGB(70, 45, 35), Dark = RGB(35, 30, 40), Accent = RGB(215, 220, 235), Accent2 = RGB(170, 70, 255), Lens = RGB(70, 120, 175), BodyMaterial = Enum.Material.Wood, AccentMaterial = Enum.Material.Metal, Accent2Material = Enum.Material.Neon },
+		UnlockLevel = 3,
+		Price = 1500,
+		Damage = 65,
+		Range = 10,
+		Cooldown = 0.85,
+		ViewOffset = CFrame.new(0.95, -0.95, -1.2) * CFrame.Angles(rad(15), rad(-8), rad(-25)),
+		RightHand = V(0, 0, 0.45),
+	}
+	scythe.Parts = Classic.Scythe(scythe)
+	Weapons.List.Scythe = scythe
 end
 
 -- Garras: arma de los zombis en el modo Infección (no se elige ni se vende: Hidden)
@@ -4132,7 +4176,7 @@ Weapons.Primaries = {
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
 Weapons.Melee = "Knife" -- cuerpo a cuerpo por defecto (y el de la Escalada de armas)
-Weapons.Melees = { "Knife", "ToyHammer", "Katana" } -- los que se pueden elegir
+Weapons.Melees = { "Knife", "ToyHammer", "Katana", "Scythe" } -- los que se pueden elegir
 
 -- Orden del modo "Escalada de armas": cada baja te da la siguiente
 Weapons.GunGameOrder = {
@@ -21211,7 +21255,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 EVENTO DE HALLOWEEN · Mansión Encantada · 🆕 Eliminación · Katana",
+		Text = "🎃 HALLOWEEN · 🧟 Modo Infección · 🚀 Base Lunar · 🎡 Ruleta · Guadaña",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,

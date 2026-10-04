@@ -429,7 +429,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 EVENTO DE HALLOWEEN · Mansión Encantada · 🆕 Eliminación · Katana",
+		Text = "🎃 HALLOWEEN · 🧟 Modo Infección · 🚀 Base Lunar · 🎡 Ruleta · Guadaña",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
