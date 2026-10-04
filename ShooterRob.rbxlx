@@ -21660,6 +21660,7 @@ return PlayerData
 -- Si la recoge el equipo contrario, punto para ellos (baja confirmada); si la recoge un compañero del
 -- caído, la baja no cuenta (recuperada). Las calabazas desaparecen a los LIFETIME segundos.
 -- Round decide qué pasa al recoger (OnCollect) y quién puede recoger (Collectors).
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pumpkins = {}
 
 Pumpkins.OnCollect = nil -- function(collector, confirmed, pumpkinTeam)
@@ -21695,15 +21696,28 @@ local function groundBelow(position)
 	return hit.Position
 end
 
+-- Fuera de Halloween el modo es "Baja confirmada": en vez de calabazas, placas de identificación
+function Pumpkins.Tags()
+	return ReplicatedStorage:GetAttribute("EventName") ~= "Halloween"
+end
+
 local function build(position, team)
+	local tags = Pumpkins.Tags()
 	local model = Instance.new("Model")
 	model.Name = "Pumpkin"
 	local body = Instance.new("Part")
 	body.Name = "PumpkinBody"
-	body.Shape = Enum.PartType.Ball
-	body.Size = Vector3.new(2.4, 2.4, 2.4)
-	body.Color = Color3.fromRGB(255, 130, 20)
-	body.Material = Enum.Material.SmoothPlastic
+	if tags then
+		-- Placa metálica colgando (con el color del equipo en el anillo del suelo)
+		body.Size = Vector3.new(1.3, 1.9, 0.2)
+		body.Color = Color3.fromRGB(205, 208, 214)
+		body.Material = Enum.Material.Metal
+	else
+		body.Shape = Enum.PartType.Ball
+		body.Size = Vector3.new(2.4, 2.4, 2.4)
+		body.Color = Color3.fromRGB(255, 130, 20)
+		body.Material = Enum.Material.SmoothPlastic
+	end
 	body.CFrame = CFrame.new(position + Vector3.new(0, 1.7, 0))
 	body.Anchored = true
 	body.CanCollide = false
@@ -21713,7 +21727,7 @@ local function build(position, team)
 	-- (WorldFX la hace flotar en el cliente)
 	body:SetAttribute("Bob", 0.35)
 	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 160, 60)
+	light.Color = tags and Color3.fromRGB(230, 236, 255) or Color3.fromRGB(255, 160, 60)
 	light.Range = 8
 	light.Brightness = 1
 	light.Parent = body
@@ -21726,7 +21740,7 @@ local function build(position, team)
 	local icon = Instance.new("TextLabel")
 	icon.Size = UDim2.fromScale(1, 1)
 	icon.BackgroundTransparency = 1
-	icon.Text = "🎃"
+	icon.Text = tags and "🏷️" or "🎃"
 	icon.TextScaled = true
 	icon.Parent = face
 	body.Parent = model
@@ -22432,6 +22446,14 @@ local function settings(mode)
 	return GameConfig.ModeSettings[mode or currentMode]
 end
 
+-- Nombre del modo para la interfaz (Calabazas es "Baja confirmada" fuera de Halloween)
+local function modeName(mode)
+	if mode == "CAL" and Pumpkins.Tags() then
+		return "Baja confirmada"
+	end
+	return GameConfig.ModeSettings[mode].Name
+end
+
 local function isTeamMode(mode)
 	return settings(mode).Teams ~= false
 end
@@ -22997,7 +23019,7 @@ local function publishVotes()
 	for i, option in voteOptions do
 		local def = MapBuilder.Get(option.Map)
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and ((def.Icon and def.Icon .. " " or "") .. def.Name) or "Mapa propio")
-		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", GameConfig.ModeSettings[option.Mode].Name)
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", modeName(option.Mode))
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Count", counts[i])
 	end
 	return counts
@@ -23593,7 +23615,7 @@ local function startMode(mode)
 		scoreToWin = #Weapons.GunGameOrder
 	end
 	ReplicatedStorage:SetAttribute("Mode", mode)
-	ReplicatedStorage:SetAttribute("ModeName", s.Name)
+	ReplicatedStorage:SetAttribute("ModeName", modeName(mode))
 	ReplicatedStorage:SetAttribute("TeamMode", s.Teams ~= false)
 	ReplicatedStorage:SetAttribute("ScoreToWin", scoreToWin)
 	-- (antes de empezar: así los bots que entran al empezar ya son supervivientes)
@@ -23691,7 +23713,8 @@ local function playRound()
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
 			SND = "💣 ¡BUSCAR Y DESTRUIR! Una vida · planta o desactiva la bomba · primero a " .. goal .. " rondas",
 			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
-			CAL = "🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal,
+			CAL = Pumpkins.Tags() and ("🏷️ ¡BAJA CONFIRMADA! Recoge las placas de tus enemigos caídos · primero a " .. goal)
+				or ("🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal),
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
 		if mode == "ELIM" or mode == "SND" then
@@ -23813,11 +23836,11 @@ function Round.Init()
 			-- (la calabaza de un bot vale menos, como la baja)
 			local scale = fromBot and GameConfig.Bots.RewardScale or 1
 			if confirmed then
-				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinConfirm or 0) * scale), "🎃 Calabaza confirmada")
+				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinConfirm or 0) * scale), Pumpkins.Tags() and "🏷️ Baja confirmada" or "🎃 Calabaza confirmada")
 				PlayerData.AddCoins(player, math.max(1, math.floor((GameConfig.Coins.Pumpkin or 2) * scale)))
 				PlayerData.Track(player, "Pumpkin", 1)
 			else
-				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinDeny or 0) * scale), "🎃 Calabaza recuperada")
+				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinDeny or 0) * scale), Pumpkins.Tags() and "🏷️ Placa recuperada" or "🎃 Calabaza recuperada")
 			end
 		end
 	end
@@ -35258,6 +35281,7 @@ local MODE_ICONS = {
 	["Eliminación"] = "☠",
 	["Infección"] = "🧟",
 	["Calabazas"] = "🎃",
+	["Baja confirmada"] = "🏷️",
 }
 -- Una línea para quien no conoce el modo
 local MODE_HINTS = {
@@ -35271,6 +35295,7 @@ local MODE_HINTS = {
 	["Eliminación"] = "Una sola vida por ronda",
 	["Infección"] = "Sobrevive a los zombis",
 	["Calabazas"] = "Recoge las calabazas enemigas",
+	["Baja confirmada"] = "Recoge las placas de los caídos",
 }
 
 local function setOpen(value)

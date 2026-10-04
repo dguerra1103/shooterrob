@@ -72,6 +72,14 @@ local function settings(mode)
 	return GameConfig.ModeSettings[mode or currentMode]
 end
 
+-- Nombre del modo para la interfaz (Calabazas es "Baja confirmada" fuera de Halloween)
+local function modeName(mode)
+	if mode == "CAL" and Pumpkins.Tags() then
+		return "Baja confirmada"
+	end
+	return GameConfig.ModeSettings[mode].Name
+end
+
 local function isTeamMode(mode)
 	return settings(mode).Teams ~= false
 end
@@ -637,7 +645,7 @@ local function publishVotes()
 	for i, option in voteOptions do
 		local def = MapBuilder.Get(option.Map)
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Map", def and ((def.Icon and def.Icon .. " " or "") .. def.Name) or "Mapa propio")
-		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", GameConfig.ModeSettings[option.Mode].Name)
+		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Mode", modeName(option.Mode))
 		ReplicatedStorage:SetAttribute("Vote" .. i .. "_Count", counts[i])
 	end
 	return counts
@@ -1233,7 +1241,7 @@ local function startMode(mode)
 		scoreToWin = #Weapons.GunGameOrder
 	end
 	ReplicatedStorage:SetAttribute("Mode", mode)
-	ReplicatedStorage:SetAttribute("ModeName", s.Name)
+	ReplicatedStorage:SetAttribute("ModeName", modeName(mode))
 	ReplicatedStorage:SetAttribute("TeamMode", s.Teams ~= false)
 	ReplicatedStorage:SetAttribute("ScoreToWin", scoreToWin)
 	-- (antes de empezar: así los bots que entran al empezar ya son supervivientes)
@@ -1331,7 +1339,8 @@ local function playRound()
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
 			SND = "💣 ¡BUSCAR Y DESTRUIR! Una vida · planta o desactiva la bomba · primero a " .. goal .. " rondas",
 			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
-			CAL = "🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal,
+			CAL = Pumpkins.Tags() and ("🏷️ ¡BAJA CONFIRMADA! Recoge las placas de tus enemigos caídos · primero a " .. goal)
+				or ("🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal),
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
 		if mode == "ELIM" or mode == "SND" then
@@ -1453,11 +1462,11 @@ function Round.Init()
 			-- (la calabaza de un bot vale menos, como la baja)
 			local scale = fromBot and GameConfig.Bots.RewardScale or 1
 			if confirmed then
-				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinConfirm or 0) * scale), "🎃 Calabaza confirmada")
+				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinConfirm or 0) * scale), Pumpkins.Tags() and "🏷️ Baja confirmada" or "🎃 Calabaza confirmada")
 				PlayerData.AddCoins(player, math.max(1, math.floor((GameConfig.Coins.Pumpkin or 2) * scale)))
 				PlayerData.Track(player, "Pumpkin", 1)
 			else
-				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinDeny or 0) * scale), "🎃 Calabaza recuperada")
+				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinDeny or 0) * scale), Pumpkins.Tags() and "🏷️ Placa recuperada" or "🎃 Calabaza recuperada")
 			end
 		end
 	end

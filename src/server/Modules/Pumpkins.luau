@@ -2,6 +2,7 @@
 -- Si la recoge el equipo contrario, punto para ellos (baja confirmada); si la recoge un compañero del
 -- caído, la baja no cuenta (recuperada). Las calabazas desaparecen a los LIFETIME segundos.
 -- Round decide qué pasa al recoger (OnCollect) y quién puede recoger (Collectors).
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pumpkins = {}
 
 Pumpkins.OnCollect = nil -- function(collector, confirmed, pumpkinTeam)
@@ -37,15 +38,28 @@ local function groundBelow(position)
 	return hit.Position
 end
 
+-- Fuera de Halloween el modo es "Baja confirmada": en vez de calabazas, placas de identificación
+function Pumpkins.Tags()
+	return ReplicatedStorage:GetAttribute("EventName") ~= "Halloween"
+end
+
 local function build(position, team)
+	local tags = Pumpkins.Tags()
 	local model = Instance.new("Model")
 	model.Name = "Pumpkin"
 	local body = Instance.new("Part")
 	body.Name = "PumpkinBody"
-	body.Shape = Enum.PartType.Ball
-	body.Size = Vector3.new(2.4, 2.4, 2.4)
-	body.Color = Color3.fromRGB(255, 130, 20)
-	body.Material = Enum.Material.SmoothPlastic
+	if tags then
+		-- Placa metálica colgando (con el color del equipo en el anillo del suelo)
+		body.Size = Vector3.new(1.3, 1.9, 0.2)
+		body.Color = Color3.fromRGB(205, 208, 214)
+		body.Material = Enum.Material.Metal
+	else
+		body.Shape = Enum.PartType.Ball
+		body.Size = Vector3.new(2.4, 2.4, 2.4)
+		body.Color = Color3.fromRGB(255, 130, 20)
+		body.Material = Enum.Material.SmoothPlastic
+	end
 	body.CFrame = CFrame.new(position + Vector3.new(0, 1.7, 0))
 	body.Anchored = true
 	body.CanCollide = false
@@ -55,7 +69,7 @@ local function build(position, team)
 	-- (WorldFX la hace flotar en el cliente)
 	body:SetAttribute("Bob", 0.35)
 	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 160, 60)
+	light.Color = tags and Color3.fromRGB(230, 236, 255) or Color3.fromRGB(255, 160, 60)
 	light.Range = 8
 	light.Brightness = 1
 	light.Parent = body
@@ -68,7 +82,7 @@ local function build(position, team)
 	local icon = Instance.new("TextLabel")
 	icon.Size = UDim2.fromScale(1, 1)
 	icon.BackgroundTransparency = 1
-	icon.Text = "🎃"
+	icon.Text = tags and "🏷️" or "🎃"
 	icon.TextScaled = true
 	icon.Parent = face
 	body.Parent = model

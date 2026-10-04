@@ -30,6 +30,7 @@ local MODE_ICONS = {
 	["Eliminación"] = "☠",
 	["Infección"] = "🧟",
 	["Calabazas"] = "🎃",
+	["Baja confirmada"] = "🏷️",
 }
 -- Una línea para quien no conoce el modo
 local MODE_HINTS = {
@@ -43,6 +44,7 @@ local MODE_HINTS = {
 	["Eliminación"] = "Una sola vida por ronda",
 	["Infección"] = "Sobrevive a los zombis",
 	["Calabazas"] = "Recoge las calabazas enemigas",
+	["Baja confirmada"] = "Recoge las placas de los caídos",
 }
 
 local function setOpen(value)
