@@ -401,6 +401,21 @@ function Map.Build()
 			floodlight(m * CFrame.new(p) * CFrame.Angles(0, rad(p.Z > 0 and -90 or 90), 0))
 		end
 		RealKit.utilityLine(m * CFrame.new(0, 0, 22.5), -175, -23, 38)
+		-- Helipuerto junto al hangar (solo dibujo en el suelo) y manga de viento
+		local pad = Kit.cylinder("Helipad", 0.06, 14, m * CFrame.new(-112, 0.04, 121), RGB(70, 72, 70), M.Concrete, nil, true)
+		pad.CastShadow = false
+		local ring = Kit.cylinder("HelipadRing", 0.07, 12.4, m * CFrame.new(-112, 0.05, 121), RGB(225, 200, 60), M.SmoothPlastic, nil, true)
+		ring.CastShadow = false
+		local inner = Kit.cylinder("HelipadInner", 0.08, 11.4, m * CFrame.new(-112, 0.06, 121), RGB(70, 72, 70), M.Concrete, nil, true)
+		inner.CastShadow = false
+		local letter = deco("HelipadH", V(7, 0.05, 7), m * CFrame.new(-112, 0.1, 121), RGB(255, 255, 255), M.SmoothPlastic)
+		letter.Transparency = 1
+		local gui = Kit.sign(letter, Enum.NormalId.Top, "H", RGB(235, 235, 230), RGB(235, 235, 230))
+		gui.LightInfluence = 1
+		Kit.cylinder("WindsockPole", 9, 0.3, m * CFrame.new(-100, 4.5, 127), RGB(200, 200, 200), M.Metal, nil, true)
+		for i = 0, 3 do
+			deco("Windsock", V(0.9 - i * 0.12, 0.9 - i * 0.12, 1.1), m * CFrame.new(-100, 8.6 - i * 0.12, 127.7 + i * 1.05) * CFrame.Angles(rad(-6 * i), 0, 0), i % 2 == 0 and RGB(240, 110, 30) or RGB(240, 240, 235), M.Fabric)
+		end
 
 		-- Base: el muro de detrás de la zona de salida, con sus banderas
 		for _, z in { -30, 30 } do

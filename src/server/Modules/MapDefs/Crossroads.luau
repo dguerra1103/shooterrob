@@ -184,6 +184,18 @@ function Map.Build()
 				deco("RubblePile", size, m * CFrame.new(pile + V((j - 2.5) * 1.1, size.Y / 2, ((i + j) % 3 - 1) * 0.9)) * CFrame.Angles(j * 0.4, i + j, j * 0.25), j % 2 == 0 and PALETTE.Concrete or PALETTE.Plaster[(i % 5) + 1], M.Concrete)
 			end
 		end
+		-- Valla publicitaria en la azotea del bloque de ladrillo del callejón (se ve desde lejos)
+		do
+			local roof = m * CFrame.new(-90, 18, 124)
+			for _, x in { -5, 5 } do
+				deco("BillboardLeg", V(0.5, 7, 0.5), roof * CFrame.new(x, 3.5, 2), RGB(60, 60, 62), M.Metal)
+			end
+			local board = deco("Billboard", V(15, 6, 0.4), roof * CFrame.new(0, 7.5, 2), RGB(230, 225, 210), M.SmoothPlastic)
+			board.CastShadow = true
+			local adGui = Kit.sign(board, Enum.NormalId.Front, side == "A" and "RADIO 98.5 · LA VOZ DE LA CIUDAD" or "HOTEL CENTRAL ★★★", RGB(170, 40, 34), RGB(170, 40, 34))
+			adGui.LightInfluence = 1
+			deco("BillboardFrame", V(15.6, 0.4, 0.6), roof * CFrame.new(0, 10.6, 2), RGB(60, 60, 62), M.Metal)
+		end
 		-- Pintadas y carteles en las paredes que dan a la avenida
 		RealKit.graffiti(m * CFrame.new(-156, 2.4, 24.95), side == "A" and "¡RESISTE!" or "NO PASARÁN", RGB(200, 40, 36), 8)
 		RealKit.graffiti(m * CFrame.new(-72, 2.4, -24.95) * CFrame.Angles(0, math.pi, 0), "ZONA 4  →", RGB(235, 235, 230), 7)
