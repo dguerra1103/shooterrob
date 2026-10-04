@@ -51,7 +51,17 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Premio del grupo** | Pon el ID de tu grupo en `GameConfig.Group.Id` y publica (en Studio el grupo puede no comprobarse) | En la pantalla de inicio sale ⭐ ÚNETE AL GRUPO +500 🪙. Si ya estás en el grupo: "✅ ¡+500 🪙! Gracias" y el botón desaparece. Si no, sale la ventana de Roblox para unirte. |
 | **Pase de 50 niveles** | Menú → Pase | Los niveles cercanos al tuyo; al final "… y N niveles más". |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
+| **Ballesta** | Menú → Armas → Ballesta (nivel 9 o 2000 monedas) | Arco de metal con cuerda y virote de punta roja. Un disparo y recarga sola; a la cabeza mata de un tiro. |
+| **Invitaciones** | Hace falta publicar y una cuenta nueva: invita a un amigo con 👥 INVITA | Cuando entra por primera vez: a él "¡Te invitó …! +500 🪙" y a ti "¡… entró con tu invitación! +500 🪙". |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
+
+## Probar la Navidad ahora (sin esperar a diciembre)
+
+En `src/shared/GameConfig.luau`, dentro de `GameConfig.Events`: al de Halloween ponle `EndsAt = 0` y al
+de Navidad `StartsAt = 0`. Al darle a Play: regalos (cajas de colores) en vez de caramelos, muñecos de
+nieve en los mapas, la Villa Navideña en la votación, la tarjeta "🎄 ¡LLEGA LA NAVIDAD!" para quien ya
+había jugado y los premios del evento (Papá Noel a los 50 regalos). **Vuelve a dejar las fechas como
+estaban antes de publicar.**
 
 ## Darte monedas o nivel en Studio (para probar la tienda)
 
