@@ -401,7 +401,7 @@ local function fire()
 		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
 		Effects.Tracer(muzzlePos, hitPosition, tracerColor)
 		if result then
-			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material)
+			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material, def.ImpactStyle)
 			local model = result.Instance:FindFirstAncestorOfClass("Model")
 			if model and model:FindFirstChildOfClass("Humanoid") then
 				ClientState.LastHitPosition = result.Position

@@ -534,6 +534,57 @@ Weapons.List = {
 	},
 }
 
+-- Marcadora de paintball (estilo cartoon): las bolas dejan salpicaduras de pintura de colores
+do
+	local splat = {
+		DisplayName = "Splat-X",
+		Category = "Paintball",
+		Description = "Pinta el mapa (y a tus rivales) de todos los colores.",
+		Slot = 1,
+		Type = "Gun",
+		Palette = {
+			Body = RGB(40, 140, 255),
+			BodyMaterial = Enum.Material.SmoothPlastic,
+			Panel = RGB(34, 34, 40),
+			PanelMaterial = Enum.Material.SmoothPlastic,
+			Dark = RGB(26, 26, 30),
+			Accent = RGB(255, 70, 170),
+			AccentMaterial = Enum.Material.SmoothPlastic,
+			Accent2 = RGB(255, 215, 50),
+			Accent2Material = Enum.Material.SmoothPlastic,
+			Lens = RGB(70, 120, 175),
+		},
+		UnlockLevel = 2,
+		Price = 400,
+		Damage = 21,
+		MinDamage = 15,
+		FalloffStart = 60,
+		FalloffEnd = 200,
+		HeadshotMultiplier = 1.5,
+		FireRate = 8,
+		Automatic = true,
+		MagSize = 25,
+		ReserveAmmo = 125,
+		ReloadTime = 1.7,
+		Range = 450,
+		Spread = 1.4,
+		AimSpread = 0.4,
+		Pellets = 1,
+		Recoil = 0.45,
+		AimFOV = 62,
+		WalkSpeedMultiplier = 1.05,
+		ImpactStyle = "Paint", -- salpicaduras de colores (ver Effects.Impact)
+		ViewOffset = CFrame.new(0.78, -0.8, -1.8),
+		AimDistance = 1.1,
+		RightHand = V(0, -0.45, 0.32),
+		LeftHand = V(0, -0.26, -0.7),
+		AimPoint = V(0, 0.36, 0.45),
+		Muzzle = V(0, 0.08, -1.55),
+	}
+	splat.Parts = Classic.SplatX(splat)
+	Weapons.List.SplatX = splat
+end
+
 -- Armas que el jugador puede elegir
 Weapons.Primaries = {
 	"ARX27",
@@ -547,6 +598,7 @@ Weapons.Primaries = {
 	"TitanLMG",
 	"GhostlineXR",
 	"NovaLauncher",
+	"SplatX",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto

@@ -1209,6 +1209,7 @@ Sounds.WeaponShots = {
 	VortexBR = { "Shot", 1.15, 0.9 },
 	Specter9 = { "Shot", 1.2, 0.8 },
 	NovaDrift = { "Shot", 1.3, 0.75 },
+	SplatX = { "Shot", 1.7, 0.6 }, -- "pop" agudo de aire comprimido
 	Signal7 = { "ShotHeavy", 0.75, 1.1 },
 	GhostlineXR = { "Shot", 0.55, 0.55 }, -- con supresor: grave y apagado
 	RaptorDMR = { "ShotHeavy", 1.05, 0.9 },
@@ -2796,6 +2797,41 @@ function Classic.HandCannon(pt)
 	return p
 end
 
+-- Marcadora de paintball: cuerpo de color, depósito de bolas arriba a la izquierda (deja libre la
+-- línea de mira), cañón largo con bandas, botella de aire detrás y empuñadura delantera
+function Classic.SplatX(pt)
+	local o = { Aim = pt.AimPoint, Right = pt.RightHand, Left = pt.LeftHand, Muzzle = pt.Muzzle }
+	local y = o.Muzzle.Y
+	local p = { B("Handle", 0, 0, 0, 0.2, 0.2, 0.2, "Body") }
+	bevel(p, "Body", 0, 0.05, 0.05, 0.26, 0.34, 0.9, "Body", 0.06)
+	table.insert(p, B("BodyStripe", 0, 0.05, 0.05, 0.27, 0.06, 0.92, "Accent"))
+	table.insert(p, C("Barrel", 0, y, (o.Muzzle.Z - 0.4) / 2, -o.Muzzle.Z - 0.4, 0.13, "Dark"))
+	for i = 0, 2 do
+		table.insert(p, C("BarrelBand", 0, y, -0.65 - i * 0.28, 0.06, 0.16, "Panel"))
+	end
+	table.insert(p, C("BarrelTip", 0, y, o.Muzzle.Z + 0.06, 0.12, 0.17, "Accent"))
+	-- Depósito de bolas con cuello inclinado y bolas asomando
+	table.insert(p, B("FeedNeck", -0.2, 0.32, 0.0, 0.1, 0.34, 0.12, "Dark", 0, 0, 38))
+	table.insert(p, Ball("Hopper", -0.36, 0.5, 0.0, 0.5, "Accent2"))
+	table.insert(p, CY("HopperRing", -0.36, 0.5, 0.0, 0.08, 0.52, "Dark"))
+	table.insert(p, CY("HopperLid", -0.36, 0.73, 0.0, 0.06, 0.3, "Dark"))
+	-- Bolas de pintura asomando por arriba
+	for i, off in { V(-0.07, 0, 0.06), V(0.07, 0.01, -0.03), V(-0.01, 0.03, -0.09) } do
+		table.insert(p, Ball("PaintBall" .. i, -0.36 + off.X, 0.8 + off.Y, off.Z, 0.12, "Accent"))
+	end
+	-- Botella de aire detrás (hace de culata)
+	table.insert(p, C("AirTank", 0, -0.02, 0.85, 0.66, 0.26, "Panel"))
+	table.insert(p, C("AirTankCap", 0, -0.02, 1.2, 0.06, 0.2, "Metal"))
+	table.insert(p, C("Regulator", 0, -0.02, 0.5, 0.12, 0.18, "Metal"))
+	triggerGroup(p, -0.12, o.Right.Z - 0.3)
+	pistolGrip(p, o.Right, "Rubber")
+	-- Empuñadura delantera
+	bevelY(p, "Foregrip", 0, (-0.12 + o.Left.Y - 0.1) / 2, o.Left.Z, 0.15, -0.12 - (o.Left.Y - 0.1), 0.17, "Rubber")
+	table.insert(p, B("ForegripMount", 0, -0.08, o.Left.Z, 0.12, 0.1, 0.3, "Dark"))
+	ironSights(p, o.Aim, 0.3, -1.25, y + 0.065)
+	return p
+end
+
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
@@ -3612,6 +3648,57 @@ Weapons.List = {
 	},
 }
 
+-- Marcadora de paintball (estilo cartoon): las bolas dejan salpicaduras de pintura de colores
+do
+	local splat = {
+		DisplayName = "Splat-X",
+		Category = "Paintball",
+		Description = "Pinta el mapa (y a tus rivales) de todos los colores.",
+		Slot = 1,
+		Type = "Gun",
+		Palette = {
+			Body = RGB(40, 140, 255),
+			BodyMaterial = Enum.Material.SmoothPlastic,
+			Panel = RGB(34, 34, 40),
+			PanelMaterial = Enum.Material.SmoothPlastic,
+			Dark = RGB(26, 26, 30),
+			Accent = RGB(255, 70, 170),
+			AccentMaterial = Enum.Material.SmoothPlastic,
+			Accent2 = RGB(255, 215, 50),
+			Accent2Material = Enum.Material.SmoothPlastic,
+			Lens = RGB(70, 120, 175),
+		},
+		UnlockLevel = 2,
+		Price = 400,
+		Damage = 21,
+		MinDamage = 15,
+		FalloffStart = 60,
+		FalloffEnd = 200,
+		HeadshotMultiplier = 1.5,
+		FireRate = 8,
+		Automatic = true,
+		MagSize = 25,
+		ReserveAmmo = 125,
+		ReloadTime = 1.7,
+		Range = 450,
+		Spread = 1.4,
+		AimSpread = 0.4,
+		Pellets = 1,
+		Recoil = 0.45,
+		AimFOV = 62,
+		WalkSpeedMultiplier = 1.05,
+		ImpactStyle = "Paint", -- salpicaduras de colores (ver Effects.Impact)
+		ViewOffset = CFrame.new(0.78, -0.8, -1.8),
+		AimDistance = 1.1,
+		RightHand = V(0, -0.45, 0.32),
+		LeftHand = V(0, -0.26, -0.7),
+		AimPoint = V(0, 0.36, 0.45),
+		Muzzle = V(0, 0.08, -1.55),
+	}
+	splat.Parts = Classic.SplatX(splat)
+	Weapons.List.SplatX = splat
+end
+
 -- Armas que el jugador puede elegir
 Weapons.Primaries = {
 	"ARX27",
@@ -3625,6 +3712,7 @@ Weapons.Primaries = {
 	"TitanLMG",
 	"GhostlineXR",
 	"NovaLauncher",
+	"SplatX",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
@@ -14434,11 +14522,76 @@ local function surfaceColor(hitPart, material)
 end
 
 -- Impacto: reacción según la superficie, polvo del color del material y marca de bala
-function Effects.Impact(position, normal, hitPart, material)
+-- Pintura (arma de paintball): gotas de un color al azar y, en superficies, una mancha plana que se
+-- desvanece a los pocos segundos (como mucho MAX_SPLATS a la vez)
+local PAINT_COLORS = {
+	Color3.fromRGB(255, 60, 140),
+	Color3.fromRGB(60, 200, 255),
+	Color3.fromRGB(255, 220, 40),
+	Color3.fromRGB(120, 230, 60),
+	Color3.fromRGB(170, 90, 255),
+	Color3.fromRGB(255, 140, 40),
+}
+local MAX_SPLATS = 40
+local splats = {}
+
+local function paintSplat(anchor, position, normal, isCharacter)
+	local color = PAINT_COLORS[math.random(1, #PAINT_COLORS)]
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(color),
+		LightEmission = 0.2,
+		Size = seq(0.4, 0.1),
+		Lifetime = NumberRange.new(0.3, 0.55),
+		Speed = NumberRange.new(8, 16),
+		SpreadAngle = Vector2.new(55, 55),
+		Acceleration = Vector3.new(0, -60, 0),
+	}, isCharacter and 12 or 10)
+	if isCharacter then
+		return
+	end
+	normal = (normal and normal.Magnitude > 0.01) and normal.Unit or Vector3.yAxis
+	local size = 1.2 + math.random() * 1.2
+	-- Cilindro muy fino pegado a la superficie (su eje X apunta en la dirección de la normal)
+	local splat = fxPart({
+		Name = "PaintSplat",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.04, size, size),
+		CFrame = safeLookAt(position + normal * 0.03, normal) * CFrame.Angles(0, math.pi / 2, math.random() * math.pi * 2),
+		Color = color,
+		Material = Enum.Material.SmoothPlastic,
+	})
+	table.insert(splats, splat)
+	if #splats > MAX_SPLATS then
+		local oldest = table.remove(splats, 1)
+		if oldest then
+			oldest:Destroy()
+		end
+	end
+	task.delay(5, function()
+		if splat.Parent then
+			TweenService:Create(splat, TweenInfo.new(1.5), { Transparency = 1 }):Play()
+			task.delay(1.6, function()
+				local index = table.find(splats, splat)
+				if index then
+					table.remove(splats, index)
+				end
+				splat:Destroy()
+			end)
+		end
+	end)
+end
+
+-- style = "Paint" para las armas de paintball (def.ImpactStyle)
+function Effects.Impact(position, normal, hitPart, material, style)
 	local isCharacter = hitPart ~= nil
 		and hitPart.Parent ~= nil
 		and (hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil or hitPart.Parent:IsA("Accessory"))
 	local anchor = emitterAnchor(position + (normal or Vector3.yAxis) * 0.05, normal, 1.5)
+	if style == "Paint" then
+		paintSplat(anchor, position, normal, isCharacter)
+		return
+	end
 
 	if isCharacter then
 		-- Destello de golpe (estilo cartoon, sin sangre)
@@ -17696,7 +17849,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "10 MAPAS  ·  6 MODOS  ·  14 ARMAS  ·  HABILIDADES",
+		Text = "10 MAPAS  ·  6 MODOS  ·  15 ARMAS  ·  HABILIDADES",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -21420,7 +21573,7 @@ local function fire()
 		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
 		Effects.Tracer(muzzlePos, hitPosition, tracerColor)
 		if result then
-			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material)
+			Effects.Impact(result.Position, result.Normal, result.Instance, result.Material, def.ImpactStyle)
 			local model = result.Instance:FindFirstAncestorOfClass("Model")
 			if model and model:FindFirstChildOfClass("Humanoid") then
 				ClientState.LastHitPosition = result.Position

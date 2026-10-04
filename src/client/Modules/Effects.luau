@@ -190,11 +190,76 @@ local function surfaceColor(hitPart, material)
 end
 
 -- Impacto: reacción según la superficie, polvo del color del material y marca de bala
-function Effects.Impact(position, normal, hitPart, material)
+-- Pintura (arma de paintball): gotas de un color al azar y, en superficies, una mancha plana que se
+-- desvanece a los pocos segundos (como mucho MAX_SPLATS a la vez)
+local PAINT_COLORS = {
+	Color3.fromRGB(255, 60, 140),
+	Color3.fromRGB(60, 200, 255),
+	Color3.fromRGB(255, 220, 40),
+	Color3.fromRGB(120, 230, 60),
+	Color3.fromRGB(170, 90, 255),
+	Color3.fromRGB(255, 140, 40),
+}
+local MAX_SPLATS = 40
+local splats = {}
+
+local function paintSplat(anchor, position, normal, isCharacter)
+	local color = PAINT_COLORS[math.random(1, #PAINT_COLORS)]
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(color),
+		LightEmission = 0.2,
+		Size = seq(0.4, 0.1),
+		Lifetime = NumberRange.new(0.3, 0.55),
+		Speed = NumberRange.new(8, 16),
+		SpreadAngle = Vector2.new(55, 55),
+		Acceleration = Vector3.new(0, -60, 0),
+	}, isCharacter and 12 or 10)
+	if isCharacter then
+		return
+	end
+	normal = (normal and normal.Magnitude > 0.01) and normal.Unit or Vector3.yAxis
+	local size = 1.2 + math.random() * 1.2
+	-- Cilindro muy fino pegado a la superficie (su eje X apunta en la dirección de la normal)
+	local splat = fxPart({
+		Name = "PaintSplat",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.04, size, size),
+		CFrame = safeLookAt(position + normal * 0.03, normal) * CFrame.Angles(0, math.pi / 2, math.random() * math.pi * 2),
+		Color = color,
+		Material = Enum.Material.SmoothPlastic,
+	})
+	table.insert(splats, splat)
+	if #splats > MAX_SPLATS then
+		local oldest = table.remove(splats, 1)
+		if oldest then
+			oldest:Destroy()
+		end
+	end
+	task.delay(5, function()
+		if splat.Parent then
+			TweenService:Create(splat, TweenInfo.new(1.5), { Transparency = 1 }):Play()
+			task.delay(1.6, function()
+				local index = table.find(splats, splat)
+				if index then
+					table.remove(splats, index)
+				end
+				splat:Destroy()
+			end)
+		end
+	end)
+end
+
+-- style = "Paint" para las armas de paintball (def.ImpactStyle)
+function Effects.Impact(position, normal, hitPart, material, style)
 	local isCharacter = hitPart ~= nil
 		and hitPart.Parent ~= nil
 		and (hitPart.Parent:FindFirstChildOfClass("Humanoid") ~= nil or hitPart.Parent:IsA("Accessory"))
 	local anchor = emitterAnchor(position + (normal or Vector3.yAxis) * 0.05, normal, 1.5)
+	if style == "Paint" then
+		paintSplat(anchor, position, normal, isCharacter)
+		return
+	end
 
 	if isCharacter then
 		-- Destello de golpe (estilo cartoon, sin sangre)

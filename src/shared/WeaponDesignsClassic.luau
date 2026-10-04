@@ -600,6 +600,41 @@ function Classic.HandCannon(pt)
 	return p
 end
 
+-- Marcadora de paintball: cuerpo de color, depósito de bolas arriba a la izquierda (deja libre la
+-- línea de mira), cañón largo con bandas, botella de aire detrás y empuñadura delantera
+function Classic.SplatX(pt)
+	local o = { Aim = pt.AimPoint, Right = pt.RightHand, Left = pt.LeftHand, Muzzle = pt.Muzzle }
+	local y = o.Muzzle.Y
+	local p = { B("Handle", 0, 0, 0, 0.2, 0.2, 0.2, "Body") }
+	bevel(p, "Body", 0, 0.05, 0.05, 0.26, 0.34, 0.9, "Body", 0.06)
+	table.insert(p, B("BodyStripe", 0, 0.05, 0.05, 0.27, 0.06, 0.92, "Accent"))
+	table.insert(p, C("Barrel", 0, y, (o.Muzzle.Z - 0.4) / 2, -o.Muzzle.Z - 0.4, 0.13, "Dark"))
+	for i = 0, 2 do
+		table.insert(p, C("BarrelBand", 0, y, -0.65 - i * 0.28, 0.06, 0.16, "Panel"))
+	end
+	table.insert(p, C("BarrelTip", 0, y, o.Muzzle.Z + 0.06, 0.12, 0.17, "Accent"))
+	-- Depósito de bolas con cuello inclinado y bolas asomando
+	table.insert(p, B("FeedNeck", -0.2, 0.32, 0.0, 0.1, 0.34, 0.12, "Dark", 0, 0, 38))
+	table.insert(p, Ball("Hopper", -0.36, 0.5, 0.0, 0.5, "Accent2"))
+	table.insert(p, CY("HopperRing", -0.36, 0.5, 0.0, 0.08, 0.52, "Dark"))
+	table.insert(p, CY("HopperLid", -0.36, 0.73, 0.0, 0.06, 0.3, "Dark"))
+	-- Bolas de pintura asomando por arriba
+	for i, off in { V(-0.07, 0, 0.06), V(0.07, 0.01, -0.03), V(-0.01, 0.03, -0.09) } do
+		table.insert(p, Ball("PaintBall" .. i, -0.36 + off.X, 0.8 + off.Y, off.Z, 0.12, "Accent"))
+	end
+	-- Botella de aire detrás (hace de culata)
+	table.insert(p, C("AirTank", 0, -0.02, 0.85, 0.66, 0.26, "Panel"))
+	table.insert(p, C("AirTankCap", 0, -0.02, 1.2, 0.06, 0.2, "Metal"))
+	table.insert(p, C("Regulator", 0, -0.02, 0.5, 0.12, 0.18, "Metal"))
+	triggerGroup(p, -0.12, o.Right.Z - 0.3)
+	pistolGrip(p, o.Right, "Rubber")
+	-- Empuñadura delantera
+	bevelY(p, "Foregrip", 0, (-0.12 + o.Left.Y - 0.1) / 2, o.Left.Z, 0.15, -0.12 - (o.Left.Y - 0.1), 0.17, "Rubber")
+	table.insert(p, B("ForegripMount", 0, -0.08, o.Left.Z, 0.12, 0.1, 0.3, "Dark"))
+	ironSights(p, o.Aim, 0.3, -1.25, y + 0.065)
+	return p
+end
+
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
