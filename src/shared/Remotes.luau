@@ -39,6 +39,7 @@ local FUNCTIONS = {
 	"RerollChallenge", -- cambiar un reto diario
 	"InstantRevive", -- revivir donde moriste (gasta un revivir)
 	"UsePotion", -- habilidad Poción: cura con el tiempo (el servidor controla la recarga)
+	"ClaimGift", -- recoger el siguiente regalo por tiempo jugado
 }
 
 local Remotes = {}

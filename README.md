@@ -11,6 +11,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Mapas** | **Pastel Plaza** (arena compacta de estilo cartoon: paredes lavanda con pilares de colores, torre central de dos alturas, casas con azotea y plataformas de hierba), **Arena Caramelo** (arena pequeña para duelos rápidos: tarta de dos pisos en el centro, gominolas, tabletas de chocolate, magdalenas, muros de barquillo, cornisas laterales, bastones de caramelo y piruletas gigantes de fondo), **Jardín Sakura** (jardín japonés: pagoda jugable de dos plantas, toriis, estanques con puentes, cerezos con pétalos cayendo, casas de té y linternas), **Harbor Heights** (puerto de día: canal con agua, puente central, torre de control, azoteas A y callejón B), **Container Clash** (puerto al atardecer: pila central de contenedores, pasarelas, grúas y pasillos de flanqueo), **Neon Foundry** (fundición de noche: lava que quema, horno, cintas transportadoras, letreros de neón y chispas), **Frost Station** (base polar: lago helado resbaladizo bajo la torre del radar, hangares, laboratorios sobre pilotes, montículos de nieve y nieve cayendo), **Jungle Temple** (selva: pirámide escalonada con santuario y gema de jade sobre un foso, salones de columnas en ruinas, plataformas con enredaderas, cabezas de piedra gigantes, antorchas y cascadas) y **Downtown** (arena urbana). Cada mapa trae spawns por equipo, puntos para todos contra todos, 5 zonas de control y 2 bases de bandera. |
 | **Modos** | **Duelo por equipos** (40 bajas), **Captura la bandera** (3 capturas), **Zona de control** (150 puntos, la zona cambia cada minuto), **Todos contra todos** (25 bajas), **Escalada de armas** (subes de arma con cada baja; gana quien la complete con el cuchillo) y **Eliminación** (rondas de una sola vida al estilo de los duelos: gana la ronda el equipo que deje al otro sin nadie en pie; primero a 5 rondas). |
 | **Bots** | Si hay pocos jugadores, bots con arma de verdad rellenan la partida hasta 6 (`GameConfig.Bots`): recorren el mapa, buscan enemigos, fallan más de lejos, ocupan la zona de control y puntúan para su equipo. Dan menos XP y monedas, y las victorias contra bots no suben la clasificación. Se quitan solos al entrar gente y no salen en Escalada de armas. |
+| **Regalos por jugar** | Botón 🎁 a la izquierda con cuenta atrás: a los 2, 5, 10, 15, 20, 30 y 45 minutos de sesión hay un regalo (monedas, XP o revivir instantáneos). Se recoge con **H** o tocándolo; el servidor cuenta el tiempo (`GameConfig.PlaytimeGifts`). |
 | **Fin de partida** | Pantalla de victoria con MVP y **resumen de tu partida**: bajas, muertes, mejor racha, la barra de nivel llenándose con la XP ganada (con aviso si subes) y las monedas contando hacia arriba. |
 | **Votación** | En el descanso entre rondas salen 3 opciones de mapa + modo. Pulsa **V** para votar con el ratón. |
 | **Armas** | Principales: **ARX-27 Pulse** (fusil), **Havoc Pump** (escopeta), **Specter-9** (subfusil), **Signal-7** (francotirador, nivel 3), **Vortex AR-9** (fusil de energía con ráfagas de 3, nivel 4), **Nova Drift** (subfusil ágil, nivel 5), **Raptor DMR** (tirador, nivel 7), **Breach Hammer** (escopeta semiautomática, nivel 8), **Titan Grind** (ametralladora pesada, nivel 10), **Ghostline XR** (francotirador con supresor, nivel 12) y **Tempest Core** (lanzacohetes con explosión, nivel 14). Secundarias: **Viper P9**, **Hand Cannon** (nivel 6) y **Phantom Sidewind** (pistola de ráfagas de 2 con mira de punto, nivel 9). Cuerpo a cuerpo: **Colmillo**. Las armas bloqueadas se pueden comprar antes con monedas. |
@@ -81,6 +82,7 @@ rojo build -o ShooterRob.rbxlx
 | Inspeccionar arma | V | Cruceta arriba |
 | Habilidades: Impulso / Supersalto / Poción | E / Z / X | Cruceta izquierda / abajo |
 | Emotes | N (en móvil, botón 😀) | — |
+| Recoger regalo por tiempo jugado | H (en móvil, tocar 🎁) | — |
 | Marcador (equipos, bajas, muertes; bots incluidos) | Tab (mantener; en móvil, botón 📋) | — |
 | Muerto: revivir instantáneo / regenerar ahora | B / Espacio o F | Y / A |
 
@@ -205,6 +207,7 @@ src/
 │       ├── Hardpoint.luau   Zona de control
 │       ├── Hazards.luau     lava
 │       ├── Bots.luau        bots que rellenan la partida (caminos, puntería, equipos)
+│       ├── Gifts.luau       regalos por tiempo jugado
 │       ├── Grenades.luau    granadas
 │       ├── Leaderboard.luau clasificación global
 │       ├── Killstreaks.luau recompensas por racha (radar y ataque aéreo)

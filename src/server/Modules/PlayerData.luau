@@ -429,6 +429,17 @@ local function multiplier(player)
 end
 
 -- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
+-- Da revivir instantáneos (regalos por tiempo jugado)
+function PlayerData.AddRevives(player, amount)
+	local data = profiles[player]
+	if not data or amount <= 0 then
+		return
+	end
+	data.Revives = (data.Revives or 0) + amount
+	dirty[player] = true
+	sendUpdate(player)
+end
+
 function PlayerData.UseRevive(player)
 	local data = profiles[player]
 	if not data or (data.Revives or 0) <= 0 then

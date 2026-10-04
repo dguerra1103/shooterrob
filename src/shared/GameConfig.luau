@@ -64,6 +64,16 @@ GameConfig.Bots = {
 	WalkSpeed = 16,
 	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
 }
+-- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)
+GameConfig.PlaytimeGifts = {
+	{ Minutes = 2, Coins = 40 },
+	{ Minutes = 5, Coins = 75 },
+	{ Minutes = 10, Revives = 1 },
+	{ Minutes = 15, Coins = 150 },
+	{ Minutes = 20, Coins = 100, XP = 250 },
+	{ Minutes = 30, Revives = 2 },
+	{ Minutes = 45, Coins = 300 },
+}
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
 
