@@ -472,6 +472,18 @@ function PlayerData.GiveSkin(player, skinId)
 	return true
 end
 
+-- Da un traje (recompensas de evento). Devuelve false si ya lo tenía
+function PlayerData.GiveOutfit(player, outfitId)
+	local data = profiles[player]
+	if not data or not Outfits.List[outfitId] or data.Outfits[outfitId] then
+		return false
+	end
+	data.Outfits[outfitId] = true
+	dirty[player] = true
+	sendUpdate(player)
+	return true
+end
+
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
 function PlayerData.MarkDirty(player)
 	if profiles[player] then

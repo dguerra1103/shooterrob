@@ -1,8 +1,12 @@
--- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos / objetivo.
+-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
+-- siguiente premio (GameConfig.Event.Milestones y la skin final), con marcas en la barra.
 -- Solo aparece si el servidor tiene un evento activo (atributo EventName).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -44,6 +48,28 @@ function EventHUD.Init()
 		BorderSizePixel = 0,
 		Parent = frame,
 	})
+	local milestones = (GameConfig.Event and GameConfig.Event.Milestones) or {}
+	local ticks = {}
+	for _, milestone in milestones do
+		table.insert(ticks, UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Size = UDim2.fromOffset(2, 5),
+			Position = UDim2.new(0, 0, 1, -6),
+			BackgroundColor3 = Color3.fromRGB(255, 230, 150),
+			BorderSizePixel = 0,
+			Visible = not compact,
+			Parent = frame,
+		}))
+	end
+	-- Siguiente premio: { Count, texto corto }
+	local function nextPrize(count, goal)
+		for _, milestone in milestones do
+			if count < milestone.Count and milestone.Count < goal then
+				return milestone.Count, milestone.Outfit and "Traje" or ((milestone.Coins or 0) .. " 🪙")
+			end
+		end
+		return goal, "Skin"
+	end
 	task.spawn(function()
 		while true do
 			local name = ReplicatedStorage:GetAttribute("EventName")
@@ -55,9 +81,17 @@ function EventHUD.Init()
 				if count >= goal then
 					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
 				else
-					label.Text = compact and ("🍬\n" .. count .. "/" .. goal) or ("🎃 " .. string.upper(name) .. "  🍬 " .. count .. "/" .. goal)
+					local target, prize = nextPrize(count, goal)
+					label.Text = compact and ("🍬\n" .. count .. "/" .. target)
+						or ("🎃 🍬 " .. count .. "/" .. target .. "  → " .. prize)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
+				for i, tick in ticks do
+					local at = milestones[i].Count / goal
+					tick.Position = UDim2.new(at, 4 - 8 * at, 1, -6)
+					tick.BackgroundColor3 = count >= milestones[i].Count and Color3.fromRGB(255, 140, 30)
+						or Color3.fromRGB(255, 230, 150)
+				end
 			end
 			task.wait(0.5)
 		end

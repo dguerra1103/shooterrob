@@ -1,6 +1,7 @@
 -- Evento de temporada (GameConfig.Event, ahora Halloween): durante las rondas van apareciendo
 -- caramelos por el mapa (en los puntos de aparición libres). Al tocar uno: monedas y +1 al contador
--- del evento (se guarda); al llegar a Goal se gana la skin exclusiva. También pone calabazas en los
+-- del evento (se guarda); hay premios por el camino (Milestones) y al llegar a Goal se gana la
+-- skin exclusiva. También pone calabazas en los
 -- mapas (Event.Decorate lo llama MapBuilder). Los bots no recogen caramelos.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Skins = require(Shared.Skins)
+local Outfits = require(Shared.Outfits)
 
 local PlayerData = require(script.Parent.PlayerData)
 local Kit = require(script.Parent.MapKit)
@@ -85,6 +87,20 @@ local function collect(player, candy)
 	PlayerData.MarkDirty(player)
 	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
 	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	for _, milestone in CONFIG.Milestones or {} do
+		if count == milestone.Count then
+			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
+				local outfit = Outfits.Get(milestone.Outfit)
+				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+			else
+				local amount = milestone.Coins or milestone.Compensate or 0
+				if amount > 0 then
+					local given = PlayerData.AddCoins(player, amount)
+					Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. count .. " caramelos! +" .. given .. " 🪙")
+				end
+			end
+		end
+	end
 	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
 		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")

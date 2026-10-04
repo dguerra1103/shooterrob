@@ -182,6 +182,13 @@ GameConfig.Event = {
 	CandyCoins = 5, -- monedas por caramelo
 	Goal = 100, -- caramelos para la skin
 	RewardSkin = "Embrujada",
+	-- Premios por el camino (el último premio es la skin al llegar a Goal). Si ya tenías el traje,
+	-- se cambia por Compensate monedas.
+	Milestones = {
+		{ Count = 25, Coins = 150 },
+		{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
+		{ Count = 75, Coins = 300 },
+	},
 	SpawnEvery = 12, -- segundos entre caramelos
 	MaxCandies = 6, -- a la vez en el mapa
 	Pumpkins = true, -- calabazas de decoración en los mapas
@@ -5515,7 +5522,8 @@ return Dummies
             <string name="Name">Event</string>
             <string name="Source"><![CDATA[-- Evento de temporada (GameConfig.Event, ahora Halloween): durante las rondas van apareciendo
 -- caramelos por el mapa (en los puntos de aparición libres). Al tocar uno: monedas y +1 al contador
--- del evento (se guarda); al llegar a Goal se gana la skin exclusiva. También pone calabazas en los
+-- del evento (se guarda); hay premios por el camino (Milestones) y al llegar a Goal se gana la
+-- skin exclusiva. También pone calabazas en los
 -- mapas (Event.Decorate lo llama MapBuilder). Los bots no recogen caramelos.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -5524,6 +5532,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Skins = require(Shared.Skins)
+local Outfits = require(Shared.Outfits)
 
 local PlayerData = require(script.Parent.PlayerData)
 local Kit = require(script.Parent.MapKit)
@@ -5600,6 +5609,20 @@ local function collect(player, candy)
 	PlayerData.MarkDirty(player)
 	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
 	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	for _, milestone in CONFIG.Milestones or {} do
+		if count == milestone.Count then
+			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
+				local outfit = Outfits.Get(milestone.Outfit)
+				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+			else
+				local amount = milestone.Coins or milestone.Compensate or 0
+				if amount > 0 then
+					local given = PlayerData.AddCoins(player, amount)
+					Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. count .. " caramelos! +" .. given .. " 🪙")
+				end
+			end
+		end
+	end
 	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
 		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")
@@ -13041,6 +13064,18 @@ function PlayerData.GiveSkin(player, skinId)
 	return true
 end
 
+-- Da un traje (recompensas de evento). Devuelve false si ya lo tenía
+function PlayerData.GiveOutfit(player, outfitId)
+	local data = profiles[player]
+	if not data or not Outfits.List[outfitId] or data.Outfits[outfitId] then
+		return false
+	end
+	data.Outfits[outfitId] = true
+	dirty[player] = true
+	sendUpdate(player)
+	return true
+end
+
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
 function PlayerData.MarkDirty(player)
 	if profiles[player] then
@@ -16929,11 +16964,15 @@ return Emotes
           <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">EventHUD</string>
-              <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos / objetivo.
+              <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
+-- siguiente premio (GameConfig.Event.Milestones y la skin final), con marcas en la barra.
 -- Solo aparece si el servidor tiene un evento activo (atributo EventName).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -16975,6 +17014,28 @@ function EventHUD.Init()
 		BorderSizePixel = 0,
 		Parent = frame,
 	})
+	local milestones = (GameConfig.Event and GameConfig.Event.Milestones) or {}
+	local ticks = {}
+	for _, milestone in milestones do
+		table.insert(ticks, UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0),
+			Size = UDim2.fromOffset(2, 5),
+			Position = UDim2.new(0, 0, 1, -6),
+			BackgroundColor3 = Color3.fromRGB(255, 230, 150),
+			BorderSizePixel = 0,
+			Visible = not compact,
+			Parent = frame,
+		}))
+	end
+	-- Siguiente premio: { Count, texto corto }
+	local function nextPrize(count, goal)
+		for _, milestone in milestones do
+			if count < milestone.Count and milestone.Count < goal then
+				return milestone.Count, milestone.Outfit and "Traje" or ((milestone.Coins or 0) .. " 🪙")
+			end
+		end
+		return goal, "Skin"
+	end
 	task.spawn(function()
 		while true do
 			local name = ReplicatedStorage:GetAttribute("EventName")
@@ -16986,9 +17047,17 @@ function EventHUD.Init()
 				if count >= goal then
 					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
 				else
-					label.Text = compact and ("🍬\n" .. count .. "/" .. goal) or ("🎃 " .. string.upper(name) .. "  🍬 " .. count .. "/" .. goal)
+					local target, prize = nextPrize(count, goal)
+					label.Text = compact and ("🍬\n" .. count .. "/" .. target)
+						or ("🎃 🍬 " .. count .. "/" .. target .. "  → " .. prize)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
+				for i, tick in ticks do
+					local at = milestones[i].Count / goal
+					tick.Position = UDim2.new(at, 4 - 8 * at, 1, -6)
+					tick.BackgroundColor3 = count >= milestones[i].Count and Color3.fromRGB(255, 140, 30)
+						or Color3.fromRGB(255, 230, 150)
+				end
 			end
 			task.wait(0.5)
 		end

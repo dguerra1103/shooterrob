@@ -75,6 +75,13 @@ GameConfig.Event = {
 	CandyCoins = 5, -- monedas por caramelo
 	Goal = 100, -- caramelos para la skin
 	RewardSkin = "Embrujada",
+	-- Premios por el camino (el último premio es la skin al llegar a Goal). Si ya tenías el traje,
+	-- se cambia por Compensate monedas.
+	Milestones = {
+		{ Count = 25, Coins = 150 },
+		{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
+		{ Count = 75, Coins = 300 },
+	},
 	SpawnEvery = 12, -- segundos entre caramelos
 	MaxCandies = 6, -- a la vez en el mapa
 	Pumpkins = true, -- calabazas de decoración en los mapas

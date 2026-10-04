@@ -26,7 +26,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Armas cuerpo a cuerpo** | Menú → Armas → abajo: Martillo de juguete o Katana (dátelas con nivel/monedas, ver abajo) | Al reaparecer llevas esa arma en la ranura 3; la F golpea con ella (la katana llega más lejos). |
 | **Tarjeta de controles** | Entra en partida con un jugador nuevo | Sale una tarjeta con los controles; "¡A JUGAR!" la cierra. En Studio sin DataStore activado sale cada vez (es normal). |
 | **Tonos de los mapas antiguos** | Juega Harbor Heights o Frost Station | Los grises ahora tienen el tono del mapa (arena cálida, azul hielo…). |
-| **Evento de Halloween** | Juega una ronda | Aparecen caramelos que flotan y brillan; al tocarlos: "🍬 Caramelo +5 🪙 (1/100)" y sube el contador de abajo a la izquierda. Hay calabazas en el mapa. |
+| **Evento de Halloween** | Juega una ronda | Aparecen caramelos que flotan y brillan; al tocarlos: "🍬 Caramelo +5 🪙 (1/100)" y sube el contador de abajo a la izquierda, que dice el siguiente premio ("→ Traje" a los 50). Hay calabazas en el mapa. |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 
