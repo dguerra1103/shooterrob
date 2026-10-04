@@ -377,7 +377,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "11 MAPAS  ·  6 MODOS  ·  15 ARMAS  ·  HABILIDADES",
+		Text = "11 MAPAS  ·  6 MODOS  ·  17 ARMAS  ·  HABILIDADES",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,

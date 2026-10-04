@@ -636,6 +636,38 @@ function Classic.SplatX(pt)
 	return p
 end
 
+-- Katana: mango largo con cinta, tsuba redonda y hoja larga con una leve curva (hacia -Z)
+function Classic.Katana(_pt)
+	local p = { B("Handle", 0, 0, 0.1, 0.16, 0.2, 0.9, "Rubber") }
+	for i = 0, 4 do
+		table.insert(p, B("Wrap" .. i, 0, 0, 0.42 - i * 0.16, 0.17, 0.21, 0.05, "Panel", 0, 0, 45))
+	end
+	table.insert(p, B("Pommel", 0, 0, 0.58, 0.18, 0.22, 0.06, "Dark"))
+	table.insert(p, C("Tsuba", 0, 0, -0.38, 0.06, 0.46, "Dark"))
+	table.insert(p, B("Habaki", 0, 0.01, -0.45, 0.08, 0.2, 0.1, "Metal"))
+	-- Hoja de acero claro (Accent) y filo metálico
+	table.insert(p, B("Blade", 0, 0.02, -1.3, 0.05, 0.2, 1.7, "Accent"))
+	table.insert(p, B("BladeTip", 0, 0.07, -2.38, 0.05, 0.18, 0.5, "Accent", 8, 0, 0))
+	table.insert(p, B("Point", 0, 0.12, -2.68, 0.05, 0.1, 0.18, "Accent", 30, 0, 0))
+	table.insert(p, B("Edge", 0, -0.06, -1.3, 0.055, 0.04, 1.66, "Metal"))
+	return p
+end
+
+-- Martillo de juguete (de los que pitan): mango de rayas y cabeza grande de colores
+function Classic.ToyHammer(_pt)
+	local p = { B("Handle", 0, 0, 0.0, 0.18, 0.18, 1.0, "Panel") }
+	for i = 0, 2 do
+		table.insert(p, C("HandleStripe" .. i, 0, 0, 0.3 - i * 0.3, 0.1, 0.2, "Accent2"))
+	end
+	table.insert(p, C("Grip", 0, 0, 0.45, 0.3, 0.22, "Rubber"))
+	table.insert(p, CX("Head", 0, 0, -0.75, 1.0, 0.62, "Body"))
+	for _, x in { -0.52, 0.52 } do
+		table.insert(p, CX("HeadCap", x, 0, -0.75, 0.08, 0.66, "Accent"))
+	end
+	table.insert(p, CX("HeadBand", 0, 0, -0.75, 0.16, 0.64, "Accent2"))
+	return p
+end
+
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },

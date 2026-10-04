@@ -12,6 +12,7 @@ local EVENTS = {
 	"EnterMenu", -- cliente -> servidor: vuelve a la pantalla de inicio (escudo y fuera de juego)
 	"RespawnNow", -- cliente -> servidor: "Regenerar ahora" tras morir
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
+	"SetMelee", -- cliente -> servidor: elegir arma cuerpo a cuerpo (cuchillo, martillo, katana)
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
 	"SetCamo", -- cliente -> servidor: camuflaje de maestría para un arma

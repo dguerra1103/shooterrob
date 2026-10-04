@@ -534,6 +534,44 @@ Weapons.List = {
 	},
 }
 
+-- Armas cuerpo a cuerpo que se pueden elegir en vez del cuchillo (tecla F y ranura 3)
+do
+	local katana = {
+		DisplayName = "Katana",
+		Category = "Cuerpo a cuerpo",
+		Description = "Más alcance y más daño, pero más lenta.",
+		Slot = 3,
+		Type = "Melee",
+		Palette = { Body = RGB(30, 30, 34), Panel = RGB(200, 40, 50), Dark = RGB(60, 50, 40), Accent = RGB(235, 240, 250), Accent2 = RGB(200, 160, 60), Lens = RGB(70, 120, 175), PanelMaterial = Enum.Material.Fabric, AccentMaterial = Enum.Material.Metal, Accent2Material = Enum.Material.Metal },
+		UnlockLevel = 6,
+		Price = 900,
+		Damage = 70,
+		Range = 9,
+		Cooldown = 0.8,
+		ViewOffset = CFrame.new(0.85, -0.8, -1.4) * CFrame.Angles(rad(25), rad(20), 0),
+		RightHand = V(0, 0, 0.15),
+	}
+	katana.Parts = Classic.Katana(katana)
+	Weapons.List.Katana = katana
+	local hammer = {
+		DisplayName = "Martillo de juguete",
+		Category = "Cuerpo a cuerpo",
+		Description = "¡Boing! Golpes rapidísimos con mucho estilo.",
+		Slot = 3,
+		Type = "Melee",
+		Palette = { Body = RGB(235, 50, 60), Panel = RGB(255, 210, 50), Dark = RGB(40, 40, 46), Accent = RGB(255, 255, 255), Accent2 = RGB(60, 140, 255), Lens = RGB(70, 120, 175), BodyMaterial = Enum.Material.SmoothPlastic, PanelMaterial = Enum.Material.SmoothPlastic, AccentMaterial = Enum.Material.SmoothPlastic, Accent2Material = Enum.Material.SmoothPlastic },
+		UnlockLevel = 4,
+		Price = 600,
+		Damage = 42,
+		Range = 7.5,
+		Cooldown = 0.42,
+		ViewOffset = CFrame.new(0.85, -0.8, -1.5) * CFrame.Angles(rad(20), rad(15), 0),
+		RightHand = V(0, 0, 0.35),
+	}
+	hammer.Parts = Classic.ToyHammer(hammer)
+	Weapons.List.ToyHammer = hammer
+end
+
 -- Marcadora de paintball (estilo cartoon): las bolas dejan salpicaduras de pintura de colores
 do
 	local splat = {
@@ -602,7 +640,8 @@ Weapons.Primaries = {
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
-Weapons.Melee = "Knife"
+Weapons.Melee = "Knife" -- cuerpo a cuerpo por defecto (y el de la Escalada de armas)
+Weapons.Melees = { "Knife", "ToyHammer", "Katana" } -- los que se pueden elegir
 
 -- Orden del modo "Escalada de armas": cada baja te da la siguiente
 Weapons.GunGameOrder = {

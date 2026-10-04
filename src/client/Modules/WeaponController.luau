@@ -461,12 +461,14 @@ local function startBurst()
 end
 
 local function melee()
-	local knife = Weapons.Get(Weapons.Melee)
-	local now = os.clock()
-	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or ClientState.Frozen() or not humanoid or humanoid.Health <= 0 then
+	-- El arma cuerpo a cuerpo que lleves (cuchillo, martillo o katana) está en la ranura 3
+	local meleeTool = getTools()[3]
+	local knife = meleeTool and Weapons.Get(meleeTool:GetAttribute("Weapon"))
+	if not knife or knife.Type ~= "Melee" then
 		return
 	end
-	if not getTools()[knife.Slot] then
+	local now = os.clock()
+	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or ClientState.Frozen() or not humanoid or humanoid.Health <= 0 then
 		return
 	end
 	meleeTime = now

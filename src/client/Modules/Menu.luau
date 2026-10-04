@@ -522,7 +522,9 @@ local function buildWeaponsPage(data)
 		})
 		WeaponIcon.Create(weaponName, skinFor(data, weaponName), { Position = UDim2.fromOffset(8, 46), Size = UDim2.fromOffset(189, 78), Parent = card }, "angled", 189 / 78)
 		local stats
-		if def.Explosive then
+		if def.Type == "Melee" then
+			stats = string.format("Daño %d · alcance %s · %.1f golpes/s", def.Damage, tostring(def.Range), 1 / def.Cooldown)
+		elseif def.Explosive then
 			stats = "Explosivo · radio " .. def.Explosive.Radius
 		else
 			local damage = def.Pellets > 1 and (def.Damage .. "x" .. def.Pellets) or tostring(def.Damage)
@@ -596,6 +598,8 @@ local function buildWeaponsPage(data)
 				Sounds.Play("Click")
 				if slotField == "Primary" then
 					Remotes.SetPrimary:FireServer(weaponName)
+				elseif slotField == "Melee" then
+					Remotes.SetMelee:FireServer(weaponName)
 				else
 					Remotes.SetSecondary:FireServer(weaponName)
 				end
@@ -617,6 +621,9 @@ local function buildWeaponsPage(data)
 	end
 	for _, name in Weapons.Secondaries do
 		weaponCard(name, "Secondary")
+	end
+	for _, name in Weapons.Melees do
+		weaponCard(name, "Melee")
 	end
 end
 

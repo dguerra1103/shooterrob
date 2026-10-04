@@ -397,12 +397,15 @@ local function onReload(player, tool)
 	end)
 end
 
-local function findKnife(player)
+-- Arma cuerpo a cuerpo que lleva el jugador (cuchillo, martillo o katana): su nombre
+local function findMelee(player)
 	for _, container in { player.Character, player:FindFirstChild("Backpack") } do
 		if container then
 			for _, tool in container:GetChildren() do
-				if tool:IsA("Tool") and tool:GetAttribute("Weapon") == Weapons.Melee then
-					return tool
+				local name = tool:IsA("Tool") and tool:GetAttribute("Weapon")
+				local def = name and Weapons.Get(name)
+				if def and def.Type == "Melee" then
+					return name
 				end
 			end
 		end
@@ -417,10 +420,11 @@ local function onMelee(player, part)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not humanoid or humanoid.Health <= 0 or not root or not findKnife(player) then
+	local meleeName = findMelee(player)
+	if not humanoid or humanoid.Health <= 0 or not root or not meleeName then
 		return
 	end
-	local def = Weapons.Get(Weapons.Melee)
+	local def = Weapons.Get(meleeName)
 	local now = os.clock()
 	if now - (lastMelee[player] or 0) < def.Cooldown * 0.8 then
 		return
@@ -445,7 +449,7 @@ local function onMelee(player, part)
 		return
 	end
 	removeSpawnShield(character)
-	local dealt, killed = applyDamage(player, targetHum, def.Damage, Weapons.Melee, false)
+	local dealt, killed = applyDamage(player, targetHum, def.Damage, meleeName, false)
 	if dealt > 0 then
 		Remotes.HitConfirm:FireClient(player, math.floor(dealt + 0.5), false, killed, targetRoot.Position)
 	end

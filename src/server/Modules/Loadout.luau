@@ -72,7 +72,8 @@ end
 function Loadout.DefaultList(data)
 	local primary = data and data.Primary or "ARX27"
 	local secondary = data and data.Secondary or Weapons.Secondary
-	return { primary, secondary, Weapons.Melee }
+	local melee = data and data.Melee or Weapons.Melee
+	return { primary, secondary, melee }
 end
 
 -- Devuelve sus armas de siempre a un jugador vivo (por ejemplo al acabar la Escalada)

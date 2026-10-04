@@ -63,6 +63,7 @@ local function defaults()
 		EquippedSkin = "Default",
 		Primary = "ARX27",
 		Secondary = "Viper",
+		Melee = "Knife", -- arma cuerpo a cuerpo elegida (Weapons.Melees)
 		OwnedWeapons = {},
 		Outfits = { Default = true },
 		EquippedOutfit = "Default",
@@ -157,6 +158,7 @@ local function publicView(player, data)
 		EquippedSkin = data.EquippedSkin,
 		Primary = data.Primary,
 		Secondary = data.Secondary,
+		Melee = data.Melee,
 		OwnedWeapons = data.OwnedWeapons,
 		Outfits = data.Outfits,
 		EquippedOutfit = data.EquippedOutfit,
@@ -347,6 +349,9 @@ local function load(player)
 	end
 	if not table.find(Weapons.Secondaries, merged.Secondary) or not Weapons.IsUnlocked(merged.Secondary, merged) then
 		merged.Secondary = Weapons.Secondary
+	end
+	if not table.find(Weapons.Melees, merged.Melee) or not Weapons.IsUnlocked(merged.Melee, merged) then
+		merged.Melee = Weapons.Melee
 	end
 	merged.Premium = merged.Premium or ownsPass(player, GameConfig.PremiumPassId)
 	player:SetAttribute("VIP", ownsPass(player, Shop.VIPPassId))
@@ -998,6 +1003,9 @@ function PlayerData.Init()
 	end)
 	Remotes.SetSecondary.OnServerEvent:Connect(function(player, weaponName)
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
+	end)
+	Remotes.SetMelee.OnServerEvent:Connect(function(player, weaponName)
+		setWeapon(player, weaponName, "Melee", Weapons.Melees)
 	end)
 
 	-- Ajustes del jugador: se validan y se guardan con su progreso
