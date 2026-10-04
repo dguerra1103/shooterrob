@@ -616,6 +616,38 @@ function Kit.flowerPot(cf, flowerColor)
 	end
 end
 
+-- Parche de flores (tulipanes de colores con tallo y hoja), decorativo: se atraviesa
+local TULIP_COLORS = { RGB(235, 50, 60), RGB(255, 200, 40), RGB(255, 110, 170), RGB(250, 250, 255), RGB(160, 90, 255) }
+function Kit.flowers(position, count, seed)
+	local rng = Random.new(seed or math.floor(position.X * 17 + position.Z * 29))
+	count = count or 3
+	for _ = 1, count do
+		local offset = V(rng:NextNumber(-1.6, 1.6), 0, rng:NextNumber(-1.6, 1.6))
+		local h = rng:NextNumber(0.9, 1.5)
+		local base = CFrame.new(position + offset) * CFrame.Angles(rng:NextNumber(-0.15, 0.15), rng:NextNumber(0, 6.28), rng:NextNumber(-0.15, 0.15))
+		deco("FlowerStem", V(0.1, h, 0.1), base * CFrame.new(0, h / 2, 0), RGB(60, 160, 60), Enum.Material.SmoothPlastic)
+		local color = TULIP_COLORS[rng:NextInteger(1, #TULIP_COLORS)]
+		local bloom = deco("FlowerBloom", V(0.34, 0.42, 0.34), base * CFrame.new(0, h + 0.15, 0), color, Enum.Material.SmoothPlastic)
+		bloom.CastShadow = false
+		for k = 0, 2 do
+			deco("FlowerPetal", V(0.18, 0.3, 0.06), base * CFrame.Angles(0, k * 2.09, 0) * CFrame.new(0, h + 0.24, 0.16) * CFrame.Angles(rad(-20), 0, 0), color, Enum.Material.SmoothPlastic)
+		end
+	end
+end
+
+-- Mata de hierba alta (hojas finas inclinadas en abanico)
+function Kit.grassTuft(position, scale, seed)
+	local rng = Random.new(seed or math.floor(position.X * 23 + position.Z * 7))
+	scale = scale or 1
+	for i = 0, 3 do
+		local h = rng:NextNumber(1.1, 1.9) * scale
+		local angle = i * 1.57 + rng:NextNumber(-0.3, 0.3)
+		local tilt = rad(rng:NextNumber(12, 30))
+		local blade = deco("GrassBlade", V(0.16 * scale, h, 0.05), CFrame.new(position) * CFrame.Angles(0, angle, 0) * CFrame.Angles(tilt, 0, 0) * CFrame.new(0, h / 2, 0), RGB(70, 190, 70):Lerp(RGB(40, 140, 50), rng:NextNumber()), Enum.Material.SmoothPlastic)
+		blade.CastShadow = false
+	end
+end
+
 -- Cartel de neón grande con texto
 function Kit.neonSign(cf, width, height, text, color, frameColor)
 	local board = deco("NeonBoard", V(width, height, 0.6), cf, RGB(20, 20, 30), Enum.Material.SmoothPlastic)

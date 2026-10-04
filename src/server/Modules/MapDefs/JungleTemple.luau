@@ -219,6 +219,13 @@ function Map.Build()
 		Kit.rockCluster(m * V(-62, 0, -102), 5)
 		Kit.rockCluster(m * V(-132, 0, 104), 4)
 		Kit.rockCluster(m * V(-26, 0, 101), 4)
+		-- Flores y matas de hierba alta (estilo cartoon)
+		for i, p in { V(-42, 0, 52), V(-90, 0, 18), V(-66, 0, -14), V(-22, 0, -76), V(-112, 0, 36), V(-130, 0, -40), V(-104, 0, 90) } do
+			Kit.flowers(m * p, 3, i * 13)
+		end
+		for i, p in { V(-28, 0, 24), V(-56, 0, 18), V(-100, 0, -30), V(-80, 0, 40), V(-35, 0, -38), V(-120, 0, -60), V(-60, 0, 62), V(-14, 0, 30) } do
+			Kit.grassTuft(m * p, 1 + (i % 3) * 0.2, i * 7)
+		end
 
 		-- Cascada al fondo con poza
 		local fall = m * CFrame.new(-20, 0, -108)

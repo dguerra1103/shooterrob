@@ -7112,6 +7112,13 @@ function Map.Build()
 		Kit.flowerPot(m * CFrame.new(-52, 10, 60), RGB(255, 200, 60))
 		Kit.flowerPot(m * CFrame.new(-104, 15, 76), RGB(255, 120, 200))
 		Kit.flowerPot(m * CFrame.new(-84, 10, -54), RGB(120, 160, 255))
+		-- Flores al pie de las casas y hierba alta en los rincones
+		for i, p in { V(-50, 0, 44), V(-88, 0, 62), V(-70, 0, -46), V(-122, 0, -88), V(-140, 0, 72) } do
+			Kit.flowers(m * p, 3, i * 11)
+		end
+		for i, p in { V(-30, 0, 60), V(-125, 0, -60), V(-148, 0, 96), V(-60, 0, -98) } do
+			Kit.grassTuft(m * p, 1, i * 5)
+		end
 		Kit.stringLights(m * V(-44, 9, 12), m * V(-30, 9, 36))
 		Kit.stringLights(m * V(-30, 9, 12), m * V(-44, 9, 36))
 
@@ -7439,6 +7446,13 @@ function Map.Build()
 		Kit.rockCluster(m * V(-62, 0, -102), 5)
 		Kit.rockCluster(m * V(-132, 0, 104), 4)
 		Kit.rockCluster(m * V(-26, 0, 101), 4)
+		-- Flores y matas de hierba alta (estilo cartoon)
+		for i, p in { V(-42, 0, 52), V(-90, 0, 18), V(-66, 0, -14), V(-22, 0, -76), V(-112, 0, 36), V(-130, 0, -40), V(-104, 0, 90) } do
+			Kit.flowers(m * p, 3, i * 13)
+		end
+		for i, p in { V(-28, 0, 24), V(-56, 0, 18), V(-100, 0, -30), V(-80, 0, 40), V(-35, 0, -38), V(-120, 0, -60), V(-60, 0, 62), V(-14, 0, 30) } do
+			Kit.grassTuft(m * p, 1 + (i % 3) * 0.2, i * 7)
+		end
 
 		-- Cascada al fondo con poza
 		local fall = m * CFrame.new(-20, 0, -108)
@@ -8393,6 +8407,38 @@ function Kit.flowerPot(cf, flowerColor)
 	Kit.ball("Bush", 2.4, cf * CFrame.new(0, 2.1, 0), RGB(70, 160, 70), Enum.Material.Grass, true)
 	for i = 0, 2 do
 		Kit.ball("Flower", 0.6, cf * CFrame.new(math.cos(i * 2.1) * 0.8, 2.9, math.sin(i * 2.1) * 0.8), flowerColor or RGB(255, 90, 140), Enum.Material.SmoothPlastic, true)
+	end
+end
+
+-- Parche de flores (tulipanes de colores con tallo y hoja), decorativo: se atraviesa
+local TULIP_COLORS = { RGB(235, 50, 60), RGB(255, 200, 40), RGB(255, 110, 170), RGB(250, 250, 255), RGB(160, 90, 255) }
+function Kit.flowers(position, count, seed)
+	local rng = Random.new(seed or math.floor(position.X * 17 + position.Z * 29))
+	count = count or 3
+	for _ = 1, count do
+		local offset = V(rng:NextNumber(-1.6, 1.6), 0, rng:NextNumber(-1.6, 1.6))
+		local h = rng:NextNumber(0.9, 1.5)
+		local base = CFrame.new(position + offset) * CFrame.Angles(rng:NextNumber(-0.15, 0.15), rng:NextNumber(0, 6.28), rng:NextNumber(-0.15, 0.15))
+		deco("FlowerStem", V(0.1, h, 0.1), base * CFrame.new(0, h / 2, 0), RGB(60, 160, 60), Enum.Material.SmoothPlastic)
+		local color = TULIP_COLORS[rng:NextInteger(1, #TULIP_COLORS)]
+		local bloom = deco("FlowerBloom", V(0.34, 0.42, 0.34), base * CFrame.new(0, h + 0.15, 0), color, Enum.Material.SmoothPlastic)
+		bloom.CastShadow = false
+		for k = 0, 2 do
+			deco("FlowerPetal", V(0.18, 0.3, 0.06), base * CFrame.Angles(0, k * 2.09, 0) * CFrame.new(0, h + 0.24, 0.16) * CFrame.Angles(rad(-20), 0, 0), color, Enum.Material.SmoothPlastic)
+		end
+	end
+end
+
+-- Mata de hierba alta (hojas finas inclinadas en abanico)
+function Kit.grassTuft(position, scale, seed)
+	local rng = Random.new(seed or math.floor(position.X * 23 + position.Z * 7))
+	scale = scale or 1
+	for i = 0, 3 do
+		local h = rng:NextNumber(1.1, 1.9) * scale
+		local angle = i * 1.57 + rng:NextNumber(-0.3, 0.3)
+		local tilt = rad(rng:NextNumber(12, 30))
+		local blade = deco("GrassBlade", V(0.16 * scale, h, 0.05), CFrame.new(position) * CFrame.Angles(0, angle, 0) * CFrame.Angles(tilt, 0, 0) * CFrame.new(0, h / 2, 0), RGB(70, 190, 70):Lerp(RGB(40, 140, 50), rng:NextNumber()), Enum.Material.SmoothPlastic)
+		blade.CastShadow = false
 	end
 end
 

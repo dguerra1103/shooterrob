@@ -162,6 +162,13 @@ function Map.Build()
 		Kit.flowerPot(m * CFrame.new(-52, 10, 60), RGB(255, 200, 60))
 		Kit.flowerPot(m * CFrame.new(-104, 15, 76), RGB(255, 120, 200))
 		Kit.flowerPot(m * CFrame.new(-84, 10, -54), RGB(120, 160, 255))
+		-- Flores al pie de las casas y hierba alta en los rincones
+		for i, p in { V(-50, 0, 44), V(-88, 0, 62), V(-70, 0, -46), V(-122, 0, -88), V(-140, 0, 72) } do
+			Kit.flowers(m * p, 3, i * 11)
+		end
+		for i, p in { V(-30, 0, 60), V(-125, 0, -60), V(-148, 0, 96), V(-60, 0, -98) } do
+			Kit.grassTuft(m * p, 1, i * 5)
+		end
 		Kit.stringLights(m * V(-44, 9, 12), m * V(-30, 9, 36))
 		Kit.stringLights(m * V(-30, 9, 12), m * V(-44, 9, 36))
 
