@@ -6413,12 +6413,54 @@ local function setCarrier(member)
 	end
 end
 
+-- Suelo bajo el punto donde cayó el portador (ignorando personajes): nil si no hay suelo o si es
+-- agua o lava (ahí no se podría recoger)
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Exclude
+local function groundBelow(position)
+	local ignore = {}
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(ignore, player.Character)
+		end
+	end
+	for _, name in { "Bots", "Grenades", "ClientFX" } do
+		local folder = workspace:FindFirstChild(name)
+		if folder then
+			table.insert(ignore, folder)
+		end
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	groundParams.FilterDescendantsInstances = ignore
+	local hit = workspace:Raycast(position + Vector3.new(0, 1, 0), Vector3.new(0, -60, 0), groundParams)
+	if not hit then
+		return nil
+	end
+	local bad = hit.Material == Enum.Material.Water or hit.Material == Enum.Material.CrackedLava
+		or hit.Instance:GetAttribute("Hazard") ~= nil
+	return not bad and hit.Position or nil
+end
+
+-- El portador cae: la bomba se queda en el suelo (a la vista de todos, pero el aviso en pantalla y en
+-- el minimapa es solo para los atacantes). Si cae donde no se puede recoger, pasa a otro atacante.
 local function dropBomb(position, attackers)
 	carrier = nil
 	setAttr("Carrier", nil)
-	droppedAt = position
+	local ground = groundBelow(position)
+	if not ground then
+		local members = aliveMembers(attackers)
+		if #members > 0 then
+			setCarrier(members[math.random(1, #members)])
+		end
+		return
+	end
+	droppedAt = ground + Vector3.new(0, 3, 0) -- (a la altura de la cadera de quien la recoge)
 	droppedTime = os.clock()
-	setAttr("Dropped", position)
+	setAttr("Dropped", droppedAt)
 	local part = Instance.new("Part")
 	part.Name = "DroppedBomb"
 	part.Anchored = true
@@ -6428,20 +6470,7 @@ local function dropBomb(position, attackers)
 	part.Size = Vector3.new(1.4, 0.8, 1)
 	part.Color = Color3.fromRGB(60, 60, 55)
 	part.Material = Enum.Material.Metal
-	part.CFrame = CFrame.new(position - Vector3.new(0, 2.3, 0))
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromOffset(36, 36)
-	billboard.StudsOffset = Vector3.new(0, 2, 0)
-	billboard.AlwaysOnTop = true
-	billboard.LightInfluence = 0
-	billboard.MaxDistance = 250
-	billboard.Parent = part
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Text = "💣"
-	label.Parent = billboard
+	part.CFrame = CFrame.new(ground + Vector3.new(0, 0.4, 0))
 	part.Parent = workspace
 	droppedVisual = part
 	for _, player in Players:GetPlayers() do
@@ -6452,29 +6481,37 @@ local function dropBomb(position, attackers)
 end
 
 -- Cada paso sin plantar: quién lleva la bomba (si su portador cae, se queda en el suelo)
+-- Devuelve true si cambia de manos (el progreso de plantar no pasa al nuevo portador)
 local function updateCarrier(attackers)
 	if carrier then
 		local root = carrierRoot()
 		if root then
 			carrier.LastPosition = root.Position
-			return
+			return false
 		end
 		dropBomb(carrier.LastPosition, attackers)
+		if carrier then
+			return true -- (cayó donde no se podía recoger: ya la lleva otro)
+		end
 	end
 	local members = aliveMembers(attackers)
 	if droppedAt then
 		for _, member in members do
-			if (member.Root.Position - droppedAt).Magnitude <= PICKUP_RADIUS then
+			local offset = member.Root.Position - droppedAt
+			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= PICKUP_RADIUS and math.abs(offset.Y) < 6 then
 				setCarrier(member)
-				return
+				return true
 			end
 		end
 		if os.clock() - droppedTime > RETURN_TIME and #members > 0 then
 			setCarrier(members[math.random(1, #members)])
+			return true
 		end
 	elseif #members > 0 then
 		setCarrier(members[math.random(1, #members)])
+		return true
 	end
+	return false
 end
 
 -- ¿Está el portador dentro del sitio?
@@ -6527,7 +6564,9 @@ function Bomb.Start(attackers, defenders)
 			local dt = task.wait(STEP)
 			if not Bomb.Planted then
 				-- Plantar: el portador de la bomba, vivo dentro de un sitio y sin salir de él
-				updateCarrier(attackers)
+				if updateCarrier(attackers) then
+					progress, site = 0, nil
+				end
 				local here, players = nil, {}
 				if site and carrierIn(site) then
 					here = site
@@ -24998,12 +25037,13 @@ local player = Players.LocalPlayer
 
 local BombHUD = {}
 
-local gui, label, barBack, bar, barText
+local gui, label, barBack, bar, barText, droppedMarker
 
 local function update()
 	local attackers = ReplicatedStorage:GetAttribute("Bomb_Attackers")
 	gui.Enabled = attackers ~= nil and not ClientState.InMainMenu
 	if not gui.Enabled then
+		droppedMarker.Parent = nil
 		return
 	end
 	local state = ReplicatedStorage:GetAttribute("Bomb_State")
@@ -25021,7 +25061,9 @@ local function update()
 		elseif typeof(ReplicatedStorage:GetAttribute("Bomb_Dropped")) == "Vector3" then
 			label.Text = "💣 ¡LA BOMBA ESTÁ EN EL SUELO! · recógela"
 		elseif carrier then
-			label.Text = "💣 ATACAS · " .. tostring(carrier) .. " lleva la bomba: cúbrele"
+			local carrierPlayer = Players:FindFirstChild(tostring(carrier))
+			local shown = carrierPlayer and carrierPlayer:IsA("Player") and carrierPlayer.DisplayName or tostring(carrier)
+			label.Text = "💣 ATACAS · " .. shown .. " lleva la bomba: cúbrele"
 		else
 			label.Text = "💣 ATACAS · planta la bomba en A o B"
 		end
@@ -25029,6 +25071,14 @@ local function update()
 	else
 		label.Text = "🛡️ DEFIENDES · protege A y B"
 		label.TextColor3 = Color3.fromRGB(140, 200, 255)
+	end
+	-- Marca de la bomba en el suelo, solo para los atacantes (los defensores no la ven a través de las paredes)
+	local dropped = ReplicatedStorage:GetAttribute("Bomb_Dropped")
+	if attacking and state ~= "Planted" and typeof(dropped) == "Vector3" then
+		droppedMarker.Position = dropped - Vector3.new(0, 2.5, 0)
+		droppedMarker.Parent = workspace
+	else
+		droppedMarker.Parent = nil
 	end
 	local action = ReplicatedStorage:GetAttribute("Bomb_Action") or ""
 	local progress = ReplicatedStorage:GetAttribute("Bomb_Progress") or 0
@@ -25039,6 +25089,28 @@ local function update()
 end
 
 function BombHUD.Init()
+	-- Marca de la bomba en el suelo (pieza invisible con el icono encima, solo en este cliente)
+	droppedMarker = Instance.new("Part")
+	droppedMarker.Name = "DroppedBombMarker"
+	droppedMarker.Anchored = true
+	droppedMarker.CanCollide = false
+	droppedMarker.CanQuery = false
+	droppedMarker.CanTouch = false
+	droppedMarker.Transparency = 1
+	droppedMarker.Size = Vector3.new(0.2, 0.2, 0.2)
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(36, 36)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 400
+	billboard.Parent = droppedMarker
+	local icon = Instance.new("TextLabel")
+	icon.Size = UDim2.fromScale(1, 1)
+	icon.BackgroundTransparency = 1
+	icon.TextScaled = true
+	icon.Text = "💣"
+	icon.Parent = billboard
 	gui = UI.new("ScreenGui", {
 		Name = "BombHUD",
 		ResetOnSpawn = false,
@@ -25052,12 +25124,12 @@ function BombHUD.Init()
 		Position = UDim2.new(0.5, 0, 0, 118),
 		Size = UDim2.fromOffset(460, 30),
 		Text = "",
-		TextSize = 22,
+		TextScaled = true, -- (con nombres largos se encoge)
 		Parent = gui,
-	})
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 22 }) })
 	barBack = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.55, 0), -- (entre la mira y los botones de habilidades)
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0.5, -30), -- (encima de la mira: debajo salen las medallas en el móvil)
 		Size = UDim2.fromOffset(260, 22),
 		BackgroundColor3 = Color3.fromRGB(20, 22, 28),
 		BackgroundTransparency = 0.2,
