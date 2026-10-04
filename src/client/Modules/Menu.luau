@@ -35,6 +35,8 @@ local tabButtons = {}
 local currentTab = "Pase"
 local busy = false
 local refresh -- reconstruye la pestaña actual (definida más abajo)
+local scrollToCoins = false -- al abrir la Tienda, bajar hasta los packs de monedas
+local coinsSection -- título de la sección de monedas de la Tienda (para bajar hasta él)
 
 local GOLD = Color3.fromRGB(255, 190, 40)
 local PANEL_BG = Color3.fromRGB(22, 24, 38)
@@ -122,6 +124,20 @@ local function buy(kind, id)
 		showToast(message or "¡Comprado!", GOLD)
 	else
 		showToast(ok and (message or "No se pudo comprar") or "Error de conexión", Color3.fromRGB(255, 90, 90))
+		-- Le faltan monedas: se le lleva a los packs de monedas de la Tienda (si ya se pueden comprar)
+		local canBuyCoins = false
+		for _, pack in Shop.CoinPacks do
+			canBuyCoins = canBuyCoins or pack.ProductId ~= 0
+		end
+		if ok and canBuyCoins and type(message) == "string" and string.find(message, "^Te faltan") then
+			task.delay(1.2, function()
+				if ClientState.MenuOpen and currentTab ~= "Tienda" then
+					currentTab = "Tienda"
+					scrollToCoins = true
+					refresh()
+				end
+			end)
+		end
 	end
 end
 
@@ -2073,7 +2089,7 @@ local function buildShopPage(data)
 	end
 
 	-- Monedas con Robux
-	sectionTitle(scroll, "🪙 Monedas", 6)
+	coinsSection = sectionTitle(scroll, "🪙 Monedas", 6)
 	local packs = row(scroll, 7, 170)
 	for i, pack in Shop.CoinPacks do
 		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(200, 170), BackgroundColor3 = Color3.fromRGB(60, 50, 20), Parent = packs }, {
@@ -2330,6 +2346,18 @@ function refresh()
 		if scroll then
 			task.defer(function()
 				scroll.CanvasPosition = keepScroll
+			end)
+		end
+	elseif scrollToCoins and currentTab == "Tienda" then
+		scrollToCoins = false
+		local scroll = content:FindFirstChildOfClass("ScrollingFrame")
+		local title = coinsSection
+		if scroll and title then
+			task.delay(0.05, function() -- (cuando la lista ya ha colocado las tarjetas)
+				if title.Parent then
+					local y = title.AbsolutePosition.Y - scroll.AbsolutePosition.Y + scroll.CanvasPosition.Y - 8
+					scroll.CanvasPosition = Vector2.new(0, math.max(0, y))
+				end
 			end)
 		end
 	end
