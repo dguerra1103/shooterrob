@@ -87,6 +87,7 @@ local function defaults()
 		Premium = false,
 		DailyStreak = 0,
 		LastDailyDay = -1,
+		LastPlayDay = -1, -- último día (Shop.DayNumber) en que entró: para el premio de regreso
 		FreeCrates = 0,
 		Purchases = {},
 		KillEffects = { Default = true }, -- efectos de eliminación comprados
@@ -511,6 +512,7 @@ local function load(player)
 	end
 	merged.Premium = merged.Premium or ownsPass(player, GameConfig.PremiumPassId)
 	player:SetAttribute("VIP", ownsPass(player, Shop.VIPPassId))
+	PlayerData.UpdatePremium(player)
 	checkPolicy(player)
 
 	if not player.Parent then
@@ -524,6 +526,15 @@ local function load(player)
 		task.delay(8, function()
 			if player.Parent then
 				Remotes.Notify:FireClient(player, "Big", seasonText)
+			end
+		end)
+	end
+	-- Premio de regreso (tras unos días sin jugar)
+	local comebackText = PlayerData.RollComeback(merged)
+	if comebackText then
+		task.delay(seasonText and 12 or 8, function()
+			if player.Parent then
+				Remotes.Notify:FireClient(player, "Big", comebackText)
 			end
 		end)
 	end
@@ -634,10 +645,11 @@ function PlayerData.WaitFor(player, timeout)
 	return profiles[player]
 end
 
--- VIP (x2) y bonus de amigos en el servidor (+10% por amigo, ver Friends)
+-- VIP (x2), Roblox Premium (x1,2) y bonus de amigos en el servidor (+10% por amigo, ver Friends)
 local function multiplier(player)
 	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
-	return vip * Friends.Multiplier(player)
+	local premium = player:GetAttribute("RobloxPremium") and GameConfig.RobloxPremium and GameConfig.RobloxPremium.Multiplier or 1
+	return vip * premium * Friends.Multiplier(player)
 end
 
 -- XP extra de hoy (GameConfig.XPBoost: fin de semana de XP doble)
@@ -650,6 +662,14 @@ local function xpBoost()
 	return table.find(boost.Days, today) and boost.Multiplier or 1
 end
 PlayerData.XPBoost = xpBoost
+
+-- Roblox Premium (atributo RobloxPremium: lo leen el multiplicador y la Tienda)
+function PlayerData.UpdatePremium(player)
+	local ok, premium = pcall(function()
+		return player.MembershipType == Enum.MembershipType.Premium
+	end)
+	player:SetAttribute("RobloxPremium", ok and premium == true)
+end
 
 -- Envía los datos al cliente (cambios hechos desde fuera, p. ej. el evento)
 function PlayerData.SendUpdate(player)
@@ -786,6 +806,21 @@ function PlayerData.RollSeason(data)
 	data.SeasonBest = Ranks.Index(data.RankPoints)
 	local tier = Ranks.Tiers[best]
 	return "🏁 ¡Fin de la " .. finished .. "! Llegaste a " .. tier.Icon .. " " .. tier.Name .. ": +" .. coins .. " 🪙. Empieza la " .. season.Name
+end
+
+-- Premio de regreso (GameConfig.Comeback): se apunta el día de hoy; si hacía Days días o más que no
+-- entraba, monedas y cajas gratis. Los guardados sin LastPlayDay (nuevos o de antes) solo se apuntan.
+function PlayerData.RollComeback(data, today)
+	today = today or Shop.DayNumber()
+	local last = tonumber(data.LastPlayDay) or -1
+	data.LastPlayDay = today
+	local config = GameConfig.Comeback
+	if not config or last < 0 or today - last < config.Days then
+		return nil
+	end
+	data.Coins += config.Coins
+	data.FreeCrates = (data.FreeCrates or 0) + config.Crates
+	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙" .. (config.Crates > 0 and (" y " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
 end
 
 function PlayerData.AddRankPoints(player, delta)
@@ -1441,6 +1476,15 @@ function PlayerData.Init()
 		PlayerData.GetLeaderstats(player)
 		task.spawn(load, player)
 	end
+	-- Se hace Premium sin salir del juego (botón de la Tienda)
+	pcall(function()
+		Players.PlayerMembershipChanged:Connect(function(player)
+			PlayerData.UpdatePremium(player)
+			if player:GetAttribute("RobloxPremium") then
+				Remotes.Notify:FireClient(player, "Big", "⭐ ¡ROBLOX PREMIUM! +20% monedas y XP")
+			end
+		end)
+	end)
 
 	local pending = 0
 	Players.PlayerRemoving:Connect(function(player)

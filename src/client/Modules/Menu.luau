@@ -2188,6 +2188,51 @@ local function buildShopPage(data)
 			MarketplaceService:PromptGamePassPurchase(player, Shop.VIPPassId)
 		end
 	end)
+
+	-- Roblox Premium (bonus pequeño; la suscripción la cobra Roblox)
+	local premiumConfig = GameConfig.RobloxPremium
+	if premiumConfig then
+		local isPremium = player:GetAttribute("RobloxPremium") == true
+		local premiumCard = UI.new("Frame", {
+			LayoutOrder = 11,
+			Size = UDim2.new(1, -10, 0, 70),
+			BackgroundColor3 = Color3.fromRGB(30, 34, 56),
+			Parent = scroll,
+		}, { UI.corner(12), UI.stroke(Color3.fromRGB(150, 160, 200), 2, 0) })
+		UI.label({
+			Position = UDim2.fromOffset(16, 4),
+			Size = UDim2.new(1, -280, 0, 32),
+			Text = "⭐ Roblox Premium",
+			TextSize = 24,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = premiumCard,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(16, 36),
+			Size = UDim2.new(1, -280, 0, 26),
+			Text = "+" .. math.floor((premiumConfig.Multiplier - 1) * 100 + 0.5) .. "% monedas y XP en cada partida (se suma al VIP)",
+			TextSize = 16,
+			Font = UI.FontBody,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = premiumCard,
+		})
+		local premiumButton = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -16, 0.5, 0),
+			Size = UDim2.fromOffset(240, 44),
+			Text = isPremium and "✔ Bonus activo" or "Hazte Premium",
+			BackgroundColor3 = isPremium and GREEN or Color3.fromRGB(150, 160, 200),
+			TextColor3 = Color3.fromRGB(20, 20, 30),
+			Parent = premiumCard,
+		}, { UI.gloss() })
+		premiumButton.Activated:Connect(function()
+			if not isPremium then
+				pcall(function()
+					MarketplaceService:PromptPremiumPurchase(player)
+				end)
+			end
+		end)
+	end
 end
 
 ---------------------------------------------------------------------------

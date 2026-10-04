@@ -324,6 +324,13 @@ GameConfig.Group = {
 -- Invitaciones: quien entra por primera vez con la invitación de un amigo (botón INVITAR de la
 -- portada) recibe NewPlayerCoins, y el que invitó InviterCoins si está en el mismo servidor (como
 -- mucho MaxRewards veces, para que no se pueda abusar con cuentas nuevas).
+-- Roblox Premium: quien lo tiene gana un poco más de monedas y XP (se suma al VIP). Roblox
+-- además paga al juego por el tiempo que juegan los Premium; en la Tienda hay un botón para hacerse Premium.
+GameConfig.RobloxPremium = { Multiplier = 1.2 }
+
+-- Premio de regreso: quien vuelve tras Days días o más sin jugar recibe Coins monedas y Crates cajas gratis.
+GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1 }
+
 GameConfig.Referral = {
 	NewPlayerCoins = 500,
 	InviterCoins = 500,

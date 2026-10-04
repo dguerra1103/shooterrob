@@ -53,6 +53,8 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
 | **Ballesta** | Menú → Armas → Ballesta (nivel 9 o 2000 monedas) | Arco de metal con cuerda y virote de punta roja. Un disparo y recarga sola; a la cabeza mata de un tiro. |
 | **Invitaciones** | Hace falta publicar y una cuenta nueva: invita a un amigo con 👥 INVITA | Cuando entra por primera vez: a él "¡Te invitó …! +500 🪙" y a ti "¡… entró con tu invitación! +500 🪙". |
+| **Premio de regreso** | Con el guardado activado, en la consola del servidor: `require(game.ServerScriptService.Server.Modules.PlayerData).Get(game.Players:GetPlayers()[1]).LastPlayDay -= 5`; para el juego y vuelve a darle a Play | A los pocos segundos de entrar: "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +400 🪙 y 1 caja gratis". |
+| **Roblox Premium** | Menú → Tienda → abajo del VIP | Tarjeta "⭐ Roblox Premium · +20% monedas y XP" con el botón "Hazte Premium" (o "✔ Bonus activo" si tu cuenta ya es Premium). |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 
 ## Probar la Navidad ahora (sin esperar a diciembre)
