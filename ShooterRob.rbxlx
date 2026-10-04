@@ -1938,6 +1938,20 @@ Shop.SkinPrices = {
 	Tesoro = 2400,
 }
 
+-- Lo recién añadido: lleva la etiqueta "¡NUEVO!" en la tienda mientras no lo tengas. Cámbialo en cada
+-- actualización ([tipo][id] = true; tipos: Skin, Outfit, KillEffect, Charm, Spray, Title).
+Shop.NewItems = {
+	Outfit = { Vaquero = true, Pirata = true, Caballero = true },
+	Skin = { Vaquera = true, Tesoro = true },
+	KillEffect = { Rodadora = true, Fuegos = true },
+	Spray = { Vaquero = true, Cactus = true, Pirata = true, Espada = true },
+	Title = { Forajido = true, Sheriff = true },
+}
+
+function Shop.IsNew(kind, id)
+	return Shop.NewItems[kind] ~= nil and Shop.NewItems[kind][id] == true
+end
+
 -- Precio en monedas de cada traje de operador (ver Outfits)
 Shop.OutfitPrices = {
 	BlazeRunner = 1500,
@@ -27931,6 +27945,19 @@ local function priceButton(card, kind, id, owned, equipped, onEquip, lockedText)
 			TextColor3 = Color3.fromRGB(255, 90, 120),
 			ZIndex = 3,
 			Parent = card,
+		})
+	end
+	-- Recién llegado a la tienda (Shop.NewItems)
+	if not owned and Shop.IsNew(kind, id) then
+		UI.new("Frame", {
+			Position = UDim2.fromOffset(6, 6),
+			Size = UDim2.fromOffset(62, 20),
+			BackgroundColor3 = Color3.fromRGB(255, 60, 110),
+			ZIndex = 3,
+			Parent = card,
+		}, {
+			UI.corner(6),
+			UI.label({ Size = UDim2.fromScale(1, 1), Text = "¡NUEVO!", TextSize = 13, ZIndex = 4 }),
 		})
 	end
 end

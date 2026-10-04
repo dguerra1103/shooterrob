@@ -169,6 +169,20 @@ Shop.SkinPrices = {
 	Tesoro = 2400,
 }
 
+-- Lo recién añadido: lleva la etiqueta "¡NUEVO!" en la tienda mientras no lo tengas. Cámbialo en cada
+-- actualización ([tipo][id] = true; tipos: Skin, Outfit, KillEffect, Charm, Spray, Title).
+Shop.NewItems = {
+	Outfit = { Vaquero = true, Pirata = true, Caballero = true },
+	Skin = { Vaquera = true, Tesoro = true },
+	KillEffect = { Rodadora = true, Fuegos = true },
+	Spray = { Vaquero = true, Cactus = true, Pirata = true, Espada = true },
+	Title = { Forajido = true, Sheriff = true },
+}
+
+function Shop.IsNew(kind, id)
+	return Shop.NewItems[kind] ~= nil and Shop.NewItems[kind][id] == true
+end
+
 -- Precio en monedas de cada traje de operador (ver Outfits)
 Shop.OutfitPrices = {
 	BlazeRunner = 1500,

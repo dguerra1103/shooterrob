@@ -1219,6 +1219,19 @@ local function priceButton(card, kind, id, owned, equipped, onEquip, lockedText)
 			Parent = card,
 		})
 	end
+	-- Recién llegado a la tienda (Shop.NewItems)
+	if not owned and Shop.IsNew(kind, id) then
+		UI.new("Frame", {
+			Position = UDim2.fromOffset(6, 6),
+			Size = UDim2.fromOffset(62, 20),
+			BackgroundColor3 = Color3.fromRGB(255, 60, 110),
+			ZIndex = 3,
+			Parent = card,
+		}, {
+			UI.corner(6),
+			UI.label({ Size = UDim2.fromScale(1, 1), Text = "¡NUEVO!", TextSize = 13, ZIndex = 4 }),
+		})
+	end
 end
 
 local function buildSkinsPage(data)
