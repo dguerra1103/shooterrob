@@ -731,6 +731,46 @@ function Classic.Claws(_pt)
 end
 
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
+-- Ballesta: culata y cuerpo de madera, arco de metal con su cuerda, virote con punta roja y
+-- estribo delante. Sin cargador (un virote cada vez).
+function Classic.Crossbow(pt)
+	local o = { Aim = pt.AimPoint, Right = pt.RightHand, Left = pt.LeftHand, Muzzle = pt.Muzzle }
+	local y = o.Muzzle.Y
+	local p = rifle({
+		Aim = o.Aim, Right = o.Right, Left = o.Left, Muzzle = o.Muzzle,
+		RecRear = 0.55, RecFront = -0.35, RecY = 0.0, RecH = 0.3, RecW = 0.24, RecRole = "Body", RailTop = false,
+		HgFront = -1.45, HgH = 0.22, HgW = 0.22, HgY = -0.02, HgRole = "Body",
+		BarrelD = 0.05, Stock = "Wood", StockRole = "Body", StockLen = 0.8,
+		GripRole = "Body", Foregrip = false,
+	})
+	-- Arco: dos palas inclinadas hacia atrás desde la punta
+	local prodZ = -1.3
+	for _, s in { -1, 1 } do
+		table.insert(p, B("BowLimb", s * 0.52, y + 0.02, prodZ + 0.13, 0.98, 0.08, 0.11, "Panel", 0, s * -14, 0))
+		table.insert(p, B("BowTip", s * 0.99, y + 0.02, prodZ + 0.26, 0.06, 0.12, 0.08, "Dark"))
+		-- Cuerda tensa hasta la nuez (detrás, sobre el cuerpo)
+		local tip = V(s * 0.99, y + 0.02, prodZ + 0.26)
+		local nut = V(s * 0.04, y + 0.04, -0.15)
+		local mid = (tip + nut) / 2
+		local len = (tip - nut).Magnitude
+		local yaw = math.deg(math.atan2(tip.X - nut.X, tip.Z - nut.Z))
+		table.insert(p, B("BowString", mid.X, mid.Y, mid.Z, 0.025, 0.025, len, "Dark", 0, yaw, 0))
+	end
+	table.insert(p, B("BowRiser", 0, y + 0.02, prodZ, 0.26, 0.14, 0.14, "Panel"))
+	-- Virote cargado: varilla, punta roja y plumas
+	table.insert(p, C("Bolt", 0, y + 0.1, -0.85, 1.3, 0.04, "Dark"))
+	table.insert(p, B("BoltTip", 0, y + 0.1, -1.53, 0.07, 0.07, 0.12, "Accent", 45, 0, 0))
+	for _, s in { -1, 1 } do
+		table.insert(p, B("BoltFletch", s * 0.035, y + 0.11, -0.28, 0.01, 0.06, 0.16, "Accent"))
+	end
+	-- Estribo delante (para tensar)
+	table.insert(p, B("StirrupL", -0.12, y - 0.12, prodZ - 0.12, 0.03, 0.2, 0.03, "Panel"))
+	table.insert(p, B("StirrupR", 0.12, y - 0.12, prodZ - 0.12, 0.03, 0.2, 0.03, "Panel"))
+	table.insert(p, B("StirrupBottom", 0, y - 0.22, prodZ - 0.12, 0.27, 0.03, 0.03, "Panel"))
+	ironSights(p, o.Aim, 0.35, -1.0, y + 0.06)
+	return p
+end
+
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
 	Calabazooka = { LeftHand = V(0, -0.4, -0.7) },

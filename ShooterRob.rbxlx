@@ -2303,6 +2303,7 @@ Sounds.WeaponShots = {
 	Specter9 = { "Shot", 1.2, 0.8 },
 	NovaDrift = { "Shot", 1.3, 0.75 },
 	SplatX = { "Shot", 1.7, 0.6 }, -- "pop" agudo de aire comprimido
+	Crossbow = { "Swing", 1.7, 0.8 }, -- "fium" de la cuerda
 	Signal7 = { "ShotHeavy", 0.75, 1.1 },
 	GhostlineXR = { "Shot", 0.55, 0.55 }, -- con supresor: grave y apagado
 	RaptorDMR = { "ShotHeavy", 1.05, 0.9 },
@@ -4210,6 +4211,46 @@ function Classic.Claws(_pt)
 end
 
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
+-- Ballesta: culata y cuerpo de madera, arco de metal con su cuerda, virote con punta roja y
+-- estribo delante. Sin cargador (un virote cada vez).
+function Classic.Crossbow(pt)
+	local o = { Aim = pt.AimPoint, Right = pt.RightHand, Left = pt.LeftHand, Muzzle = pt.Muzzle }
+	local y = o.Muzzle.Y
+	local p = rifle({
+		Aim = o.Aim, Right = o.Right, Left = o.Left, Muzzle = o.Muzzle,
+		RecRear = 0.55, RecFront = -0.35, RecY = 0.0, RecH = 0.3, RecW = 0.24, RecRole = "Body", RailTop = false,
+		HgFront = -1.45, HgH = 0.22, HgW = 0.22, HgY = -0.02, HgRole = "Body",
+		BarrelD = 0.05, Stock = "Wood", StockRole = "Body", StockLen = 0.8,
+		GripRole = "Body", Foregrip = false,
+	})
+	-- Arco: dos palas inclinadas hacia atrás desde la punta
+	local prodZ = -1.3
+	for _, s in { -1, 1 } do
+		table.insert(p, B("BowLimb", s * 0.52, y + 0.02, prodZ + 0.13, 0.98, 0.08, 0.11, "Panel", 0, s * -14, 0))
+		table.insert(p, B("BowTip", s * 0.99, y + 0.02, prodZ + 0.26, 0.06, 0.12, 0.08, "Dark"))
+		-- Cuerda tensa hasta la nuez (detrás, sobre el cuerpo)
+		local tip = V(s * 0.99, y + 0.02, prodZ + 0.26)
+		local nut = V(s * 0.04, y + 0.04, -0.15)
+		local mid = (tip + nut) / 2
+		local len = (tip - nut).Magnitude
+		local yaw = math.deg(math.atan2(tip.X - nut.X, tip.Z - nut.Z))
+		table.insert(p, B("BowString", mid.X, mid.Y, mid.Z, 0.025, 0.025, len, "Dark", 0, yaw, 0))
+	end
+	table.insert(p, B("BowRiser", 0, y + 0.02, prodZ, 0.26, 0.14, 0.14, "Panel"))
+	-- Virote cargado: varilla, punta roja y plumas
+	table.insert(p, C("Bolt", 0, y + 0.1, -0.85, 1.3, 0.04, "Dark"))
+	table.insert(p, B("BoltTip", 0, y + 0.1, -1.53, 0.07, 0.07, 0.12, "Accent", 45, 0, 0))
+	for _, s in { -1, 1 } do
+		table.insert(p, B("BoltFletch", s * 0.035, y + 0.11, -0.28, 0.01, 0.06, 0.16, "Accent"))
+	end
+	-- Estribo delante (para tensar)
+	table.insert(p, B("StirrupL", -0.12, y - 0.12, prodZ - 0.12, 0.03, 0.2, 0.03, "Panel"))
+	table.insert(p, B("StirrupR", 0.12, y - 0.12, prodZ - 0.12, 0.03, 0.2, 0.03, "Panel"))
+	table.insert(p, B("StirrupBottom", 0, y - 0.22, prodZ - 0.12, 0.27, 0.03, 0.03, "Panel"))
+	ironSights(p, o.Aim, 0.35, -1.0, y + 0.06)
+	return p
+end
+
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
 	Calabazooka = { LeftHand = V(0, -0.4, -0.7) },
@@ -5209,6 +5250,53 @@ do
 	Weapons.List.SplatX = splat
 end
 
+-- Ballesta (estilo cazador de Halloween): lenta, sin cargador, mucho daño y mata de un tiro a la cabeza
+do
+	local crossbow = {
+		DisplayName = "Ballesta",
+		Category = "Ballesta",
+		Description = "Un virote cada vez. A la cabeza, no perdona.",
+		Slot = 1,
+		Type = "Gun",
+		Palette = {
+			Body = RGB(120, 78, 45),
+			BodyMaterial = Enum.Material.Wood,
+			Panel = RGB(70, 72, 80),
+			PanelMaterial = Enum.Material.Metal,
+			Dark = RGB(30, 28, 30),
+			Accent = RGB(220, 40, 45),
+			Accent2 = RGB(230, 180, 60),
+			Lens = RGB(70, 120, 175),
+		},
+		UnlockLevel = 9,
+		Price = 2000,
+		Damage = 85,
+		MinDamage = 70,
+		FalloffStart = 150,
+		FalloffEnd = 400,
+		HeadshotMultiplier = 2,
+		FireRate = 1.1,
+		Automatic = false,
+		MagSize = 1,
+		ReserveAmmo = 20,
+		ReloadTime = 1.1,
+		Range = 700,
+		Spread = 1.2,
+		AimSpread = 0.05,
+		Pellets = 1,
+		Recoil = 1.6,
+		AimFOV = 50,
+		ViewOffset = CFrame.new(0.8, -0.85, -1.9),
+		AimDistance = 1.1,
+		RightHand = V(0, -0.42, 0.4),
+		LeftHand = V(0, -0.18, -0.9),
+		AimPoint = V(0, 0.3, 0.4),
+		Muzzle = V(0, 0.06, -1.6),
+	}
+	crossbow.Parts = Classic.Crossbow(crossbow)
+	Weapons.List.Crossbow = crossbow
+end
+
 -- Armas que el jugador puede elegir
 Weapons.Primaries = {
 	"ARX27",
@@ -5224,6 +5312,7 @@ Weapons.Primaries = {
 	"NovaLauncher",
 	"Calabazooka",
 	"SplatX",
+	"Crossbow",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto

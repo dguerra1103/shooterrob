@@ -47,6 +47,7 @@ Sounds.WeaponShots = {
 	Specter9 = { "Shot", 1.2, 0.8 },
 	NovaDrift = { "Shot", 1.3, 0.75 },
 	SplatX = { "Shot", 1.7, 0.6 }, -- "pop" agudo de aire comprimido
+	Crossbow = { "Swing", 1.7, 0.8 }, -- "fium" de la cuerda
 	Signal7 = { "ShotHeavy", 0.75, 1.1 },
 	GhostlineXR = { "Shot", 0.55, 0.55 }, -- con supresor: grave y apagado
 	RaptorDMR = { "ShotHeavy", 1.05, 0.9 },

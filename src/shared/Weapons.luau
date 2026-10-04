@@ -683,6 +683,53 @@ do
 	Weapons.List.SplatX = splat
 end
 
+-- Ballesta (estilo cazador de Halloween): lenta, sin cargador, mucho daño y mata de un tiro a la cabeza
+do
+	local crossbow = {
+		DisplayName = "Ballesta",
+		Category = "Ballesta",
+		Description = "Un virote cada vez. A la cabeza, no perdona.",
+		Slot = 1,
+		Type = "Gun",
+		Palette = {
+			Body = RGB(120, 78, 45),
+			BodyMaterial = Enum.Material.Wood,
+			Panel = RGB(70, 72, 80),
+			PanelMaterial = Enum.Material.Metal,
+			Dark = RGB(30, 28, 30),
+			Accent = RGB(220, 40, 45),
+			Accent2 = RGB(230, 180, 60),
+			Lens = RGB(70, 120, 175),
+		},
+		UnlockLevel = 9,
+		Price = 2000,
+		Damage = 85,
+		MinDamage = 70,
+		FalloffStart = 150,
+		FalloffEnd = 400,
+		HeadshotMultiplier = 2,
+		FireRate = 1.1,
+		Automatic = false,
+		MagSize = 1,
+		ReserveAmmo = 20,
+		ReloadTime = 1.1,
+		Range = 700,
+		Spread = 1.2,
+		AimSpread = 0.05,
+		Pellets = 1,
+		Recoil = 1.6,
+		AimFOV = 50,
+		ViewOffset = CFrame.new(0.8, -0.85, -1.9),
+		AimDistance = 1.1,
+		RightHand = V(0, -0.42, 0.4),
+		LeftHand = V(0, -0.18, -0.9),
+		AimPoint = V(0, 0.3, 0.4),
+		Muzzle = V(0, 0.06, -1.6),
+	}
+	crossbow.Parts = Classic.Crossbow(crossbow)
+	Weapons.List.Crossbow = crossbow
+end
+
 -- Armas que el jugador puede elegir
 Weapons.Primaries = {
 	"ARX27",
@@ -698,6 +745,7 @@ Weapons.Primaries = {
 	"NovaLauncher",
 	"Calabazooka",
 	"SplatX",
+	"Crossbow",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
