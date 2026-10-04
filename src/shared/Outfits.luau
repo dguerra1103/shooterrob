@@ -270,7 +270,9 @@ function Outfits.Soldier(teamColor)
 		Glow = teamColor or RGB(200, 200, 200),
 		Plate = RGB(78, 82, 62),
 		PlateMaterial = Enum.Material.Fabric,
-		Pieces = { Vest = true, Pouches = true, Belt = true, Knees = true, Boots = true, Gloves = true, CombatHelmet = true, Armband = true },
+		Sleeves = true, -- (manga larga, como un uniforme de verdad)
+		Realistic = true,
+		Pieces = { Vest = true, Pouches = true, Belt = true, Knees = true, Boots = true, Gloves = true, CombatHelmet = true, Armband = true, Backpack = true },
 	}
 end
 
@@ -603,6 +605,20 @@ function Outfits.Apply(character, id)
 		local scarfColor = o.Cloth == o.Body and o.Glow or o.Cloth
 		newPiece(folder, upper, "ScarfRing", V(0, 0.46, 0), Z, V(0.78, 0.2, 1.28), Z, scarfColor, Enum.Material.Fabric)
 		newPiece(folder, upper, "ScarfTail", V(0.25, 0.25, 0.75), Z, V(0.18, 0.08, 1.1), Z, scarfColor, Enum.Material.Fabric, CFrame.Angles(math.rad(-25), math.rad(20), 0))
+	end
+	-- Uniforme realista (soldados de los mapas tipo shooter militar): sin tiras de neón ni suelas
+	-- blancas; el color del equipo queda solo en el brazalete
+	if o.Realistic then
+		for _, piece in folder:GetChildren() do
+			if piece:IsA("BasePart") then
+				if string.find(piece.Name, "Glow", 1, true) or piece.Name == "Buckle" or piece.Name == "BackpackEmblem" then
+					piece:Destroy()
+				elseif piece.Name == "Sole" then
+					piece.Color = RGB(38, 34, 30)
+					piece.Material = Enum.Material.Rubber
+				end
+			end
+		end
 	end
 	return true
 end
