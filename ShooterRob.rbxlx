@@ -218,6 +218,7 @@ GameConfig.News = {
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
 		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza y skin Embrujada" },
 		{ "👤", "Pestaña Perfil con tus estadísticas y tu arma favorita" },
+		{ "🔪", "Guadaña y efectos de eliminación de Halloween en la tienda" },
 	},
 }
 
