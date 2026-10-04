@@ -7914,6 +7914,7 @@ spawnAgent = function(agent)
 		end
 		agent.Weapon = agent.RoleWeapon or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
 	end
+	model:SetAttribute("Role", not agent.Zombie and agent.Role or nil) -- (para el destello de la mira del tirador)
 	-- Traje de operador al azar (cada bot conserva el suyo al reaparecer)
 	if agent.Outfit == nil then
 		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false
@@ -24355,6 +24356,7 @@ local DominationHUD = require(Modules.DominationHUD)
 local MatchIntro = require(Modules.MatchIntro)
 local BombHUD = require(Modules.BombHUD)
 local BotFootsteps = require(Modules.BotFootsteps)
+local ScopeGlint = require(Modules.ScopeGlint)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -24381,6 +24383,7 @@ start("DominationHUD", DominationHUD.Init)
 start("MatchIntro", MatchIntro.Init)
 start("BombHUD", BombHUD.Init)
 start("BotFootsteps", BotFootsteps.Init)
+start("ScopeGlint", ScopeGlint.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -28179,7 +28182,7 @@ local function buildPlayerPanel()
 	refs.StreakText = UI.label({
 		AnchorPoint = Vector2.new(0, touchOnly and 1 or 0),
 		Position = touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126),
-		Size = UDim2.fromOffset(120, 22),
+		Size = UDim2.fromOffset(200, 22),
 		Text = "Racha x0",
 		TextSize = 18,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
@@ -29255,9 +29258,17 @@ local function render(dt)
 
 	-- Racha (los textos solo se reescriben cuando cambia el valor: cada escritura recoloca la interfaz)
 	local streak = player:GetAttribute("Streak") or 0
-	if streak ~= hudCache.Streak then
-		hudCache.Streak = streak
-		refs.StreakText.Text = "Racha x" .. streak
+	local rewards = ReplicatedStorage:GetAttribute("Mode") ~= "GUN" and not (player.Character and player.Character:GetAttribute("Zombie"))
+	if streak ~= hudCache.Streak or rewards ~= hudCache.StreakRewards then
+		hudCache.Streak, hudCache.StreakRewards = streak, rewards
+		-- Cuánto falta para la siguiente recompensa (Radar con 3, Ataque aéreo con 5)
+		local nextText = ""
+		if rewards and streak < 3 then
+			nextText = "  ·  📡 en " .. (3 - streak)
+		elseif rewards and streak < 5 then
+			nextText = "  ·  ✈ en " .. (5 - streak)
+		end
+		refs.StreakText.Text = "Racha x" .. streak .. nextText
 		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
 	end
 
@@ -34800,6 +34811,139 @@ return QuestTracker
           </Item>
           <Item class="ModuleScript" referent="111">
             <Properties>
+              <string name="Name">ScopeGlint</string>
+              <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
+-- ti brilla a lo lejos, así puedes saber desde dónde te apunta. Solo en el cliente; las paredes lo
+-- tapan (no es un contorno a través de los muros).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local ScopeGlint = {}
+
+local MIN_DISTANCE = 35 -- de cerca no hace falta
+local MAX_DISTANCE = 450
+local FACING = 0.93 -- coseno del ángulo: tiene que mirar casi hacia la cámara
+local CHECK_INTERVAL = 0.1
+
+local player = Players.LocalPlayer
+local glints = {} -- [modelo del bot] = BillboardGui
+
+local function isEnemy(model)
+	if ReplicatedStorage:GetAttribute("TeamMode") == false then
+		return true
+	end
+	local team = model:GetAttribute("Team")
+	return team == nil or player.Team == nil or team ~= player.Team.Name
+end
+
+local function makeGlint(head)
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ScopeGlint"
+	billboard.Size = UDim2.fromOffset(30, 30)
+	billboard.StudsOffset = Vector3.new(0.4, 0.1, 0)
+	billboard.LightInfluence = 0
+	billboard.AlwaysOnTop = false
+	billboard.MaxDistance = MAX_DISTANCE
+	billboard.Adornee = head
+	-- Un punto blanco con un aro y dos rayos en cruz
+	local core = Instance.new("Frame")
+	core.Name = "Core"
+	core.AnchorPoint = Vector2.new(0.5, 0.5)
+	core.Position = UDim2.fromScale(0.5, 0.5)
+	core.Size = UDim2.fromScale(0.42, 0.42)
+	core.BackgroundColor3 = Color3.fromRGB(255, 255, 235)
+	core.BorderSizePixel = 0
+	core.Parent = billboard
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = core
+	for _, size in { UDim2.fromScale(1, 0.08), UDim2.fromScale(0.08, 1) } do
+		local ray = Instance.new("Frame")
+		ray.AnchorPoint = Vector2.new(0.5, 0.5)
+		ray.Position = UDim2.fromScale(0.5, 0.5)
+		ray.Size = size
+		ray.BackgroundColor3 = Color3.fromRGB(255, 250, 210)
+		ray.BackgroundTransparency = 0.25
+		ray.BorderSizePixel = 0
+		ray.Parent = billboard
+	end
+	billboard.Parent = head
+	return billboard
+end
+
+local function update()
+	local folder = workspace:FindFirstChild("Bots")
+	local camera = workspace.CurrentCamera
+	local seen = {}
+	if folder and camera then
+		local cameraPosition = camera.CFrame.Position
+		for _, model in folder:GetChildren() do
+			if model:GetAttribute("Role") ~= "Tirador" or not isEnemy(model) then
+				continue
+			end
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local root = model:FindFirstChild("HumanoidRootPart")
+			local head = model:FindFirstChild("Head")
+			if not (humanoid and root and head and root:IsA("BasePart") and head:IsA("BasePart")) or humanoid.Health <= 0 then
+				continue
+			end
+			local offset = cameraPosition - head.Position
+			local distance = offset.Magnitude
+			local velocity = root.AssemblyLinearVelocity
+			local still = Vector3.new(velocity.X, 0, velocity.Z).Magnitude < 4
+			if distance > MIN_DISTANCE and distance < MAX_DISTANCE and still then
+				local look = root.CFrame.LookVector
+				local flatLook = Vector3.new(look.X, 0, look.Z)
+				local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+				if flatLook.Magnitude > 0.01 and flatOffset.Magnitude > 0.01 and flatLook.Unit:Dot(flatOffset.Unit) > FACING then
+					seen[model] = true
+					local glint = glints[model]
+					if not glint or glint.Parent ~= head then
+						if glint then
+							glint:Destroy()
+						end
+						glint = makeGlint(head)
+						glints[model] = glint
+					end
+					-- (parpadea un poco, como el reflejo del sol en la lente)
+					local pulse = 0.5 + 0.5 * math.sin(os.clock() * 9)
+					local core = glint:FindFirstChild("Core")
+					if core and core:IsA("Frame") then
+						core.BackgroundTransparency = 0.05 + 0.3 * pulse
+					end
+					glint.Size = UDim2.fromOffset(26 + 10 * pulse, 26 + 10 * pulse)
+				end
+			end
+		end
+	end
+	for model, glint in glints do
+		if not seen[model] then
+			glint:Destroy()
+			glints[model] = nil
+		end
+	end
+end
+
+function ScopeGlint.Init()
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed < CHECK_INTERVAL then
+			return
+		end
+		elapsed = 0
+		update()
+	end)
+end
+
+ScopeGlint.Update = update
+return ScopeGlint
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="112">
+            <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
 -- lista en los modos sin equipos) con bajas, muertes y puntos. Incluye a los bots (ReplicatedStorage.
@@ -35125,7 +35269,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -35314,7 +35458,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -35400,7 +35544,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -35452,7 +35596,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -35609,7 +35753,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -35711,7 +35855,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -35905,7 +36049,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -37327,7 +37471,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -37384,7 +37528,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -37678,7 +37822,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -37897,19 +38041,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="122">
+  <Item class="Teams" referent="123">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="123">
+  <Item class="Workspace" referent="124">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="124">
+    <Item class="Terrain" referent="125">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

@@ -1417,6 +1417,7 @@ spawnAgent = function(agent)
 		end
 		agent.Weapon = agent.RoleWeapon or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
 	end
+	model:SetAttribute("Role", not agent.Zombie and agent.Role or nil) -- (para el destello de la mira del tirador)
 	-- Traje de operador al azar (cada bot conserva el suyo al reaparecer)
 	if agent.Outfit == nil then
 		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false

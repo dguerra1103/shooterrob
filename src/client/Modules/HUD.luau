@@ -450,7 +450,7 @@ local function buildPlayerPanel()
 	refs.StreakText = UI.label({
 		AnchorPoint = Vector2.new(0, touchOnly and 1 or 0),
 		Position = touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126),
-		Size = UDim2.fromOffset(120, 22),
+		Size = UDim2.fromOffset(200, 22),
 		Text = "Racha x0",
 		TextSize = 18,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
@@ -1526,9 +1526,17 @@ local function render(dt)
 
 	-- Racha (los textos solo se reescriben cuando cambia el valor: cada escritura recoloca la interfaz)
 	local streak = player:GetAttribute("Streak") or 0
-	if streak ~= hudCache.Streak then
-		hudCache.Streak = streak
-		refs.StreakText.Text = "Racha x" .. streak
+	local rewards = ReplicatedStorage:GetAttribute("Mode") ~= "GUN" and not (player.Character and player.Character:GetAttribute("Zombie"))
+	if streak ~= hudCache.Streak or rewards ~= hudCache.StreakRewards then
+		hudCache.Streak, hudCache.StreakRewards = streak, rewards
+		-- Cuánto falta para la siguiente recompensa (Radar con 3, Ataque aéreo con 5)
+		local nextText = ""
+		if rewards and streak < 3 then
+			nextText = "  ·  📡 en " .. (3 - streak)
+		elseif rewards and streak < 5 then
+			nextText = "  ·  ✈ en " .. (5 - streak)
+		end
+		refs.StreakText.Text = "Racha x" .. streak .. nextText
 		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
 	end
 
