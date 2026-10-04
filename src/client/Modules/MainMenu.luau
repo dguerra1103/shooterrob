@@ -14,6 +14,7 @@ local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
+local Weapons = require(Shared.Weapons)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -83,6 +84,17 @@ local function bigButton(text, color, order, parent)
 end
 
 local shownWeapon = nil
+
+-- Armas que se pueden usar (sin las ocultas, como las garras de zombi)
+local function weaponCount()
+	local count = 0
+	for _, def in Weapons.List do
+		if not def.Hidden and (def.Type == "Gun" or def.Type == "Melee") then
+			count += 1
+		end
+	end
+	return count
+end
 
 local function refreshInfo()
 	local data = ClientState.Data
@@ -419,7 +431,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "12 MAPAS  ·  6 MODOS  ·  17 ARMAS  ·  HABILIDADES",
+		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 13, #GameConfig.Modes, weaponCount()),
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,

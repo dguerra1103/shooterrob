@@ -15,6 +15,8 @@ end
 MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "HauntedManor", "MoonBase", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
 
 MapBuilder.Current = nil
+-- (la pantalla de inicio dice cuántos mapas hay)
+game:GetService("ReplicatedStorage"):SetAttribute("MapCount", #MapBuilder.Order)
 
 -- ¿Hay un mapa hecho a mano en Studio?
 function MapBuilder.IsCustom()

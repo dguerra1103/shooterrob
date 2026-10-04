@@ -193,6 +193,7 @@ Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se
 
 ```
 src/
+├── first/                  → ReplicatedFirst (pantalla de carga propia con consejos)
 ├── shared/                 → ReplicatedStorage.Shared
 │   ├── GameConfig.luau      configuración general, modos y pase de batalla
 │   ├── Weapons.luau         estadísticas, desbloqueos y precios de las armas
