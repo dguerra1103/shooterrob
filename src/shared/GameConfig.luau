@@ -38,6 +38,9 @@ GameConfig.ModeSettings = {
 	-- contrario, y si la recoge un compañero del caído la baja no cuenta
 	CAL = { Name = "Calabazas", ScoreToWin = 30, RoundTime = 8 * 60, Teams = true },
 }
+-- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
+-- Encrucijada, Base Militar) con Duelo por equipos o Dominio. false = votación totalmente al azar
+GameConfig.VoteRealisticMap = true
 GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 
 -- Captura la bandera

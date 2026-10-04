@@ -582,11 +582,35 @@ local function makeVoteOptions()
 	table.sort(maps, function(a, b)
 		return (a ~= MapBuilder.Current and 0 or 1) < (b ~= MapBuilder.Current and 0 or 1)
 	end)
+	-- Siempre hay un mapa de 5 contra 5 estilo shooter militar (Encrucijada, Base Militar...) en la
+	-- votación, con Duelo por equipos o Dominio (GameConfig.VoteRealisticMap)
+	local realisticFirst = false
+	if GameConfig.VoteRealisticMap ~= false then
+		for i, id in maps do
+			local def = MapBuilder.Get(id)
+			if def and def.Realistic then
+				table.insert(maps, 1, table.remove(maps, i))
+				realisticFirst = true
+				break
+			end
+		end
+	end
 	local options = {}
 	local usedModes = {}
 	for i = 1, 3 do
 		local mapId = maps[((i - 1) % #maps) + 1]
 		local modes = availableModes(mapId)
+		if i == 1 and realisticFirst then
+			local classic = {}
+			for _, mode in modes do
+				if mode == "TDM" or mode == "DOM" then
+					table.insert(classic, mode)
+				end
+			end
+			if #classic > 0 then
+				modes = classic
+			end
+		end
 		local mode = modes[math.random(1, #modes)]
 		for _ = 1, 6 do
 			if not usedModes[mode] then
