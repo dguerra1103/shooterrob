@@ -62,7 +62,24 @@ local function applyLightShadow(inst)
 end
 
 -- Detalles caros que se ocultan en calidades bajas (solo en este cliente)
-local HIDE_BELOW = { LightCone = "Alta", ContactShadow = "Media", Puddle = "Media" }
+local HIDE_BELOW = {
+	LightCone = "Alta",
+	ContactShadow = "Media",
+	Puddle = "Media",
+	-- (detalles pequeños de los mapas realistas: en móviles modestos no se notan y ahorran dibujo)
+	FloorPaper = "Media",
+	Paper = "Media",
+	PosterBand = "Media",
+	Wire = "Media",
+	ACGrille = "Media",
+	Crack = "Media",
+	ChairLeg = "Media",
+	CamoSpot = "Media",
+	SnowPoleBand = "Media",
+	SignalLamp = "Media",
+	AntennaBar = "Media",
+	RubblePile = "Media",
+}
 local RANK = { Baja = 1, Media = 2, Alta = 3, Ultra = 4 }
 local function applyDetail(inst)
 	local minimum = HIDE_BELOW[inst.Name]

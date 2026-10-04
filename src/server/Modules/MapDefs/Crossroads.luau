@@ -181,7 +181,7 @@ function Map.Build()
 		for i, pile in { V(-150, 0, 96), V(-78, 0, 90), V(-138, 0, -80), V(-92, 0, -102), V(-58, 0, 52) } do
 			for j = 1, 4 do
 				local size = V(1.4 + (j % 2) * 0.8, 0.6 + (j % 3) * 0.3, 1.2 + ((i + j) % 2) * 0.7)
-				deco("Rubble", size, m * CFrame.new(pile + V((j - 2.5) * 1.1, size.Y / 2, ((i + j) % 3 - 1) * 0.9)) * CFrame.Angles(j * 0.4, i + j, j * 0.25), j % 2 == 0 and PALETTE.Concrete or PALETTE.Plaster[(i % 5) + 1], M.Concrete)
+				deco("RubblePile", size, m * CFrame.new(pile + V((j - 2.5) * 1.1, size.Y / 2, ((i + j) % 3 - 1) * 0.9)) * CFrame.Angles(j * 0.4, i + j, j * 0.25), j % 2 == 0 and PALETTE.Concrete or PALETTE.Plaster[(i % 5) + 1], M.Concrete)
 			end
 		end
 		-- Pintadas y carteles en las paredes que dan a la avenida
