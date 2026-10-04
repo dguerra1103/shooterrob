@@ -91,8 +91,9 @@ local function build(position, team)
 	return model
 end
 
--- Suelta una calabaza donde cayó alguien del equipo `team`
-function Pumpkins.Drop(position, team)
+-- Suelta una calabaza donde cayó alguien del equipo `team`. victimId: UserId del caído (nunca puede
+-- recoger la suya); fromBot: el caído era un bot (premia menos)
+function Pumpkins.Drop(position, team, victimId, fromBot)
 	if not running or typeof(position) ~= "Vector3" or not team then
 		return
 	end
@@ -100,7 +101,7 @@ function Pumpkins.Drop(position, team)
 	if not ground then
 		return
 	end
-	table.insert(active, { Model = build(ground, team), Position = ground, Team = team, Expires = os.clock() + LIFETIME })
+	table.insert(active, { Model = build(ground, team), Position = ground, Team = team, Expires = os.clock() + LIFETIME, VictimId = victimId, FromBot = fromBot })
 end
 
 -- La calabaza más cercana a un punto (para los bots); nil si no hay
@@ -129,11 +130,13 @@ local function step()
 			table.remove(active, i)
 		else
 			for _, collector in collectors do
-				if collector.Team and (collector.Position - pumpkin.Position).Magnitude <= RADIUS then
+				local own = collector.Player and collector.Player.UserId == pumpkin.VictimId
+				local revived = collector.Player and now - (collector.Player:GetAttribute("RevivedAt") or -math.huge) < 5
+				if collector.Team and not own and not revived and (collector.Position - pumpkin.Position).Magnitude <= RADIUS then
 					pumpkin.Model:Destroy()
 					table.remove(active, i)
 					if Pumpkins.OnCollect then
-						task.spawn(Pumpkins.OnCollect, collector, collector.Team ~= pumpkin.Team, pumpkin.Team)
+						task.spawn(Pumpkins.OnCollect, collector, collector.Team ~= pumpkin.Team, pumpkin.Team, pumpkin.FromBot)
 					end
 					break
 				end

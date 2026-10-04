@@ -235,6 +235,8 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 			Remotes.Died:FireClient(victimPlayer, killerName, weaponName, killerHealth)
 		end
 		-- Espectador de Eliminación (entró a mitad de ronda): pantalla de muerte, pero sin baja ni muerte
+		-- (el equipo del caído antes de que OnKill lo cambie: en Infección pasa a zombi)
+		local victimTeamBefore = (victimPlayer and victimPlayer.Team) or (victimBot and victimBot.Team) or nil
 		if Combat.OnKill and not humanoid:GetAttribute("Spectator") then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
 		end
@@ -243,7 +245,7 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 		damageLog[humanoid] = nil
 		-- (solo contra jugadores y bots, no muñecos; y no si ahora es del mismo equipo, p. ej. en Infección)
 		if log and Combat.OnAssist and (victimPlayer or victimBot) and not humanoid:GetAttribute("Spectator") then
-			local victimTeam = (victimPlayer and victimPlayer.Team) or (victimBot and victimBot.Team) or nil
+			local victimTeam = victimTeamBefore
 			local helpers = {}
 			for userId, entry in log do
 				local helper = Players:GetPlayerByUserId(userId)

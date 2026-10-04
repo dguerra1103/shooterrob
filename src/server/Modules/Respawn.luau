@@ -170,6 +170,8 @@ function Respawn.Init()
 			return false, "Sin revivir"
 		end
 		revivePoints[player] = point
+		-- (al revivir no se puede coger enseguida la bandera ni las calabazas de donde caíste)
+		player:SetAttribute("RevivedAt", os.clock())
 		task.spawn(load, player)
 		return true
 	end

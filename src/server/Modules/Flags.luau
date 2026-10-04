@@ -376,7 +376,9 @@ local function step()
 			for _, player in touchers do
 				-- Quien sigue en la pantalla de inicio (invulnerable) no puede coger ni devolver banderas
 				local inMenu = isPlayer(player) and player:GetAttribute("InMenu")
-				if player.Team and flag.State ~= "Carried" and not inMenu then
+				-- ni quien acaba de revivir donde cayó (si no, recuperaría al instante la bandera que soltó)
+				local revived = isPlayer(player) and os.clock() - (player:GetAttribute("RevivedAt") or -math.huge) < 5
+				if player.Team and flag.State ~= "Carried" and not inMenu and not revived then
 					local character, root = aliveCharacter(player)
 					if character and isNear(root.Position, flag.Position, SETTINGS.PickupRadius) then
 						if player.Team == flag.Team then

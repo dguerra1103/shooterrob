@@ -54,6 +54,10 @@ local function wonTeam(player, winner)
 	return true
 end
 
+-- Rivales distintos eliminados en la racha actual (para SE BUSCA: matar al mismo amigo varias veces
+-- no cuenta como "racha contra jugadores")
+local streakVictims = {} -- [player] = { [UserId] = true }
+
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
 local function setState(state)
@@ -206,6 +210,7 @@ local function resetStats()
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
 		player:SetAttribute("StreakPlayers", 0)
+		streakVictims[player] = nil
 		player:SetAttribute("BestStreak", 0)
 		Bounty.Reset(player)
 		player:SetAttribute("Captures", 0)
@@ -278,6 +283,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		end
 		victim:SetAttribute("Streak", 0)
 		victim:SetAttribute("StreakPlayers", 0)
+		streakVictims[victim] = nil
 	end
 	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
 
@@ -321,7 +327,12 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
 			if victim then
-				killer:SetAttribute("StreakPlayers", (killer:GetAttribute("StreakPlayers") or 0) + 1)
+				local seen = streakVictims[killer] or {}
+				streakVictims[killer] = seen
+				if not seen[victim.UserId] then
+					seen[victim.UserId] = true
+					killer:SetAttribute("StreakPlayers", (killer:GetAttribute("StreakPlayers") or 0) + 1)
+				end
 			end
 			if streak > (killer:GetAttribute("BestStreak") or 0) then
 				killer:SetAttribute("BestStreak", streak)
@@ -360,14 +371,17 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
 			Killstreaks.OnStreak(killer, streak)
-			Bounty.OnStreak(killer, streak)
+			-- (los zombis de la Infección no tienen recompensa por su cabeza)
+			if not (ReplicatedStorage:GetAttribute("Infection") == "On" and killer.Team == teams[2]) then
+				Bounty.OnStreak(killer, streak)
+			end
 		end
 	end
 
 	-- "SE BUSCA": quien elimina al buscado cobra su recompensa (si lo mata un bot o muere solo, se pierde)
 	if bounty > 0 and victim then
 		if killer and killer ~= victim then
-			local given = PlayerData.AddCoins(killer, bounty)
+			local given = PlayerData.AddCoins(killer, bounty, false) -- (premio fijo: no lo multiplican VIP ni amigos)
 			PlayerData.AddXP(killer, GameConfig.Bounty.XP or 0, "Recompensa cobrada")
 			Remotes.Notify:FireClient(killer, "BountyClaimed", given)
 			Bounty.Announce(victim.Name, bounty, killer.Name)
@@ -398,9 +412,10 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Headshot = headshot,
 	})
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo
-	if playing and currentMode == "CAL" and typeof(position) == "Vector3" then
+	-- (solo si alguien le eliminó: caerse o la lava no regala puntos al rival)
+	if playing and currentMode == "CAL" and typeof(position) == "Vector3" and ((killer and killer ~= victim) or killerBot) then
 		local team = (victim and victim.Team) or (victimBot and victimBot.Team)
-		Pumpkins.Drop(position, team)
+		Pumpkins.Drop(position, team, victim and victim.UserId or nil, victimBot ~= nil)
 	end
 	-- Infección: el superviviente que cae se convierte en zombi en el acto (antes de que pueda revivir)
 	if ReplicatedStorage:GetAttribute("Infection") == "On" and onInfectionDeath then
@@ -614,6 +629,11 @@ local function infectPlayer(player, announce)
 	player.Neutral = false
 	player.Team = teams[2]
 	player:SetAttribute("Airstrikes", 0) -- (los zombis no tienen recompensas por racha)
+	player:SetAttribute("Streak", 0)
+	player:SetAttribute("StreakPlayers", 0)
+	streakVictims[player] = nil
+	player:SetAttribute("RadarUntil", 0)
+	Bounty.Reset(player)
 	if announce then
 		Remotes.Notify:FireAllClients("Streak", "🧟 " .. player.Name .. " se ha convertido en zombi")
 	end
@@ -951,7 +971,8 @@ local function endRound()
 	-- Por equipos, si todos los jugadores de verdad están en el mismo equipo, es contra bots
 	-- (para el rango: dos amigos juntos contra bots no suben como en una partida de verdad)
 	local botsOnly = soloMatch
-	if teamMode and not soloMatch then
+	-- (en Infección los equipos cambian durante la ronda: basta con que jueguen dos personas)
+	if teamMode and not soloMatch and currentMode ~= "INF" then
 		local humansA, humansB = 0, 0
 		for _, player in Players:GetPlayers() do
 			if player:GetAttribute("MatchJoinedAt") then
@@ -1187,8 +1208,12 @@ local function gameLoop()
 			pcall(Pumpkins.Stop)
 			clearElimination()
 			clearInfection()
-			pcall(respawnAll)
+			-- (primero las armas normales: si no, tras un fallo en Escalada se quedarían las de esa ronda)
 			Loadout.Override = nil
+			for _, player in Players:GetPlayers() do
+				pcall(Loadout.GiveDefault, player)
+			end
+			pcall(respawnAll)
 			roundOver = true
 			task.wait(3)
 		end
@@ -1225,19 +1250,21 @@ function Round.Init()
 		end
 		return list
 	end
-	Pumpkins.OnCollect = function(collector, confirmed)
+	Pumpkins.OnCollect = function(collector, confirmed, _, fromBot)
 		if confirmed then
 			addScore(collector.Team, 1)
 		end
 		local player = collector.Player
 		if player then
 			Remotes.Notify:FireClient(player, "Pumpkin", confirmed)
+			-- (la calabaza de un bot vale menos, como la baja)
+			local scale = fromBot and GameConfig.Bots.RewardScale or 1
 			if confirmed then
-				PlayerData.AddXP(player, GameConfig.XP.PumpkinConfirm or 0, "🎃 Calabaza confirmada")
-				PlayerData.AddCoins(player, 2)
+				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinConfirm or 0) * scale), "🎃 Calabaza confirmada")
+				PlayerData.AddCoins(player, math.max(1, math.floor((GameConfig.Coins.Pumpkin or 2) * scale)))
 				PlayerData.Track(player, "Pumpkin", 1)
 			else
-				PlayerData.AddXP(player, GameConfig.XP.PumpkinDeny or 0, "🎃 Calabaza recuperada")
+				PlayerData.AddXP(player, math.floor((GameConfig.XP.PumpkinDeny or 0) * scale), "🎃 Calabaza recuperada")
 			end
 		end
 	end
@@ -1270,6 +1297,7 @@ function Round.Init()
 	Players.PlayerAdded:Connect(onPlayer)
 	Players.PlayerRemoving:Connect(function(player)
 		votes[player] = nil
+		streakVictims[player] = nil
 		updateLeader(player)
 	end)
 	for _, player in Players:GetPlayers() do

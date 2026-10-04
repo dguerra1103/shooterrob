@@ -309,6 +309,7 @@ GameConfig.Coins = {
 	Win = 50,
 	Capture = 20,
 	Assist = 2,
+	Pumpkin = 2, -- recoger una calabaza enemiga (modo Calabazas)
 	WinStreak = 10, -- extra por cada victoria seguida (2.ª victoria +10, 3.ª +20...)
 	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
 }

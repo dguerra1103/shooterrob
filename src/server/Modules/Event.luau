@@ -19,11 +19,18 @@ local Kit = require(script.Parent.MapKit)
 
 local Event = {}
 
-local CONFIG = GameConfig.Event
-local CANDY_COLORS = CONFIG and CONFIG.ItemColors or { Color3.fromRGB(255, 130, 20) }
-local ICON = CONFIG and CONFIG.Icon or "🎉"
-local ITEM_ICON = CONFIG and CONFIG.ItemIcon or "⭐"
-local ITEMS = CONFIG and CONFIG.Items or "objetos"
+-- El evento que toca (GameConfig.Event); con el servidor encendido mucho tiempo se cambia solo al
+-- siguiente cuando acaba uno (ver useEvent en el bucle de Init)
+local CONFIG, CANDY_COLORS, ICON, ITEM_ICON, ITEMS
+local function useEvent(event)
+	CONFIG = event
+	GameConfig.Event = event
+	CANDY_COLORS = event and event.ItemColors or { Color3.fromRGB(255, 130, 20) }
+	ICON = event and event.Icon or "🎉"
+	ITEM_ICON = event and event.ItemIcon or "⭐"
+	ITEMS = event and event.Items or "objetos"
+end
+useEvent(GameConfig.Event)
 
 local folder
 local candies = {}
@@ -278,7 +285,7 @@ local function setActive(on)
 end
 
 function Event.Init()
-	if not CONFIG or not CONFIG.Enabled then
+	if not CONFIG or not GameConfig.Events then
 		return
 	end
 	setActive(enabled())
@@ -292,8 +299,15 @@ function Event.Init()
 	end)
 	task.spawn(function()
 		while true do
-			task.wait(CONFIG.SpawnEvery)
-			-- Llega o se acaba la fecha del evento con el servidor encendido
+			task.wait(CONFIG.SpawnEvery or 12)
+			-- Llega o se acaba la fecha del evento con el servidor encendido (y si se acabó, se pasa al
+			-- siguiente que toque: Halloween → Navidad)
+			if not active then
+				local upcoming = GameConfig.PickEvent()
+				if upcoming ~= CONFIG then
+					useEvent(upcoming)
+				end
+			end
 			setActive(enabled())
 			local playing = ReplicatedStorage:GetAttribute("State") == "Playing" and not ReplicatedStorage:GetAttribute("Frozen")
 			if active and playing and #candies < CONFIG.MaxCandies then
