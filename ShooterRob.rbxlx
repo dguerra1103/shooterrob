@@ -6432,9 +6432,9 @@ local function lite(cf, color, decorative)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
 	-- Los decorativos (fondo y fila de arriba) sin nervios: casi no se ven y ahorran piezas
 	for i = -1, decorative and -2 or 1 do
-		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal)
+		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal).CastShadow = false
 	end
-	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal)
+	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal).CastShadow = false
 end
 
 function Map.Build()
@@ -6929,7 +6929,7 @@ local function building(cf, size, color)
 				deco("WindowFrame", frameSize, cf * pos, C.WallTrim, Enum.Material.Concrete, model)
 				deco("WindowSill", sillSize, cf * pos * sillOffset, C.WallTrim, Enum.Material.Concrete, model)
 				local glass = deco("Window", glassSize, cf * pos, C.Window, Enum.Material.Glass, model)
-				glass.Transparency = 0.15
+				glass.Transparency = 0 -- opaco: delante de la pared no se nota y no cuesta ordenar transparencias
 				glass.Reflectance = 0.25
 			end
 		end
@@ -7077,7 +7077,7 @@ local function facade(center, length, alongX, inward)
 			local glassSize = alongX and Vector3.new(4.2, 4.2, 0.35) or Vector3.new(0.35, 4.2, 4.2)
 			deco("FacadeFrame", frameSize, CFrame.new(pos), C.WallTrim, Enum.Material.Concrete)
 			local glass = deco("FacadeWindow", glassSize, CFrame.new(pos), C.Window, Enum.Material.Glass)
-			glass.Transparency = 0.1
+			glass.Transparency = 0
 			glass.Reflectance = 0.25
 		end
 	end
@@ -7287,14 +7287,18 @@ function Map.Build()
 	}
 	local neonTops = { C.Pink, C.Cyan, C.LineYellow, Color3.fromRGB(140, 255, 120) }
 
-	local function tower(position, w, d, h)
+	-- near = fila cercana (con franjas); las lejanas van lisas: casi no se distinguen y ahorran cientos de piezas
+	local function tower(position, w, d, h, near)
 		local color = palette[rng:NextInteger(1, #palette)]
 		local glassy = rng:NextNumber() < 0.6
 		local body = deco("Tower", Vector3.new(w, h, d), CFrame.new(position + Vector3.new(0, h / 2, 0)), color, glassy and Enum.Material.Glass or Enum.Material.Concrete, skyline)
 		body.Reflectance = glassy and 0.15 or 0
-		-- Franjas horizontales (cada dos pisos: es fondo lejano y así pesa la mitad)
-		for y = 10, h - 6, 14 do
-			deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
+		-- Franjas horizontales (solo en la fila cercana, cada tres pisos, sin sombra)
+		if near then
+			for y = 12, h - 6, 24 do
+				local stripe = deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
+				stripe.CastShadow = false
+			end
 		end
 		-- Remate superior
 		local capH = rng:NextNumber(2, 6)
@@ -7313,7 +7317,7 @@ function Map.Build()
 	for x = -230, 230, 38 do
 		for _, side in { -1, 1 } do
 			local w = rng:NextNumber(24, 34)
-			tower(Vector3.new(x + rng:NextNumber(-6, 6), 0, side * (WIDTH / 2 + 42 + rng:NextNumber(0, 30))), w, w, rng:NextNumber(60, 160))
+			tower(Vector3.new(x + rng:NextNumber(-6, 6), 0, side * (WIDTH / 2 + 42 + rng:NextNumber(0, 30))), w, w, rng:NextNumber(60, 160), true)
 			-- Segunda fila más lejana y alta
 			local w2 = rng:NextNumber(28, 40)
 			tower(Vector3.new(x + 19, 0, side * (WIDTH / 2 + 110 + rng:NextNumber(0, 40))), w2, w2, rng:NextNumber(110, 240))
@@ -7321,7 +7325,7 @@ function Map.Build()
 	end
 	for _, side in { -1, 1 } do
 		for z = -140, 140, 40 do
-			tower(Vector3.new(side * (LENGTH / 2 + 50), 0, z + rng:NextNumber(-5, 5)), 30, 30, rng:NextNumber(50, 130))
+			tower(Vector3.new(side * (LENGTH / 2 + 50), 0, z + rng:NextNumber(-5, 5)), 30, 30, rng:NextNumber(50, 130), true)
 			tower(Vector3.new(side * (LENGTH / 2 + 120), 0, z + 20), 36, 36, rng:NextNumber(100, 220))
 		end
 	end
@@ -9658,11 +9662,12 @@ function Kit.container(cf, color, labelText)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	-- Nervios, techo y marco van pegados al cuerpo: su sombra ya la da el cuerpo (sin sombra propia)
 	for i = -4, 4, 2 do
-		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
+		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model).CastShadow = false
 	end
-	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
-	deco("DoorFrame", V(0.3, 8.6, 8.4), cf * CFrame.new(10.1, 4.25, 0), dark, Enum.Material.Metal, model)
+	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model).CastShadow = false
+	deco("DoorFrame", V(0.3, 8.6, 8.4), cf * CFrame.new(10.1, 4.25, 0), dark, Enum.Material.Metal, model).CastShadow = false
 	for _, z in { -2, 2 } do
 		deco("LockBar", V(0.3, 7.6, 0.25), cf * CFrame.new(10.3, 4.25, z), RGB(200, 200, 205), Enum.Material.Metal, model)
 	end
@@ -9843,7 +9848,7 @@ function Kit.house(cf, size, color, accent, options)
 			for i = 1, math.max(1, math.floor(size.X / 9)) do
 				local x = -size.X / 2 + (i - 0.5) * size.X / math.max(1, math.floor(size.X / 9))
 				local p = cf * CFrame.new(x, y, face * (size.Z / 2 + 0.1))
-				deco("Window", V(2.4, 3.2, 0.2), p, RGB(60, 70, 90), Enum.Material.Glass, model).Transparency = 0.1
+				deco("Window", V(2.4, 3.2, 0.2), p, RGB(60, 70, 90), Enum.Material.Glass, model) -- opaco (más barato que semitransparente)
 				deco("Sill", V(3, 0.3, 0.6), p * CFrame.new(0, -1.75, 0), trim, Enum.Material.Limestone, model)
 				for _, s in { -1, 1 } do
 					deco("Shutter", V(1.1, 3.2, 0.15), p * CFrame.new(s * 1.85, 0, face * 0.1), accent or RGB(60, 120, 170), Enum.Material.Wood, model)
@@ -14595,7 +14600,10 @@ function Emotes.Init()
 			end
 		end
 		return Enum.ContextActionResult.Pass
-	end, false, Enum.KeyCode.N)
+	end, true, Enum.KeyCode.N)
+	-- Botón táctil en móvil
+	ContextActionService:SetTitle("Emotes", "😀")
+	ContextActionService:SetPosition("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then
 			setWheel(false)

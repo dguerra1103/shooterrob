@@ -301,7 +301,7 @@ local function building(cf, size, color)
 				deco("WindowFrame", frameSize, cf * pos, C.WallTrim, Enum.Material.Concrete, model)
 				deco("WindowSill", sillSize, cf * pos * sillOffset, C.WallTrim, Enum.Material.Concrete, model)
 				local glass = deco("Window", glassSize, cf * pos, C.Window, Enum.Material.Glass, model)
-				glass.Transparency = 0.15
+				glass.Transparency = 0 -- opaco: delante de la pared no se nota y no cuesta ordenar transparencias
 				glass.Reflectance = 0.25
 			end
 		end
@@ -449,7 +449,7 @@ local function facade(center, length, alongX, inward)
 			local glassSize = alongX and Vector3.new(4.2, 4.2, 0.35) or Vector3.new(0.35, 4.2, 4.2)
 			deco("FacadeFrame", frameSize, CFrame.new(pos), C.WallTrim, Enum.Material.Concrete)
 			local glass = deco("FacadeWindow", glassSize, CFrame.new(pos), C.Window, Enum.Material.Glass)
-			glass.Transparency = 0.1
+			glass.Transparency = 0
 			glass.Reflectance = 0.25
 		end
 	end
@@ -659,14 +659,18 @@ function Map.Build()
 	}
 	local neonTops = { C.Pink, C.Cyan, C.LineYellow, Color3.fromRGB(140, 255, 120) }
 
-	local function tower(position, w, d, h)
+	-- near = fila cercana (con franjas); las lejanas van lisas: casi no se distinguen y ahorran cientos de piezas
+	local function tower(position, w, d, h, near)
 		local color = palette[rng:NextInteger(1, #palette)]
 		local glassy = rng:NextNumber() < 0.6
 		local body = deco("Tower", Vector3.new(w, h, d), CFrame.new(position + Vector3.new(0, h / 2, 0)), color, glassy and Enum.Material.Glass or Enum.Material.Concrete, skyline)
 		body.Reflectance = glassy and 0.15 or 0
-		-- Franjas horizontales (cada dos pisos: es fondo lejano y así pesa la mitad)
-		for y = 10, h - 6, 14 do
-			deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
+		-- Franjas horizontales (solo en la fila cercana, cada tres pisos, sin sombra)
+		if near then
+			for y = 12, h - 6, 24 do
+				local stripe = deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
+				stripe.CastShadow = false
+			end
 		end
 		-- Remate superior
 		local capH = rng:NextNumber(2, 6)
@@ -685,7 +689,7 @@ function Map.Build()
 	for x = -230, 230, 38 do
 		for _, side in { -1, 1 } do
 			local w = rng:NextNumber(24, 34)
-			tower(Vector3.new(x + rng:NextNumber(-6, 6), 0, side * (WIDTH / 2 + 42 + rng:NextNumber(0, 30))), w, w, rng:NextNumber(60, 160))
+			tower(Vector3.new(x + rng:NextNumber(-6, 6), 0, side * (WIDTH / 2 + 42 + rng:NextNumber(0, 30))), w, w, rng:NextNumber(60, 160), true)
 			-- Segunda fila más lejana y alta
 			local w2 = rng:NextNumber(28, 40)
 			tower(Vector3.new(x + 19, 0, side * (WIDTH / 2 + 110 + rng:NextNumber(0, 40))), w2, w2, rng:NextNumber(110, 240))
@@ -693,7 +697,7 @@ function Map.Build()
 	end
 	for _, side in { -1, 1 } do
 		for z = -140, 140, 40 do
-			tower(Vector3.new(side * (LENGTH / 2 + 50), 0, z + rng:NextNumber(-5, 5)), 30, 30, rng:NextNumber(50, 130))
+			tower(Vector3.new(side * (LENGTH / 2 + 50), 0, z + rng:NextNumber(-5, 5)), 30, 30, rng:NextNumber(50, 130), true)
 			tower(Vector3.new(side * (LENGTH / 2 + 120), 0, z + 20), 36, 36, rng:NextNumber(100, 220))
 		end
 	end

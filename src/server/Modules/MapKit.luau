@@ -282,11 +282,12 @@ function Kit.container(cf, color, labelText)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	-- Nervios, techo y marco van pegados al cuerpo: su sombra ya la da el cuerpo (sin sombra propia)
 	for i = -4, 4, 2 do
-		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
+		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model).CastShadow = false
 	end
-	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
-	deco("DoorFrame", V(0.3, 8.6, 8.4), cf * CFrame.new(10.1, 4.25, 0), dark, Enum.Material.Metal, model)
+	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model).CastShadow = false
+	deco("DoorFrame", V(0.3, 8.6, 8.4), cf * CFrame.new(10.1, 4.25, 0), dark, Enum.Material.Metal, model).CastShadow = false
 	for _, z in { -2, 2 } do
 		deco("LockBar", V(0.3, 7.6, 0.25), cf * CFrame.new(10.3, 4.25, z), RGB(200, 200, 205), Enum.Material.Metal, model)
 	end
@@ -467,7 +468,7 @@ function Kit.house(cf, size, color, accent, options)
 			for i = 1, math.max(1, math.floor(size.X / 9)) do
 				local x = -size.X / 2 + (i - 0.5) * size.X / math.max(1, math.floor(size.X / 9))
 				local p = cf * CFrame.new(x, y, face * (size.Z / 2 + 0.1))
-				deco("Window", V(2.4, 3.2, 0.2), p, RGB(60, 70, 90), Enum.Material.Glass, model).Transparency = 0.1
+				deco("Window", V(2.4, 3.2, 0.2), p, RGB(60, 70, 90), Enum.Material.Glass, model) -- opaco (más barato que semitransparente)
 				deco("Sill", V(3, 0.3, 0.6), p * CFrame.new(0, -1.75, 0), trim, Enum.Material.Limestone, model)
 				for _, s in { -1, 1 } do
 					deco("Shutter", V(1.1, 3.2, 0.15), p * CFrame.new(s * 1.85, 0, face * 0.1), accent or RGB(60, 120, 170), Enum.Material.Wood, model)

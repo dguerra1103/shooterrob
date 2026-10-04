@@ -38,9 +38,9 @@ local function lite(cf, color, decorative)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
 	-- Los decorativos (fondo y fila de arriba) sin nervios: casi no se ven y ahorran piezas
 	for i = -1, decorative and -2 or 1 do
-		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal)
+		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal).CastShadow = false
 	end
-	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal)
+	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal).CastShadow = false
 end
 
 function Map.Build()

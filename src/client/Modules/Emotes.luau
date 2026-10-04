@@ -144,7 +144,10 @@ function Emotes.Init()
 			end
 		end
 		return Enum.ContextActionResult.Pass
-	end, false, Enum.KeyCode.N)
+	end, true, Enum.KeyCode.N)
+	-- Botón táctil en móvil
+	ContextActionService:SetTitle("Emotes", "😀")
+	ContextActionService:SetPosition("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then
 			setWheel(false)
