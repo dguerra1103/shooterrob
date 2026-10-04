@@ -841,6 +841,16 @@ local function onShotFX(tool, endpoints)
 				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
 			else
 				Effects.Tracer(muzzle.WorldPosition, position, color)
+				-- Paintball: también se ven las manchas de los disparos de los demás
+				if weaponDef and weaponDef.ImpactStyle then
+					local direction = position - muzzle.WorldPosition
+					if direction.Magnitude > 1 then
+						local hit = workspace:Raycast(position - direction.Unit * 1.5, direction.Unit * 3, rayParams)
+						if hit then
+							Effects.Impact(hit.Position, hit.Normal, hit.Instance, hit.Material, weaponDef.ImpactStyle)
+						end
+					end
+				end
 			end
 		end
 	end

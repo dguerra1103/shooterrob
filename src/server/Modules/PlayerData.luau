@@ -924,6 +924,9 @@ function PlayerData.Init()
 	-- Al cerrar el servidor espera a que terminen todos los guardados (máx. ~25 s)
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
+			if PlayerData.OnLeaving then
+				pcall(PlayerData.OnLeaving, player)
+			end
 			pending += 1
 			task.spawn(function()
 				save(player, true)

@@ -162,7 +162,7 @@ function Map.Build()
 	for _, s in { -1, 1 } do
 		for _, x in { -1, 1 } do
 			-- Almenas bajas a los lados del brazo largo (sin cortar el cruce)
-			block("Battlement", V(5, 1.6, 0.8), CFrame.new(x * 5.5, deckY + 0.8, s * 3.4), BRICKS[2], Enum.Material.SmoothPlastic)
+			block("Battlement", V(5, 1.6, 0.8), CFrame.new(x * 5.5, deckY + 0.8, s * 2.6), BRICKS[2], Enum.Material.SmoothPlastic)
 		end
 	end
 

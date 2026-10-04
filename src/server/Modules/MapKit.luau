@@ -76,6 +76,7 @@ local KEEP_LOOK = {
 	-- Nata y caramelo blanco de Arena Caramelo (si no, el blanco se volvería lavanda)
 	CandyWhite = true, CakeFrosting = true, FrostingDrip = true, GumdropShine = true,
 	LollipopStick = true, LollipopSwirl = true, CottonStick = true,
+	CastleTop = true, JumpPadRing = true, -- blancos de Caja de Juguetes y de las plataformas de salto
 }
 
 function Kit.vivid(color)
@@ -1079,7 +1080,8 @@ end
 -- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
 function Kit.jumpPad(position, power, color)
 	color = color or RGB(80, 230, 255)
-	Kit.cylinder("JumpPadRing", 0.4, 7.6, CFrame.new(position + V(0, 0.2, 0)), RGB(250, 250, 255), Enum.Material.SmoothPlastic)
+	local ring = Kit.cylinder("JumpPadRing", 0.4, 7.6, CFrame.new(position + V(0, 0.2, 0)), RGB(250, 250, 255), Enum.Material.SmoothPlastic)
+	ring:SetAttribute("JumpPad", power or 75) -- también lanza si pisas el borde
 	local pad = Kit.cylinder("JumpPad", 0.5, 6, CFrame.new(position + V(0, 0.3, 0)), color, Enum.Material.Neon)
 	pad:SetAttribute("JumpPad", power or 75)
 	local sparks = Instance.new("ParticleEmitter")

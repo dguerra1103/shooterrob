@@ -51,7 +51,7 @@ Challenges.Pool = {
 	{ Id = "Captures", Stat = "Capture", Goal = 2, Text = "Captura 2 banderas", Coins = 250, XP = 400 },
 	{ Id = "Zone", Stat = "ZoneTime", Goal = 60, Text = "Controla la zona 60 segundos", Coins = 200, XP = 300 },
 	{ Id = "Streak", Stat = "Streak", Goal = 5, Text = "Consigue una racha de 5 bajas", Coins = 300, XP = 400 },
-	{ Id = "Rifles", Stat = "Kill", Weapons = { "ARX27", "VortexBR", "TitanLMG" }, Goal = 12, Text = "12 bajas con fusil o ametralladora", Coins = 200, XP = 300 },
+	{ Id = "Rifles", Stat = "Kill", Weapons = { "ARX27", "VortexBR", "TitanLMG", "SplatX" }, Goal = 12, Text = "12 bajas con fusil, ametralladora o paintball", Coins = 200, XP = 300 },
 	{ Id = "SMGs", Stat = "Kill", Weapons = { "Specter9", "NovaDrift" }, Goal = 10, Text = "10 bajas con subfusil", Coins = 200, XP = 300 },
 	{ Id = "Shotguns", Stat = "Kill", Weapons = { "HavocPump", "BreachHammer" }, Goal = 6, Text = "6 bajas con escopeta", Coins = 200, XP = 300 },
 	{ Id = "Snipers", Stat = "Kill", Weapons = { "Signal7", "GhostlineXR", "RaptorDMR" }, Goal = 4, Text = "4 bajas con francotirador o DMR", Coins = 250, XP = 350, MinLevel = 3 },
@@ -2814,13 +2814,14 @@ function Classic.SplatX(pt)
 	end
 	table.insert(p, C("BarrelTip", 0, y, o.Muzzle.Z + 0.06, 0.12, 0.17, "Accent"))
 	-- Depósito de bolas con cuello inclinado y bolas asomando
-	table.insert(p, B("FeedNeck", -0.2, 0.32, 0.0, 0.1, 0.34, 0.12, "Dark", 0, 0, 38))
-	table.insert(p, Ball("Hopper", -0.36, 0.5, 0.0, 0.5, "Accent2"))
-	table.insert(p, CY("HopperRing", -0.36, 0.5, 0.0, 0.08, 0.52, "Dark"))
-	table.insert(p, CY("HopperLid", -0.36, 0.73, 0.0, 0.06, 0.3, "Dark"))
+	-- (más a la izquierda y más bajo para no tapar media pantalla al apuntar)
+	table.insert(p, B("FeedNeck", -0.24, 0.27, -0.1, 0.1, 0.3, 0.12, "Dark", 0, 0, 50))
+	table.insert(p, Ball("Hopper", -0.46, 0.4, -0.1, 0.46, "Accent2"))
+	table.insert(p, CY("HopperRing", -0.46, 0.4, -0.1, 0.08, 0.48, "Dark"))
+	table.insert(p, CY("HopperLid", -0.46, 0.61, -0.1, 0.06, 0.28, "Dark"))
 	-- Bolas de pintura asomando por arriba
 	for i, off in { V(-0.07, 0, 0.06), V(0.07, 0.01, -0.03), V(-0.01, 0.03, -0.09) } do
-		table.insert(p, Ball("PaintBall" .. i, -0.36 + off.X, 0.8 + off.Y, off.Z, 0.12, "Accent"))
+		table.insert(p, Ball("PaintBall" .. i, -0.46 + off.X, 0.68 + off.Y, -0.1 + off.Z, 0.12, "Accent"))
 	end
 	-- Botella de aire detrás (hace de culata)
 	table.insert(p, C("AirTank", 0, -0.02, 0.85, 0.66, 0.26, "Panel"))
@@ -5643,19 +5644,33 @@ local Gifts = {}
 
 local started = {} -- [player] = os.clock() equivalente al inicio de la cuenta de hoy
 local claimed = {} -- [player] = regalos recogidos hoy
-
--- Copia el progreso a los datos guardados
-local function persist(player)
-	local data = PlayerData.Get(player)
-	if data and started[player] then
-		data.Gifts = { Day = Shop.DayNumber(), Claimed = claimed[player] or 0, Seconds = math.floor(os.clock() - started[player]) }
-		PlayerData.MarkDirty(player)
-	end
-end
+local days = {} -- [player] = día (Shop.DayNumber) al que corresponde la cuenta
+local restored = {} -- [player] = true cuando ya se ha leído el progreso guardado (antes no se guarda ni se reclama)
 
 local function publish(player)
 	player:SetAttribute("GiftStart", workspace:GetServerTimeNow() - (os.clock() - started[player]))
 	player:SetAttribute("GiftsClaimed", claimed[player] or 0)
+end
+
+-- Si ha cambiado el día (la sesión cruzó la medianoche UTC), la cuenta empieza de cero
+local function checkDay(player)
+	local today = Shop.DayNumber()
+	if started[player] and days[player] ~= today then
+		days[player] = today
+		started[player] = os.clock()
+		claimed[player] = 0
+		publish(player)
+	end
+end
+
+-- Copia el progreso a los datos guardados
+local function persist(player)
+	local data = PlayerData.Get(player)
+	if data and started[player] and restored[player] then
+		checkDay(player)
+		data.Gifts = { Day = days[player], Claimed = claimed[player] or 0, Seconds = math.floor(os.clock() - started[player]) }
+		PlayerData.MarkDirty(player)
+	end
 end
 
 local function describe(gift)
@@ -5674,6 +5689,7 @@ end
 Gifts.Describe = describe
 
 local function claim(player)
+	checkDay(player)
 	local index = (claimed[player] or 0) + 1
 	local gift = GameConfig.PlaytimeGifts[index]
 	if not gift or not started[player] then
@@ -5682,7 +5698,7 @@ local function claim(player)
 	if os.clock() - started[player] < gift.Minutes * 60 - 1 then
 		return false, "Todavía no"
 	end
-	if not PlayerData.Get(player) then
+	if not PlayerData.Get(player) or not restored[player] then
 		return false, "Cargando tus datos"
 	end
 	claimed[player] = index
@@ -5706,36 +5722,53 @@ function Gifts.Init()
 	local function onPlayer(player)
 		started[player] = os.clock()
 		claimed[player] = 0
+		days[player] = Shop.DayNumber()
 		publish(player)
-		-- Recupera el progreso de hoy (si ya jugó hoy en otro servidor o antes de salir)
+		-- Recupera el progreso de hoy (si ya jugó hoy en otro servidor o antes de salir). Espera lo que
+		-- haga falta: hasta entonces no se guarda nada (si no, se borraría el progreso guardado)
 		task.spawn(function()
-			local data = PlayerData.WaitFor(player, 30)
+			local data
+			while player.Parent and started[player] and not data do
+				data = PlayerData.WaitFor(player, 5)
+			end
 			if not data or not player.Parent or not started[player] then
 				return
 			end
 			local saved = data.Gifts
-			if type(saved) == "table" and saved.Day == Shop.DayNumber() then
+			if type(saved) == "table" and saved.Day == days[player] then
 				claimed[player] = math.max(claimed[player], saved.Claimed or 0)
 				started[player] = math.min(started[player], os.clock() - (saved.Seconds or 0))
 				publish(player)
 			end
+			restored[player] = true
 		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
 	end
-	PlayerData.OnLeaving = persist -- antes del guardado final
+	-- Antes del guardado final (al salir o al cerrar el servidor); después se olvida al jugador
+	PlayerData.OnLeaving = function(player)
+		persist(player)
+	end
 	Players.PlayerRemoving:Connect(function(player)
-		started[player] = nil
-		claimed[player] = nil
+		-- Se limpia un poco después para que el guardado final lo encuentre (el orden de los
+		-- eventos de salida no está garantizado)
+		task.delay(5, function()
+			started[player] = nil
+			claimed[player] = nil
+			days[player] = nil
+			restored[player] = nil
+		end)
 	end)
 	-- Guarda el tiempo jugado de vez en cuando (por si el servidor se cierra de golpe)
 	task.spawn(function()
 		while true do
 			task.wait(30)
 			for player in started do
-				persist(player)
+				if player.Parent then
+					persist(player)
+				end
 			end
 		end
 	end)
@@ -10211,7 +10244,7 @@ function Map.Build()
 	for _, s in { -1, 1 } do
 		for _, x in { -1, 1 } do
 			-- Almenas bajas a los lados del brazo largo (sin cortar el cruce)
-			block("Battlement", V(5, 1.6, 0.8), CFrame.new(x * 5.5, deckY + 0.8, s * 3.4), BRICKS[2], Enum.Material.SmoothPlastic)
+			block("Battlement", V(5, 1.6, 0.8), CFrame.new(x * 5.5, deckY + 0.8, s * 2.6), BRICKS[2], Enum.Material.SmoothPlastic)
 		end
 	end
 
@@ -10385,6 +10418,7 @@ local KEEP_LOOK = {
 	-- Nata y caramelo blanco de Arena Caramelo (si no, el blanco se volvería lavanda)
 	CandyWhite = true, CakeFrosting = true, FrostingDrip = true, GumdropShine = true,
 	LollipopStick = true, LollipopSwirl = true, CottonStick = true,
+	CastleTop = true, JumpPadRing = true, -- blancos de Caja de Juguetes y de las plataformas de salto
 }
 
 function Kit.vivid(color)
@@ -11388,7 +11422,8 @@ end
 -- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
 function Kit.jumpPad(position, power, color)
 	color = color or RGB(80, 230, 255)
-	Kit.cylinder("JumpPadRing", 0.4, 7.6, CFrame.new(position + V(0, 0.2, 0)), RGB(250, 250, 255), Enum.Material.SmoothPlastic)
+	local ring = Kit.cylinder("JumpPadRing", 0.4, 7.6, CFrame.new(position + V(0, 0.2, 0)), RGB(250, 250, 255), Enum.Material.SmoothPlastic)
+	ring:SetAttribute("JumpPad", power or 75) -- también lanza si pisas el borde
 	local pad = Kit.cylinder("JumpPad", 0.5, 6, CFrame.new(position + V(0, 0.3, 0)), color, Enum.Material.Neon)
 	pad:SetAttribute("JumpPad", power or 75)
 	local sparks = Instance.new("ParticleEmitter")
@@ -12544,6 +12579,9 @@ function PlayerData.Init()
 	-- Al cerrar el servidor espera a que terminen todos los guardados (máx. ~25 s)
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
+			if PlayerData.OnLeaving then
+				pcall(PlayerData.OnLeaving, player)
+			end
 			pending += 1
 			task.spawn(function()
 				save(player, true)
@@ -14909,7 +14947,7 @@ local function paintSplat(anchor, position, normal, isCharacter)
 		Name = "PaintSplat",
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.04, size, size),
-		CFrame = safeLookAt(position + normal * 0.03, normal) * CFrame.Angles(0, math.pi / 2, math.random() * math.pi * 2),
+		CFrame = safeLookAt(position + normal * 0.03, normal) * CFrame.Angles(0, math.pi / 2, 0),
 		Color = color,
 		Material = Enum.Material.SmoothPlastic,
 	})
@@ -21301,7 +21339,7 @@ local SkinFX = {}
 
 local TAG = "RainbowSkin"
 local SPEED = 0.22 -- vueltas al arcoíris por segundo
-local parts = {} -- [part] = { Phase, Sat, Val }
+local parts = {} -- [part] = { Phase, Sat, Val, Viewport }
 
 local function add(part)
 	if part:IsA("BasePart") then
@@ -21309,8 +21347,23 @@ local function add(part)
 			Phase = part:GetAttribute("RainbowPhase") or 0,
 			Sat = part:GetAttribute("RainbowSat") or 1,
 			Val = part:GetAttribute("RainbowVal") or 1,
+			Viewport = part:FindFirstAncestorWhichIsA("ViewportFrame"), -- icono de la interfaz
 		}
 	end
+end
+
+-- ¿Se ve el icono? (el panel del menú cerrado sigue existiendo: no hace falta animar lo que no se ve)
+local function guiVisible(gui)
+	local node = gui
+	while node do
+		if node:IsA("GuiObject") and not node.Visible then
+			return false
+		elseif node:IsA("LayerCollector") then
+			return node.Enabled
+		end
+		node = node.Parent
+	end
+	return false
 end
 
 local function remove(part)
@@ -21331,11 +21384,25 @@ function SkinFX.Init()
 		end
 		accumulator = 0
 		local t = os.clock() * SPEED
+		local shown = {} -- visibilidad de cada icono, calculada una vez por paso
 		for part, info in parts do
-			if part.Parent then
-				part.Color = Color3.fromHSV((t + info.Phase) % 1, info.Sat, info.Val)
-			else
+			if not part.Parent then
 				parts[part] = nil
+				continue
+			end
+			local visible
+			if info.Viewport then
+				visible = shown[info.Viewport]
+				if visible == nil then
+					visible = guiVisible(info.Viewport)
+					shown[info.Viewport] = visible
+				end
+			else
+				-- Arma oculta (la tuya en la mano la sustituye el viewmodel)
+				visible = part.LocalTransparencyModifier < 1 and part.Transparency < 1
+			end
+			if visible then
+				part.Color = Color3.fromHSV((t + info.Phase) % 1, info.Sat, info.Val)
 			end
 		end
 	end)
@@ -22447,6 +22514,16 @@ local function onShotFX(tool, endpoints)
 				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
 			else
 				Effects.Tracer(muzzle.WorldPosition, position, color)
+				-- Paintball: también se ven las manchas de los disparos de los demás
+				if weaponDef and weaponDef.ImpactStyle then
+					local direction = position - muzzle.WorldPosition
+					if direction.Magnitude > 1 then
+						local hit = workspace:Raycast(position - direction.Unit * 1.5, direction.Unit * 3, rayParams)
+						if hit then
+							Effects.Impact(hit.Position, hit.Normal, hit.Instance, hit.Material, weaponDef.ImpactStyle)
+						end
+					end
+				end
 			end
 		end
 	end

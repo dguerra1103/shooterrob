@@ -18,19 +18,33 @@ local Gifts = {}
 
 local started = {} -- [player] = os.clock() equivalente al inicio de la cuenta de hoy
 local claimed = {} -- [player] = regalos recogidos hoy
-
--- Copia el progreso a los datos guardados
-local function persist(player)
-	local data = PlayerData.Get(player)
-	if data and started[player] then
-		data.Gifts = { Day = Shop.DayNumber(), Claimed = claimed[player] or 0, Seconds = math.floor(os.clock() - started[player]) }
-		PlayerData.MarkDirty(player)
-	end
-end
+local days = {} -- [player] = día (Shop.DayNumber) al que corresponde la cuenta
+local restored = {} -- [player] = true cuando ya se ha leído el progreso guardado (antes no se guarda ni se reclama)
 
 local function publish(player)
 	player:SetAttribute("GiftStart", workspace:GetServerTimeNow() - (os.clock() - started[player]))
 	player:SetAttribute("GiftsClaimed", claimed[player] or 0)
+end
+
+-- Si ha cambiado el día (la sesión cruzó la medianoche UTC), la cuenta empieza de cero
+local function checkDay(player)
+	local today = Shop.DayNumber()
+	if started[player] and days[player] ~= today then
+		days[player] = today
+		started[player] = os.clock()
+		claimed[player] = 0
+		publish(player)
+	end
+end
+
+-- Copia el progreso a los datos guardados
+local function persist(player)
+	local data = PlayerData.Get(player)
+	if data and started[player] and restored[player] then
+		checkDay(player)
+		data.Gifts = { Day = days[player], Claimed = claimed[player] or 0, Seconds = math.floor(os.clock() - started[player]) }
+		PlayerData.MarkDirty(player)
+	end
 end
 
 local function describe(gift)
@@ -49,6 +63,7 @@ end
 Gifts.Describe = describe
 
 local function claim(player)
+	checkDay(player)
 	local index = (claimed[player] or 0) + 1
 	local gift = GameConfig.PlaytimeGifts[index]
 	if not gift or not started[player] then
@@ -57,7 +72,7 @@ local function claim(player)
 	if os.clock() - started[player] < gift.Minutes * 60 - 1 then
 		return false, "Todavía no"
 	end
-	if not PlayerData.Get(player) then
+	if not PlayerData.Get(player) or not restored[player] then
 		return false, "Cargando tus datos"
 	end
 	claimed[player] = index
@@ -81,36 +96,53 @@ function Gifts.Init()
 	local function onPlayer(player)
 		started[player] = os.clock()
 		claimed[player] = 0
+		days[player] = Shop.DayNumber()
 		publish(player)
-		-- Recupera el progreso de hoy (si ya jugó hoy en otro servidor o antes de salir)
+		-- Recupera el progreso de hoy (si ya jugó hoy en otro servidor o antes de salir). Espera lo que
+		-- haga falta: hasta entonces no se guarda nada (si no, se borraría el progreso guardado)
 		task.spawn(function()
-			local data = PlayerData.WaitFor(player, 30)
+			local data
+			while player.Parent and started[player] and not data do
+				data = PlayerData.WaitFor(player, 5)
+			end
 			if not data or not player.Parent or not started[player] then
 				return
 			end
 			local saved = data.Gifts
-			if type(saved) == "table" and saved.Day == Shop.DayNumber() then
+			if type(saved) == "table" and saved.Day == days[player] then
 				claimed[player] = math.max(claimed[player], saved.Claimed or 0)
 				started[player] = math.min(started[player], os.clock() - (saved.Seconds or 0))
 				publish(player)
 			end
+			restored[player] = true
 		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
 	end
-	PlayerData.OnLeaving = persist -- antes del guardado final
+	-- Antes del guardado final (al salir o al cerrar el servidor); después se olvida al jugador
+	PlayerData.OnLeaving = function(player)
+		persist(player)
+	end
 	Players.PlayerRemoving:Connect(function(player)
-		started[player] = nil
-		claimed[player] = nil
+		-- Se limpia un poco después para que el guardado final lo encuentre (el orden de los
+		-- eventos de salida no está garantizado)
+		task.delay(5, function()
+			started[player] = nil
+			claimed[player] = nil
+			days[player] = nil
+			restored[player] = nil
+		end)
 	end)
 	-- Guarda el tiempo jugado de vez en cuando (por si el servidor se cierra de golpe)
 	task.spawn(function()
 		while true do
 			task.wait(30)
 			for player in started do
-				persist(player)
+				if player.Parent then
+					persist(player)
+				end
 			end
 		end
 	end)

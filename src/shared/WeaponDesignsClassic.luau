@@ -614,13 +614,14 @@ function Classic.SplatX(pt)
 	end
 	table.insert(p, C("BarrelTip", 0, y, o.Muzzle.Z + 0.06, 0.12, 0.17, "Accent"))
 	-- Depósito de bolas con cuello inclinado y bolas asomando
-	table.insert(p, B("FeedNeck", -0.2, 0.32, 0.0, 0.1, 0.34, 0.12, "Dark", 0, 0, 38))
-	table.insert(p, Ball("Hopper", -0.36, 0.5, 0.0, 0.5, "Accent2"))
-	table.insert(p, CY("HopperRing", -0.36, 0.5, 0.0, 0.08, 0.52, "Dark"))
-	table.insert(p, CY("HopperLid", -0.36, 0.73, 0.0, 0.06, 0.3, "Dark"))
+	-- (más a la izquierda y más bajo para no tapar media pantalla al apuntar)
+	table.insert(p, B("FeedNeck", -0.24, 0.27, -0.1, 0.1, 0.3, 0.12, "Dark", 0, 0, 50))
+	table.insert(p, Ball("Hopper", -0.46, 0.4, -0.1, 0.46, "Accent2"))
+	table.insert(p, CY("HopperRing", -0.46, 0.4, -0.1, 0.08, 0.48, "Dark"))
+	table.insert(p, CY("HopperLid", -0.46, 0.61, -0.1, 0.06, 0.28, "Dark"))
 	-- Bolas de pintura asomando por arriba
 	for i, off in { V(-0.07, 0, 0.06), V(0.07, 0.01, -0.03), V(-0.01, 0.03, -0.09) } do
-		table.insert(p, Ball("PaintBall" .. i, -0.36 + off.X, 0.8 + off.Y, off.Z, 0.12, "Accent"))
+		table.insert(p, Ball("PaintBall" .. i, -0.46 + off.X, 0.68 + off.Y, -0.1 + off.Z, 0.12, "Accent"))
 	end
 	-- Botella de aire detrás (hace de culata)
 	table.insert(p, C("AirTank", 0, -0.02, 0.85, 0.66, 0.26, "Panel"))

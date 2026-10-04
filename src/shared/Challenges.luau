@@ -17,7 +17,7 @@ Challenges.Pool = {
 	{ Id = "Captures", Stat = "Capture", Goal = 2, Text = "Captura 2 banderas", Coins = 250, XP = 400 },
 	{ Id = "Zone", Stat = "ZoneTime", Goal = 60, Text = "Controla la zona 60 segundos", Coins = 200, XP = 300 },
 	{ Id = "Streak", Stat = "Streak", Goal = 5, Text = "Consigue una racha de 5 bajas", Coins = 300, XP = 400 },
-	{ Id = "Rifles", Stat = "Kill", Weapons = { "ARX27", "VortexBR", "TitanLMG" }, Goal = 12, Text = "12 bajas con fusil o ametralladora", Coins = 200, XP = 300 },
+	{ Id = "Rifles", Stat = "Kill", Weapons = { "ARX27", "VortexBR", "TitanLMG", "SplatX" }, Goal = 12, Text = "12 bajas con fusil, ametralladora o paintball", Coins = 200, XP = 300 },
 	{ Id = "SMGs", Stat = "Kill", Weapons = { "Specter9", "NovaDrift" }, Goal = 10, Text = "10 bajas con subfusil", Coins = 200, XP = 300 },
 	{ Id = "Shotguns", Stat = "Kill", Weapons = { "HavocPump", "BreachHammer" }, Goal = 6, Text = "6 bajas con escopeta", Coins = 200, XP = 300 },
 	{ Id = "Snipers", Stat = "Kill", Weapons = { "Signal7", "GhostlineXR", "RaptorDMR" }, Goal = 4, Text = "4 bajas con francotirador o DMR", Coins = 250, XP = 350, MinLevel = 3 },

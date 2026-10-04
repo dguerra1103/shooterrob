@@ -225,7 +225,7 @@ local function paintSplat(anchor, position, normal, isCharacter)
 		Name = "PaintSplat",
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.04, size, size),
-		CFrame = safeLookAt(position + normal * 0.03, normal) * CFrame.Angles(0, math.pi / 2, math.random() * math.pi * 2),
+		CFrame = safeLookAt(position + normal * 0.03, normal) * CFrame.Angles(0, math.pi / 2, 0),
 		Color = color,
 		Material = Enum.Material.SmoothPlastic,
 	})
