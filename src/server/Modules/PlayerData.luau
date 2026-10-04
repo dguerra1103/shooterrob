@@ -75,6 +75,7 @@ local function defaults()
 		TotalKills = 0,
 		Wins = 0,
 		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
+		RankBest = 1, -- rango más alto alcanzado (sus premios ya se dieron)
 		Premium = false,
 		DailyStreak = 0,
 		LastDailyDay = -1,
@@ -366,6 +367,9 @@ local function load(player)
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
 	end
+	if type(merged.RankBest) ~= "number" then
+		merged.RankBest = Ranks.Index(merged.RankPoints)
+	end
 	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
 		merged.EventProgress = { Id = "", Count = 0 }
 	end
@@ -568,9 +572,27 @@ function PlayerData.AddRankPoints(player, delta)
 	if not data or delta == 0 then
 		return 0
 	end
+	matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
-	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	local index = Ranks.Index(data.RankPoints)
+	player:SetAttribute("Rank", index)
+	-- Premios de los rangos alcanzados por primera vez
+	while (data.RankBest or 1) < index do
+		data.RankBest = (data.RankBest or 1) + 1
+		local tier = Ranks.Tiers[data.RankBest]
+		local reward = tier.Reward or {}
+		local text = tier.Icon .. " ¡Rango " .. tier.Name .. "!"
+		if reward.Coins then
+			data.Coins += reward.Coins
+			text ..= "  +" .. reward.Coins .. " 🪙"
+		end
+		if reward.Crates then
+			data.FreeCrates += reward.Crates
+			text ..= "  +" .. reward.Crates .. (reward.Crates == 1 and " caja" or " cajas")
+		end
+		Remotes.Notify:FireClient(player, "Challenge", text)
+	end
 	Badges.Check(player, data)
 	dirty[player] = true
 	sendUpdate(player)

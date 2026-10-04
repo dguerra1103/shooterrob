@@ -209,6 +209,10 @@ function Loadout.Init()
 	end)
 	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
 		player:SetAttribute("InMenu", false)
+		-- Desde cuándo juega esta partida (para el rango; Round lo pone a cero al empezar cada una)
+		if not player:GetAttribute("MatchJoinedAt") then
+			player:SetAttribute("MatchJoinedAt", workspace:GetServerTimeNow())
+		end
 		local shield = player.Character and player.Character:FindFirstChild("MenuShield")
 		if shield then
 			shield:Destroy()

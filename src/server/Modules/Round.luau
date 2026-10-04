@@ -173,6 +173,9 @@ local function resetStats()
 		player:SetAttribute("Captures", 0)
 		player:SetAttribute("Score", 0)
 		player:SetAttribute("GunLevel", 1)
+		-- Participación para el rango: desde cuándo juega esta partida (Loadout lo pone al salir del menú)
+		player:SetAttribute("MatchJoinedAt", if player:GetAttribute("InMenu") then nil else workspace:GetServerTimeNow())
+		player:SetAttribute("ElimPlayed", nil)
 		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
@@ -561,6 +564,7 @@ local function eliminationRounds(s)
 					task.spawn(Respawn.Load, player)
 				end
 				player:SetAttribute("ElimIn", true) -- participa en esta ronda
+				player:SetAttribute("ElimPlayed", true)
 			end
 		end
 		Bots.RespawnDead()
@@ -644,6 +648,45 @@ local function endRound()
 		end
 	end
 	local soloMatch = humans < 2
+	-- Por equipos, si todos los jugadores de verdad están en el mismo equipo, es contra bots
+	-- (para el rango: dos amigos juntos contra bots no suben como en una partida de verdad)
+	local botsOnly = soloMatch
+	if teamMode and not soloMatch then
+		local humansA, humansB = 0, 0
+		for _, player in Players:GetPlayers() do
+			if player:GetAttribute("MatchJoinedAt") then
+				if player.Team == a then
+					humansA += 1
+				elseif player.Team == b then
+					humansB += 1
+				end
+			end
+		end
+		botsOnly = humansA == 0 or humansB == 0
+	end
+	-- Rango: solo para quien ha jugado de verdad (lleva un rato en la partida, ha tenido bajas o
+	-- muertes, o ha jugado alguna ronda de Eliminación). También si ha vuelto al menú (no se esquiva
+	-- la derrota así). Empate (por equipos, o nadie puntúa en todos contra todos) = sin cambios.
+	local now = workspace:GetServerTimeNow()
+	local elim = currentMode == "ELIM"
+	for _, player in Players:GetPlayers() do
+		local joined = player:GetAttribute("MatchJoinedAt")
+		local stats = PlayerData.GetLeaderstats(player)
+		local active = stats.Bajas.Value + stats.Muertes.Value > 0
+		local played = joined ~= nil
+			and (active or (if elim then player:GetAttribute("ElimPlayed") == true else now - joined >= 60))
+		if played then
+			local won
+			if teamMode then
+				won = winner ~= nil and player.Team == winner
+			else
+				won = leader == player and leaderScore > 0
+			end
+			local draw = (teamMode and winner == nil) or (not teamMode and leaderScore <= 0)
+			local result = won and "Win" or (draw and "Draw" or "Loss")
+			PlayerData.AddRankPoints(player, Ranks.Delta(result, not teamMode, botsOnly, mvp == player and mvpScore > 0))
+		end
+	end
 	local winScale = soloMatch and GameConfig.Bots.RewardScale or 1
 
 	-- Premios solo para quien ha jugado (no para quien sigue en la pantalla de inicio)
@@ -657,10 +700,6 @@ local function endRound()
 		else
 			won = leader == player and leaderScore > 0
 		end
-		-- Rango: empate (por equipos) = sin cambios; el MVP gana un poco más
-		local draw = teamMode and winner == nil
-		local result = won and "Win" or (draw and "Draw" or "Loss")
-		PlayerData.AddRankPoints(player, Ranks.Delta(result, not teamMode, soloMatch, mvp == player and mvpScore > 0))
 		if won then
 			PlayerData.AddXP(player, math.floor(GameConfig.XP.Win * winScale), "Victoria")
 			PlayerData.AddCoins(player, math.floor(GameConfig.Coins.Win * winScale))

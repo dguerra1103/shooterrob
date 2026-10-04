@@ -655,17 +655,18 @@ return Outfits
           <string name="Source"><![CDATA[-- Rangos competitivos: puntos de rango (RP) que suben al ganar partidas y bajan un poco al perder.
 -- Nunca se baja de rango (al perder, como mínimo te quedas en el inicio del tuyo).
 -- Se ven en el marcador, en el chat, en el menú y en el resumen de cada partida.
+-- Llegar a un rango por primera vez da su premio (Reward: monedas y cajas gratis).
 local Ranks = {}
 
 local RGB = Color3.fromRGB
 
 Ranks.Tiers = {
 	{ Name = "Bronce", Min = 0, Icon = "🥉", Color = RGB(215, 140, 70) },
-	{ Name = "Plata", Min = 100, Icon = "🥈", Color = RGB(205, 210, 225) },
-	{ Name = "Oro", Min = 250, Icon = "🥇", Color = RGB(255, 200, 60) },
-	{ Name = "Platino", Min = 450, Icon = "💠", Color = RGB(90, 225, 210) },
-	{ Name = "Diamante", Min = 700, Icon = "💎", Color = RGB(110, 170, 255) },
-	{ Name = "Campeón", Min = 1000, Icon = "👑", Color = RGB(255, 90, 200) },
+	{ Name = "Plata", Min = 100, Icon = "🥈", Color = RGB(205, 210, 225), Reward = { Coins = 200 } },
+	{ Name = "Oro", Min = 250, Icon = "🥇", Color = RGB(255, 200, 60), Reward = { Coins = 300, Crates = 1 } },
+	{ Name = "Platino", Min = 450, Icon = "💠", Color = RGB(90, 225, 210), Reward = { Coins = 500 } },
+	{ Name = "Diamante", Min = 700, Icon = "💎", Color = RGB(110, 170, 255), Reward = { Coins = 750, Crates = 2 } },
+	{ Name = "Campeón", Min = 1000, Icon = "👑", Color = RGB(255, 90, 200), Reward = { Coins = 1500, Crates = 3 } },
 }
 
 -- Puntos por partida
@@ -5708,7 +5709,15 @@ local function collect(player, candy)
 		data.EventProgress = { Id = CONFIG.Id, Count = 0 }
 	end
 	if type(data.EventProgress.Claimed) ~= "table" then
-		data.EventProgress.Claimed = {} -- premios por el camino ya dados ("m25" = true)
+		-- Premios por el camino ya dados ("m25" = true). Los que ya se pasaron antes de existir esta
+		-- lista se dieron al llegar justo a su número: se marcan como dados para no pagarlos dos veces
+		local claimed = {}
+		for _, milestone in CONFIG.Milestones or {} do
+			if data.EventProgress.Count >= milestone.Count then
+				claimed["m" .. milestone.Count] = true
+			end
+		end
+		data.EventProgress.Claimed = claimed
 	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count
@@ -7485,6 +7494,10 @@ function Loadout.Init()
 	end)
 	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
 		player:SetAttribute("InMenu", false)
+		-- Desde cuándo juega esta partida (para el rango; Round lo pone a cero al empezar cada una)
+		if not player:GetAttribute("MatchJoinedAt") then
+			player:SetAttribute("MatchJoinedAt", workspace:GetServerTimeNow())
+		end
 		local shield = player.Character and player.Character:FindFirstChild("MenuShield")
 		if shield then
 			shield:Destroy()
@@ -12778,6 +12791,7 @@ local function defaults()
 		TotalKills = 0,
 		Wins = 0,
 		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
+		RankBest = 1, -- rango más alto alcanzado (sus premios ya se dieron)
 		Premium = false,
 		DailyStreak = 0,
 		LastDailyDay = -1,
@@ -13069,6 +13083,9 @@ local function load(player)
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
 	end
+	if type(merged.RankBest) ~= "number" then
+		merged.RankBest = Ranks.Index(merged.RankPoints)
+	end
 	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
 		merged.EventProgress = { Id = "", Count = 0 }
 	end
@@ -13271,9 +13288,27 @@ function PlayerData.AddRankPoints(player, delta)
 	if not data or delta == 0 then
 		return 0
 	end
+	matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
-	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	local index = Ranks.Index(data.RankPoints)
+	player:SetAttribute("Rank", index)
+	-- Premios de los rangos alcanzados por primera vez
+	while (data.RankBest or 1) < index do
+		data.RankBest = (data.RankBest or 1) + 1
+		local tier = Ranks.Tiers[data.RankBest]
+		local reward = tier.Reward or {}
+		local text = tier.Icon .. " ¡Rango " .. tier.Name .. "!"
+		if reward.Coins then
+			data.Coins += reward.Coins
+			text ..= "  +" .. reward.Coins .. " 🪙"
+		end
+		if reward.Crates then
+			data.FreeCrates += reward.Crates
+			text ..= "  +" .. reward.Crates .. (reward.Crates == 1 and " caja" or " cajas")
+		end
+		Remotes.Notify:FireClient(player, "Challenge", text)
+	end
 	Badges.Check(player, data)
 	dirty[player] = true
 	sendUpdate(player)
@@ -14278,6 +14313,9 @@ local function resetStats()
 		player:SetAttribute("Captures", 0)
 		player:SetAttribute("Score", 0)
 		player:SetAttribute("GunLevel", 1)
+		-- Participación para el rango: desde cuándo juega esta partida (Loadout lo pone al salir del menú)
+		player:SetAttribute("MatchJoinedAt", if player:GetAttribute("InMenu") then nil else workspace:GetServerTimeNow())
+		player:SetAttribute("ElimPlayed", nil)
 		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
@@ -14666,6 +14704,7 @@ local function eliminationRounds(s)
 					task.spawn(Respawn.Load, player)
 				end
 				player:SetAttribute("ElimIn", true) -- participa en esta ronda
+				player:SetAttribute("ElimPlayed", true)
 			end
 		end
 		Bots.RespawnDead()
@@ -14749,6 +14788,45 @@ local function endRound()
 		end
 	end
 	local soloMatch = humans < 2
+	-- Por equipos, si todos los jugadores de verdad están en el mismo equipo, es contra bots
+	-- (para el rango: dos amigos juntos contra bots no suben como en una partida de verdad)
+	local botsOnly = soloMatch
+	if teamMode and not soloMatch then
+		local humansA, humansB = 0, 0
+		for _, player in Players:GetPlayers() do
+			if player:GetAttribute("MatchJoinedAt") then
+				if player.Team == a then
+					humansA += 1
+				elseif player.Team == b then
+					humansB += 1
+				end
+			end
+		end
+		botsOnly = humansA == 0 or humansB == 0
+	end
+	-- Rango: solo para quien ha jugado de verdad (lleva un rato en la partida, ha tenido bajas o
+	-- muertes, o ha jugado alguna ronda de Eliminación). También si ha vuelto al menú (no se esquiva
+	-- la derrota así). Empate (por equipos, o nadie puntúa en todos contra todos) = sin cambios.
+	local now = workspace:GetServerTimeNow()
+	local elim = currentMode == "ELIM"
+	for _, player in Players:GetPlayers() do
+		local joined = player:GetAttribute("MatchJoinedAt")
+		local stats = PlayerData.GetLeaderstats(player)
+		local active = stats.Bajas.Value + stats.Muertes.Value > 0
+		local played = joined ~= nil
+			and (active or (if elim then player:GetAttribute("ElimPlayed") == true else now - joined >= 60))
+		if played then
+			local won
+			if teamMode then
+				won = winner ~= nil and player.Team == winner
+			else
+				won = leader == player and leaderScore > 0
+			end
+			local draw = (teamMode and winner == nil) or (not teamMode and leaderScore <= 0)
+			local result = won and "Win" or (draw and "Draw" or "Loss")
+			PlayerData.AddRankPoints(player, Ranks.Delta(result, not teamMode, botsOnly, mvp == player and mvpScore > 0))
+		end
+	end
 	local winScale = soloMatch and GameConfig.Bots.RewardScale or 1
 
 	-- Premios solo para quien ha jugado (no para quien sigue en la pantalla de inicio)
@@ -14762,10 +14840,6 @@ local function endRound()
 		else
 			won = leader == player and leaderScore > 0
 		end
-		-- Rango: empate (por equipos) = sin cambios; el MVP gana un poco más
-		local draw = teamMode and winner == nil
-		local result = won and "Win" or (draw and "Draw" or "Loss")
-		PlayerData.AddRankPoints(player, Ranks.Delta(result, not teamMode, soloMatch, mvp == player and mvpScore > 0))
 		if won then
 			PlayerData.AddXP(player, math.floor(GameConfig.XP.Win * winScale), "Victoria")
 			PlayerData.AddCoins(player, math.floor(GameConfig.Coins.Win * winScale))
@@ -19433,13 +19507,11 @@ local function refreshInfo()
 		local rank = data and Ranks.Get(data.RankPoints)
 		infoLabel.Text = data and rank
 				and string.format(
-					"%s %s (%d RP)  ·  Nivel %d  ·  🪙 %d  ·  %d bajas",
+					"%s %s  ·  Nivel %d  ·  🪙 %d",
 					rank.Icon,
 					rank.Name,
-					data.RankPoints or 0,
 					data.Level,
-					data.Coins,
-					data.TotalKills or 0
+					data.Coins
 				)
 			or "Cargando..."
 	end

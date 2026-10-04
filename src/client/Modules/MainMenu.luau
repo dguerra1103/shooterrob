@@ -94,13 +94,11 @@ local function refreshInfo()
 		local rank = data and Ranks.Get(data.RankPoints)
 		infoLabel.Text = data and rank
 				and string.format(
-					"%s %s (%d RP)  ·  Nivel %d  ·  🪙 %d  ·  %d bajas",
+					"%s %s  ·  Nivel %d  ·  🪙 %d",
 					rank.Icon,
 					rank.Name,
-					data.RankPoints or 0,
 					data.Level,
-					data.Coins,
-					data.TotalKills or 0
+					data.Coins
 				)
 			or "Cargando..."
 	end

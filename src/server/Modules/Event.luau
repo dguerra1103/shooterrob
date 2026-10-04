@@ -83,7 +83,15 @@ local function collect(player, candy)
 		data.EventProgress = { Id = CONFIG.Id, Count = 0 }
 	end
 	if type(data.EventProgress.Claimed) ~= "table" then
-		data.EventProgress.Claimed = {} -- premios por el camino ya dados ("m25" = true)
+		-- Premios por el camino ya dados ("m25" = true). Los que ya se pasaron antes de existir esta
+		-- lista se dieron al llegar justo a su número: se marcan como dados para no pagarlos dos veces
+		local claimed = {}
+		for _, milestone in CONFIG.Milestones or {} do
+			if data.EventProgress.Count >= milestone.Count then
+				claimed["m" .. milestone.Count] = true
+			end
+		end
+		data.EventProgress.Claimed = claimed
 	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count

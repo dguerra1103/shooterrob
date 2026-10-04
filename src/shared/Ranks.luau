@@ -1,17 +1,18 @@
 -- Rangos competitivos: puntos de rango (RP) que suben al ganar partidas y bajan un poco al perder.
 -- Nunca se baja de rango (al perder, como mínimo te quedas en el inicio del tuyo).
 -- Se ven en el marcador, en el chat, en el menú y en el resumen de cada partida.
+-- Llegar a un rango por primera vez da su premio (Reward: monedas y cajas gratis).
 local Ranks = {}
 
 local RGB = Color3.fromRGB
 
 Ranks.Tiers = {
 	{ Name = "Bronce", Min = 0, Icon = "🥉", Color = RGB(215, 140, 70) },
-	{ Name = "Plata", Min = 100, Icon = "🥈", Color = RGB(205, 210, 225) },
-	{ Name = "Oro", Min = 250, Icon = "🥇", Color = RGB(255, 200, 60) },
-	{ Name = "Platino", Min = 450, Icon = "💠", Color = RGB(90, 225, 210) },
-	{ Name = "Diamante", Min = 700, Icon = "💎", Color = RGB(110, 170, 255) },
-	{ Name = "Campeón", Min = 1000, Icon = "👑", Color = RGB(255, 90, 200) },
+	{ Name = "Plata", Min = 100, Icon = "🥈", Color = RGB(205, 210, 225), Reward = { Coins = 200 } },
+	{ Name = "Oro", Min = 250, Icon = "🥇", Color = RGB(255, 200, 60), Reward = { Coins = 300, Crates = 1 } },
+	{ Name = "Platino", Min = 450, Icon = "💠", Color = RGB(90, 225, 210), Reward = { Coins = 500 } },
+	{ Name = "Diamante", Min = 700, Icon = "💎", Color = RGB(110, 170, 255), Reward = { Coins = 750, Crates = 2 } },
+	{ Name = "Campeón", Min = 1000, Icon = "👑", Color = RGB(255, 90, 200), Reward = { Coins = 1500, Crates = 3 } },
 }
 
 -- Puntos por partida
