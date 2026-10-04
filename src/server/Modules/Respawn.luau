@@ -52,6 +52,11 @@ local function load(player)
 end
 Respawn.Load = load
 
+-- ¿Se está cargando su personaje ahora mismo? (Eliminación lo cuenta como vivo)
+function Respawn.IsLoading(player)
+	return loading[player] == true
+end
+
 local function watch(player, character)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid then

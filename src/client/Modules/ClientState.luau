@@ -50,7 +50,7 @@ function ClientState.UpdateMouse()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
-	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes" } do
+	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Scoreboard" } do
 		local button = cas:GetButton(name)
 		if button then
 			button.Visible = not blocked

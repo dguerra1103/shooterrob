@@ -157,11 +157,29 @@ end
 
 local spawnedAt = {} -- [player] = os.clock() de su última aparición
 
+-- En plena ronda de Eliminación, quien no la empezó (y ya salió del menú) entra como espectador hasta
+-- la siguiente: si no, podría aparecer de refresco a mitad de ronda. No cuenta como muerte.
+local function makeSpectatorIfLate(player, character)
+	if not ReplicatedStorage:GetAttribute("NoRespawn") or player:GetAttribute("ElimIn") or player:GetAttribute("InMenu") then
+		return
+	end
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		humanoid:SetAttribute("Spectator", true)
+		humanoid.Health = 0
+	end
+end
+
 local function onPlayer(player)
 	player:SetAttribute("InMenu", true)
 	player.CharacterAdded:Connect(function(character)
 		spawnedAt[player] = os.clock()
 		addMenuShield(player, character)
+		-- (personaje que llega tarde a una ronda de Eliminación ya empezada)
+		task.defer(function()
+			character:WaitForChild("Humanoid", 5)
+			makeSpectatorIfLate(player, character)
+		end)
 		giveLoadout(player, character)
 	end)
 	if player.Character then
@@ -196,13 +214,7 @@ function Loadout.Init()
 		end
 		-- En plena ronda de Eliminación quien no la empezó entra como espectador hasta la siguiente
 		-- (si no, podría aparecer de refresco a mitad de ronda)
-		if ReplicatedStorage:GetAttribute("NoRespawn") and not player:GetAttribute("ElimIn") then
-			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
-				humanoid:SetAttribute("Spectator", true) -- no cuenta como muerte
-				humanoid.Health = 0
-			end
-		end
+		makeSpectatorIfLate(player, player.Character)
 	end)
 	Players.PlayerAdded:Connect(onPlayer)
 	Players.PlayerRemoving:Connect(function(player)

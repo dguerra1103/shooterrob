@@ -474,8 +474,10 @@ local function aliveCount(team)
 	for _, player in team:GetPlayers() do
 		if player:GetAttribute("ElimIn") then
 			members += 1
+			-- Quien vuelve al menú no cuenta como vivo (si no, su equipo no se podría eliminar);
+			-- quien está reapareciendo justo al empezar, sí
 			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
+			if not player:GetAttribute("InMenu") and (Respawn.IsLoading(player) or (humanoid and humanoid.Health > 0)) then
 				alive += 1
 			end
 		end

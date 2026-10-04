@@ -24,6 +24,7 @@ local PlayerData = {}
 -- Callbacks que otros módulos pueden asignar
 PlayerData.OnSkinChanged = nil -- function(player, skinId)
 PlayerData.OnOutfitChanged = nil -- function(player, outfitId)
+PlayerData.OnLeaving = nil :: ((player: Player) -> ())? -- justo antes del guardado final al salir
 
 local store
 do
@@ -81,6 +82,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
+		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -317,6 +319,9 @@ local function load(player)
 	if type(merged.Settings) ~= "table" then
 		merged.Settings = table.clone(GameConfig.DefaultSettings)
 	end
+	if type(merged.Gifts) ~= "table" or type(merged.Gifts.Claimed) ~= "number" or type(merged.Gifts.Seconds) ~= "number" then
+		merged.Gifts = { Day = -1, Claimed = 0, Seconds = 0 }
+	end
 	-- Antes la calidad por defecto era "Alta" (daba lag en equipos modestos): pasa a "Auto" una vez
 	if merged.Settings.QualityVersion ~= GameConfig.DefaultSettings.QualityVersion then
 		merged.Settings.Quality = "Auto"
@@ -428,7 +433,13 @@ local function multiplier(player)
 	return player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
 end
 
--- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
+-- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
+function PlayerData.MarkDirty(player)
+	if profiles[player] then
+		dirty[player] = true
+	end
+end
+
 -- Da revivir instantáneos (regalos por tiempo jugado)
 function PlayerData.AddRevives(player, amount)
 	local data = profiles[player]
@@ -440,6 +451,7 @@ function PlayerData.AddRevives(player, amount)
 	sendUpdate(player)
 end
 
+-- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
 function PlayerData.UseRevive(player)
 	local data = profiles[player]
 	if not data or (data.Revives or 0) <= 0 then
@@ -895,6 +907,10 @@ function PlayerData.Init()
 	local pending = 0
 	Players.PlayerRemoving:Connect(function(player)
 		pending += 1
+		-- Últimos cambios de otros módulos antes del guardado final (p. ej. el tiempo de los regalos)
+		if PlayerData.OnLeaving then
+			pcall(PlayerData.OnLeaving, player)
+		end
 		save(player, true)
 		pending -= 1
 		profiles[player] = nil

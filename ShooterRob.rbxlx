@@ -5618,20 +5618,38 @@ return Flags
             <string name="Name">Gifts</string>
             <string name="Source"><![CDATA[-- Regalos por tiempo jugado (GameConfig.PlaytimeGifts): cada pocos minutos de sesión hay un regalo
 -- que se recoge con el botón 🎁 (monedas, XP o revivir instantáneos). El servidor cuenta el tiempo.
--- Atributos del jugador para la interfaz: GiftStart (hora del servidor al entrar) y GiftsClaimed.
+-- El progreso del día (regalos recogidos y tiempo jugado) se guarda con el resto de datos, así que
+-- salir y volver a entrar no reinicia la cuenta: al día siguiente empieza de cero.
+-- Atributos del jugador para la interfaz: GiftStart (hora del servidor equivalente al inicio de la
+-- cuenta) y GiftsClaimed.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
+local Shop = require(Shared.Shop)
 
 local PlayerData = require(script.Parent.PlayerData)
 
 local Gifts = {}
 
-local started = {} -- [player] = os.clock() al entrar
-local claimed = {} -- [player] = regalos recogidos
+local started = {} -- [player] = os.clock() equivalente al inicio de la cuenta de hoy
+local claimed = {} -- [player] = regalos recogidos hoy
+
+-- Copia el progreso a los datos guardados
+local function persist(player)
+	local data = PlayerData.Get(player)
+	if data and started[player] then
+		data.Gifts = { Day = Shop.DayNumber(), Claimed = claimed[player] or 0, Seconds = math.floor(os.clock() - started[player]) }
+		PlayerData.MarkDirty(player)
+	end
+end
+
+local function publish(player)
+	player:SetAttribute("GiftStart", workspace:GetServerTimeNow() - (os.clock() - started[player]))
+	player:SetAttribute("GiftsClaimed", claimed[player] or 0)
+end
 
 local function describe(gift)
 	local parts = {}
@@ -5662,6 +5680,7 @@ local function claim(player)
 	end
 	claimed[player] = index
 	player:SetAttribute("GiftsClaimed", index)
+	persist(player)
 	if gift.Coins then
 		PlayerData.AddCoins(player, gift.Coins, false)
 	end
@@ -5680,16 +5699,38 @@ function Gifts.Init()
 	local function onPlayer(player)
 		started[player] = os.clock()
 		claimed[player] = 0
-		player:SetAttribute("GiftStart", workspace:GetServerTimeNow())
-		player:SetAttribute("GiftsClaimed", 0)
+		publish(player)
+		-- Recupera el progreso de hoy (si ya jugó hoy en otro servidor o antes de salir)
+		task.spawn(function()
+			local data = PlayerData.WaitFor(player, 30)
+			if not data or not player.Parent or not started[player] then
+				return
+			end
+			local saved = data.Gifts
+			if type(saved) == "table" and saved.Day == Shop.DayNumber() then
+				claimed[player] = math.max(claimed[player], saved.Claimed or 0)
+				started[player] = math.min(started[player], os.clock() - (saved.Seconds or 0))
+				publish(player)
+			end
+		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
 	end
+	PlayerData.OnLeaving = persist -- antes del guardado final
 	Players.PlayerRemoving:Connect(function(player)
 		started[player] = nil
 		claimed[player] = nil
+	end)
+	-- Guarda el tiempo jugado de vez en cuando (por si el servidor se cierra de golpe)
+	task.spawn(function()
+		while true do
+			task.wait(30)
+			for player in started do
+				persist(player)
+			end
+		end
 	end)
 end
 
@@ -6598,11 +6639,29 @@ end
 
 local spawnedAt = {} -- [player] = os.clock() de su última aparición
 
+-- En plena ronda de Eliminación, quien no la empezó (y ya salió del menú) entra como espectador hasta
+-- la siguiente: si no, podría aparecer de refresco a mitad de ronda. No cuenta como muerte.
+local function makeSpectatorIfLate(player, character)
+	if not ReplicatedStorage:GetAttribute("NoRespawn") or player:GetAttribute("ElimIn") or player:GetAttribute("InMenu") then
+		return
+	end
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		humanoid:SetAttribute("Spectator", true)
+		humanoid.Health = 0
+	end
+end
+
 local function onPlayer(player)
 	player:SetAttribute("InMenu", true)
 	player.CharacterAdded:Connect(function(character)
 		spawnedAt[player] = os.clock()
 		addMenuShield(player, character)
+		-- (personaje que llega tarde a una ronda de Eliminación ya empezada)
+		task.defer(function()
+			character:WaitForChild("Humanoid", 5)
+			makeSpectatorIfLate(player, character)
+		end)
 		giveLoadout(player, character)
 	end)
 	if player.Character then
@@ -6637,13 +6696,7 @@ function Loadout.Init()
 		end
 		-- En plena ronda de Eliminación quien no la empezó entra como espectador hasta la siguiente
 		-- (si no, podría aparecer de refresco a mitad de ronda)
-		if ReplicatedStorage:GetAttribute("NoRespawn") and not player:GetAttribute("ElimIn") then
-			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
-				humanoid:SetAttribute("Spectator", true) -- no cuenta como muerte
-				humanoid.Health = 0
-			end
-		end
+		makeSpectatorIfLate(player, player.Character)
 	end)
 	Players.PlayerAdded:Connect(onPlayer)
 	Players.PlayerRemoving:Connect(function(player)
@@ -11315,6 +11368,7 @@ local PlayerData = {}
 -- Callbacks que otros módulos pueden asignar
 PlayerData.OnSkinChanged = nil -- function(player, skinId)
 PlayerData.OnOutfitChanged = nil -- function(player, outfitId)
+PlayerData.OnLeaving = nil :: ((player: Player) -> ())? -- justo antes del guardado final al salir
 
 local store
 do
@@ -11372,6 +11426,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
+		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -11608,6 +11663,9 @@ local function load(player)
 	if type(merged.Settings) ~= "table" then
 		merged.Settings = table.clone(GameConfig.DefaultSettings)
 	end
+	if type(merged.Gifts) ~= "table" or type(merged.Gifts.Claimed) ~= "number" or type(merged.Gifts.Seconds) ~= "number" then
+		merged.Gifts = { Day = -1, Claimed = 0, Seconds = 0 }
+	end
 	-- Antes la calidad por defecto era "Alta" (daba lag en equipos modestos): pasa a "Auto" una vez
 	if merged.Settings.QualityVersion ~= GameConfig.DefaultSettings.QualityVersion then
 		merged.Settings.Quality = "Auto"
@@ -11719,7 +11777,13 @@ local function multiplier(player)
 	return player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
 end
 
--- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
+-- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
+function PlayerData.MarkDirty(player)
+	if profiles[player] then
+		dirty[player] = true
+	end
+end
+
 -- Da revivir instantáneos (regalos por tiempo jugado)
 function PlayerData.AddRevives(player, amount)
 	local data = profiles[player]
@@ -11731,6 +11795,7 @@ function PlayerData.AddRevives(player, amount)
 	sendUpdate(player)
 end
 
+-- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
 function PlayerData.UseRevive(player)
 	local data = profiles[player]
 	if not data or (data.Revives or 0) <= 0 then
@@ -12186,6 +12251,10 @@ function PlayerData.Init()
 	local pending = 0
 	Players.PlayerRemoving:Connect(function(player)
 		pending += 1
+		-- Últimos cambios de otros módulos antes del guardado final (p. ej. el tiempo de los regalos)
+		if PlayerData.OnLeaving then
+			pcall(PlayerData.OnLeaving, player)
+		end
 		save(player, true)
 		pending -= 1
 		profiles[player] = nil
@@ -12431,6 +12500,11 @@ local function load(player)
 	end
 end
 Respawn.Load = load
+
+-- ¿Se está cargando su personaje ahora mismo? (Eliminación lo cuenta como vivo)
+function Respawn.IsLoading(player)
+	return loading[player] == true
+end
 
 local function watch(player, character)
 	local humanoid = character:WaitForChild("Humanoid", 10)
@@ -13050,8 +13124,10 @@ local function aliveCount(team)
 	for _, player in team:GetPlayers() do
 		if player:GetAttribute("ElimIn") then
 			members += 1
+			-- Quien vuelve al menú no cuenta como vivo (si no, su equipo no se podría eliminar);
+			-- quien está reapareciendo justo al empezar, sí
 			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
+			if not player:GetAttribute("InMenu") and (Respawn.IsLoading(player) or (humanoid and humanoid.Health > 0)) then
 				alive += 1
 			end
 		end
@@ -13836,7 +13912,7 @@ function ClientState.UpdateMouse()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
-	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes" } do
+	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Scoreboard" } do
 		local button = cas:GetButton(name)
 		if button then
 			button.Visible = not blocked
@@ -17750,7 +17826,8 @@ local function play()
 		camera.CameraType = Enum.CameraType.Custom
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
+		-- (si ya estás en la pantalla de muerte, la cámara es suya: observando a un compañero)
+		if humanoid and not ClientState.Dead then
 			camera.CameraSubject = humanoid
 		end
 		local ctrl = getControls()
@@ -20013,8 +20090,8 @@ local function onCharacter(newCharacter)
 	end
 	ClientState.Sliding = false
 	iceMover = nil -- era del personaje anterior
-	wasFrozen = false -- el humanoide nuevo empieza con el salto activado
 	humanoid = newCharacter:WaitForChild("Humanoid")
+	wasFrozen = false -- el humanoide nuevo empieza con el salto activado (después de cambiarlo)
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
 end
@@ -20069,6 +20146,7 @@ return Movement
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -20088,6 +20166,8 @@ local WAITING = Color3.fromRGB(45, 50, 80)
 
 local gui, button, icon, label, sub, scale
 local claiming = false
+local message, messageUntil = nil, 0 -- aviso breve si el servidor no deja recogerlo
+local compact = false -- móvil: solo el icono y el tiempo (arriba a la izquierda)
 
 local function rewardText(gift)
 	local parts = {}
@@ -20122,8 +20202,12 @@ local function update()
 	end
 	local ready = left <= 0
 	button.BackgroundColor3 = ready and READY or WAITING
-	label.Text = ready and "¡RECOGER! (H)" or ("REGALO EN " .. UI.formatTime(left))
-	sub.Text = rewardText(gift)
+	if compact then
+		label.Text = ready and "¡YA!" or UI.formatTime(left)
+	else
+		label.Text = ready and "¡RECOGER! (H)" or ("REGALO EN " .. UI.formatTime(left))
+	end
+	sub.Text = (message and os.clock() < messageUntil) and message or rewardText(gift)
 	-- Late cuando está listo
 	scale.Scale = ready and (1 + math.sin(os.clock() * 6) * 0.05) or 1
 	icon.Rotation = ready and math.sin(os.clock() * 10) * 12 or 0
@@ -20136,10 +20220,13 @@ local function claim()
 	end
 	claiming = true
 	Sounds.Play("Click")
-	local ok, result = pcall(function()
+	local ok, result, reason = pcall(function()
 		return Remotes.ClaimGift:InvokeServer()
 	end)
 	claiming = false
+	if not (ok and result) then
+		message, messageUntil = (ok and type(reason) == "string") and reason or "Inténtalo otra vez", os.clock() + 2
+	end
 	if ok and result then
 		Sounds.Play("Flag")
 		-- Pequeño salto del botón al recogerlo
@@ -20152,13 +20239,16 @@ function PlaytimeGifts.Init()
 	gui = UI.new("ScreenGui", {
 		Name = "PlaytimeGifts",
 		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	-- En móvil: botón pequeño arriba a la izquierda (abajo está el joystick y los retos ocupan el centro)
+	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	button = UI.button({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 66, 0.38, 112),
-		Size = UDim2.fromOffset(230, 56),
+		Position = compact and UDim2.fromOffset(10, 56) or UDim2.new(0, 66, 0.38, 112),
+		Size = compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56),
 		Text = "",
 		BackgroundColor3 = WAITING,
 		BackgroundTransparency = 0.1,
@@ -20189,6 +20279,14 @@ function PlaytimeGifts.Init()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = button,
 	})
+	if compact then
+		-- Icono arriba y el tiempo debajo, sin la línea del premio
+		icon.Position, icon.Size, icon.TextSize = UDim2.fromOffset(0, 2), UDim2.new(1, 0, 0, 38), 30
+		label.Position, label.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 20)
+		label.TextXAlignment = Enum.TextXAlignment.Center
+		label.TextSize = 15
+		sub.Visible = false
+	end
 	button.Activated:Connect(claim)
 	ContextActionService:BindAction("ClaimGift", function(_, state)
 		if state == Enum.UserInputState.Begin and gui.Enabled and not ClientState.IsBlocked() then
@@ -20517,8 +20615,15 @@ local function buildColumn(x, width, headerText, headerColor, rows, thirdTitle, 
 	})
 	header(column, headerText, headerColor)
 	columnTitles(column, 38, thirdTitle)
-	for i = 1, math.min(#rows, MAX_ROWS) do
-		rowFrame(column, 60 + (i - 1) * ROW_HEIGHT, rows[i], thirdOf(rows[i]), headerColor:Lerp(Color3.new(0, 0, 0), 0.4))
+	-- Si no caben todos, tu fila siempre sale (en el último hueco)
+	local shown = table.move(rows, 1, math.min(#rows, MAX_ROWS), 1, {})
+	for i = MAX_ROWS + 1, #rows do
+		if rows[i].IsMe then
+			shown[MAX_ROWS] = rows[i]
+		end
+	end
+	for i, row in shown do
+		rowFrame(column, 60 + (i - 1) * ROW_HEIGHT, row, thirdOf(row), headerColor:Lerp(Color3.new(0, 0, 0), 0.4))
 	end
 	return column
 end
@@ -20648,6 +20753,12 @@ function Scoreboard.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, UserInputService.TouchEnabled, Enum.KeyCode.Tab)
+	-- Si la ventana pierde el foco con Tab pulsado, no llega el "soltar": se cierra igualmente
+	UserInputService.WindowFocusReleased:Connect(function()
+		if not UserInputService.TouchEnabled then
+			setVisible(false)
+		end
+	end)
 	ContextActionService:SetTitle("Scoreboard", "📋")
 	ContextActionService:SetPosition("Scoreboard", UDim2.new(1, -60, 0, 70))
 

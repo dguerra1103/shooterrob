@@ -241,8 +241,8 @@ local function onCharacter(newCharacter)
 	end
 	ClientState.Sliding = false
 	iceMover = nil -- era del personaje anterior
-	wasFrozen = false -- el humanoide nuevo empieza con el salto activado
 	humanoid = newCharacter:WaitForChild("Humanoid")
+	wasFrozen = false -- el humanoide nuevo empieza con el salto activado (después de cambiarlo)
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
 end

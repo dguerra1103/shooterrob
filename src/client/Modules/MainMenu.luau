@@ -277,7 +277,8 @@ local function play()
 		camera.CameraType = Enum.CameraType.Custom
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
+		-- (si ya estás en la pantalla de muerte, la cámara es suya: observando a un compañero)
+		if humanoid and not ClientState.Dead then
 			camera.CameraSubject = humanoid
 		end
 		local ctrl = getControls()

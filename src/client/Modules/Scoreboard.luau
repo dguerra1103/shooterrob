@@ -134,8 +134,15 @@ local function buildColumn(x, width, headerText, headerColor, rows, thirdTitle, 
 	})
 	header(column, headerText, headerColor)
 	columnTitles(column, 38, thirdTitle)
-	for i = 1, math.min(#rows, MAX_ROWS) do
-		rowFrame(column, 60 + (i - 1) * ROW_HEIGHT, rows[i], thirdOf(rows[i]), headerColor:Lerp(Color3.new(0, 0, 0), 0.4))
+	-- Si no caben todos, tu fila siempre sale (en el último hueco)
+	local shown = table.move(rows, 1, math.min(#rows, MAX_ROWS), 1, {})
+	for i = MAX_ROWS + 1, #rows do
+		if rows[i].IsMe then
+			shown[MAX_ROWS] = rows[i]
+		end
+	end
+	for i, row in shown do
+		rowFrame(column, 60 + (i - 1) * ROW_HEIGHT, row, thirdOf(row), headerColor:Lerp(Color3.new(0, 0, 0), 0.4))
 	end
 	return column
 end
@@ -265,6 +272,12 @@ function Scoreboard.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, UserInputService.TouchEnabled, Enum.KeyCode.Tab)
+	-- Si la ventana pierde el foco con Tab pulsado, no llega el "soltar": se cierra igualmente
+	UserInputService.WindowFocusReleased:Connect(function()
+		if not UserInputService.TouchEnabled then
+			setVisible(false)
+		end
+	end)
 	ContextActionService:SetTitle("Scoreboard", "📋")
 	ContextActionService:SetPosition("Scoreboard", UDim2.new(1, -60, 0, 70))
 

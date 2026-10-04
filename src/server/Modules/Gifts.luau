@@ -1,19 +1,37 @@
 -- Regalos por tiempo jugado (GameConfig.PlaytimeGifts): cada pocos minutos de sesión hay un regalo
 -- que se recoge con el botón 🎁 (monedas, XP o revivir instantáneos). El servidor cuenta el tiempo.
--- Atributos del jugador para la interfaz: GiftStart (hora del servidor al entrar) y GiftsClaimed.
+-- El progreso del día (regalos recogidos y tiempo jugado) se guarda con el resto de datos, así que
+-- salir y volver a entrar no reinicia la cuenta: al día siguiente empieza de cero.
+-- Atributos del jugador para la interfaz: GiftStart (hora del servidor equivalente al inicio de la
+-- cuenta) y GiftsClaimed.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
+local Shop = require(Shared.Shop)
 
 local PlayerData = require(script.Parent.PlayerData)
 
 local Gifts = {}
 
-local started = {} -- [player] = os.clock() al entrar
-local claimed = {} -- [player] = regalos recogidos
+local started = {} -- [player] = os.clock() equivalente al inicio de la cuenta de hoy
+local claimed = {} -- [player] = regalos recogidos hoy
+
+-- Copia el progreso a los datos guardados
+local function persist(player)
+	local data = PlayerData.Get(player)
+	if data and started[player] then
+		data.Gifts = { Day = Shop.DayNumber(), Claimed = claimed[player] or 0, Seconds = math.floor(os.clock() - started[player]) }
+		PlayerData.MarkDirty(player)
+	end
+end
+
+local function publish(player)
+	player:SetAttribute("GiftStart", workspace:GetServerTimeNow() - (os.clock() - started[player]))
+	player:SetAttribute("GiftsClaimed", claimed[player] or 0)
+end
 
 local function describe(gift)
 	local parts = {}
@@ -44,6 +62,7 @@ local function claim(player)
 	end
 	claimed[player] = index
 	player:SetAttribute("GiftsClaimed", index)
+	persist(player)
 	if gift.Coins then
 		PlayerData.AddCoins(player, gift.Coins, false)
 	end
@@ -62,16 +81,38 @@ function Gifts.Init()
 	local function onPlayer(player)
 		started[player] = os.clock()
 		claimed[player] = 0
-		player:SetAttribute("GiftStart", workspace:GetServerTimeNow())
-		player:SetAttribute("GiftsClaimed", 0)
+		publish(player)
+		-- Recupera el progreso de hoy (si ya jugó hoy en otro servidor o antes de salir)
+		task.spawn(function()
+			local data = PlayerData.WaitFor(player, 30)
+			if not data or not player.Parent or not started[player] then
+				return
+			end
+			local saved = data.Gifts
+			if type(saved) == "table" and saved.Day == Shop.DayNumber() then
+				claimed[player] = math.max(claimed[player], saved.Claimed or 0)
+				started[player] = math.min(started[player], os.clock() - (saved.Seconds or 0))
+				publish(player)
+			end
+		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
 	end
+	PlayerData.OnLeaving = persist -- antes del guardado final
 	Players.PlayerRemoving:Connect(function(player)
 		started[player] = nil
 		claimed[player] = nil
+	end)
+	-- Guarda el tiempo jugado de vez en cuando (por si el servidor se cierra de golpe)
+	task.spawn(function()
+		while true do
+			task.wait(30)
+			for player in started do
+				persist(player)
+			end
+		end
 	end)
 end
 

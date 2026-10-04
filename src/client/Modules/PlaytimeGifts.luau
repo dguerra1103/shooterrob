@@ -4,6 +4,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -23,6 +24,8 @@ local WAITING = Color3.fromRGB(45, 50, 80)
 
 local gui, button, icon, label, sub, scale
 local claiming = false
+local message, messageUntil = nil, 0 -- aviso breve si el servidor no deja recogerlo
+local compact = false -- móvil: solo el icono y el tiempo (arriba a la izquierda)
 
 local function rewardText(gift)
 	local parts = {}
@@ -57,8 +60,12 @@ local function update()
 	end
 	local ready = left <= 0
 	button.BackgroundColor3 = ready and READY or WAITING
-	label.Text = ready and "¡RECOGER! (H)" or ("REGALO EN " .. UI.formatTime(left))
-	sub.Text = rewardText(gift)
+	if compact then
+		label.Text = ready and "¡YA!" or UI.formatTime(left)
+	else
+		label.Text = ready and "¡RECOGER! (H)" or ("REGALO EN " .. UI.formatTime(left))
+	end
+	sub.Text = (message and os.clock() < messageUntil) and message or rewardText(gift)
 	-- Late cuando está listo
 	scale.Scale = ready and (1 + math.sin(os.clock() * 6) * 0.05) or 1
 	icon.Rotation = ready and math.sin(os.clock() * 10) * 12 or 0
@@ -71,10 +78,13 @@ local function claim()
 	end
 	claiming = true
 	Sounds.Play("Click")
-	local ok, result = pcall(function()
+	local ok, result, reason = pcall(function()
 		return Remotes.ClaimGift:InvokeServer()
 	end)
 	claiming = false
+	if not (ok and result) then
+		message, messageUntil = (ok and type(reason) == "string") and reason or "Inténtalo otra vez", os.clock() + 2
+	end
 	if ok and result then
 		Sounds.Play("Flag")
 		-- Pequeño salto del botón al recogerlo
@@ -87,13 +97,16 @@ function PlaytimeGifts.Init()
 	gui = UI.new("ScreenGui", {
 		Name = "PlaytimeGifts",
 		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	-- En móvil: botón pequeño arriba a la izquierda (abajo está el joystick y los retos ocupan el centro)
+	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	button = UI.button({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = UDim2.new(0, 66, 0.38, 112),
-		Size = UDim2.fromOffset(230, 56),
+		Position = compact and UDim2.fromOffset(10, 56) or UDim2.new(0, 66, 0.38, 112),
+		Size = compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56),
 		Text = "",
 		BackgroundColor3 = WAITING,
 		BackgroundTransparency = 0.1,
@@ -124,6 +137,14 @@ function PlaytimeGifts.Init()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = button,
 	})
+	if compact then
+		-- Icono arriba y el tiempo debajo, sin la línea del premio
+		icon.Position, icon.Size, icon.TextSize = UDim2.fromOffset(0, 2), UDim2.new(1, 0, 0, 38), 30
+		label.Position, label.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 20)
+		label.TextXAlignment = Enum.TextXAlignment.Center
+		label.TextSize = 15
+		sub.Visible = false
+	end
 	button.Activated:Connect(claim)
 	ContextActionService:BindAction("ClaimGift", function(_, state)
 		if state == Enum.UserInputState.Begin and gui.Enabled and not ClientState.IsBlocked() then
