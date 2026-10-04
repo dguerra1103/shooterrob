@@ -71,7 +71,12 @@ for _, name in {
 		CARTOON_FLAT[material] = true
 	end
 end
-local KEEP_LOOK = { ContactShadow = true, OilStain = true, Crack = true, Joint = true, TireMark = true, Puddle = true }
+local KEEP_LOOK = {
+	ContactShadow = true, OilStain = true, Crack = true, Joint = true, TireMark = true, Puddle = true,
+	-- Nata y caramelo blanco de Arena Caramelo (si no, el blanco se volvería lavanda)
+	CandyWhite = true, CakeFrosting = true, FrostingDrip = true, GumdropShine = true,
+	LollipopStick = true, LollipopSwirl = true, CottonStick = true,
+}
 
 function Kit.vivid(color)
 	local h, s, v = color:ToHSV()

@@ -376,7 +376,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "9 MAPAS  ·  6 MODOS  ·  14 ARMAS  ·  HABILIDADES",
+		Text = "10 MAPAS  ·  6 MODOS  ·  14 ARMAS  ·  HABILIDADES",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -386,7 +386,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🆕 NUEVO: Modo Eliminación · Bots · Playa Tiki · Jardín Sakura",
+		Text = "🆕 NUEVO: Modo Eliminación · Arena Caramelo · Bots",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
