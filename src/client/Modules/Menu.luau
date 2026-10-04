@@ -1839,11 +1839,11 @@ local function buildShopPage(data)
 	end
 
 	-- Packs de temporada (compra única, solo en sus fechas; el servidor dice cuáles se ofrecen)
-	for _, bundle in Shop.Bundles do
+	for bundleIndex, bundle in ipairs(Shop.Bundles) do
 	if table.find(data.BundlesAvailable or {}, bundle.Id) and os.time() < (bundle.EndsAt or math.huge) then
-		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
+		local daysLeft = bundle.EndsAt and math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400)) or 99
 		local card = UI.new("Frame", {
-			LayoutOrder = -1,
+			LayoutOrder = -10 + bundleIndex,
 			Size = UDim2.new(1, -10, 0, 130),
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			Parent = scroll,

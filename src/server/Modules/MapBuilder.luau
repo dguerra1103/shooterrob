@@ -12,11 +12,25 @@ for _, module in script.Parent.MapDefs:GetChildren() do
 end
 
 -- Orden de rotación (también son las opciones de la votación)
-MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "HauntedManor", "MoonBase", "Carnival", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
+MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "HauntedManor", "MoonBase", "Carnival", "ChristmasVillage", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
 
 MapBuilder.Current = nil
--- (la pantalla de inicio dice cuántos mapas hay)
-game:GetService("ReplicatedStorage"):SetAttribute("MapCount", #MapBuilder.Order)
+
+-- ¿Puede salir este mapa ahora? Los de temporada (Season = nombre del evento) solo con su evento
+-- en marcha (atributo EventName que pone Event)
+function MapBuilder.InSeason(id)
+	local def = MapBuilder.Defs[id]
+	return def == nil or def.Season == nil or ReplicatedStorage:GetAttribute("EventName") == def.Season
+end
+
+-- (la pantalla de inicio dice cuántos mapas hay: los de siempre)
+local permanent = 0
+for _, id in MapBuilder.Order do
+	if MapBuilder.Defs[id] and not MapBuilder.Defs[id].Season then
+		permanent += 1
+	end
+end
+ReplicatedStorage:SetAttribute("MapCount", permanent)
 
 -- ¿Hay un mapa hecho a mano en Studio?
 function MapBuilder.IsCustom()

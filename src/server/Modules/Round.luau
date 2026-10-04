@@ -496,7 +496,12 @@ local function availableModes(mapId)
 end
 
 local function makeVoteOptions()
-	local maps = table.clone(MapBuilder.Order)
+	local maps = {}
+	for _, id in MapBuilder.Order do
+		if MapBuilder.InSeason(id) then -- (los mapas de temporada, solo en su evento)
+			table.insert(maps, id)
+		end
+	end
 	if MapBuilder.IsCustom() then
 		maps = { "Custom" }
 	end

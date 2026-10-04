@@ -520,7 +520,7 @@ local function load(player)
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
 	PlayerData.PublishTitle(player)
 	grantTierRewards(player)
-	if isNew then
+	if isNew and not noSave[player] then -- (si no se pudieron cargar sus datos, quizá no es nuevo)
 		PlayerData.HandleReferral(player)
 	end
 	sendUpdate(player)
@@ -546,7 +546,8 @@ function PlayerData.HandleReferral(player)
 	local given = PlayerData.AddCoins(player, config.NewPlayerCoins or 0, false)
 	Remotes.Notify:FireClient(player, "Big", "👥 ¡Te invitó " .. (inviter and inviter.DisplayName or "un amigo") .. "! +" .. given .. " 🪙")
 	local inviterData = inviter and profiles[inviter]
-	if inviterData and (inviterData.Referrals or 0) < (config.MaxRewards or 0) then
+	-- (cuentas recién creadas no dan premio al que invita: así no se abusa con cuentas de usar y tirar)
+	if inviterData and (inviterData.Referrals or 0) < (config.MaxRewards or 0) and (player.AccountAge or 0) >= (config.MinAccountAge or 0) then
 		inviterData.Referrals = (inviterData.Referrals or 0) + 1
 		local bonus = PlayerData.AddCoins(inviter, config.InviterCoins or 0, false)
 		dirty[inviter] = true

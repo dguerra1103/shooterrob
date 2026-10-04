@@ -305,6 +305,7 @@ GameConfig.Referral = {
 	NewPlayerCoins = 500,
 	InviterCoins = 500,
 	MaxRewards = 10,
+	MinAccountAge = 3, -- días que debe tener la cuenta del nuevo para que el que invita cobre
 }
 
 -- "SE BUSCA": quien llega a una racha de Streak bajas lleva una recompensa encima (todos lo ven
