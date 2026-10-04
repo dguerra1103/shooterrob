@@ -92,6 +92,7 @@ GameConfig.Event = {
 	SpawnEvery = 12, -- segundos entre caramelos
 	MaxCandies = 6, -- a la vez en el mapa
 	Pumpkins = true, -- calabazas de decoración en los mapas
+	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
 }
 
 -- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)

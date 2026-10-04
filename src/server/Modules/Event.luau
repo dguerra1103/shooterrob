@@ -32,7 +32,7 @@ local LIFETIME = 60 -- segundos que dura un caramelo sin recoger
 local PICKUP_RANGE = 9 -- distancia máxima real al caramelo (contra trampas de "toque" a distancia)
 
 local function enabled()
-	return CONFIG and CONFIG.Enabled
+	return CONFIG and CONFIG.Enabled and (CONFIG.EndsAt == nil or os.time() < CONFIG.EndsAt)
 end
 
 -- Puntos libres del mapa actual (FFASpawn)
@@ -257,6 +257,12 @@ function Event.Init()
 	task.spawn(function()
 		while true do
 			task.wait(CONFIG.SpawnEvery)
+			-- Se acabó la fecha del evento con el servidor encendido: fuera caramelos y contador
+			if not enabled() then
+				clear()
+				ReplicatedStorage:SetAttribute("EventName", nil)
+				return
+			end
 			local playing = ReplicatedStorage:GetAttribute("State") == "Playing" and not ReplicatedStorage:GetAttribute("Frozen")
 			if playing and #candies < CONFIG.MaxCandies then
 				local ok, err = pcall(spawnCandy)
