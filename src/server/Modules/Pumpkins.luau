@@ -18,15 +18,23 @@ local folder
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Include
 
--- Suelo bajo el punto (quien cae en el aire suelta la calabaza en el suelo)
+-- Suelo bajo el punto (quien cae en el aire suelta la calabaza en el suelo). nil si debajo no hay
+-- suelo o es lava (nadie podría recogerla y los bots se lanzarían a por ella)
 local function groundBelow(position)
 	local map = workspace:FindFirstChild("Map")
 	if not map then
 		return position
 	end
-	rayParams.FilterDescendantsInstances = { map }
+	rayParams.FilterDescendantsInstances = { map, workspace.Terrain } -- (algunos mapas tienen suelo de terreno)
 	local hit = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -60, 0), rayParams)
-	return hit and hit.Position or position
+	if not hit then
+		return nil
+	end
+	local part = hit.Instance
+	if part:GetAttribute("Hazard") or hit.Material == Enum.Material.CrackedLava or part.Name == "Lava" then
+		return nil
+	end
+	return hit.Position
 end
 
 local function build(position, team)
@@ -89,6 +97,9 @@ function Pumpkins.Drop(position, team)
 		return
 	end
 	local ground = groundBelow(position)
+	if not ground then
+		return
+	end
 	table.insert(active, { Model = build(ground, team), Position = ground, Team = team, Expires = os.clock() + LIFETIME })
 end
 

@@ -11,7 +11,7 @@ local Combat = {}
 
 -- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
-Combat.OnAssist = nil -- (jugadores que ayudaron, nombre de la víctima, bot víctima)
+Combat.OnAssist = nil -- (jugadores que ayudaron, nombre de la víctima, bot víctima, jugador víctima)
 
 -- Quién le ha quitado vida a cada Humanoid y cuándo (para las asistencias)
 local ASSIST_WINDOW = 10
@@ -241,17 +241,19 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 		-- Asistencias: quien le quitó bastante vida hace poco y no es quien lo remató
 		local log = damageLog[humanoid]
 		damageLog[humanoid] = nil
-		if log and Combat.OnAssist and not humanoid:GetAttribute("Spectator") then
+		-- (solo contra jugadores y bots, no muñecos; y no si ahora es del mismo equipo, p. ej. en Infección)
+		if log and Combat.OnAssist and (victimPlayer or victimBot) and not humanoid:GetAttribute("Spectator") then
+			local victimTeam = (victimPlayer and victimPlayer.Team) or (victimBot and victimBot.Team) or nil
 			local helpers = {}
 			for userId, entry in log do
 				local helper = Players:GetPlayerByUserId(userId)
 				if helper and helper ~= killer and helper ~= victimPlayer and entry.Damage >= ASSIST_MIN_DAMAGE
-					and os.clock() - entry.Time < ASSIST_WINDOW then
+					and os.clock() - entry.Time < ASSIST_WINDOW and not (victimTeam and helper.Team == victimTeam) then
 					table.insert(helpers, helper)
 				end
 			end
 			if #helpers > 0 then
-				Combat.OnAssist(helpers, victimName, victimBot)
+				Combat.OnAssist(helpers, victimName, victimBot, victimPlayer)
 			end
 		end
 	end)

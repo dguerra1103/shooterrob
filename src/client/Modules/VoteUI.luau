@@ -26,6 +26,8 @@ local MODE_ICONS = {
 	["Todos contra todos"] = "💀",
 	["Escalada de armas"] = "🔫",
 	["Eliminación"] = "☠",
+	["Infección"] = "🧟",
+	["Calabazas"] = "🎃",
 }
 
 local function setOpen(value)

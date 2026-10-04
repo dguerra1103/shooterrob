@@ -409,7 +409,10 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 end
 
 -- Asistencias (ver Combat): XP y monedas a quien ayudó a eliminar (menos si la víctima era un bot)
-function Round.RegisterAssist(helpers, victimName, victimBot)
+function Round.RegisterAssist(helpers, victimName, victimBot, victimPlayer)
+	if not victimBot and not victimPlayer then
+		return -- (los muñecos de práctica no dan asistencias)
+	end
 	local scale = victimBot and GameConfig.Bots.RewardScale or 1
 	for _, helper in helpers do
 		PlayerData.AddXP(helper, math.floor((GameConfig.XP.Assist or 0) * scale), "Asistencia")

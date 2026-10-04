@@ -120,6 +120,8 @@ Shop.OutfitPrices = {
 	FrostByte = 1200,
 	ToxicRogue = 1200,
 	GoldenAce = 4000,
+	Vampiro = 2500,
+	Momia = 1800,
 }
 
 -- Recompensa diaria: un día por entrada (al 7.º día se vuelve a empezar)

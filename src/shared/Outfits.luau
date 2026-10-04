@@ -84,6 +84,30 @@ Outfits.List = {
 		Plate = RGB(255, 130, 20),
 		Pieces = { Pumpkin = true, Cape = true, Belt = true, Boots = true, Gloves = true },
 	},
+	-- Halloween (en la tienda con monedas)
+	Vampiro = {
+		Name = "Conde Vampiro",
+		Rarity = "Legendario",
+		Class = "Halloween",
+		Body = RGB(20, 18, 24),
+		Cloth = RGB(35, 30, 40),
+		Glow = RGB(230, 30, 50),
+		Plate = RGB(240, 235, 240),
+		Sleeves = true, -- brazos con la tela del traje (si no, se quedan con el color del avatar)
+		Skin = RGB(225, 225, 235), -- piel pálida (cambia el color de la cabeza)
+		Pieces = { Cape = true, VampireCollar = true, Medallion = true, Fangs = true, Belt = true, Boots = true, Gloves = true },
+	},
+	Momia = {
+		Name = "Momia",
+		Rarity = "Épico",
+		Class = "Halloween",
+		Body = RGB(215, 205, 180),
+		Cloth = RGB(200, 190, 165),
+		Glow = RGB(120, 255, 90),
+		Plate = RGB(235, 228, 205),
+		Sleeves = true,
+		Pieces = { Bandages = true, MummyHead = true },
+	},
 }
 
 function Outfits.Get(id)
@@ -166,6 +190,24 @@ function Outfits.Apply(character, id)
 	end
 	for _, name in { "UpperTorso", "LowerTorso" } do
 		get(name).Color = o.Cloth
+	end
+	if o.Skin then
+		if bodyColors then
+			bodyColors.HeadColor3 = o.Skin
+		end
+		head.Color = o.Skin
+	end
+	if o.Sleeves then
+		if bodyColors then
+			bodyColors.LeftArmColor3 = o.Cloth
+			bodyColors.RightArmColor3 = o.Cloth
+		end
+		for _, name in { "LeftUpperArm", "LeftLowerArm", "RightUpperArm", "RightLowerArm" } do
+			local p = get(name)
+			if p then
+				p.Color = o.Cloth
+			end
+		end
 	end
 	for _, name in { "LeftUpperLeg", "LeftLowerLeg", "RightUpperLeg", "RightLowerLeg" } do
 		local p = get(name)
@@ -270,6 +312,56 @@ function Outfits.Apply(character, id)
 	if P.Cape then
 		newPiece(folder, upper, "Cape", V(0, -0.35, 0.62), Z, V(1.1, 1.7, 0.06), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(-8), 0, 0))
 		newPiece(folder, upper, "CapeCollar", V(0, 0.48, 0.45), Z, V(1.0, 0.18, 0.25), Z, RGB(150, 30, 40), Enum.Material.Fabric)
+	end
+	if P.VampireCollar then
+		-- Cuello alto de la capa, detrás de la cabeza (rojo por dentro)
+		newPiece(folder, upper, "VampireCollarBack", V(0, 0.75, 0.5), Z, V(1.25, 0.75, 0.08), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(-15), 0, 0))
+		newPiece(folder, upper, "VampireCollarLining", V(0, 0.75, 0.46), Z, V(1.15, 0.65, 0.04), Z, o.Glow, Enum.Material.Fabric, CFrame.Angles(math.rad(-15), 0, 0))
+		for _, sx in { -1, 1 } do
+			newPiece(folder, upper, "VampireCollarSide", V(0.55 * sx, 0.7, 0.15), Z, V(0.08, 0.6, 0.55), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(0, math.rad(-20 * sx), 0))
+		end
+	end
+	if P.Medallion then
+		newPiece(folder, upper, "MedallionChain", V(0, 0.3, -0.55), Z, V(0.5, 0.05, 0.05), Z, RGB(230, 190, 70), Enum.Material.Metal)
+		newPiece(folder, upper, "Medallion", V(0, 0.12, -0.58), Z, V(0.2, 0.2, 0.05), Z, o.Glow, glow, CFrame.Angles(0, 0, math.rad(45)))
+	end
+	if P.Fangs then
+		for _, sx in { -1, 1 } do
+			newPiece(folder, head, "Fang", V(0.1 * sx, -0.32, -0.5), Z, V(0.05, 0.12, 0.04), Z, Color3.new(1, 1, 1))
+		end
+		-- Ojos rojos
+		for _, sx in { -1, 1 } do
+			newPiece(folder, head, "VampireEye", V(0.17 * sx, 0.1, -0.51), Z, V(0.1, 0.06, 0.02), Z, o.Glow, glow)
+		end
+	end
+	if P.Bandages then
+		-- Vendas: tiras finas un poco inclinadas alrededor del torso, brazos y piernas
+		local wrapped = { { upper, 4 }, { lower, 2 } }
+		for _, side in { "Left", "Right" } do
+			for _, name in { "UpperArm", "LowerArm", "UpperLeg", "LowerLeg" } do
+				local limb = get(side .. name)
+				if limb then
+					table.insert(wrapped, { limb, 3 })
+				end
+			end
+		end
+		for w, entry in wrapped do
+			local part, count = entry[1], entry[2]
+			for i = 1, count do
+				local y = -0.5 + (i - 0.5) / count
+				local tilt = ((i + w) % 2 == 0 and 1 or -1) * 8
+				newPiece(folder, part, "Bandage", V(0, y * 0.9, 0), Z, V(1.08, 0.12, 1.08), Z, i % 2 == 0 and o.Plate or o.Cloth, Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(tilt)))
+			end
+		end
+	end
+	if P.MummyHead then
+		newPiece(folder, head, "MummyWrap", Z, Z, V(1.08, 1.04, 1.08), Z, o.Cloth, Enum.Material.Fabric)
+		for i, y in { 0.35, 0.05, -0.3 } do
+			newPiece(folder, head, "MummyStrip" .. i, V(0, y, 0), Z, V(1.12, 0.1, 1.12), Z, o.Plate, Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(i % 2 == 0 and 7 or -7)))
+		end
+		for _, sx in { -1, 1 } do
+			newPiece(folder, head, "MummyEye", V(0.18 * sx, 0.18, -0.56), Z, V(0.14, 0.07, 0.03), Z, o.Glow, glow)
+		end
 	end
 	if P.Scarf then
 		local scarfColor = o.Cloth == o.Body and o.Glow or o.Cloth
