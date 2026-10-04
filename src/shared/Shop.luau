@@ -165,6 +165,8 @@ Shop.SkinPrices = {
 	Tiki = 900,
 	Pintura = 2200,
 	Arcoiris = 4500,
+	Vaquera = 1000,
+	Tesoro = 2400,
 }
 
 -- Precio en monedas de cada traje de operador (ver Outfits)

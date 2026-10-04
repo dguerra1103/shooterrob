@@ -355,6 +355,34 @@ Skins.List.Embrujada = {
 }
 
 -- Skin del evento de Navidad (se gana con regalos, ver GameConfig.Events)
+-- A juego con los mapas Pueblo Vaquero y Bahía Pirata (en la tienda con monedas)
+Skins.List.Vaquera = {
+	Name = "Vaquera",
+	Rarity = "Épico",
+	Body = Color3.fromRGB(150, 95, 55),
+	BodyMaterial = Enum.Material.Wood,
+	Panel = Color3.fromRGB(110, 70, 40),
+	PanelMaterial = Enum.Material.Leather,
+	Accent = Color3.fromRGB(230, 200, 120),
+	AccentMaterial = Enum.Material.Metal,
+	Dark = Color3.fromRGB(60, 40, 25),
+	Accent2 = Color3.fromRGB(200, 60, 40),
+}
+Skins.List.Tesoro = {
+	Name = "Tesoro pirata",
+	Rarity = "Legendario",
+	-- (oro con piezas negras y rubíes)
+	Body = Color3.fromRGB(240, 185, 50),
+	BodyMaterial = Enum.Material.Foil,
+	Panel = Color3.fromRGB(35, 30, 38),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(230, 30, 60),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(30, 26, 30),
+	Accent2 = Color3.fromRGB(255, 230, 140),
+	Effect = "Sparkle",
+}
+
 Skins.List.Navidena = {
 	Name = "Navideña",
 	Rarity = "Mítico",
