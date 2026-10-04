@@ -18188,6 +18188,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
+local SocialService = game:GetService("SocialService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 
@@ -18587,7 +18588,7 @@ function MainMenu.Init()
 
 	local buttons = UI.new("Frame", {
 		Position = UDim2.fromOffset(0, 182),
-		Size = UDim2.fromOffset(300, 440),
+		Size = UDim2.fromOffset(300, 500),
 		BackgroundTransparency = 1,
 		Parent = left,
 	}, {
@@ -18625,6 +18626,18 @@ function MainMenu.Init()
 		Sounds.Play("Click")
 		Menu.Open("Tienda")
 	end)
+	-- Invitar amigos (cada amigo en el servidor da +10% de XP y monedas, ver Friends en el servidor)
+	local inviteButton = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 7, buttons)
+	inviteButton.Size = UDim2.fromOffset(300, 44)
+	inviteButton.TextSize = 22
+	inviteButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
+		if ok and canInvite then
+			pcall(SocialService.PromptGameInvite, SocialService, player)
+		end
+	end)
+
 	-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
 		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
