@@ -31,9 +31,16 @@ local function getCharacterFromPart(part)
 	return nil, nil
 end
 
-local function isEnemy(attacker, targetPlayer)
+-- Bots activos por nombre (los registra Bots): para saber quién hizo una baja
+Combat.BotsByName = {}
+
+local function isEnemy(attacker, targetPlayer, targetChar)
 	if not targetPlayer then
-		return true -- muñecos de práctica / NPCs
+		-- Bots del mismo equipo no se dañan; muñecos de práctica y bots enemigos sí
+		if targetChar and targetChar:GetAttribute("Bot") and ReplicatedStorage:GetAttribute("TeamMode") and attacker.Team then
+			return targetChar:GetAttribute("Team") ~= attacker.Team.Name
+		end
+		return true
 	end
 	if attacker == targetPlayer then
 		return false
@@ -112,6 +119,7 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 		return 0, false
 	end
 	humanoid:SetAttribute("LastAttacker", attacker.UserId)
+	humanoid:SetAttribute("LastBot", nil)
 	humanoid:SetAttribute("LastWeapon", weaponName)
 	humanoid:SetAttribute("LastHeadshot", headshot)
 	humanoid:SetAttribute("LastHitTime", os.clock())
@@ -119,6 +127,21 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 	humanoid:TakeDamage(damage) -- respeta el ForceField de spawn
 	local dealt = before - humanoid.Health
 	return dealt, humanoid.Health <= 0
+end
+
+-- Daño de un bot (ver Bots): deja su nombre como atacante
+function Combat.BotDamage(bot, humanoid, damage, weaponName)
+	if humanoid.Health <= 0 then
+		return 0, false
+	end
+	humanoid:SetAttribute("LastAttacker", nil)
+	humanoid:SetAttribute("LastBot", bot.Name)
+	humanoid:SetAttribute("LastWeapon", weaponName)
+	humanoid:SetAttribute("LastHeadshot", false)
+	humanoid:SetAttribute("LastHitTime", os.clock())
+	local before = humanoid.Health
+	humanoid:TakeDamage(damage)
+	return before - humanoid.Health, humanoid.Health <= 0
 end
 
 -- Daño en área (cohetes). Afecta a enemigos y muñecos con línea de visión desde la explosión.
@@ -130,10 +153,12 @@ function Combat.Explode(attacker, position, def, weaponName)
 			table.insert(candidates, p.Character)
 		end
 	end
-	local dummies = workspace:FindFirstChild("Dummies")
-	if dummies then
-		for _, d in dummies:GetChildren() do
-			table.insert(candidates, d)
+	for _, folderName in { "Dummies", "Bots" } do
+		local npcs = workspace:FindFirstChild(folderName)
+		if npcs then
+			for _, d in npcs:GetChildren() do
+				table.insert(candidates, d)
+			end
 		end
 	end
 	local totalDealt, anyKill = 0, false
@@ -144,7 +169,7 @@ function Combat.Explode(attacker, position, def, weaponName)
 		if humanoid and root and humanoid.Health > 0 and targetChar ~= attackerChar then
 			local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
 			local distance = (root.Position - position).Magnitude
-			if distance <= info.Radius and isEnemy(attacker, targetPlayer) then
+			if distance <= info.Radius and isEnemy(attacker, targetPlayer, targetChar) then
 				if hasLineOfSight(position, root.Position, { targetChar, attackerChar }) then
 					local alpha = distance / info.Radius
 					local damage = info.Damage + (info.MinDamage - info.Damage) * alpha
@@ -161,13 +186,19 @@ function Combat.Explode(attacker, position, def, weaponName)
 end
 
 -- Detecta la muerte de un Humanoid y avisa a quien corresponda
-function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
+-- victimBot: el bot (ver Bots) si el que muere es un bot
+function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 	humanoid.Died:Connect(function()
-		local killer
-		local attackerId = humanoid:GetAttribute("LastAttacker")
+		local killer, killerBot
 		local hitTime = humanoid:GetAttribute("LastHitTime")
-		if attackerId and hitTime and os.clock() - hitTime < 10 then
+		local recent = hitTime and os.clock() - hitTime < 10
+		local attackerId = humanoid:GetAttribute("LastAttacker")
+		if attackerId and recent then
 			killer = Players:GetPlayerByUserId(attackerId)
+		end
+		local botName = humanoid:GetAttribute("LastBot")
+		if botName and recent and not killer then
+			killerBot = Combat.BotsByName[botName]
 		end
 		local weaponName = humanoid:GetAttribute("LastWeapon")
 		local headshot = humanoid:GetAttribute("LastHeadshot") == true
@@ -177,11 +208,13 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 		if victimPlayer then
 			-- Vida que le quedaba al que te eliminó (se enseña en la pantalla de muerte)
 			local killerHumanoid = killer and killer.Character and killer.Character:FindFirstChildOfClass("Humanoid")
+				or (killerBot and killerBot.Humanoid)
 			local killerHealth = killerHumanoid and math.ceil(math.max(0, killerHumanoid.Health)) or nil
-			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName, killerHealth)
+			local killerName = (killer and killer.Name) or (killerBot and killerBot.Name) or nil
+			Remotes.Died:FireClient(victimPlayer, killerName, weaponName, killerHealth)
 		end
 		if Combat.OnKill then
-			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position)
+			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
 		end
 	end)
 end
@@ -268,7 +301,7 @@ local function onFire(player, tool, origin, rays)
 						local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
 						local closeEnough = (part.Position - position).Magnitude <= part.Size.Magnitude / 2 + 8
 						if
-							isEnemy(player, targetPlayer)
+							isEnemy(player, targetPlayer, targetChar)
 							and closeEnough
 							and hasLineOfSight(origin, position, { character, targetChar })
 						then
@@ -385,7 +418,7 @@ local function onMelee(player, part)
 	if (targetRoot.Position - root.Position).Magnitude > def.Range + 4 then
 		return
 	end
-	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar)) then
+	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar), targetChar) then
 		return
 	end
 	-- Nada de cuchillazos a través de paredes

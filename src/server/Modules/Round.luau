@@ -212,32 +212,49 @@ end
 -- Bajas
 ---------------------------------------------------------------------------
 
-function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position)
+-- killerBot / victimBot: el bot (ver Bots) cuando quien hace la baja o quien muere es un bot
+function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		victim:SetAttribute("Streak", 0)
 	end
+	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
 
 	local killerColor, victimColor = Color3.new(1, 1, 1), Color3.new(1, 1, 1)
 	if victim and victim.Team then
 		victimColor = victim.TeamColor.Color
+	elseif victimBot and victimBot.Team then
+		victimColor = victimBot.Team.TeamColor.Color
+	end
+
+	-- Un bot hace una baja: punto para su equipo (en equipos); en todos contra todos no puntúa
+	if killerBot then
+		if killerBot.Team then
+			killerColor = killerBot.Team.TeamColor.Color
+			if playing and currentMode == "TDM" then
+				addScore(killerBot.Team, 1)
+			end
+		end
 	end
 
 	if killer and killer ~= victim then
 		if killer.Team then
 			killerColor = killer.TeamColor.Color
 		end
-		if victim then
+		if victim or victimBot then
+			-- Contra bots: misma emoción (marcador, racha, retos, maestría) pero menos XP y monedas,
+			-- y no cuentan para la clasificación global
+			local botScale = victimBot and GameConfig.Bots.RewardScale or 1
 			PlayerData.GetLeaderstats(killer).Bajas.Value += 1
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
 
-			if ReplicatedStorage:GetAttribute("State") == "Playing" then
+			if playing then
 				if currentMode == "TDM" then
 					addScore(killer.Team, 1)
 				elseif currentMode == "FFA" then
 					addPlayerScore(killer, 1)
-				elseif currentMode == "GUN" then
+				elseif currentMode == "GUN" and victim then
 					gunGameKill(killer, victim, weaponName)
 				end
 			end
@@ -246,9 +263,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			if headshot then
 				xp += GameConfig.XP.Headshot
 			end
-			PlayerData.AddXP(killer, xp, headshot and "Disparo a la cabeza" or "Eliminación")
-			PlayerData.AddCoins(killer, GameConfig.Coins.Kill)
-			PlayerData.Increment(killer, "TotalKills", 1)
+			PlayerData.AddXP(killer, math.floor(xp * botScale), headshot and "Disparo a la cabeza" or "Eliminación")
+			PlayerData.AddCoins(killer, math.max(1, math.floor(GameConfig.Coins.Kill * botScale)))
+			if victim then
+				PlayerData.Increment(killer, "TotalKills", 1)
+			end
 			PlayerData.AddWeaponKill(killer, weaponName)
 			PlayerData.Track(killer, "Kill", 1, weaponName)
 			PlayerData.Track(killer, "Streak", streak)
@@ -270,13 +289,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if killerData and killerData.EquippedKillEffect then
 			effect = killerData.EquippedKillEffect
 		end
-		-- Los muñecos (sin jugador) estallan en amarillo, como antes
-		Remotes.KillFX:FireAllClients(position, effect, victim and victimColor or Color3.fromRGB(255, 200, 60))
+		-- Los muñecos (sin jugador ni equipo) estallan en amarillo, como antes
+		local burstColor = (victim or (victimBot and victimBot.Team)) and victimColor or Color3.fromRGB(255, 200, 60)
+		Remotes.KillFX:FireAllClients(position, effect, burstColor)
 	end
 
 	local weapon = weaponName and Weapons.Get(weaponName)
 	Remotes.KillFeed:FireAllClients({
-		Killer = killer and killer.Name or nil,
+		Killer = (killer and killer.Name) or (killerBot and killerBot.Name) or nil,
 		KillerColor = killerColor,
 		Victim = victimName,
 		VictimColor = victimColor,

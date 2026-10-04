@@ -76,7 +76,7 @@ local function ground(position)
 			table.insert(ignore, p.Character)
 		end
 	end
-	for _, name in { "Dummies", "Grenades", "ClientFX" } do
+	for _, name in { "Dummies", "Bots", "Grenades", "ClientFX" } do
 		local f = workspace:FindFirstChild(name)
 		if f then
 			table.insert(ignore, f)

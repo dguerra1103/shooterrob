@@ -48,6 +48,20 @@ GameConfig.Abilities = {
 	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
 	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },
 }
+-- Bots: rellenan la partida cuando hay pocos jugadores (se quitan solos al entrar gente)
+GameConfig.Bots = {
+	Enabled = true,
+	FillTo = 6, -- jugadores + bots hasta este número
+	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift" },
+	Range = 140,
+	Accuracy = 0.55, -- probabilidad de acertar a corta distancia
+	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia
+	DamageScale = 0.55, -- los bots hacen menos daño que un jugador
+	Reaction = 0.5, -- segundos antes de empezar a disparar a un objetivo nuevo
+	MaxFireRate = 6, -- disparos por segundo como máximo
+	WalkSpeed = 16,
+	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
+}
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
 

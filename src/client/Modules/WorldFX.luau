@@ -5,6 +5,7 @@
 --  * Explosión de partículas cuando alguien es eliminado
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Teams = game:GetService("Teams")
 
 local Effects = require(script.Parent.Effects)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -70,14 +71,14 @@ local function teamColorOf(other)
 	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
 end
 
-local function styleCharacter(other, character)
+-- Compañeros: contorno del color del equipo y nombre visible. Enemigos: sin nombre.
+local function applyStyle(character, isTeammate, isSelf, color)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
 	end
-	local isTeammate = player.Team ~= nil and other.Team == player.Team
 	local highlight = character:FindFirstChild("TeamHighlight")
-	if isTeammate and other ~= player then
+	if isTeammate and not isSelf then
 		if not highlight then
 			highlight = Instance.new("Highlight")
 			highlight.Name = "TeamHighlight"
@@ -86,17 +87,29 @@ local function styleCharacter(other, character)
 			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			highlight.Parent = character
 		end
-		highlight.OutlineColor = teamColorOf(other)
+		highlight.OutlineColor = color
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
 	else
 		if highlight then
 			highlight:Destroy()
 		end
-		if other ~= player then
+		if not isSelf then
 			-- Sin nombre sobre los enemigos: hay que encontrarlos
 			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		end
 	end
+end
+
+local function styleCharacter(other, character)
+	applyStyle(character, player.Team ~= nil and other.Team == player.Team, other == player, teamColorOf(other))
+end
+
+-- Bots (carpeta workspace.Bots): el servidor les pone el atributo Team
+local function styleBot(model)
+	local teamName = model:GetAttribute("Team")
+	local team = teamName and teamName ~= "" and Teams:FindFirstChild(teamName)
+	local isTeammate = player.Team ~= nil and team == player.Team
+	applyStyle(model, isTeammate, false, team and team:IsA("Team") and team.TeamColor.Color or Color3.fromRGB(255, 200, 60))
 end
 
 local function onCharacter(other, character)
@@ -124,6 +137,12 @@ local function restyleAll()
 			styleCharacter(other, other.Character)
 		end
 	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			styleBot(model)
+		end
+	end
 end
 
 function WorldFX.Init()
@@ -140,6 +159,19 @@ function WorldFX.Init()
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
+	task.spawn(function()
+		local bots = workspace:WaitForChild("Bots", 30)
+		if not bots then
+			return
+		end
+		bots.ChildAdded:Connect(function(model)
+			model:WaitForChild("Humanoid", 10)
+			styleBot(model)
+		end)
+		for _, model in bots:GetChildren() do
+			task.spawn(styleBot, model)
+		end
+	end)
 
 	-- Efecto de eliminación (lo decide el servidor: el que tenga equipado quien hizo la baja)
 	Remotes.KillFX.OnClientEvent:Connect(function(position, effectId, color)
