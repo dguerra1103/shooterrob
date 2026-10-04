@@ -587,6 +587,21 @@ function GameConfig.PickEvent(now)
 end
 GameConfig.Event = GameConfig.PickEvent()
 
+-- El evento en marcha AHORA según el servidor (atributo EventId que publica Event): en el cliente
+-- no se usa su reloj (puede ir mal o estar cambiado). nil si no hay evento.
+function GameConfig.CurrentEvent()
+	local id = game:GetService("ReplicatedStorage"):GetAttribute("EventId")
+	if not id then
+		return nil
+	end
+	for _, event in GameConfig.Events do
+		if event.Id == id then
+			return event
+		end
+	end
+	return nil
+end
+
 -- Logros: metas a largo plazo que se reclaman en la pestaña Perfil (monedas al reclamar).
 -- Stat es un campo de los datos del jugador (TotalKills, Wins, Headshots, Matches, BestStreak, Level,
 -- RankBest = rango más alto alcanzado, 1 = Bronce ... 6 = Campeón).
@@ -7484,15 +7499,32 @@ function Event.Decorate()
 	end
 end
 
-function Event.Init()
-	if not enabled() then
+-- Enciende o apaga el evento (al empezar el servidor o cuando llega su fecha con el servidor en marcha)
+local active = false
+local function setActive(on)
+	if on == active then
 		return
 	end
-	folder = Instance.new("Folder")
-	folder.Name = "EventCandies"
-	folder.Parent = workspace
-	ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
-	ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	active = on
+	if on then
+		folder = folder or Instance.new("Folder")
+		folder.Name = "EventCandies"
+		folder.Parent = workspace
+		ReplicatedStorage:SetAttribute("EventId", CONFIG.Id)
+		ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
+		ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	else
+		clear()
+		ReplicatedStorage:SetAttribute("EventId", nil)
+		ReplicatedStorage:SetAttribute("EventName", nil)
+	end
+end
+
+function Event.Init()
+	if not CONFIG or not CONFIG.Enabled then
+		return
+	end
+	setActive(enabled())
 	Players.PlayerRemoving:Connect(function(player)
 		lastPickup[player] = nil
 	end)
@@ -7504,17 +7536,13 @@ function Event.Init()
 	task.spawn(function()
 		while true do
 			task.wait(CONFIG.SpawnEvery)
-			-- Se acabó la fecha del evento con el servidor encendido: fuera caramelos y contador
-			if not enabled() then
-				clear()
-				ReplicatedStorage:SetAttribute("EventName", nil)
-				return
-			end
+			-- Llega o se acaba la fecha del evento con el servidor encendido
+			setActive(enabled())
 			local playing = ReplicatedStorage:GetAttribute("State") == "Playing" and not ReplicatedStorage:GetAttribute("Frozen")
-			if playing and #candies < CONFIG.MaxCandies then
+			if active and playing and #candies < CONFIG.MaxCandies then
 				local ok, err = pcall(spawnCandy)
 				if not ok then
-					warn("[Event] caramelo:", err)
+					warn("[Event] objeto del evento:", err)
 				end
 			end
 		end
@@ -21165,11 +21193,17 @@ function EventHUD.Init()
 		BorderSizePixel = 0,
 		Parent = frame,
 	})
-	local milestones = (GameConfig.Event and GameConfig.Event.Milestones) or {}
-	local icon = GameConfig.Event and GameConfig.Event.Icon or "🎉"
-	local itemIcon = GameConfig.Event and GameConfig.Event.ItemIcon or "⭐"
+	-- (el evento lo dice el servidor: atributo EventId; se mira cada vez por si cambia)
+	local milestones, icon, itemIcon = {}, "🎉", "⭐"
+	local function syncEvent()
+		local event = GameConfig.CurrentEvent()
+		milestones = (event and event.Milestones) or {}
+		icon = event and event.Icon or "🎉"
+		itemIcon = event and event.ItemIcon or "⭐"
+	end
+	syncEvent()
 	local ticks = {}
-	for _, milestone in milestones do
+	for _ = 1, 4 do -- (marcas de los premios por el camino; las que sobran se ocultan)
 		table.insert(ticks, UI.new("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0),
 			Size = UDim2.fromOffset(2, 5),
@@ -21193,6 +21227,7 @@ function EventHUD.Init()
 	end
 	task.spawn(function()
 		while true do
+			syncEvent()
 			local name = ReplicatedStorage:GetAttribute("EventName")
 			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
 			local data = ClientState.Data
@@ -21208,7 +21243,12 @@ function EventHUD.Init()
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 				for i, tick in ticks do
-					local at = milestones[i].Count / goal
+					local milestone = milestones[i]
+					if not milestone then
+						tick.Visible = false
+						continue
+					end
+					local at = milestone.Count / goal
 					tick.Visible = not compact and at < 1
 					tick.Position = UDim2.new(at, 4 - 8 * at, 1, -6)
 					tick.BackgroundColor3 = count >= milestones[i].Count and Color3.fromRGB(255, 140, 30)
@@ -24135,7 +24175,7 @@ function MainMenu.Init()
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
 		-- (empieza por el evento de temporada si hay uno en marcha)
-		Text = (GameConfig.EventActive(GameConfig.Event) and (GameConfig.Event.Icon .. " " .. string.upper(GameConfig.Event.Name) .. " · ") or "")
+		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. string.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
 			.. "🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
@@ -24810,10 +24850,12 @@ local function buildProfilePage(data)
 		{ "🔥", "Mejor racha", tostring(data.BestStreak or 0) },
 		{ "🧠", "A la cabeza", tostring(data.Headshots or 0) },
 		{ "🤝", "Asistencias", tostring(data.Assists or 0) },
-		{ GameConfig.Event and GameConfig.Event.ItemIcon or "⭐", (function()
-			local items = GameConfig.Event and GameConfig.Event.Items or "Evento"
-			return string.upper(string.sub(items, 1, 1)) .. string.sub(items, 2)
-		end)(), tostring(data.EventCandy or 0) },
+		(function()
+			-- (del evento en marcha; fuera de temporada, genérico)
+			local event = GameConfig.CurrentEvent()
+			local items = event and event.Items or "evento"
+			return { event and event.ItemIcon or "🎉", string.upper(string.sub(items, 1, 1)) .. string.sub(items, 2), tostring(data.EventCandy or 0) }
+		end)(),
 	}
 	local grid = UI.new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -12, 0, 170), BackgroundTransparency = 1, Parent = scroll }, {
 		UI.new("UIGridLayout", { CellSize = UDim2.new(0.2, -10, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -25203,8 +25245,8 @@ local function buildChallengesPage(data)
 		})
 	end
 	-- Evento de temporada: premios por caramelos (GameConfig.Event) con su vista previa
-	local event = GameConfig.Event
-	if event and GameConfig.EventActive(event) and ReplicatedStorage:GetAttribute("EventName") then
+	local event = GameConfig.CurrentEvent()
+	if event and ReplicatedStorage:GetAttribute("EventName") then
 		local icon, itemIcon, items = event.Icon or "🎉", event.ItemIcon or "⭐", event.Items or "objetos"
 		local candy = data.EventCandy or 0
 		local card = UI.new("Frame", {

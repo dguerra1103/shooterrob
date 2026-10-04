@@ -155,6 +155,21 @@ function GameConfig.PickEvent(now)
 end
 GameConfig.Event = GameConfig.PickEvent()
 
+-- El evento en marcha AHORA según el servidor (atributo EventId que publica Event): en el cliente
+-- no se usa su reloj (puede ir mal o estar cambiado). nil si no hay evento.
+function GameConfig.CurrentEvent()
+	local id = game:GetService("ReplicatedStorage"):GetAttribute("EventId")
+	if not id then
+		return nil
+	end
+	for _, event in GameConfig.Events do
+		if event.Id == id then
+			return event
+		end
+	end
+	return nil
+end
+
 -- Logros: metas a largo plazo que se reclaman en la pestaña Perfil (monedas al reclamar).
 -- Stat es un campo de los datos del jugador (TotalKills, Wins, Headshots, Matches, BestStreak, Level,
 -- RankBest = rango más alto alcanzado, 1 = Bronce ... 6 = Campeón).

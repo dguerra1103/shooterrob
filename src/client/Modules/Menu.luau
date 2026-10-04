@@ -483,10 +483,12 @@ local function buildProfilePage(data)
 		{ "🔥", "Mejor racha", tostring(data.BestStreak or 0) },
 		{ "🧠", "A la cabeza", tostring(data.Headshots or 0) },
 		{ "🤝", "Asistencias", tostring(data.Assists or 0) },
-		{ GameConfig.Event and GameConfig.Event.ItemIcon or "⭐", (function()
-			local items = GameConfig.Event and GameConfig.Event.Items or "Evento"
-			return string.upper(string.sub(items, 1, 1)) .. string.sub(items, 2)
-		end)(), tostring(data.EventCandy or 0) },
+		(function()
+			-- (del evento en marcha; fuera de temporada, genérico)
+			local event = GameConfig.CurrentEvent()
+			local items = event and event.Items or "evento"
+			return { event and event.ItemIcon or "🎉", string.upper(string.sub(items, 1, 1)) .. string.sub(items, 2), tostring(data.EventCandy or 0) }
+		end)(),
 	}
 	local grid = UI.new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -12, 0, 170), BackgroundTransparency = 1, Parent = scroll }, {
 		UI.new("UIGridLayout", { CellSize = UDim2.new(0.2, -10, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -876,8 +878,8 @@ local function buildChallengesPage(data)
 		})
 	end
 	-- Evento de temporada: premios por caramelos (GameConfig.Event) con su vista previa
-	local event = GameConfig.Event
-	if event and GameConfig.EventActive(event) and ReplicatedStorage:GetAttribute("EventName") then
+	local event = GameConfig.CurrentEvent()
+	if event and ReplicatedStorage:GetAttribute("EventName") then
 		local icon, itemIcon, items = event.Icon or "🎉", event.ItemIcon or "⭐", event.Items or "objetos"
 		local candy = data.EventCandy or 0
 		local card = UI.new("Frame", {

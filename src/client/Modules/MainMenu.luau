@@ -514,7 +514,7 @@ function MainMenu.Init()
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
 		-- (empieza por el evento de temporada si hay uno en marcha)
-		Text = (GameConfig.EventActive(GameConfig.Event) and (GameConfig.Event.Icon .. " " .. string.upper(GameConfig.Event.Name) .. " · ") or "")
+		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. string.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
 			.. "🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),

@@ -256,15 +256,32 @@ function Event.Decorate()
 	end
 end
 
-function Event.Init()
-	if not enabled() then
+-- Enciende o apaga el evento (al empezar el servidor o cuando llega su fecha con el servidor en marcha)
+local active = false
+local function setActive(on)
+	if on == active then
 		return
 	end
-	folder = Instance.new("Folder")
-	folder.Name = "EventCandies"
-	folder.Parent = workspace
-	ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
-	ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	active = on
+	if on then
+		folder = folder or Instance.new("Folder")
+		folder.Name = "EventCandies"
+		folder.Parent = workspace
+		ReplicatedStorage:SetAttribute("EventId", CONFIG.Id)
+		ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
+		ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	else
+		clear()
+		ReplicatedStorage:SetAttribute("EventId", nil)
+		ReplicatedStorage:SetAttribute("EventName", nil)
+	end
+end
+
+function Event.Init()
+	if not CONFIG or not CONFIG.Enabled then
+		return
+	end
+	setActive(enabled())
 	Players.PlayerRemoving:Connect(function(player)
 		lastPickup[player] = nil
 	end)
@@ -276,17 +293,13 @@ function Event.Init()
 	task.spawn(function()
 		while true do
 			task.wait(CONFIG.SpawnEvery)
-			-- Se acabó la fecha del evento con el servidor encendido: fuera caramelos y contador
-			if not enabled() then
-				clear()
-				ReplicatedStorage:SetAttribute("EventName", nil)
-				return
-			end
+			-- Llega o se acaba la fecha del evento con el servidor encendido
+			setActive(enabled())
 			local playing = ReplicatedStorage:GetAttribute("State") == "Playing" and not ReplicatedStorage:GetAttribute("Frozen")
-			if playing and #candies < CONFIG.MaxCandies then
+			if active and playing and #candies < CONFIG.MaxCandies then
 				local ok, err = pcall(spawnCandy)
 				if not ok then
-					warn("[Event] caramelo:", err)
+					warn("[Event] objeto del evento:", err)
 				end
 			end
 		end

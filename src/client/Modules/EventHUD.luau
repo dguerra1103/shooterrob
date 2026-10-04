@@ -48,11 +48,17 @@ function EventHUD.Init()
 		BorderSizePixel = 0,
 		Parent = frame,
 	})
-	local milestones = (GameConfig.Event and GameConfig.Event.Milestones) or {}
-	local icon = GameConfig.Event and GameConfig.Event.Icon or "🎉"
-	local itemIcon = GameConfig.Event and GameConfig.Event.ItemIcon or "⭐"
+	-- (el evento lo dice el servidor: atributo EventId; se mira cada vez por si cambia)
+	local milestones, icon, itemIcon = {}, "🎉", "⭐"
+	local function syncEvent()
+		local event = GameConfig.CurrentEvent()
+		milestones = (event and event.Milestones) or {}
+		icon = event and event.Icon or "🎉"
+		itemIcon = event and event.ItemIcon or "⭐"
+	end
+	syncEvent()
 	local ticks = {}
-	for _, milestone in milestones do
+	for _ = 1, 4 do -- (marcas de los premios por el camino; las que sobran se ocultan)
 		table.insert(ticks, UI.new("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0),
 			Size = UDim2.fromOffset(2, 5),
@@ -76,6 +82,7 @@ function EventHUD.Init()
 	end
 	task.spawn(function()
 		while true do
+			syncEvent()
 			local name = ReplicatedStorage:GetAttribute("EventName")
 			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
 			local data = ClientState.Data
@@ -91,7 +98,12 @@ function EventHUD.Init()
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 				for i, tick in ticks do
-					local at = milestones[i].Count / goal
+					local milestone = milestones[i]
+					if not milestone then
+						tick.Visible = false
+						continue
+					end
+					local at = milestone.Count / goal
 					tick.Visible = not compact and at < 1
 					tick.Position = UDim2.new(at, 4 - 8 * at, 1, -6)
 					tick.BackgroundColor3 = count >= milestones[i].Count and Color3.fromRGB(255, 140, 30)
