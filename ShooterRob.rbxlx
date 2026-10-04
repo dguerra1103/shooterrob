@@ -19439,6 +19439,7 @@ local camera = workspace.CurrentCamera
 local MainMenu = {}
 
 local gui, root, infoLabel, showcase, dailyButton, starterButton
+local rankCard -- { Title, Fill, Next }: progreso hacia el siguiente rango
 local blur
 local titleScale
 local orbitAngle = 0
@@ -19504,16 +19505,23 @@ local function refreshInfo()
 		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
 	end
 	if infoLabel then
-		local rank = data and Ranks.Get(data.RankPoints)
-		infoLabel.Text = data and rank
-				and string.format(
-					"%s %s  ·  Nivel %d  ·  🪙 %d",
-					rank.Icon,
-					rank.Name,
-					data.Level,
-					data.Coins
-				)
+		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
 			or "Cargando..."
+	end
+	if rankCard and data then
+		local points = data.RankPoints or 0
+		local tier = Ranks.Get(points)
+		local fraction, nextTier = Ranks.Progress(points)
+		rankCard.Title.Text = string.format('%s <font color="%s"><b>%s</b></font>  ·  %d RP', tier.Icon, UI.hex(tier.Color), string.upper(tier.Name), points)
+		rankCard.Fill.Size = UDim2.fromScale(fraction, 1)
+		rankCard.Fill.BackgroundColor3 = tier.Color
+		if nextTier then
+			local reward = nextTier.Reward or {}
+			local prize = (reward.Coins and ("+" .. reward.Coins .. " 🪙") or "") .. (reward.Crates and ("  +" .. reward.Crates .. " 📦") or "")
+			rankCard.Next.Text = string.format("Faltan %d RP para %s %s   %s", nextTier.Min - points, nextTier.Icon, nextTier.Name, prize)
+		else
+			rankCard.Next.Text = "¡Rango máximo!"
+		end
 	end
 	-- Arma principal con la skin equipada, a la derecha (solo se rehace si cambia)
 	if showcase and data and ClientState.InMainMenu then
@@ -19919,6 +19927,42 @@ function MainMenu.Init()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = left,
 	})
+	-- Rango competitivo: nombre, puntos y barra hasta el siguiente (con su premio)
+	local card = UI.new("Frame", {
+		Position = UDim2.fromOffset(330, 210),
+		Size = UDim2.fromOffset(230, 78),
+		BackgroundColor3 = Color3.fromRGB(16, 18, 32),
+		BackgroundTransparency = 0.25,
+		Parent = left,
+	}, { UI.corner(12), UI.stroke(Color3.fromRGB(255, 255, 255), 1, 0.7) })
+	local rankBar = UI.new("Frame", {
+		Position = UDim2.fromOffset(10, 36),
+		Size = UDim2.new(1, -20, 0, 10),
+		BackgroundColor3 = Color3.fromRGB(40, 44, 70),
+		Parent = card,
+	}, { UI.corner(5) })
+	rankCard = {
+		Title = UI.label({
+			Position = UDim2.fromOffset(10, 4),
+			Size = UDim2.new(1, -20, 0, 28),
+			Text = "",
+			TextSize = 20,
+			RichText = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		}),
+		Fill = UI.new("Frame", { Size = UDim2.fromScale(0, 1), Parent = rankBar }, { UI.corner(5) }),
+		Next = UI.label({
+			Position = UDim2.fromOffset(10, 50),
+			Size = UDim2.new(1, -20, 0, 22),
+			Text = "",
+			TextSize = 14,
+			TextScaled = true,
+			TextColor3 = Color3.fromRGB(200, 205, 225),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		}),
+	}
 	UI.label({
 		Position = UDim2.fromOffset(4, 150),
 		Size = UDim2.new(1, 0, 0, 22),
