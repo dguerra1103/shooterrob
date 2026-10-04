@@ -12,6 +12,7 @@ local Sounds = {
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.5, Pitch = 1 },
 	Flag = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 1, Pitch = 0.7 },
 	Slide = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 0.6 },
+	Infected = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 1, Pitch = 0.4 }, -- golpe grave: ¡zombis!
 }
 
 -- Reproduce un sonido. Si parent es nil, suena en 2D (para el jugador local).
