@@ -17723,6 +17723,34 @@ function Map.Build()
 	Kit.symmetric(function(m, side)
 		local teamColor = side == "A" and teams[1].Color.Color or teams[2].Color.Color
 
+		-- Ambiente de montaña: balizas naranjas a los lados de la carretera, roca que asoma entre la
+		-- nieve, un estanque helado y vallas de madera contra la nieve (todo sin colisión)
+		for x = -176, -24, 19 do
+			for _, z in { -1, 1 } do
+				local px = x + (z > 0 and 9 or 0)
+				-- (no dentro de las rocas del borde de la carretera)
+				if (z < 0 and math.abs(px + 100) < 7) or (z > 0 and math.abs(px + 28) < 7) then
+					continue
+				end
+				local base = m * CFrame.new(px, 0, z * 14)
+				Kit.cylinder("SnowPole", 4.4, 0.28, base * CFrame.new(0, 2.2, 0), RGB(235, 110, 30), M.SmoothPlastic, nil, true)
+				Kit.cylinder("SnowPoleBand", 0.6, 0.3, base * CFrame.new(0, 3.9, 0), RGB(30, 30, 32), M.SmoothPlastic, nil, true)
+			end
+		end
+		for _, rock in { { -166, -52, 16, 10 }, { -84, 52, 12, 8 }, { -18, -46, 10, 7 }, { -136, 126, 18, 9 }, { -96, -124, 16, 8 } } do
+			Kit.terrainPatch(m * CFrame.new(rock[1], 0, rock[2]) * CFrame.Angles(0, rad(rock[1] % 60), 0), V(rock[3], 1, rock[4]), M.Rock)
+		end
+		Kit.terrainPatch(m * CFrame.new(-128, 0, 50), V(22, 1, 12), M.Glacier)
+		for i = 0, 5 do
+			local post = m * CFrame.new(-176 + i * 3.2, 0, 44)
+			deco("SnowFencePost", V(0.3, 3.4, 0.3), post * CFrame.new(0, 1.7, 0), RGB(96, 72, 50), M.Wood)
+			if i < 5 then
+				for _, y in { 1.1, 2.4 } do
+					deco("SnowFenceSlat", V(3.2, 0.5, 0.12), post * CFrame.new(1.6, y, 0) * CFrame.Angles(0, 0, rad((i % 2) * 4 - 2)), RGB(120, 90, 60), M.WoodPlanks)
+				end
+			end
+		end
+
 		------------------------------------------------------------------
 		-- Carretera central (z -20..20)
 		------------------------------------------------------------------
