@@ -193,6 +193,11 @@ function Map.Build()
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Kit.MIRROR * p)
 	end
+	-- Buscar y destruir: sitios A y B en la mitad de cada equipo
+	for _, site in { { V(-90, 0, 90), "A" }, { V(-60, 0, -90), "B" } } do
+		Kit.bombSite(site[1], site[2], 1)
+		Kit.bombSite(Kit.MIRROR * site[1], site[2], 2)
+	end
 	Kit.zone(V(0, 0, 30), 10, 1)
 	Kit.zone(V(-60, 0, -62), 10, 2)
 	Kit.zone(V(60, 0, 62), 10, 3)

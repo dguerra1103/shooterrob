@@ -713,6 +713,11 @@ function Map.Build()
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Vector3.new(-p.X, p.Y, -p.Z))
 	end
+	-- Buscar y destruir: sitios A y B en la mitad de cada equipo
+	for _, site in { { Vector3.new(-40, 0, 85), "A" }, { Vector3.new(-120, 0, -80), "B" } } do
+		Kit.bombSite(site[1], site[2], 1)
+		Kit.bombSite(Vector3.new(-site[1].X, site[1].Y, -site[1].Z), site[2], 2)
+	end
 	Kit.zone(Vector3.new(0, 7, 0), 12, 1)
 	Kit.zone(Vector3.new(-75, 12.4, 68), 10, 2)
 	Kit.zone(Vector3.new(75, 12.4, -68), 10, 3)
