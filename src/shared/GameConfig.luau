@@ -54,7 +54,7 @@ GameConfig.Abilities = {
 GameConfig.Bots = {
 	Enabled = true,
 	FillTo = 6, -- jugadores + bots hasta este número
-	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift" },
+	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift", "SplatX" },
 	Range = 140,
 	Accuracy = 0.55, -- probabilidad de acertar a corta distancia
 	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia
@@ -62,6 +62,7 @@ GameConfig.Bots = {
 	Reaction = 0.5, -- segundos antes de empezar a disparar a un objetivo nuevo
 	MaxFireRate = 6, -- disparos por segundo como máximo
 	WalkSpeed = 16,
+	JumpChance = 0.2, -- probabilidad de saltar en cada cambio de dirección mientras pelea
 	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
 }
 -- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)

@@ -271,6 +271,10 @@ local function think(agent)
 		if now >= agent.NextStrafe then
 			agent.NextStrafe = now + 1.2 + math.random()
 			humanoid:MoveTo(root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -6 or 6))
+			-- De vez en cuando salta mientras pelea (como un jugador)
+			if math.random() < CONFIG.JumpChance then
+				humanoid.Jump = true
+			end
 		end
 		if now >= agent.NextShot then
 			local def = Weapons.Get(agent.Weapon)
