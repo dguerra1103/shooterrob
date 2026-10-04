@@ -202,8 +202,38 @@ local function findTarget(agent)
 	return nil, CONFIG.Range
 end
 
+-- Captura la bandera: si lleva la bandera, a casa; si no, a devolver la suya caída, a perseguir a
+-- quien se la lleva o a por la enemiga (ver Flags: FlagPos_/FlagHome_/FlagState_)
+local function flagGoal(agent)
+	if ReplicatedStorage:GetAttribute("Mode") ~= "CTF" or not agent.Team then
+		return nil
+	end
+	local own = agent.Team.Name
+	local enemy
+	for _, team in Teams:GetTeams() do
+		if team ~= agent.Team then
+			enemy = team.Name
+		end
+	end
+	if agent.CarryingFlag then
+		return ReplicatedStorage:GetAttribute("FlagHome_" .. own)
+	end
+	local ownState = ReplicatedStorage:GetAttribute("FlagState_" .. own)
+	if (ownState == "Dropped" or ownState == "Carried") and math.random() < 0.6 then
+		return ReplicatedStorage:GetAttribute("FlagPos_" .. own)
+	end
+	if enemy and math.random() < 0.65 then
+		return ReplicatedStorage:GetAttribute("FlagPos_" .. enemy)
+	end
+	return nil
+end
+
 -- Camino hasta un punto al azar del mapa (o la zona activa en Zona de control)
 local function pickGoal(agent)
+	local flagTarget = flagGoal(agent)
+	if typeof(flagTarget) == "Vector3" then
+		return flagTarget, true
+	end
 	-- En Zona de control, la mitad de las veces van a la zona activa
 	local zone = ReplicatedStorage:GetAttribute("ZonePosition")
 	if typeof(zone) == "Vector3" and math.random() < 0.75 then
@@ -344,6 +374,19 @@ local function think(agent)
 		return
 	end
 	local target, distance = findTarget(agent)
+	-- Con la bandera a cuestas no se para a pelear: dispara mientras sigue su camino a casa
+	if target and agent.CarryingFlag then
+		if agent.Target ~= target.Model then
+			agent.Target = target.Model
+			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
+		end
+		if now >= agent.NextShot then
+			local def = Weapons.Get(agent.Weapon)
+			agent.NextShot = now + 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate) + math.random() * 0.12
+			shoot(agent, target, distance)
+		end
+		target = nil
+	end
 	if target then
 		if agent.Target ~= target.Model then
 			agent.Target = target.Model
@@ -381,8 +424,9 @@ local function think(agent)
 		if now < agent.GoalDeadline and not waypoints then
 			return -- sin camino: va en línea recta un rato antes de volver a intentarlo
 		end
-		local goal = pickGoal(agent)
-		agent.GoalDeadline = now + 12
+		local goal, objective = pickGoal(agent)
+		-- (las banderas se mueven: el camino hacia ellas se recalcula antes)
+		agent.GoalDeadline = now + (objective and 5 or 12)
 		if goal then
 			agent.Computing = true
 			task.spawn(function()

@@ -6,7 +6,11 @@
 -- Estado publicado en ReplicatedStorage para la interfaz:
 --   FlagState_<Equipo>   = "Home" | "Carried" | "Dropped"
 --   FlagCarrier_<Equipo> = nombre del portador ("" si nadie)
--- y en el jugador: atributo CarryingFlag = true/false
+--   FlagPos_<Equipo>     = dónde está la bandera ahora (los bots van a por ella)
+--   FlagHome_<Equipo>    = su base
+-- y en el jugador: atributo CarryingFlag = true/false.
+-- Los bots también cogen, llevan, capturan y devuelven banderas (el portador puede ser un jugador o
+-- un bot: tabla de Bots con Name, Team, Model, Root y Humanoid).
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local RunService = game:GetService("RunService")
@@ -17,6 +21,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = require(script.Parent.PlayerData)
+local Bots = require(script.Parent.Bots)
 
 local Flags = {}
 
@@ -57,6 +62,7 @@ end
 
 local function publish(flag)
 	ReplicatedStorage:SetAttribute("FlagState_" .. flag.Team.Name, flag.State)
+	ReplicatedStorage:SetAttribute("FlagPos_" .. flag.Team.Name, flag.Position)
 	ReplicatedStorage:SetAttribute("FlagCarrier_" .. flag.Team.Name, flag.Carrier and flag.Carrier.Name or "")
 	local text = "BANDERA " .. string.upper(flag.Team.Name)
 	if flag.State == "Carried" then
@@ -172,13 +178,25 @@ local function isNear(rootPosition, groundPosition, radius)
 	return Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -2 and offset.Y < 8
 end
 
+local function isPlayer(entity)
+	return typeof(entity) == "Instance"
+end
+
+local function setCarrying(entity, value)
+	if isPlayer(entity) then
+		entity:SetAttribute("CarryingFlag", value)
+	elseif entity then
+		entity.CarryingFlag = value
+	end
+end
+
 local function setCarrier(flag, player)
 	if flag.Carrier then
-		flag.Carrier:SetAttribute("CarryingFlag", false)
+		setCarrying(flag.Carrier, false)
 	end
 	flag.Carrier = player
 	if player then
-		player:SetAttribute("CarryingFlag", true)
+		setCarrying(player, true)
 	end
 end
 
@@ -192,7 +210,9 @@ local function returnHome(flag, returner, silent)
 		return
 	elseif returner then
 		Remotes.Notify:FireAllClients("Flag", returner.Name .. " devolvió la bandera " .. flag.Team.Name)
-		PlayerData.AddXP(returner, GameConfig.XP.FlagReturn, "Bandera devuelta")
+		if isPlayer(returner) then
+			PlayerData.AddXP(returner, GameConfig.XP.FlagReturn, "Bandera devuelta")
+		end
 	else
 		Remotes.Notify:FireAllClients("Flag", "La bandera " .. flag.Team.Name .. " volvió a su base")
 	end
@@ -217,8 +237,9 @@ local function drop(flag)
 	local humanoid = flag.CarrierHumanoid
 	local root = flag.Model.PrimaryPart
 	local ignore = { folder }
-	if carrier and carrier.Character then
-		table.insert(ignore, carrier.Character)
+	local carrierModel = carrier and (isPlayer(carrier) and carrier.Character or carrier.Model)
+	if carrierModel then
+		table.insert(ignore, carrierModel)
 	end
 	local position = groundBelow(flag.LastCarrierPosition or root.Position, ignore)
 
@@ -267,17 +288,26 @@ end
 local function capture(flag, player)
 	local team = player.Team
 	returnHome(flag, nil, true)
-	Remotes.Notify:FireAllClients("Big", "¡" .. player.Name .. " CAPTURÓ LA BANDERA!")
-	PlayerData.AddXP(player, GameConfig.XP.Capture, "Captura")
-	PlayerData.AddCoins(player, GameConfig.Coins.Capture)
-	PlayerData.Track(player, "Capture", 1)
-	player:SetAttribute("Captures", (player:GetAttribute("Captures") or 0) + 1)
+	Remotes.Notify:FireAllClients("Big", "¡" .. string.upper(player.Name) .. " CAPTURÓ LA BANDERA!")
+	if isPlayer(player) then
+		PlayerData.AddXP(player, GameConfig.XP.Capture, "Captura")
+		PlayerData.AddCoins(player, GameConfig.Coins.Capture)
+		PlayerData.Track(player, "Capture", 1)
+		player:SetAttribute("Captures", (player:GetAttribute("Captures") or 0) + 1)
+	end
 	if Flags.OnCapture then
 		Flags.OnCapture(player, team)
 	end
 end
 
 local function aliveCharacter(player)
+	if not isPlayer(player) then
+		-- Bot
+		if player.Humanoid and player.Humanoid.Health > 0 and player.Model and player.Root then
+			return player.Model, player.Root
+		end
+		return nil, nil
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -307,7 +337,7 @@ local function step()
 		if flag.State == "Carried" then
 			local carrier = flag.Carrier
 			local character, root = nil, nil
-			if carrier and carrier.Parent then
+			if carrier and (not isPlayer(carrier) or carrier.Parent) then
 				character, root = aliveCharacter(carrier)
 			end
 			if
@@ -319,6 +349,7 @@ local function step()
 				drop(flag)
 			else
 				flag.LastCarrierPosition = root.Position
+				ReplicatedStorage:SetAttribute("FlagPos_" .. flag.Team.Name, root.Position)
 				-- ¿Ha llegado a su base con su propia bandera en casa?
 				local ownFlag = carrier.Team and flags[carrier.Team.Name]
 				if
@@ -333,9 +364,15 @@ local function step()
 			if flag.State == "Dropped" and os.clock() - flag.DroppedAt >= SETTINGS.AutoReturnTime then
 				returnHome(flag, nil)
 			end
-			for _, player in Players:GetPlayers() do
+			-- Jugadores y bots que tocan la bandera
+			local touchers = Players:GetPlayers()
+			for _, agent in Bots.Agents do
+				table.insert(touchers, agent)
+			end
+			for _, player in touchers do
 				-- Quien sigue en la pantalla de inicio (invulnerable) no puede coger ni devolver banderas
-				if player.Team and flag.State ~= "Carried" and not player:GetAttribute("InMenu") then
+				local inMenu = isPlayer(player) and player:GetAttribute("InMenu")
+				if player.Team and flag.State ~= "Carried" and not inMenu then
 					local character, root = aliveCharacter(player)
 					if character and isNear(root.Position, flag.Position, SETTINGS.PickupRadius) then
 						if player.Team == flag.Team then
@@ -365,6 +402,7 @@ function Flags.Start()
 			local flag = { Team = team, Base = base, State = "Home" }
 			flag.Model, flag.Label = buildFlag(team)
 			placeAt(flag, homePosition(flag))
+			ReplicatedStorage:SetAttribute("FlagHome_" .. team.Name, homePosition(flag))
 			flags[team.Name] = flag
 			publish(flag)
 		end
@@ -384,6 +422,8 @@ function Flags.Stop()
 		setCarrier(flag, nil)
 		ReplicatedStorage:SetAttribute("FlagState_" .. teamName, nil)
 		ReplicatedStorage:SetAttribute("FlagCarrier_" .. teamName, nil)
+		ReplicatedStorage:SetAttribute("FlagPos_" .. teamName, nil)
+		ReplicatedStorage:SetAttribute("FlagHome_" .. teamName, nil)
 	end
 	table.clear(flags)
 	if folder then
