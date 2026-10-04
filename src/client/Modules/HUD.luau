@@ -342,8 +342,8 @@ local function buildWeaponPanel()
 	if not UserInputService.TouchEnabled or UserInputService.KeyboardEnabled then
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -20, 0.2, 0),
-			Size = UDim2.fromOffset(220, 184),
+			Position = UDim2.new(1, -20, 0.18, 0),
+			Size = UDim2.fromOffset(220, 207),
 			BackgroundTransparency = 1,
 			Parent = gui,
 		}, {
@@ -362,7 +362,7 @@ local function buildWeaponPanel()
 			{ "Recargar", "R" },
 			{ "Inspeccionar", "V" },
 			{ "Habilidades", "E Z X" },
-			{ "Correr", "Shift" },
+			{ "Emotes", "N" },
 		} do
 			local row = UI.new("Frame", {
 				LayoutOrder = i,

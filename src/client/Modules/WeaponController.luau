@@ -665,7 +665,7 @@ local function renderStep(dt)
 
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
-	setViewmodelHidden((def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu)
+	setViewmodelHidden((def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting)
 end
 
 ---------------------------------------------------------------------------
