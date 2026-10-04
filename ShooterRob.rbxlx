@@ -21198,8 +21198,86 @@ local function buildChallengesPage(data)
 		TextColor3 = GOLD,
 		Parent = bonus,
 	})
+	-- Evento de temporada: premios por caramelos (GameConfig.Event) con su vista previa
+	local event = GameConfig.Event
+	if event and event.Enabled and ReplicatedStorage:GetAttribute("EventName") then
+		local candy = data.EventCandy or 0
+		local card = UI.new("Frame", {
+			LayoutOrder = 11,
+			Size = UDim2.new(1, -12, 0, 214),
+			BackgroundColor3 = Color3.fromRGB(50, 26, 66),
+			Parent = scroll,
+		}, { UI.corner(12), UI.stroke(Color3.fromRGB(255, 140, 30), 2, 0.1) })
+		UI.label({
+			Position = UDim2.fromOffset(16, 8),
+			Size = UDim2.new(1, -32, 0, 28),
+			Text = "🎃 EVENTO DE " .. string.upper(event.Name) .. "  ·  🍬 " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " caramelos",
+			TextSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(255, 170, 60),
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(16, 34),
+			Size = UDim2.new(1, -32, 0, 20),
+			Text = "Recoge los caramelos que aparecen por el mapa durante las partidas",
+			TextSize = 15,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(210, 195, 230),
+			Font = UI.FontBody,
+			TextStrokeTransparency = 1,
+			Parent = card,
+		})
+		progressBar(card, UDim2.fromOffset(16, 60), UDim2.new(1, -32, 0, 12), candy / event.Goal, Color3.fromRGB(255, 140, 30))
+		-- Premios: los de por el camino y la skin final
+		local prizes = {}
+		for _, milestone in event.Milestones or {} do
+			if milestone.Count < event.Goal then
+				table.insert(prizes, milestone)
+			end
+		end
+		table.insert(prizes, { Count = event.Goal, Skin = event.RewardSkin })
+		local width = 1 / #prizes
+		for i, prize in prizes do
+			local got = candy >= prize.Count
+			local cell = UI.new("Frame", {
+				Position = UDim2.new(width * (i - 1), i == 1 and 16 or 6, 0, 82),
+				Size = UDim2.new(width, i == 1 and -22 or -12, 0, 122),
+				BackgroundColor3 = got and Color3.fromRGB(40, 80, 50) or CARD_BG,
+				Parent = card,
+			}, { UI.corner(10), UI.stroke(got and GREEN or Color3.fromRGB(110, 90, 140), 2, 0.2) })
+			local preview = { Position = UDim2.fromOffset(4, 2), Size = UDim2.new(1, -8, 0, 78), Parent = cell }
+			local title
+			if prize.Outfit and Outfits.List[prize.Outfit] then
+				outfitViewport(prize.Outfit, preview)
+				title = "Traje " .. Outfits.List[prize.Outfit].Name
+			elseif prize.Skin and Skins.List[prize.Skin] then
+				WeaponIcon.Create(data.Primary or "ARX27", prize.Skin, preview, "angled", 2.2)
+				title = "Skin " .. Skins.List[prize.Skin].Name
+			else
+				UI.label({ Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 50), Text = "🪙", TextSize = 44, Parent = cell })
+				title = coinsText(prize.Coins or 0)
+			end
+			UI.label({
+				Position = UDim2.new(0, 4, 1, -42),
+				Size = UDim2.new(1, -8, 0, 20),
+				Text = title,
+				TextSize = 15,
+				TextScaled = true,
+				Parent = cell,
+			})
+			UI.label({
+				Position = UDim2.new(0, 4, 1, -22),
+				Size = UDim2.new(1, -8, 0, 18),
+				Text = got and "✅ Conseguido" or ("🍬 " .. prize.Count),
+				TextSize = 15,
+				TextColor3 = got and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 190, 90),
+				Parent = cell,
+			})
+		end
+	end
 	UI.label({
-		LayoutOrder = 11,
+		LayoutOrder = 12,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Consejo: cada arma tiene MAESTRÍA. Consigue bajas con ella para ganar camuflajes Carbono, Oro, Diamante y Materia oscura (pestaña Armas).",
 		TextSize = 15,
