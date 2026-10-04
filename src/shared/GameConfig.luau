@@ -96,6 +96,10 @@ GameConfig.Event = {
 	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
 }
 
+-- XP extra por días de la semana (hora UTC): Days usa os.date("!*t").wday (1 = domingo ... 7 = sábado).
+-- Multiplica solo la XP (no las monedas). Pon Enabled = false para quitarlo.
+GameConfig.XPBoost = { Enabled = true, Multiplier = 2, Days = { 1, 7 }, Text = "⚡ ¡FIN DE SEMANA DE XP DOBLE!" }
+
 -- Novedades: tarjeta que ven una vez (en la pantalla de inicio) los jugadores que ya habían jugado.
 -- Para anunciar otra actualización, cambia los textos y sube Version.
 GameConfig.News = {

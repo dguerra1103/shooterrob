@@ -499,6 +499,17 @@ local function multiplier(player)
 	return vip * Friends.Multiplier(player)
 end
 
+-- XP extra de hoy (GameConfig.XPBoost: fin de semana de XP doble)
+local function xpBoost()
+	local boost = GameConfig.XPBoost
+	if not boost or not boost.Enabled then
+		return 1
+	end
+	local today = os.date("!*t").wday
+	return table.find(boost.Days, today) and boost.Multiplier or 1
+end
+PlayerData.XPBoost = xpBoost
+
 -- Envía los datos al cliente (cambios hechos desde fuera, p. ej. el evento)
 function PlayerData.SendUpdate(player)
 	sendUpdate(player)
@@ -651,7 +662,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		return
 	end
 	if not fixed then
-		amount = math.floor(amount * multiplier(player))
+		amount = math.floor(amount * multiplier(player) * xpBoost())
 		matchOf(player, data).XP += amount
 	end
 	data.XP += amount
@@ -1124,6 +1135,13 @@ end
 ---------------------------------------------------------------------------
 
 function PlayerData.Init()
+	-- Publica si hay XP extra hoy (la pantalla de inicio lo anuncia); se revisa cada minuto
+	task.spawn(function()
+		while true do
+			ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
+			task.wait(60)
+		end
+	end)
 	Players.PlayerAdded:Connect(function(player)
 		PlayerData.GetLeaderstats(player)
 		load(player)

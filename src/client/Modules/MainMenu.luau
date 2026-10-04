@@ -578,15 +578,22 @@ function MainMenu.Init()
 			Parent = card,
 		}),
 	}
-	UI.label({
-		Position = UDim2.fromOffset(4, 150),
-		Size = UDim2.new(1, 0, 0, 22),
-		Text = "Clic izq. disparar · Clic der. apuntar · Shift correr · C deslizar · G granada · B menú",
+	-- XP doble (GameConfig.XPBoost): aviso debajo de la ruleta mientras está activo
+	local boostLabel = UI.label({
+		Position = UDim2.fromOffset(330, 356),
+		Size = UDim2.fromOffset(230, 26),
+		Text = GameConfig.XPBoost and GameConfig.XPBoost.Text or "",
 		TextSize = 16,
-		TextColor3 = Color3.fromRGB(190, 195, 215),
-		TextXAlignment = Enum.TextXAlignment.Left,
+		TextScaled = true,
+		TextColor3 = Color3.fromRGB(120, 230, 255),
+		Visible = false,
 		Parent = left,
 	})
+	local function refreshBoost()
+		boostLabel.Visible = (ReplicatedStorage:GetAttribute("XPBoost") or 1) > 1
+	end
+	ReplicatedStorage:GetAttributeChangedSignal("XPBoost"):Connect(refreshBoost)
+	refreshBoost()
 
 	-- Escaparate del arma a la derecha (fuera del CanvasGroup para que el 3D se dibuje siempre)
 	showcase = UI.new("Frame", {
