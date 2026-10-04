@@ -20,7 +20,7 @@ local shown = false
 
 local function show()
 	shown = true
-	local news = GameConfig.News
+	local news = GameConfig.ActiveNews()
 	local height = 120 + #news.Items * 46
 	local gui = UI.new("ScreenGui", {
 		Name = "News",
@@ -84,7 +84,7 @@ function News.Init()
 		while not shown do
 			task.wait(1)
 			local data = ClientState.Data
-			local news = GameConfig.News
+			local news = GameConfig.ActiveNews()
 			if news and data and ClientState.InMainMenu and data.TutorialDone and (data.NewsSeen or 0) < news.Version then
 				task.wait(1) -- que primero se vea la pantalla de inicio
 				if ClientState.InMainMenu then

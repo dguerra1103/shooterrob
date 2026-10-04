@@ -203,7 +203,7 @@ Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se
 3. En el Creator Hub, rellena el **cuestionario de madurez** y, como hay cajas, marca que tiene artículos aleatorios de pago (aunque solo se compren con monedas, las monedas se venden por Robux).
 4. En **Game Settings → Places**, pon el máximo de jugadores por servidor en **20** (10 contra 10) o menos de 30: Roblox solo dibuja 31 contornos a la vez (compañeros y radar).
 5. Cambia la experiencia a **Public** y ponle un icono y miniaturas llamativas (puedes usar las imágenes del concept pack).
-6. Temporadas: los eventos se encienden y apagan solos por fecha (`GameConfig.Events`): Halloween hasta el 4 de noviembre y Navidad del 1 de diciembre al 7 de enero. Para el año que viene, copia uno, cambia su `Id` (empieza de cero) y sus fechas. Para anunciar una actualización (por ejemplo la de Navidad), cambia `GameConfig.News` y sube su `Version`.
+6. Temporadas: los eventos se encienden y apagan solos por fecha (`GameConfig.Events`): Halloween hasta el 4 de noviembre y Navidad del 1 de diciembre al 7 de enero. Para el año que viene, copia uno, cambia su `Id` (empieza de cero) y sus fechas. Las novedades de Navidad ya están escritas (`News` dentro del evento) y salen solas el 1 de diciembre a quien ya había jugado. Para anunciar otra actualización, cambia `GameConfig.News` y sube su `Version` por encima de la última usada (ahora 2).
 
 ## Estructura del proyecto
 

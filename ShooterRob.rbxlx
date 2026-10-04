@@ -575,6 +575,18 @@ GameConfig.Events = {
 		MaxCandies = 6,
 		StartsAt = 1796083200, -- 1 dic 2026, 00:00 UTC
 		EndsAt = 1799366400, -- 8 ene 2027, 00:00 UTC
+		-- Novedades propias del evento (salen solas al empezar; Version mayor que la de GameConfig.News)
+		News = {
+			Version = 2,
+			Title = "🎄 ¡LLEGA LA NAVIDAD!",
+			Items = {
+				{ "🎁", "Evento de Navidad: recoge los regalos que aparecen por el mapa" },
+				{ "🎅", "Traje de Papá Noel a los 50 regalos y skin Navideña a los 100" },
+				{ "🏘", "Mapa de temporada: Villa Navideña, con su árbol gigante y pista de patinaje" },
+				{ "☃️", "En la tienda: efecto Ventisca, bastón de caramelo y grafiti HO HO HO" },
+				{ "🛍", "Pack de Navidad por tiempo limitado" },
+			},
+		},
 	},
 }
 
@@ -600,6 +612,16 @@ function GameConfig.PickEvent(now)
 	return upcoming or GameConfig.Events[#GameConfig.Events]
 end
 GameConfig.Event = GameConfig.PickEvent()
+
+-- Novedades que tocan ahora: las del evento en marcha si trae las suyas (y son más nuevas), si no
+-- GameConfig.News
+function GameConfig.ActiveNews()
+	local event = GameConfig.CurrentEvent and GameConfig.CurrentEvent()
+	if event and event.News and event.News.Version > GameConfig.News.Version then
+		return event.News
+	end
+	return GameConfig.News
+end
 
 -- El evento en marcha AHORA según el servidor (atributo EventId que publica Event): en el cliente
 -- no se usa su reloj (puede ir mal o estar cambiado). nil si no hay evento.
@@ -16096,7 +16118,7 @@ local function load(player)
 	-- Quien ya jugaba antes de existir el tutorial no lo ve
 	-- Los nuevos no ven las novedades (ven la tarjeta de controles)
 	if isNew or type(merged.NewsSeen) ~= "number" then
-		merged.NewsSeen = isNew and GameConfig.News.Version or 0
+		merged.NewsSeen = isNew and GameConfig.ActiveNews().Version or 0
 	end
 	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
 		merged.TutorialDone = true
@@ -17101,8 +17123,9 @@ function PlayerData.Init()
 	end)
 	Remotes.NewsSeen.OnServerEvent:Connect(function(player)
 		local data = profiles[player]
-		if data and data.NewsSeen ~= GameConfig.News.Version then
-			data.NewsSeen = GameConfig.News.Version
+		local version = GameConfig.ActiveNews().Version
+		if data and (data.NewsSeen or 0) < version then
+			data.NewsSeen = version
 			dirty[player] = true
 			sendUpdate(player)
 		end
@@ -27551,7 +27574,7 @@ local shown = false
 
 local function show()
 	shown = true
-	local news = GameConfig.News
+	local news = GameConfig.ActiveNews()
 	local height = 120 + #news.Items * 46
 	local gui = UI.new("ScreenGui", {
 		Name = "News",
@@ -27615,7 +27638,7 @@ function News.Init()
 		while not shown do
 			task.wait(1)
 			local data = ClientState.Data
-			local news = GameConfig.News
+			local news = GameConfig.ActiveNews()
 			if news and data and ClientState.InMainMenu and data.TutorialDone and (data.NewsSeen or 0) < news.Version then
 				task.wait(1) -- que primero se vea la pantalla de inicio
 				if ClientState.InMainMenu then

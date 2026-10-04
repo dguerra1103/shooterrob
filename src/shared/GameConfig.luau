@@ -129,6 +129,18 @@ GameConfig.Events = {
 		MaxCandies = 6,
 		StartsAt = 1796083200, -- 1 dic 2026, 00:00 UTC
 		EndsAt = 1799366400, -- 8 ene 2027, 00:00 UTC
+		-- Novedades propias del evento (salen solas al empezar; Version mayor que la de GameConfig.News)
+		News = {
+			Version = 2,
+			Title = "🎄 ¡LLEGA LA NAVIDAD!",
+			Items = {
+				{ "🎁", "Evento de Navidad: recoge los regalos que aparecen por el mapa" },
+				{ "🎅", "Traje de Papá Noel a los 50 regalos y skin Navideña a los 100" },
+				{ "🏘", "Mapa de temporada: Villa Navideña, con su árbol gigante y pista de patinaje" },
+				{ "☃️", "En la tienda: efecto Ventisca, bastón de caramelo y grafiti HO HO HO" },
+				{ "🛍", "Pack de Navidad por tiempo limitado" },
+			},
+		},
 	},
 }
 
@@ -154,6 +166,16 @@ function GameConfig.PickEvent(now)
 	return upcoming or GameConfig.Events[#GameConfig.Events]
 end
 GameConfig.Event = GameConfig.PickEvent()
+
+-- Novedades que tocan ahora: las del evento en marcha si trae las suyas (y son más nuevas), si no
+-- GameConfig.News
+function GameConfig.ActiveNews()
+	local event = GameConfig.CurrentEvent and GameConfig.CurrentEvent()
+	if event and event.News and event.News.Version > GameConfig.News.Version then
+		return event.News
+	end
+	return GameConfig.News
+end
 
 -- El evento en marcha AHORA según el servidor (atributo EventId que publica Event): en el cliente
 -- no se usa su reloj (puede ir mal o estar cambiado). nil si no hay evento.

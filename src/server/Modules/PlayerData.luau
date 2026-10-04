@@ -500,7 +500,7 @@ local function load(player)
 	-- Quien ya jugaba antes de existir el tutorial no lo ve
 	-- Los nuevos no ven las novedades (ven la tarjeta de controles)
 	if isNew or type(merged.NewsSeen) ~= "number" then
-		merged.NewsSeen = isNew and GameConfig.News.Version or 0
+		merged.NewsSeen = isNew and GameConfig.ActiveNews().Version or 0
 	end
 	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
 		merged.TutorialDone = true
@@ -1505,8 +1505,9 @@ function PlayerData.Init()
 	end)
 	Remotes.NewsSeen.OnServerEvent:Connect(function(player)
 		local data = profiles[player]
-		if data and data.NewsSeen ~= GameConfig.News.Version then
-			data.NewsSeen = GameConfig.News.Version
+		local version = GameConfig.ActiveNews().Version
+		if data and (data.NewsSeen or 0) < version then
+			data.NewsSeen = version
 			dirty[player] = true
 			sendUpdate(player)
 		end
