@@ -99,6 +99,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		WeeklyChallenges = { Week = -1, List = {}, Bonus = false }, -- retos semanales
 		StarterPack = false, -- ya compró el pack de inicio
+		HalloweenBundle = false, -- ya compró el pack de Halloween
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		Achievements = {}, -- logros reclamados ([Id] = true)
@@ -247,6 +248,7 @@ local function publicView(player, data)
 		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
+		HalloweenBundleAvailable = Shop.HalloweenBundle.ProductId ~= 0 and not data.HalloweenBundle and os.time() < Shop.HalloweenBundle.EndsAt,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -1152,7 +1154,42 @@ local function processReceipt(receipt)
 	local grant, undo, message
 	local starter = Shop.StarterPack
 	local wheel = Shop.Wheel
-	if wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
+	local bundle = Shop.HalloweenBundle
+	if bundle.ProductId ~= 0 and receipt.ProductId == bundle.ProductId then
+		-- Pack de Halloween (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
+		-- deshacer solo se quita lo que se dio.
+		local repeated = data.HalloweenBundle == true
+		local had = {
+			Effect = data.KillEffects[bundle.KillEffect] == true,
+			Charm = data.Charms[bundle.Charm] == true,
+			Spray = data.Sprays[bundle.Spray] == true,
+		}
+		grant = function()
+			data.Coins += bundle.Coins
+			if not repeated then
+				data.KillEffects[bundle.KillEffect] = true
+				data.Charms[bundle.Charm] = true
+				data.Sprays[bundle.Spray] = true
+				data.HalloweenBundle = true
+			end
+		end
+		undo = function()
+			data.Coins -= bundle.Coins
+			if not repeated then
+				if not had.Effect then
+					data.KillEffects[bundle.KillEffect] = nil
+				end
+				if not had.Charm then
+					data.Charms[bundle.Charm] = nil
+				end
+				if not had.Spray then
+					data.Sprays[bundle.Spray] = nil
+				end
+				data.HalloweenBundle = false
+			end
+		end
+		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or "🎃 ¡PACK DE HALLOWEEN DESBLOQUEADO!"
+	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
 		grant = function()
 			data.WheelSpins += wheel.SpinsPerPurchase
 		end

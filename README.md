@@ -182,7 +182,9 @@ En el [Creator Hub](https://create.roblox.com/dashboard/creations), abre tu expe
 2. **Revivir instantáneo**: crea 2 productos (5 revivir a 25 Robux y 15 a 59 Robux) y pega sus IDs en `Shop.RevivePacks[i].ProductId`. Cada jugador empieza con 3 gratis; al morir, "REVIVIR INSTANTÁNEO" (tecla B) le devuelve donde cayó.
 3. **Ruleta**: crea un Developer Product (por ejemplo 25 Robux) y pon su ID en `Shop.Wheel.SpinProductId`: da 3 giros extra. El giro gratis diario funciona sin configurar nada.
 4. **Pack de inicio**: crea otro Developer Product (por ejemplo 99 Robux) y pon su ID en `Shop.StarterPack.ProductId`. Da 1500 monedas, el traje Blaze Runner, la skin Sakura y el efecto Confeti, se compra una sola vez y solo se ofrece hasta el nivel 15.
-5. **Passes**: crea el pase **VIP** (299 Robux) y pon su ID en `Shop.VIPPassId`. Crea otro para el **pase de batalla premium** y pon su ID en `GameConfig.PremiumPassId`.
+5. **Pack de Halloween**: crea otro Developer Product (199 Robux) y pon su ID en `Shop.HalloweenBundle.ProductId`. Da 2500 monedas, el efecto Calabazas, el colgante Calabacita y el grafiti Calabaza (vale unas 5000 monedas), se compra una vez y deja de ofrecerse solo el 4 de noviembre (`EndsAt`). La tarjeta sale arriba de la Tienda con los días que quedan.
+6. **Grupo**: crea el grupo del juego y pon su ID en `GameConfig.Group.Id` (botón ⭐ ÚNETE AL GRUPO +500 🪙 en la pantalla de inicio).
+7. **Passes**: crea el pase **VIP** (299 Robux) y pon su ID en `Shop.VIPPassId`. Crea otro para el **pase de batalla premium** y pon su ID en `GameConfig.PremiumPassId`.
 
 Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se guardan con un registro para no entregar dos veces la misma.
 

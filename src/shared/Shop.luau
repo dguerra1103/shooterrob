@@ -32,6 +32,19 @@ Shop.StarterPack = {
 	KillEffect = "Confeti",
 }
 
+-- Pack de Halloween (Developer Product de compra única y por tiempo limitado: se deja de ofrecer en
+-- EndsAt, el mismo día que acaba el evento). Cosas de la tienda por mucho menos que su precio.
+Shop.HalloweenBundle = {
+	ProductId = 0, -- pega aquí el ID del Developer Product
+	Robux = 199,
+	EndsAt = 1793750400, -- 4 de noviembre de 2026 (UTC)
+	Coins = 2500,
+	KillEffect = "Calabazas",
+	Charm = "Calabaza",
+	Spray = "Calabaza",
+	Value = 5000, -- lo que vale todo en monedas (se enseña en la tienda)
+}
+
 -- Ruleta diaria: un giro gratis al día y giros extra con Robux (Developer Product SpinProductId,
 -- da SpinsPerPurchase giros). Los premios salen según su peso (Weight); las probabilidades se ven en
 -- la propia ruleta. En los países donde los premios al azar de pago no están permitidos solo hay

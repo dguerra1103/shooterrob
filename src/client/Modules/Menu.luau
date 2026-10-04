@@ -1749,6 +1749,71 @@ local function buildShopPage(data)
 		end)
 	end
 
+	-- Pack de Halloween (compra única, hasta que acaba el evento)
+	local bundle = Shop.HalloweenBundle
+	if data.HalloweenBundleAvailable then
+		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
+		local card = UI.new("Frame", {
+			LayoutOrder = 0,
+			Size = UDim2.new(1, -10, 0, 130),
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			Parent = scroll,
+		}, {
+			UI.corner(14),
+			UI.stroke(Color3.fromRGB(255, 150, 30), 3, 0),
+			UI.new("UIGradient", {
+				Color = ColorSequence.new(Color3.fromRGB(255, 120, 20), Color3.fromRGB(90, 30, 140)),
+				Rotation = 0,
+			}),
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 8),
+			Size = UDim2.new(1, -280, 0, 36),
+			Text = "🎃 PACK DE HALLOWEEN  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
+			TextSize = 26,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 48),
+			Size = UDim2.new(1, -280, 0, 72),
+			Text = string.format(
+				"🪙 %d monedas  ·  %s Efecto %s  ·  %s Colgante %s  ·  🎨 Grafiti %s\n¡Todo vale %d monedas! Solo se puede comprar una vez.",
+				bundle.Coins,
+				KillEffects.Get(bundle.KillEffect).Icon,
+				KillEffects.Get(bundle.KillEffect).Name,
+				Charms.Get(bundle.Charm).Icon,
+				Charms.Get(bundle.Charm).Name,
+				Sprays.Get(bundle.Spray).Name,
+				bundle.Value
+			),
+			TextSize = 18,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Parent = card,
+		})
+		local buyBundle = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -18, 0.5, 0),
+			Size = UDim2.fromOffset(230, 60),
+			Text = "R$ " .. bundle.Robux .. "  ¡COMPRAR!",
+			TextSize = 24,
+			BackgroundColor3 = GREEN,
+			Parent = card,
+		}, { UI.gloss() })
+		buyBundle.Activated:Connect(function()
+			if not buyBundle.Active then
+				return
+			end
+			Sounds.Play("Click")
+			buyBundle.Active = false
+			buyBundle.AutoButtonColor = false
+			buyBundle.Text = "Procesando..."
+			MarketplaceService:PromptProductPurchase(player, bundle.ProductId)
+		end)
+	end
+
 	-- Recompensa diaria
 	local daily = UI.new("Frame", {
 		LayoutOrder = 1,
@@ -2280,7 +2345,8 @@ function Menu.Init()
 
 	-- Si se cancela la compra del pack de inicio, el botón vuelve a estar disponible
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
-		if userId == player.UserId and productId == Shop.StarterPack.ProductId and not purchased and ClientState.MenuOpen then
+		local single = productId == Shop.StarterPack.ProductId or productId == Shop.HalloweenBundle.ProductId
+		if userId == player.UserId and single and not purchased and ClientState.MenuOpen then
 			refresh()
 		end
 	end)

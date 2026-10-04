@@ -1307,6 +1307,19 @@ Shop.StarterPack = {
 	KillEffect = "Confeti",
 }
 
+-- Pack de Halloween (Developer Product de compra única y por tiempo limitado: se deja de ofrecer en
+-- EndsAt, el mismo día que acaba el evento). Cosas de la tienda por mucho menos que su precio.
+Shop.HalloweenBundle = {
+	ProductId = 0, -- pega aquí el ID del Developer Product
+	Robux = 199,
+	EndsAt = 1793750400, -- 4 de noviembre de 2026 (UTC)
+	Coins = 2500,
+	KillEffect = "Calabazas",
+	Charm = "Calabaza",
+	Spray = "Calabaza",
+	Value = 5000, -- lo que vale todo en monedas (se enseña en la tienda)
+}
+
 -- Ruleta diaria: un giro gratis al día y giros extra con Robux (Developer Product SpinProductId,
 -- da SpinsPerPurchase giros). Los premios salen según su peso (Weight); las probabilidades se ven en
 -- la propia ruleta. En los países donde los premios al azar de pago no están permitidos solo hay
@@ -14776,6 +14789,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		WeeklyChallenges = { Week = -1, List = {}, Bonus = false }, -- retos semanales
 		StarterPack = false, -- ya compró el pack de inicio
+		HalloweenBundle = false, -- ya compró el pack de Halloween
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		Achievements = {}, -- logros reclamados ([Id] = true)
@@ -14924,6 +14938,7 @@ local function publicView(player, data)
 		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
+		HalloweenBundleAvailable = Shop.HalloweenBundle.ProductId ~= 0 and not data.HalloweenBundle and os.time() < Shop.HalloweenBundle.EndsAt,
 		Challenges = challengesView(player, data),
 	}
 end
@@ -15829,7 +15844,42 @@ local function processReceipt(receipt)
 	local grant, undo, message
 	local starter = Shop.StarterPack
 	local wheel = Shop.Wheel
-	if wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
+	local bundle = Shop.HalloweenBundle
+	if bundle.ProductId ~= 0 and receipt.ProductId == bundle.ProductId then
+		-- Pack de Halloween (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
+		-- deshacer solo se quita lo que se dio.
+		local repeated = data.HalloweenBundle == true
+		local had = {
+			Effect = data.KillEffects[bundle.KillEffect] == true,
+			Charm = data.Charms[bundle.Charm] == true,
+			Spray = data.Sprays[bundle.Spray] == true,
+		}
+		grant = function()
+			data.Coins += bundle.Coins
+			if not repeated then
+				data.KillEffects[bundle.KillEffect] = true
+				data.Charms[bundle.Charm] = true
+				data.Sprays[bundle.Spray] = true
+				data.HalloweenBundle = true
+			end
+		end
+		undo = function()
+			data.Coins -= bundle.Coins
+			if not repeated then
+				if not had.Effect then
+					data.KillEffects[bundle.KillEffect] = nil
+				end
+				if not had.Charm then
+					data.Charms[bundle.Charm] = nil
+				end
+				if not had.Spray then
+					data.Sprays[bundle.Spray] = nil
+				end
+				data.HalloweenBundle = false
+			end
+		end
+		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or "🎃 ¡PACK DE HALLOWEEN DESBLOQUEADO!"
+	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
 		grant = function()
 			data.WheelSpins += wheel.SpinsPerPurchase
 		end
@@ -25123,6 +25173,71 @@ local function buildShopPage(data)
 		end)
 	end
 
+	-- Pack de Halloween (compra única, hasta que acaba el evento)
+	local bundle = Shop.HalloweenBundle
+	if data.HalloweenBundleAvailable then
+		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
+		local card = UI.new("Frame", {
+			LayoutOrder = 0,
+			Size = UDim2.new(1, -10, 0, 130),
+			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+			Parent = scroll,
+		}, {
+			UI.corner(14),
+			UI.stroke(Color3.fromRGB(255, 150, 30), 3, 0),
+			UI.new("UIGradient", {
+				Color = ColorSequence.new(Color3.fromRGB(255, 120, 20), Color3.fromRGB(90, 30, 140)),
+				Rotation = 0,
+			}),
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 8),
+			Size = UDim2.new(1, -280, 0, 36),
+			Text = "🎃 PACK DE HALLOWEEN  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
+			TextSize = 26,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		UI.label({
+			Position = UDim2.fromOffset(18, 48),
+			Size = UDim2.new(1, -280, 0, 72),
+			Text = string.format(
+				"🪙 %d monedas  ·  %s Efecto %s  ·  %s Colgante %s  ·  🎨 Grafiti %s\n¡Todo vale %d monedas! Solo se puede comprar una vez.",
+				bundle.Coins,
+				KillEffects.Get(bundle.KillEffect).Icon,
+				KillEffects.Get(bundle.KillEffect).Name,
+				Charms.Get(bundle.Charm).Icon,
+				Charms.Get(bundle.Charm).Name,
+				Sprays.Get(bundle.Spray).Name,
+				bundle.Value
+			),
+			TextSize = 18,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			Parent = card,
+		})
+		local buyBundle = UI.button({
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -18, 0.5, 0),
+			Size = UDim2.fromOffset(230, 60),
+			Text = "R$ " .. bundle.Robux .. "  ¡COMPRAR!",
+			TextSize = 24,
+			BackgroundColor3 = GREEN,
+			Parent = card,
+		}, { UI.gloss() })
+		buyBundle.Activated:Connect(function()
+			if not buyBundle.Active then
+				return
+			end
+			Sounds.Play("Click")
+			buyBundle.Active = false
+			buyBundle.AutoButtonColor = false
+			buyBundle.Text = "Procesando..."
+			MarketplaceService:PromptProductPurchase(player, bundle.ProductId)
+		end)
+	end
+
 	-- Recompensa diaria
 	local daily = UI.new("Frame", {
 		LayoutOrder = 1,
@@ -25654,7 +25769,8 @@ function Menu.Init()
 
 	-- Si se cancela la compra del pack de inicio, el botón vuelve a estar disponible
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
-		if userId == player.UserId and productId == Shop.StarterPack.ProductId and not purchased and ClientState.MenuOpen then
+		local single = productId == Shop.StarterPack.ProductId or productId == Shop.HalloweenBundle.ProductId
+		if userId == player.UserId and single and not purchased and ClientState.MenuOpen then
 			refresh()
 		end
 	end)
