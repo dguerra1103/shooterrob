@@ -19,7 +19,7 @@ local Tutorial = {}
 
 local PC_TIPS = {
 	{ "🖱", "Clic izquierdo dispara · clic derecho apunta" },
-	{ "⌨", "WASD te mueve · Shift corre · C te desliza" },
+	{ "⌨", "WASD te mueve · Shift corre · C te agacha (corriendo, te desliza)" },
 	{ "⚡", "E impulso · Z supersalto · X poción" },
 	{ "🔪", "F golpe rápido · G granada · R recargar" },
 	{ "🛒", "B abre la tienda, el pase y los retos" },

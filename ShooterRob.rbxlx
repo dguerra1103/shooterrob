@@ -23238,6 +23238,7 @@ local DamageIndicator = require(Modules.DamageIndicator)
 local BoostHUD = require(Modules.BoostHUD)
 local Minimap = require(Modules.Minimap)
 local DominationHUD = require(Modules.DominationHUD)
+local MatchIntro = require(Modules.MatchIntro)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -23261,6 +23262,7 @@ start("Settings", Settings.Init)
 start("HUD", HUD.Init)
 start("Minimap", Minimap.Init)
 start("DominationHUD", DominationHUD.Init)
+start("MatchIntro", MatchIntro.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -29208,6 +29210,243 @@ return MainMenu
           </Item>
           <Item class="ModuleScript" referent="100">
             <Properties>
+              <string name="Name">MatchIntro</string>
+              <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
+-- con el mapa y el modo arriba y los dos equipos enfrentados (jugadores y bots; tú en amarillo).
+-- En todos contra todos, la lista de participantes. Se va sola y no bloquea nada.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Teams = game:GetService("Teams")
+local TweenService = game:GetService("TweenService")
+
+local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
+
+local player = Players.LocalPlayer
+
+local MatchIntro = {}
+
+local SHOW_TIME = 4.5
+local MAX_ROWS = 6
+
+local gui, panel, title, subtitle, columns
+local showToken = 0
+
+-- Miembros de cada equipo: { [nombreEquipo] = { { Name, Me, Bot } } }
+local function rosters()
+	local byTeam = {}
+	local function add(teamName, entry)
+		byTeam[teamName] = byTeam[teamName] or {}
+		table.insert(byTeam[teamName], entry)
+	end
+	for _, other in Players:GetPlayers() do
+		if not other:GetAttribute("InMenu") or other == player then
+			add(other.Team and other.Team.Name or "", { Name = other.DisplayName, Me = other == player })
+		end
+	end
+	local stats = ReplicatedStorage:FindFirstChild("BotStats")
+	if stats then
+		for _, entry in stats:GetChildren() do
+			add(entry:GetAttribute("Team") or "", { Name = entry.Name, Bot = true })
+		end
+	end
+	for _, list in byTeam do
+		table.sort(list, function(a, b)
+			if a.Me ~= b.Me then
+				return a.Me == true
+			end
+			if (a.Bot == true) ~= (b.Bot == true) then
+				return not a.Bot
+			end
+			return a.Name < b.Name
+		end)
+	end
+	return byTeam
+end
+
+local function fillColumn(column, list, color)
+	for _, child in column:GetChildren() do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+	for i, entry in list do
+		if i > MAX_ROWS then
+			break
+		end
+		UI.label({
+			LayoutOrder = i,
+			Size = UDim2.new(1, 0, 0, 30),
+			Text = (entry.Bot and "🤖 " or "") .. entry.Name,
+			TextSize = 22,
+			TextColor3 = entry.Me and Color3.fromRGB(255, 225, 80) or Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.15,
+			BackgroundColor3 = color:Lerp(Color3.new(0, 0, 0), 0.62),
+			Parent = column,
+		}, { UI.corner(6) })
+	end
+end
+
+local function refresh()
+	local byTeam = rosters()
+	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") == true
+	if teamMode then
+		local nameA = ReplicatedStorage:GetAttribute("TeamA") or ""
+		local nameB = ReplicatedStorage:GetAttribute("TeamB") or ""
+		local teamA, teamB = Teams:FindFirstChild(nameA), Teams:FindFirstChild(nameB)
+		local colorA = teamA and teamA:IsA("Team") and teamA.TeamColor.Color or Color3.fromRGB(220, 50, 50)
+		local colorB = teamB and teamB:IsA("Team") and teamB.TeamColor.Color or Color3.fromRGB(50, 110, 230)
+		columns.Left.Header.Text = "EQUIPO " .. string.upper(nameA)
+		columns.Left.Bar.BackgroundColor3 = colorA
+		columns.Right.Header.Text = "EQUIPO " .. string.upper(nameB)
+		columns.Right.Bar.BackgroundColor3 = colorB
+		fillColumn(columns.Left.List, byTeam[nameA] or {}, colorA)
+		fillColumn(columns.Right.List, byTeam[nameB] or {}, colorB)
+		columns.Versus.Text = string.format("%d  VS  %d", #(byTeam[nameA] or {}), #(byTeam[nameB] or {}))
+		columns.Right.Frame.Visible = true
+	else
+		local everyone = {}
+		for _, list in byTeam do
+			for _, entry in list do
+				table.insert(everyone, entry)
+			end
+		end
+		columns.Left.Header.Text = "TODOS CONTRA TODOS"
+		columns.Left.Bar.BackgroundColor3 = Color3.fromRGB(255, 210, 90)
+		fillColumn(columns.Left.List, everyone, Color3.fromRGB(90, 90, 100))
+		columns.Versus.Text = #everyone .. " EN PARTIDA"
+		columns.Right.Frame.Visible = false
+	end
+end
+
+function MatchIntro.Show()
+	if ClientState.InMainMenu then
+		return
+	end
+	showToken += 1
+	local token = showToken
+	title.Text = string.upper(ReplicatedStorage:GetAttribute("MapName") or "")
+	subtitle.Text = ReplicatedStorage:GetAttribute("ModeName") or ""
+	refresh()
+	gui.Enabled = true
+	panel.GroupTransparency = 1
+	TweenService:Create(panel, TweenInfo.new(0.35), { GroupTransparency = 0 }):Play()
+	-- (los bots van entrando en el primer segundo: la lista se actualiza mientras se ve)
+	task.spawn(function()
+		local finish = os.clock() + SHOW_TIME
+		while os.clock() < finish and token == showToken do
+			task.wait(0.4)
+			refresh()
+		end
+		if token ~= showToken then
+			return
+		end
+		TweenService:Create(panel, TweenInfo.new(0.5), { GroupTransparency = 1 }):Play()
+		task.wait(0.5)
+		if token == showToken then
+			gui.Enabled = false
+		end
+	end)
+end
+
+local function column(name, anchorX)
+	local frame = UI.new("Frame", {
+		Name = name,
+		AnchorPoint = Vector2.new(anchorX, 0),
+		Position = UDim2.new(anchorX == 0 and 0.08 or 0.92, 0, 0, 120),
+		Size = UDim2.new(0.34, 0, 0, 260),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	})
+	local header = UI.label({
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 36),
+		Text = "",
+		TextSize = 28,
+		Parent = frame,
+	})
+	local bar = UI.new("Frame", {
+		Name = "Bar",
+		Position = UDim2.fromOffset(0, 36),
+		Size = UDim2.new(1, 0, 0, 4),
+		BorderSizePixel = 0,
+		Parent = frame,
+	})
+	local list = UI.new("Frame", {
+		Name = "List",
+		Position = UDim2.fromOffset(0, 42),
+		Size = UDim2.new(1, 0, 1, -42),
+		BackgroundTransparency = 1,
+		Parent = frame,
+	}, { UI.new("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	return { Frame = frame, Header = header, Bar = bar, List = list }
+end
+
+function MatchIntro.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "MatchIntro",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 8,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	panel = UI.new("CanvasGroup", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(10, 12, 16),
+		BackgroundTransparency = 0.12,
+		GroupTransparency = 1,
+		Parent = gui,
+	})
+	title = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 30),
+		Size = UDim2.new(0.8, 0, 0, 50),
+		Text = "",
+		TextSize = 44,
+		Parent = panel,
+	})
+	subtitle = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 80),
+		Size = UDim2.new(0.8, 0, 0, 30),
+		Text = "",
+		TextSize = 24,
+		TextColor3 = Color3.fromRGB(255, 210, 90),
+		Parent = panel,
+	})
+	columns = {
+		Left = column("Left", 0),
+		Right = column("Right", 1),
+		Versus = UI.label({
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 200),
+			Size = UDim2.fromOffset(200, 50),
+			Text = "VS",
+			TextSize = 36,
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			Parent = panel,
+		}),
+	}
+	local lastState = ReplicatedStorage:GetAttribute("State")
+	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
+		local state = ReplicatedStorage:GetAttribute("State")
+		if state == "Playing" and lastState ~= "Playing" then
+			task.delay(0.8, MatchIntro.Show)
+		elseif state ~= "Playing" then
+			showToken += 1
+			gui.Enabled = false
+		end
+		lastState = state
+	end)
+end
+
+return MatchIntro
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="101">
+            <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
 local Players = game:GetService("Players")
@@ -31866,7 +32105,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -32177,7 +32416,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -32627,7 +32866,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -32754,7 +32993,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -32925,7 +33164,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -33095,7 +33334,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -33422,7 +33661,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -33611,7 +33850,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -33697,7 +33936,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -33749,7 +33988,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -33773,7 +34012,7 @@ local Tutorial = {}
 
 local PC_TIPS = {
 	{ "🖱", "Clic izquierdo dispara · clic derecho apunta" },
-	{ "⌨", "WASD te mueve · Shift corre · C te desliza" },
+	{ "⌨", "WASD te mueve · Shift corre · C te agacha (corriendo, te desliza)" },
 	{ "⚡", "E impulso · Z supersalto · X poción" },
 	{ "🔪", "F golpe rápido · G granada · R recargar" },
 	{ "🛒", "B abre la tienda, el pase y los retos" },
@@ -33906,7 +34145,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -34008,7 +34247,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -34198,7 +34437,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -35563,7 +35802,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -35620,7 +35859,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -35914,7 +36153,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -36133,19 +36372,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="117">
+  <Item class="Teams" referent="118">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="118">
+  <Item class="Workspace" referent="119">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="119">
+    <Item class="Terrain" referent="120">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
