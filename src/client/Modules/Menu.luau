@@ -1163,12 +1163,20 @@ end
 
 local RARITY_ORDER = { "Común", "Raro", "Épico", "Legendario", "Mítico" }
 
-local function sortedIds(list)
+-- kind (opcional): lo nuevo (Shop.NewItems) va delante, justo después del de por defecto
+local function sortedIds(list, kind)
 	local ids = {}
 	for id in list do
 		table.insert(ids, id)
 	end
 	table.sort(ids, function(a, b)
+		if (a == "Default") ~= (b == "Default") then
+			return a == "Default"
+		end
+		local na, nb = kind ~= nil and Shop.IsNew(kind, a), kind ~= nil and Shop.IsNew(kind, b)
+		if na ~= nb then
+			return na
+		end
 		local ra = table.find(RARITY_ORDER, list[a].Rarity) or 0
 		local rb = table.find(RARITY_ORDER, list[b].Rarity) or 0
 		if ra == rb then
@@ -1246,7 +1254,7 @@ local function buildSkinsPage(data)
 			visible[id] = skin
 		end
 	end
-	for i, id in sortedIds(visible) do
+	for i, id in sortedIds(visible, "Skin") do
 		local skin = Skins.List[id]
 		local owned = data.Skins[id] == true
 		local equipped = data.EquippedSkin == id
@@ -1287,7 +1295,7 @@ local function buildSkinsPage(data)
 		Parent = header,
 	})
 	local charmsOwned = data.Charms or { Default = true }
-	for i, id in sortedIds(Charms.List) do
+	for i, id in sortedIds(Charms.List, "Charm") do
 		local charm = Charms.List[id]
 		local equipped = (data.EquippedCharm or "Default") == id
 		local card = UI.new("Frame", { LayoutOrder = 1000 + i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
@@ -1505,7 +1513,7 @@ local function buildKillEffectsPage(data)
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}))
 	local owned = data.KillEffects or { Default = true }
-	for i, id in sortedIds(KillEffects.List) do
+	for i, id in sortedIds(KillEffects.List, "KillEffect") do
 		local effect = KillEffects.List[id]
 		local equipped = (data.EquippedKillEffect or "Default") == id
 		local card = UI.new("Frame", { LayoutOrder = i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
@@ -1562,7 +1570,7 @@ local function buildKillEffectsPage(data)
 		Parent = header,
 	}, { UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }) })
 	local spraysOwned = data.Sprays or { Default = true }
-	for i, id in sortedIds(Sprays.List) do
+	for i, id in sortedIds(Sprays.List, "Spray") do
 		local sprayDef = Sprays.List[id]
 		local equipped = (data.EquippedSpray or "Default") == id
 		local card = UI.new("Frame", { LayoutOrder = 1000 + i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
@@ -1599,7 +1607,7 @@ local function buildOutfitsPage(data)
 		CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}))
-	for i, id in sortedIds(Outfits.List) do
+	for i, id in sortedIds(Outfits.List, "Outfit") do
 		local outfit = Outfits.List[id]
 		local owned = data.Outfits[id] == true
 		local equipped = data.EquippedOutfit == id
