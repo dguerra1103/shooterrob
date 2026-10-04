@@ -14,6 +14,7 @@ local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
+local Friends = require(script.Parent.Friends)
 local Challenges = require(Shared.Challenges)
 local Mastery = require(Shared.Mastery)
 local KillEffects = require(Shared.KillEffects)
@@ -440,8 +441,10 @@ function PlayerData.WaitFor(player, timeout)
 	return profiles[player]
 end
 
+-- VIP (x2) y bonus de amigos en el servidor (+10% por amigo, ver Friends)
 local function multiplier(player)
-	return player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
+	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
+	return vip * Friends.Multiplier(player)
 end
 
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
