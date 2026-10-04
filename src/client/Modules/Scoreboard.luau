@@ -29,8 +29,16 @@ local function collect()
 		local kills = stats and stats:FindFirstChild("Bajas")
 		local deaths = stats and stats:FindFirstChild("Muertes")
 		local rank = Ranks.Tiers[p:GetAttribute("Rank") or 0]
+		-- Título elegido (Titles), pequeño y de su color detrás del nombre
+		local title = p:GetAttribute("Title")
+		local titleColor = p:GetAttribute("TitleColor")
+		local titleText = ""
+		if type(title) == "string" and title ~= "" then
+			local hex = typeof(titleColor) == "Color3" and titleColor:ToHex() or "C8C8D2"
+			titleText = string.format('  <font size="14" color="#%s">%s</font>', hex, title)
+		end
 		table.insert(rows, {
-			Name = (rank and (rank.Icon .. " ") or "") .. p.DisplayName,
+			Name = (rank and (rank.Icon .. " ") or "") .. p.DisplayName .. titleText,
 			Team = p.Team,
 			Kills = kills and kills.Value or 0,
 			Deaths = deaths and deaths.Value or 0,
@@ -109,6 +117,7 @@ local function rowFrame(parent, y, row, thirdValue, color)
 		Position = UDim2.fromOffset(12, 0),
 		Size = UDim2.new(1, -250, 1, 0),
 		Text = row.Name .. (row.InMenu and "  💤" or ""),
+		RichText = true,
 		TextSize = 18,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextXAlignment = Enum.TextXAlignment.Left,

@@ -153,6 +153,7 @@ Shop.DayNumber = dayNumber
 local KillEffects = require(script.Parent.KillEffects)
 local Charms = require(script.Parent.Charms)
 local Sprays = require(script.Parent.Sprays)
+local Titles = require(script.Parent.Titles)
 
 function Shop.GetDailyOffers(day)
 	day = day or dayNumber()
@@ -196,6 +197,9 @@ function Shop.GetPrice(kind, id, day)
 	elseif kind == "Spray" then
 		local spray = Sprays.List[id]
 		base = spray and spray.Price
+	elseif kind == "Title" then
+		local title = Titles.List[id]
+		base = title and title.Price
 	end
 	if not base then
 		return nil, false

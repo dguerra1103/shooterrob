@@ -23,6 +23,7 @@ local Mastery = require(Shared.Mastery)
 local KillEffects = require(Shared.KillEffects)
 local Charms = require(Shared.Charms)
 local Sprays = require(Shared.Sprays)
+local Titles = require(Shared.Titles)
 local Remotes = require(Shared.Remotes)
 
 local PlayerData = {}
@@ -94,6 +95,8 @@ local function defaults()
 		EquippedCharm = "Default",
 		Sprays = { Default = true }, -- grafitis comprados (tecla J)
 		EquippedSpray = "Default",
+		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
+		EquippedTitle = "Novato",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
@@ -236,6 +239,8 @@ local function publicView(player, data)
 		EquippedCharm = data.EquippedCharm,
 		Sprays = data.Sprays,
 		EquippedSpray = data.EquippedSpray,
+		Titles = data.Titles,
+		EquippedTitle = data.EquippedTitle,
 		Settings = data.Settings,
 		Revives = data.Revives,
 		WheelFree = data.WheelDay ~= Shop.DayNumber(),
@@ -445,6 +450,12 @@ local function load(player)
 	if type(merged.Achievements) ~= "table" then
 		merged.Achievements = {}
 	end
+	if type(merged.Titles) ~= "table" then
+		merged.Titles = {}
+	end
+	if not Titles.List[merged.EquippedTitle] then
+		merged.EquippedTitle = "Novato"
+	end
 	if type(merged.Sprays) ~= "table" then
 		merged.Sprays = { Default = true }
 	end
@@ -488,6 +499,7 @@ local function load(player)
 	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
+	PlayerData.PublishTitle(player)
 	grantTierRewards(player)
 	sendUpdate(player)
 end
@@ -787,6 +799,21 @@ function PlayerData.SetBest(player, field, value)
 	end
 end
 
+-- Título que ven los demás (atributos Title y TitleColor). Si ya no lo tiene (p. ej. el de VIP), Novato.
+function PlayerData.PublishTitle(player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	local id = data.EquippedTitle
+	if not Titles.Owns(data, id, player:GetAttribute("VIP") == true) then
+		id = "Novato"
+	end
+	local title = Titles.Get(id)
+	player:SetAttribute("Title", id ~= "Novato" and title.Name or nil)
+	player:SetAttribute("TitleColor", title.Color)
+end
+
 -- Progreso de los retos diarios. stat: ver Challenges.luau. Para "Streak" amount es la racha actual.
 function PlayerData.Track(player, stat, amount, weaponName)
 	local data = profiles[player]
@@ -941,6 +968,14 @@ local function buyItem(player, kind, id)
 			return false, "Ya lo tienes"
 		end
 		price = Shop.GetPrice("Spray", id)
+	elseif kind == "Title" then
+		if not Titles.List[id] then
+			return false, "No existe"
+		end
+		if data.Titles[id] then
+			return false, "Ya lo tienes"
+		end
+		price = Shop.GetPrice("Title", id)
 	end
 	if not price then
 		return false, "No está a la venta"
@@ -962,6 +997,10 @@ local function buyItem(player, kind, id)
 	elseif kind == "Spray" then
 		data.Sprays[id] = true
 		data.EquippedSpray = id -- se equipa al comprarlo
+	elseif kind == "Title" then
+		data.Titles[id] = true
+		data.EquippedTitle = id
+		PlayerData.PublishTitle(player)
 	else
 		data.Outfits[id] = true
 	end
@@ -1450,6 +1489,17 @@ function PlayerData.Init()
 		sendUpdate(player)
 	end)
 
+	Remotes.EquipTitle.OnServerEvent:Connect(function(player, titleId)
+		local data = profiles[player]
+		if not data or type(titleId) ~= "string" or not Titles.Owns(data, titleId, player:GetAttribute("VIP") == true) then
+			return
+		end
+		data.EquippedTitle = titleId
+		dirty[player] = true
+		PlayerData.PublishTitle(player)
+		sendUpdate(player)
+	end)
+
 	Remotes.EquipSpray.OnServerEvent:Connect(function(player, sprayId)
 		local data = profiles[player]
 		if not data or type(sprayId) ~= "string" or not Sprays.Owns(data.Sprays, sprayId, player:GetAttribute("VIP") == true) then
@@ -1597,6 +1647,7 @@ function PlayerData.Init()
 			grantTierRewards(player)
 		elseif passId == Shop.VIPPassId and Shop.VIPPassId ~= 0 then
 			player:SetAttribute("VIP", true)
+			PlayerData.PublishTitle(player)
 			Remotes.Notify:FireClient(player, "Big", "¡VIP ACTIVADO! x2 XP y monedas")
 		end
 		sendUpdate(player)

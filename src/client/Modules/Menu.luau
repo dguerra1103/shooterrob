@@ -18,6 +18,7 @@ local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
 local Charms = require(Shared.Charms)
 local Sprays = require(Shared.Sprays)
+local Titles = require(Shared.Titles)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -616,6 +617,86 @@ local function buildProfilePage(data)
 				end
 			end)
 		end
+	end
+
+	-- Títulos: salen junto a tu nombre en el marcador y el chat
+	local equippedTitle = data.EquippedTitle or "Novato"
+	if not Titles.Owns(data, equippedTitle, data.VIP == true) then
+		equippedTitle = "Novato"
+	end
+	UI.label({
+		LayoutOrder = 40,
+		Size = UDim2.new(1, -12, 0, 30),
+		Text = "🏷 TÍTULO  ·  " .. Titles.Get(equippedTitle).Name .. "  (sale junto a tu nombre en el marcador y el chat)",
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Parent = scroll,
+	})
+	local grid = UI.new("Frame", {
+		LayoutOrder = 41,
+		Size = UDim2.new(1, -12, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Parent = scroll,
+	}, {
+		UI.new("UIGridLayout", {
+			CellSize = UDim2.fromOffset(196, 62),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	for i, id in Titles.Sorted() do
+		local title = Titles.List[id]
+		local owned = Titles.Owns(data, id, data.VIP == true)
+		local equipped = id == equippedTitle
+		local chip = UI.button({
+			LayoutOrder = i,
+			Text = "",
+			BackgroundColor3 = equipped and Color3.fromRGB(60, 55, 25) or CARD_BG,
+			AutoButtonColor = not equipped,
+			Parent = grid,
+		}, { UI.corner(10), UI.stroke(equipped and GOLD or (owned and title.Color or Color3.fromRGB(70, 75, 100)), 2, owned and 0.1 or 0.5) })
+		UI.label({
+			Position = UDim2.fromOffset(6, 6),
+			Size = UDim2.new(1, -12, 0, 26),
+			Text = (owned and "" or "🔒 ") .. title.Name,
+			TextSize = 19,
+			TextColor3 = owned and title.Color or Color3.fromRGB(140, 145, 165),
+			TextScaled = true,
+			Parent = chip,
+		})
+		local status
+		if equipped then
+			status = "✔ Elegido"
+		elseif owned then
+			status = "Elegir"
+		elseif title.Price then
+			status = coinsText(Shop.GetPrice("Title", id) or title.Price)
+		else
+			status = Titles.Requirement(id)
+		end
+		UI.label({
+			Position = UDim2.fromOffset(6, 34),
+			Size = UDim2.new(1, -12, 0, 20),
+			Text = status,
+			TextSize = 15,
+			TextColor3 = equipped and GREEN or (title.Price and not owned and GOLD or Color3.fromRGB(190, 195, 220)),
+			Parent = chip,
+		})
+		chip.Activated:Connect(function()
+			if equipped then
+				return
+			end
+			if owned then
+				Sounds.Play("Click")
+				Remotes.EquipTitle:FireServer(id)
+			elseif title.Price then
+				buy("Title", id)
+			else
+				showToast("🔒 Para conseguirlo: " .. Titles.Requirement(id), Color3.fromRGB(255, 200, 90))
+			end
+		end)
 	end
 end
 

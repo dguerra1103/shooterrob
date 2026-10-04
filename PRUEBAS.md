@@ -41,6 +41,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Mira** | Menú → Ajustes → Mira | Cambia el color (6) y el tamaño; se nota al momento en la mira. |
 | **SE BUSCA** | Play solo, haz 5 bajas seguidas sin morir | Arriba: "💰 SE BUSCA: tú · 25 🪙 por su cabeza" y en grande "¡TE BUSCAN!". Los bots van más a por ti. Con 2 jugadores (Local Server), el otro ve un cartel rojo sobre tu cabeza; si te elimina, "¡RECOMPENSA COBRADA! +25 🪙". |
 | **Retos semanales** | Menú → Retos | Debajo de los 3 retos de hoy: "📅 RETOS DE LA SEMANA · nuevos en Xd Yh" con 3 retos azules más largos (barras de progreso que avanzan al jugar) y la caja de premio por completarlos. |
+| **Títulos** | Menú → Perfil → abajo | Rejilla de títulos: Novato elegido; los que no tienes con 🔒 y lo que falta ("100 bajas") o su precio. Compra "Payaso de feria" (800): queda elegido y en el marcador (Tab) sale rosa junto a tu nombre. |
 | **Grafitis** | En partida, mira una pared cerca y pulsa **J** | Aparece un círculo azul con "GG" pintado en la pared. Menú → Efectos → abajo: compra la Calabaza y pulsa J otra vez (a los 6 s): el anterior desaparece y sale la calabaza con "BOO!". |
 | **Premio del grupo** | Pon el ID de tu grupo en `GameConfig.Group.Id` y publica (en Studio el grupo puede no comprobarse) | En la pantalla de inicio sale ⭐ ÚNETE AL GRUPO +500 🪙. Si ya estás en el grupo: "✅ ¡+500 🪙! Gracias" y el botón desaparece. Si no, sale la ventana de Roblox para unirte. |
 | **Pase de 50 niveles** | Menú → Pase | Los niveles cercanos al tuyo; al final "… y N niveles más". |
