@@ -2,6 +2,7 @@
 -- Si construyes tu propio mapa en Studio dentro de workspace.Map (sin el atributo "Generated"),
 -- se usará ese y no habrá rotación de mapas.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 local MapBuilder = {}
 
@@ -32,6 +33,29 @@ for _, id in MapBuilder.Order do
 end
 ReplicatedStorage:SetAttribute("MapCount", permanent)
 
+-- Mapa destacado del día (GameConfig.FeaturedMap): rota por los de siempre, uno cada día (UTC).
+-- Se publica en el atributo FeaturedMap (su nombre) para la votación y el bonus de XP.
+function MapBuilder.FeaturedId(day)
+	local list = {}
+	for _, id in MapBuilder.Order do
+		if MapBuilder.Defs[id] and not MapBuilder.Defs[id].Season then
+			table.insert(list, id)
+		end
+	end
+	if #list == 0 then
+		return nil
+	end
+	day = day or (os.time() // 86400)
+	return list[(day % #list) + 1]
+end
+
+function MapBuilder.UpdateFeatured()
+	local id = GameConfig.FeaturedMap and MapBuilder.FeaturedId()
+	local def = id and MapBuilder.Defs[id]
+	ReplicatedStorage:SetAttribute("FeaturedMap", def and def.Name or nil)
+end
+MapBuilder.UpdateFeatured()
+
 -- ¿Hay un mapa hecho a mano en Studio?
 function MapBuilder.IsCustom()
 	local map = workspace:FindFirstChild("Map")
@@ -52,6 +76,7 @@ function MapBuilder.Build(id)
 		baseplate:Destroy()
 	end
 	local def = MapBuilder.Defs[id or MapBuilder.Order[1]] or MapBuilder.Defs[MapBuilder.Order[1]]
+	MapBuilder.UpdateFeatured() -- (cambia a medianoche: se revisa con cada mapa)
 	def.Build()
 	-- Gravedad del mapa (la Base Lunar tiene menos: se salta más y las granadas vuelan más)
 	workspace.Gravity = def.Gravity or 196.2

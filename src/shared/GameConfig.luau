@@ -333,6 +333,10 @@ GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1, BoostXPMinutes = 30 }
 -- Mientras hay un evento, la recompensa diaria regala también estos objetos del evento (caramelos...)
 GameConfig.EventDailyBonus = 5
 
+-- Mapa destacado: cada día (hora UTC) uno de los mapas de siempre da XPBonus de XP al jugarlo
+-- (se marca con ⭐ en la votación)
+GameConfig.FeaturedMap = { XPBonus = 1.25 }
+
 -- Primera victoria del día: la primera partida que ganas cada día (hora UTC) da esto de más.
 GameConfig.FirstWinOfDay = { Coins = 150, XP = 300 }
 

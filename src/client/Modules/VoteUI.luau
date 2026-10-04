@@ -67,7 +67,14 @@ local function refresh()
 		local count = ReplicatedStorage:GetAttribute("Vote" .. i .. "_Count") or 0
 		card.Map.Text = map
 		card.Mode.Text = (MODE_ICONS[mode] or "") .. " " .. mode
-		card.Hint.Text = MODE_HINTS[mode] or ""
+		-- (el mapa destacado del día da más XP)
+		local featured = ReplicatedStorage:GetAttribute("FeaturedMap")
+		if featured and string.find(map, featured, 1, true) then
+			card.Map.Text = "⭐ " .. map
+			card.Hint.Text = "⭐ Mapa del día: más XP"
+		else
+			card.Hint.Text = MODE_HINTS[mode] or ""
+		end
 		card.Count.Text = tostring(count) .. (count == 1 and " voto" or " votos")
 		card.Stroke.Color = myVote == i and Color3.fromRGB(255, 200, 40) or Color3.fromRGB(90, 100, 140)
 		card.Stroke.Thickness = myVote == i and 4 or 2

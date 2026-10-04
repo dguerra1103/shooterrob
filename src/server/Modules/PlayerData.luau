@@ -690,6 +690,7 @@ local function boosterMultiplier(player, data, kind)
 end
 
 -- VIP (x2), Roblox Premium (x1,2) y bonus de amigos en el servidor (+10% por amigo, ver Friends)
+local featuredBonus -- (definida más abajo, junto a xpBoost)
 local function multiplier(player)
 	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
 	local premium = player:GetAttribute("RobloxPremium") and GameConfig.RobloxPremium and GameConfig.RobloxPremium.Multiplier or 1
@@ -706,6 +707,16 @@ local function xpBoost()
 	return table.find(boost.Days, today) and boost.Multiplier or 1
 end
 PlayerData.XPBoost = xpBoost
+
+-- Bonus de XP del mapa destacado del día (mientras se juega en él)
+featuredBonus = function()
+	local config = GameConfig.FeaturedMap
+	local featured = ReplicatedStorage:GetAttribute("FeaturedMap")
+	if config and featured and ReplicatedStorage:GetAttribute("State") == "Playing" and ReplicatedStorage:GetAttribute("MapName") == featured then
+		return config.XPBonus or 1
+	end
+	return 1
+end
 
 -- Lo pone Event: se llama al recoger la recompensa diaria
 PlayerData.OnDailyClaimed = nil :: ((Player) -> ())?
@@ -980,7 +991,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		return
 	end
 	if not fixed then
-		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(player, data, "XP"))
+		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(player, data, "XP") * featuredBonus())
 		matchOf(player, data).XP += amount
 	end
 	data.XP += amount

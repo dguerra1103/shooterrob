@@ -1198,6 +1198,11 @@ local function playRound()
 		balanceTeams()
 		resetStats()
 		setState("Playing")
+		-- Mapa destacado del día: aviso al empezar
+		local featured = ReplicatedStorage:GetAttribute("FeaturedMap")
+		if featured and featured == ReplicatedStorage:GetAttribute("MapName") and GameConfig.FeaturedMap then
+			Remotes.Notify:FireAllClients("Big", "⭐ ¡MAPA DESTACADO DE HOY! +" .. math.floor((GameConfig.FeaturedMap.XPBonus - 1) * 100 + 0.5) .. "% XP")
+		end
 		if mode == "CTF" then
 			Flags.Start()
 		elseif mode == "KOTH" then
