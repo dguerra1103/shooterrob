@@ -183,8 +183,14 @@ function Ambience.Update()
 			params.FilterType = Enum.RaycastFilterType.Include
 			params.FilterDescendantsInstances = { map }
 			local roof = workspace:Raycast(camera.CFrame.Position, Vector3.new(0, 60, 0), params)
+			-- (el techo invisible del límite del mapa no cuenta como tejado)
+			local boundary = map:FindFirstChild("Boundary")
+			if roof and boundary and roof.Instance:IsDescendantOf(boundary) then
+				roof = nil
+			end
 			drops.Enabled = roof == nil
-			drops.Rate = ClientState.EffectiveQuality == "Baja" and 250 or 650
+			local quality = ClientState.EffectiveQuality
+			drops.Rate = (quality == "Baja" and 250) or (quality == "Media" and 420) or 650
 		end
 		if os.clock() >= nextThunder then
 			if nextThunder > 0 then

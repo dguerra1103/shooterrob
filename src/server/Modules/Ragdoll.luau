@@ -22,6 +22,8 @@ local LIMITS = {
 	RightAnkle = { 25, 8 },
 }
 
+Ragdoll.SettleTime = 2.5
+
 function Ragdoll.Prepare(humanoid)
 	if humanoid and humanoid:IsA("Humanoid") then
 		humanoid.BreakJointsOnDeath = false
@@ -44,15 +46,30 @@ function Ragdoll.Apply(character, push)
 		return false
 	end
 	character:SetAttribute("Ragdolled", true)
+	-- (el cuerpo de un jugador lo mueve su propio cliente: el servidor se lo queda para que el
+	-- empujón y la caída se vean igual para todos)
+	for _, part in character:GetDescendants() do
+		if part:IsA("BasePart") and not part.Anchored then
+			pcall(part.SetNetworkOwner, part, nil)
+		end
+	end
+	-- El eje X de la rótula va a lo largo del hueso (en R15 los miembros van en Y): así UpperAngle
+	-- limita cuánto se dobla y los límites de giro, cuánto rota sobre sí mismo
+	local alongBone = CFrame.Angles(0, 0, math.pi / 2)
 	for _, motor in motors do
 		local a0 = Instance.new("Attachment")
 		a0.Name = "RagdollA0"
-		a0.CFrame = motor.C0
+		a0.CFrame = motor.C0 * alongBone
 		a0.Parent = motor.Part0
 		local a1 = Instance.new("Attachment")
 		a1.Name = "RagdollA1"
-		a1.CFrame = motor.C1
+		a1.CFrame = motor.C1 * alongBone
 		a1.Parent = motor.Part1
+		-- Las piezas unidas se solapan en la articulación: que no choquen entre sí (temblarían)
+		local noCollide = Instance.new("NoCollisionConstraint")
+		noCollide.Part0 = motor.Part0
+		noCollide.Part1 = motor.Part1
+		noCollide.Parent = motor.Part1
 		local socket = Instance.new("BallSocketConstraint")
 		socket.Name = "RagdollSocket"
 		socket.Attachment0 = a0
@@ -84,6 +101,19 @@ function Ragdoll.Apply(character, push)
 	if torso and torso:IsA("BasePart") and typeof(push) == "Vector3" then
 		torso.AssemblyLinearVelocity += push
 	end
+	-- Cuando ya ha caído, se queda quieto y sin colisión: no estorba en puertas ni escaleras (en
+	-- Eliminación y Buscar y destruir el cuerpo dura toda la ronda) y no gasta física
+	task.delay(Ragdoll.SettleTime, function()
+		if not character.Parent then
+			return
+		end
+		for _, part in character:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.Anchored = true
+				part.CanCollide = false
+			end
+		end
+	end)
 	return true
 end
 

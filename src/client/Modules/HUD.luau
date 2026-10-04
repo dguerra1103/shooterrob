@@ -1011,7 +1011,8 @@ local function onKillFeed(info)
 	-- Como en los shooters: "Asesino [silueta del arma] Víctima" (si el arma tiene modelo; si no, texto)
 	local weaponDef = killer and type(info.WeaponId) == "string" and Weapons.Get(info.WeaponId)
 	local iconHolder
-	if weaponDef and (weaponDef.Type == "Gun" or weaponDef.Type == "Melee") then
+	-- (en calidad Baja, texto: cada silueta es una vista 3D y en móviles modestos se nota)
+	if weaponDef and (weaponDef.Type == "Gun" or weaponDef.Type == "Melee") and ClientState.EffectiveQuality ~= "Baja" then
 		iconHolder = UI.new("Frame", { Size = UDim2.fromOffset(62, 22), BackgroundTransparency = 1, LayoutOrder = 2 })
 		local ok = pcall(WeaponIcon.Create, info.WeaponId, "Default", { Size = UDim2.fromScale(1, 1), Parent = iconHolder }, "side", 62 / 22)
 		if not ok then
