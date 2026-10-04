@@ -12,6 +12,7 @@ local Sounds = {
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.5, Pitch = 1 },
 	Flag = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 1, Pitch = 0.7 },
 	Slide = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 0.6 },
+	Land = { Id = "rbxasset://sounds/action_jump_land.mp3", Volume = 0.7, Pitch = 0.9 },
 	Infected = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 1, Pitch = 0.4 }, -- golpe grave: ¡zombis!
 }
 

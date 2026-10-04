@@ -1,4 +1,8 @@
--- Movimiento: correr (Shift) y deslizarse (C).
+-- Movimiento: correr (Shift) y deslizarse (C), con sensación realista (GameConfig.Movement):
+--   * aceleración: se arranca y se pasa a correr poco a poco, y se frena rápido
+--   * solo se corre hacia delante, y correr gasta estamina (si se agota, hay que recuperarse)
+--   * saltar también gasta un poco; cansado se salta menos
+--   * aterrizar desde alto da un golpe de cámara y, si es muy alto, frena un momento
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -12,6 +16,7 @@ local Sounds = require(Shared.Sounds)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -20,6 +25,13 @@ local Movement = {}
 
 local humanoid, rootPart
 local sprintHeld = false
+local MOVE = GameConfig.Movement or {}
+local currentSpeed = GameConfig.WalkSpeed
+local lastStaminaUse = 0
+local fallSpeed = 0 -- la mayor velocidad de caída desde que se despegó del suelo
+local slowUntil = 0 -- aterrizaje fuerte: frena hasta entonces
+local baseJumpHeight, baseJumpPower
+local staminaBar, staminaFill
 local lastSlide = -10
 local stopSlide
 
@@ -195,20 +207,95 @@ local function iceSlide(dt)
 	end
 end
 
+-- Barra de estamina fina debajo de la mira; solo se ve mientras no está llena
+local function buildStaminaBar()
+	local gui = UI.new("ScreenGui", {
+		Name = "Stamina",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	staminaBar = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.5, 44),
+		Size = UDim2.fromOffset(90, 5),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 26),
+		BackgroundTransparency = 0.35,
+		Visible = false,
+		Parent = gui,
+	}, { UI.corner(3) })
+	staminaFill = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(235, 240, 250),
+		Parent = staminaBar,
+	}, { UI.corner(3) })
+end
+
+local function updateStaminaBar()
+	if not staminaBar then
+		return
+	end
+	local stamina = ClientState.Stamina
+	staminaBar.Visible = stamina < 0.995 and not ClientState.InMainMenu and not ClientState.Dead
+	staminaFill.Size = UDim2.fromScale(math.clamp(stamina, 0, 1), 1)
+	staminaFill.BackgroundColor3 = ClientState.Exhausted and Color3.fromRGB(255, 90, 80) or Color3.fromRGB(235, 240, 250)
+end
+
+-- Estamina: correr la gasta; se recupera tras un momento sin correr ni saltar
+local function updateStamina(dt)
+	local now = os.clock()
+	local stamina = ClientState.Stamina
+	if ClientState.Sprinting then
+		stamina -= dt / (MOVE.StaminaSeconds or 6)
+		lastStaminaUse = now
+		if stamina <= 0 then
+			stamina = 0
+			ClientState.Exhausted = true
+		end
+	elseif now - lastStaminaUse > (MOVE.RegenDelay or 0.8) then
+		stamina = math.min(1, stamina + dt / (MOVE.RegenSeconds or 4))
+	end
+	if ClientState.Exhausted and stamina >= (MOVE.MinToSprint or 0.3) then
+		ClientState.Exhausted = false
+	end
+	ClientState.Stamina = stamina
+end
+
 local function update(dt)
 	if not humanoid or humanoid.Health <= 0 or not rootPart then
 		ClientState.Sprinting = false
+		updateStaminaBar()
 		return
 	end
 	iceSlide(dt)
-	local moving = humanoid.MoveDirection.Magnitude > 0.1
+	local moveDirection = humanoid.MoveDirection
+	local moving = moveDirection.Magnitude > 0.1
 	local recentlyShot = os.clock() - ClientState.LastShotTime < 0.35
+	-- Solo se corre hacia delante (no de lado ni hacia atrás)
+	local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
+	local flatMove = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+	local forward = moving and look.Magnitude > 0.01 and flatMove.Magnitude > 0.01 and flatMove.Unit:Dot(look.Unit) >= (MOVE.SprintAngle or 0.55)
 	ClientState.Sprinting = sprintHeld
 		and moving
+		and forward
+		and not ClientState.Exhausted
 		and not ClientState.Aiming
 		and not recentlyShot
 		and not ClientState.Sliding
 		and not ClientState.IsBlocked()
+	updateStamina(dt)
+	updateStaminaBar()
+
+	-- Caída: se apunta la velocidad máxima hasta tocar suelo (el golpe lo da onLanded)
+	if humanoid.FloorMaterial == Enum.Material.Air then
+		fallSpeed = math.max(fallSpeed, -rootPart.AssemblyLinearVelocity.Y)
+	end
+	-- Cansado se salta menos
+	local jumpScale = ClientState.Exhausted and (MOVE.TiredJump or 0.7) or 1
+	if baseJumpHeight then
+		humanoid.JumpHeight = baseJumpHeight * jumpScale
+		humanoid.JumpPower = baseJumpPower * jumpScale
+	end
 
 	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then
@@ -223,16 +310,43 @@ local function update(dt)
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier
 	end
+	if os.clock() < slowUntil then
+		speed *= 0.6 -- aterrizaje fuerte
+	end
+	-- Aceleración: se arranca con parte de la velocidad y se llega a la máxima poco a poco
+	if not moving then
+		currentSpeed = math.min(currentSpeed, speed * (MOVE.StartFactor or 0.55))
+	elseif currentSpeed < speed then
+		currentSpeed = math.min(speed, currentSpeed + (MOVE.Acceleration or 30) * dt)
+	else
+		currentSpeed = math.max(speed, currentSpeed - (MOVE.Deceleration or 70) * dt)
+	end
 	-- Cuenta atrás de Eliminación: quieto y sin saltar
 	local frozen = ClientState.Frozen()
 	if frozen then
-		speed = 0
+		currentSpeed = 0
 	end
 	if frozen ~= wasFrozen then
 		wasFrozen = frozen
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, not frozen)
 	end
-	humanoid.WalkSpeed = speed
+	humanoid.WalkSpeed = currentSpeed
+end
+
+-- Al tocar suelo tras una caída: golpe de cámara, sonido y, si fue muy alta, frena un momento
+local function onLanded()
+	local speed = fallSpeed
+	fallSpeed = 0
+	local hard = MOVE.HardLanding or 38
+	if speed < hard then
+		return
+	end
+	local k = math.clamp((speed - hard) / 40, 0, 1)
+	ClientState.LandKick = math.max(ClientState.LandKick or 0, 0.35 + 0.65 * k)
+	Sounds.Play("Land", nil, 1 - 0.15 * k, 0.5 + 0.5 * k)
+	if speed >= (MOVE.HeavyLanding or 62) then
+		slowUntil = os.clock() + 0.35
+	end
 end
 
 local function onCharacter(newCharacter)
@@ -246,9 +360,29 @@ local function onCharacter(newCharacter)
 	wasFrozen = false -- el humanoide nuevo empieza con el salto activado (después de cambiarlo)
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
+	baseJumpHeight, baseJumpPower = humanoid.JumpHeight, humanoid.JumpPower
+	currentSpeed = GameConfig.WalkSpeed * (MOVE.StartFactor or 0.55)
+	fallSpeed = 0
+	slowUntil = 0
+	ClientState.Stamina = 1
+	ClientState.Exhausted = false
+	local character = newCharacter
+	humanoid.StateChanged:Connect(function(_, new)
+		if player.Character ~= character then
+			return
+		end
+		if new == Enum.HumanoidStateType.Landed then
+			onLanded()
+		elseif new == Enum.HumanoidStateType.Jumping then
+			-- Saltar gasta un poco de estamina
+			ClientState.Stamina = math.max(0, ClientState.Stamina - (MOVE.JumpCost or 0.12))
+			lastStaminaUse = os.clock()
+		end
+	end)
 end
 
 function Movement.Init()
+	buildStaminaBar()
 	ContextActionService:BindAction("Sprint", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then

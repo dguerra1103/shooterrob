@@ -52,6 +52,8 @@ local pulseParts = {} -- piezas de neón que laten (skins míticas)
 local pulseSkin = nil
 local strafeRoll = 0
 local shakeRoll = 0
+local headBobTime = 0 -- balanceo de la cámara al andar (GameConfig.Movement.CameraBob)
+local headBobAmount = 0
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -604,6 +606,31 @@ local function renderStep(dt)
 		camera.CFrame = camera.CFrame
 			* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
 		ClientState.Shake = math.max(0, shake - dt * 1.6)
+	end
+	-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
+	-- posición y el alabeo (no hacia dónde se mira), así que no desvía la puntería ni se acumula.
+	local moveConfig = GameConfig.Movement
+	if rootPart and humanoid and moveConfig then
+		local v = rootPart.AssemblyLinearVelocity
+		local flatSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
+		local onGround = humanoid.FloorMaterial ~= Enum.Material.Air and not ClientState.Sliding
+		if onGround then
+			headBobTime += dt * math.min(flatSpeed, 32) * 0.42
+		end
+		headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
+		local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
+		if amount > 0.001 and not ClientState.InMainMenu then
+			local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
+			local roll = math.sin(headBobTime) * math.rad(0.4) * amount
+			camera.CFrame = camera.CFrame * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, roll)
+		end
+	end
+	local land = ClientState.LandKick or 0
+	if land > 0.01 then
+		camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
+		ClientState.LandKick = land * math.max(0, 1 - dt * 7)
+	else
+		ClientState.LandKick = 0
 	end
 
 	-- Latido de las skins míticas

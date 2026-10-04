@@ -268,6 +268,22 @@ GameConfig.SlideSpeed = 58
 GameConfig.SlideDuration = 0.75
 GameConfig.SlideCooldown = 1.1
 GameConfig.FieldOfView = 80
+-- Movimiento realista: aceleración, estamina al correr, aterrizajes y balanceo de cámara
+GameConfig.Movement = {
+	Acceleration = 30, -- studs/s que gana la velocidad por segundo al arrancar o al pasar a correr
+	Deceleration = 70, -- y que pierde al frenar o dejar de correr
+	StartFactor = 0.55, -- al empezar a andar, se arranca con esta parte de la velocidad
+	SprintAngle = 0.55, -- solo se corre hacia delante (coseno entre hacia dónde vas y hacia dónde miras)
+	StaminaSeconds = 6, -- segundos corriendo sin parar con la estamina llena
+	RegenSeconds = 4, -- segundos para llenarla otra vez desde cero
+	RegenDelay = 0.8, -- espera tras correr o saltar antes de recuperarse
+	MinToSprint = 0.3, -- si se agota, hace falta esta parte para volver a correr
+	JumpCost = 0.12, -- estamina que gasta cada salto
+	TiredJump = 0.7, -- sin estamina se salta menos
+	HardLanding = 38, -- velocidad de caída a partir de la que el aterrizaje se nota
+	HeavyLanding = 62, -- y a partir de la que frena un momento
+	CameraBob = 1, -- balanceo de cámara al andar (0 = nada)
+}
 
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
 -- "Auto": Baja en móviles y Media en PC (lo decide el cliente)

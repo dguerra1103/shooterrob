@@ -17,6 +17,9 @@ local ClientState = {
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,
+	Stamina = 1, -- 0..1 (correr la gasta; Movement)
+	Exhausted = false, -- se agotó y aún no se ha recuperado lo bastante para correr
+	LandKick = 0, -- golpe de cámara al aterrizar desde alto; lo consume WeaponController
 	Sliding = false,
 	CurrentTool = nil,
 	CurrentDef = nil,

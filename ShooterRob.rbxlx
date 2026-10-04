@@ -715,6 +715,22 @@ GameConfig.SlideSpeed = 58
 GameConfig.SlideDuration = 0.75
 GameConfig.SlideCooldown = 1.1
 GameConfig.FieldOfView = 80
+-- Movimiento realista: aceleración, estamina al correr, aterrizajes y balanceo de cámara
+GameConfig.Movement = {
+	Acceleration = 30, -- studs/s que gana la velocidad por segundo al arrancar o al pasar a correr
+	Deceleration = 70, -- y que pierde al frenar o dejar de correr
+	StartFactor = 0.55, -- al empezar a andar, se arranca con esta parte de la velocidad
+	SprintAngle = 0.55, -- solo se corre hacia delante (coseno entre hacia dónde vas y hacia dónde miras)
+	StaminaSeconds = 6, -- segundos corriendo sin parar con la estamina llena
+	RegenSeconds = 4, -- segundos para llenarla otra vez desde cero
+	RegenDelay = 0.8, -- espera tras correr o saltar antes de recuperarse
+	MinToSprint = 0.3, -- si se agota, hace falta esta parte para volver a correr
+	JumpCost = 0.12, -- estamina que gasta cada salto
+	TiredJump = 0.7, -- sin estamina se salta menos
+	HardLanding = 38, -- velocidad de caída a partir de la que el aterrizaje se nota
+	HeavyLanding = 62, -- y a partir de la que frena un momento
+	CameraBob = 1, -- balanceo de cámara al andar (0 = nada)
+}
 
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
 -- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
@@ -2531,6 +2547,7 @@ local Sounds = {
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.5, Pitch = 1 },
 	Flag = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 1, Pitch = 0.7 },
 	Slide = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 0.6 },
+	Land = { Id = "rbxasset://sounds/action_jump_land.mp3", Volume = 0.7, Pitch = 0.9 },
 	Infected = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 1, Pitch = 0.4 }, -- golpe grave: ¡zombis!
 }
 
@@ -21399,6 +21416,9 @@ local ClientState = {
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,
+	Stamina = 1, -- 0..1 (correr la gasta; Movement)
+	Exhausted = false, -- se agotó y aún no se ha recuperado lo bastante para correr
+	LandKick = 0, -- golpe de cámara al aterrizar desde alto; lo consume WeaponController
 	Sliding = false,
 	CurrentTool = nil,
 	CurrentDef = nil,
@@ -29383,7 +29403,11 @@ return Menu
           <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">Movement</string>
-              <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
+              <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C), con sensación realista (GameConfig.Movement):
+--   * aceleración: se arranca y se pasa a correr poco a poco, y se frena rápido
+--   * solo se corre hacia delante, y correr gasta estamina (si se agota, hay que recuperarse)
+--   * saltar también gasta un poco; cansado se salta menos
+--   * aterrizar desde alto da un golpe de cámara y, si es muy alto, frena un momento
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -29397,6 +29421,7 @@ local Sounds = require(Shared.Sounds)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -29405,6 +29430,13 @@ local Movement = {}
 
 local humanoid, rootPart
 local sprintHeld = false
+local MOVE = GameConfig.Movement or {}
+local currentSpeed = GameConfig.WalkSpeed
+local lastStaminaUse = 0
+local fallSpeed = 0 -- la mayor velocidad de caída desde que se despegó del suelo
+local slowUntil = 0 -- aterrizaje fuerte: frena hasta entonces
+local baseJumpHeight, baseJumpPower
+local staminaBar, staminaFill
 local lastSlide = -10
 local stopSlide
 
@@ -29580,20 +29612,95 @@ local function iceSlide(dt)
 	end
 end
 
+-- Barra de estamina fina debajo de la mira; solo se ve mientras no está llena
+local function buildStaminaBar()
+	local gui = UI.new("ScreenGui", {
+		Name = "Stamina",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	staminaBar = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.5, 44),
+		Size = UDim2.fromOffset(90, 5),
+		BackgroundColor3 = Color3.fromRGB(20, 20, 26),
+		BackgroundTransparency = 0.35,
+		Visible = false,
+		Parent = gui,
+	}, { UI.corner(3) })
+	staminaFill = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(235, 240, 250),
+		Parent = staminaBar,
+	}, { UI.corner(3) })
+end
+
+local function updateStaminaBar()
+	if not staminaBar then
+		return
+	end
+	local stamina = ClientState.Stamina
+	staminaBar.Visible = stamina < 0.995 and not ClientState.InMainMenu and not ClientState.Dead
+	staminaFill.Size = UDim2.fromScale(math.clamp(stamina, 0, 1), 1)
+	staminaFill.BackgroundColor3 = ClientState.Exhausted and Color3.fromRGB(255, 90, 80) or Color3.fromRGB(235, 240, 250)
+end
+
+-- Estamina: correr la gasta; se recupera tras un momento sin correr ni saltar
+local function updateStamina(dt)
+	local now = os.clock()
+	local stamina = ClientState.Stamina
+	if ClientState.Sprinting then
+		stamina -= dt / (MOVE.StaminaSeconds or 6)
+		lastStaminaUse = now
+		if stamina <= 0 then
+			stamina = 0
+			ClientState.Exhausted = true
+		end
+	elseif now - lastStaminaUse > (MOVE.RegenDelay or 0.8) then
+		stamina = math.min(1, stamina + dt / (MOVE.RegenSeconds or 4))
+	end
+	if ClientState.Exhausted and stamina >= (MOVE.MinToSprint or 0.3) then
+		ClientState.Exhausted = false
+	end
+	ClientState.Stamina = stamina
+end
+
 local function update(dt)
 	if not humanoid or humanoid.Health <= 0 or not rootPart then
 		ClientState.Sprinting = false
+		updateStaminaBar()
 		return
 	end
 	iceSlide(dt)
-	local moving = humanoid.MoveDirection.Magnitude > 0.1
+	local moveDirection = humanoid.MoveDirection
+	local moving = moveDirection.Magnitude > 0.1
 	local recentlyShot = os.clock() - ClientState.LastShotTime < 0.35
+	-- Solo se corre hacia delante (no de lado ni hacia atrás)
+	local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
+	local flatMove = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+	local forward = moving and look.Magnitude > 0.01 and flatMove.Magnitude > 0.01 and flatMove.Unit:Dot(look.Unit) >= (MOVE.SprintAngle or 0.55)
 	ClientState.Sprinting = sprintHeld
 		and moving
+		and forward
+		and not ClientState.Exhausted
 		and not ClientState.Aiming
 		and not recentlyShot
 		and not ClientState.Sliding
 		and not ClientState.IsBlocked()
+	updateStamina(dt)
+	updateStaminaBar()
+
+	-- Caída: se apunta la velocidad máxima hasta tocar suelo (el golpe lo da onLanded)
+	if humanoid.FloorMaterial == Enum.Material.Air then
+		fallSpeed = math.max(fallSpeed, -rootPart.AssemblyLinearVelocity.Y)
+	end
+	-- Cansado se salta menos
+	local jumpScale = ClientState.Exhausted and (MOVE.TiredJump or 0.7) or 1
+	if baseJumpHeight then
+		humanoid.JumpHeight = baseJumpHeight * jumpScale
+		humanoid.JumpPower = baseJumpPower * jumpScale
+	end
 
 	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then
@@ -29608,16 +29715,43 @@ local function update(dt)
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier
 	end
+	if os.clock() < slowUntil then
+		speed *= 0.6 -- aterrizaje fuerte
+	end
+	-- Aceleración: se arranca con parte de la velocidad y se llega a la máxima poco a poco
+	if not moving then
+		currentSpeed = math.min(currentSpeed, speed * (MOVE.StartFactor or 0.55))
+	elseif currentSpeed < speed then
+		currentSpeed = math.min(speed, currentSpeed + (MOVE.Acceleration or 30) * dt)
+	else
+		currentSpeed = math.max(speed, currentSpeed - (MOVE.Deceleration or 70) * dt)
+	end
 	-- Cuenta atrás de Eliminación: quieto y sin saltar
 	local frozen = ClientState.Frozen()
 	if frozen then
-		speed = 0
+		currentSpeed = 0
 	end
 	if frozen ~= wasFrozen then
 		wasFrozen = frozen
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, not frozen)
 	end
-	humanoid.WalkSpeed = speed
+	humanoid.WalkSpeed = currentSpeed
+end
+
+-- Al tocar suelo tras una caída: golpe de cámara, sonido y, si fue muy alta, frena un momento
+local function onLanded()
+	local speed = fallSpeed
+	fallSpeed = 0
+	local hard = MOVE.HardLanding or 38
+	if speed < hard then
+		return
+	end
+	local k = math.clamp((speed - hard) / 40, 0, 1)
+	ClientState.LandKick = math.max(ClientState.LandKick or 0, 0.35 + 0.65 * k)
+	Sounds.Play("Land", nil, 1 - 0.15 * k, 0.5 + 0.5 * k)
+	if speed >= (MOVE.HeavyLanding or 62) then
+		slowUntil = os.clock() + 0.35
+	end
 end
 
 local function onCharacter(newCharacter)
@@ -29631,9 +29765,29 @@ local function onCharacter(newCharacter)
 	wasFrozen = false -- el humanoide nuevo empieza con el salto activado (después de cambiarlo)
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
+	baseJumpHeight, baseJumpPower = humanoid.JumpHeight, humanoid.JumpPower
+	currentSpeed = GameConfig.WalkSpeed * (MOVE.StartFactor or 0.55)
+	fallSpeed = 0
+	slowUntil = 0
+	ClientState.Stamina = 1
+	ClientState.Exhausted = false
+	local character = newCharacter
+	humanoid.StateChanged:Connect(function(_, new)
+		if player.Character ~= character then
+			return
+		end
+		if new == Enum.HumanoidStateType.Landed then
+			onLanded()
+		elseif new == Enum.HumanoidStateType.Jumping then
+			-- Saltar gasta un poco de estamina
+			ClientState.Stamina = math.max(0, ClientState.Stamina - (MOVE.JumpCost or 0.12))
+			lastStaminaUse = os.clock()
+		end
+	end)
 end
 
 function Movement.Init()
+	buildStaminaBar()
 	ContextActionService:BindAction("Sprint", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
@@ -31300,6 +31454,8 @@ local pulseParts = {} -- piezas de neón que laten (skins míticas)
 local pulseSkin = nil
 local strafeRoll = 0
 local shakeRoll = 0
+local headBobTime = 0 -- balanceo de la cámara al andar (GameConfig.Movement.CameraBob)
+local headBobAmount = 0
 
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -31852,6 +32008,31 @@ local function renderStep(dt)
 		camera.CFrame = camera.CFrame
 			* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
 		ClientState.Shake = math.max(0, shake - dt * 1.6)
+	end
+	-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
+	-- posición y el alabeo (no hacia dónde se mira), así que no desvía la puntería ni se acumula.
+	local moveConfig = GameConfig.Movement
+	if rootPart and humanoid and moveConfig then
+		local v = rootPart.AssemblyLinearVelocity
+		local flatSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
+		local onGround = humanoid.FloorMaterial ~= Enum.Material.Air and not ClientState.Sliding
+		if onGround then
+			headBobTime += dt * math.min(flatSpeed, 32) * 0.42
+		end
+		headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
+		local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
+		if amount > 0.001 and not ClientState.InMainMenu then
+			local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
+			local roll = math.sin(headBobTime) * math.rad(0.4) * amount
+			camera.CFrame = camera.CFrame * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, roll)
+		end
+	end
+	local land = ClientState.LandKick or 0
+	if land > 0.01 then
+		camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
+		ClientState.LandKick = land * math.max(0, 1 - dt * 7)
+	else
+		ClientState.LandKick = 0
 	end
 
 	-- Latido de las skins míticas
