@@ -143,6 +143,16 @@ local function cableStation(cf)
 	deco("CabinWindows", V(8.1, 2, 5.1), cf * CFrame.new(4, height + 4.4, 2), RGB(40, 48, 58), M.Glass)
 	snowCap(cabin)
 	deco("Cable", V(0.25, 0.25, 200), cf * CFrame.new(4, height + 7.8, 2) * CFrame.Angles(rad(-8), rad(90), 0) * CFrame.new(0, 0, -100), RGB(40, 40, 42), M.Metal)
+	-- Telesillas colgando del cable, montaña arriba (solo vista)
+	local cableStart = cf * CFrame.new(4, height + 7.8, 2) * CFrame.Angles(rad(-8), rad(90), 0)
+	for d = 30, 150, 30 do
+		local hook = cableStart * CFrame.new(0, 0, -d)
+		local hang = CFrame.new(hook.Position) * (cf - cf.Position) -- (cuelga recta, sin la inclinación del cable)
+		deco("ChairHanger", V(0.18, 3.2, 0.18), hang * CFrame.new(0, -1.6, 0), RGB(60, 60, 64), M.Metal)
+		deco("ChairSeat", V(3.4, 0.3, 1.2), hang * CFrame.new(0, -3.3, 0), RGB(200, 40, 40), M.Metal)
+		deco("ChairBack", V(3.4, 1.2, 0.2), hang * CFrame.new(0, -2.7, 0.55), RGB(200, 40, 40), M.Metal)
+		deco("ChairSnow", V(3.4, 0.12, 1.2), hang * CFrame.new(0, -3.1, 0), SNOW, M.Snow)
+	end
 	-- Rampa por detrás
 	Kit.ramp(cf * V(-6, 0, 26), cf * V(-6, height, 9.5), 6, RGB(120, 100, 76), M.WoodPlanks)
 end
