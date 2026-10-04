@@ -258,9 +258,26 @@ function Outfits.Remove(character)
 end
 
 -- Pone el traje `id` en el personaje (R15). Devuelve true si se aplicó.
+-- Uniforme de soldado para los bots de los mapas realistas (no se vende ni sale en el armario):
+-- verde oliva con casco, chaleco, cinturón, rodilleras, botas y guantes; el color del equipo en el
+-- brazalete y en los detalles del chaleco para distinguirlos
+function Outfits.Soldier(teamColor)
+	return {
+		Id = "Soldier",
+		Name = "Soldado",
+		Body = RGB(66, 70, 54),
+		Cloth = RGB(98, 102, 76),
+		Glow = teamColor or RGB(200, 200, 200),
+		Plate = RGB(78, 82, 62),
+		PlateMaterial = Enum.Material.Fabric,
+		Pieces = { Vest = true, Pouches = true, Belt = true, Knees = true, Boots = true, Gloves = true, CombatHelmet = true, Armband = true },
+	}
+end
+
+-- id: un traje de Outfits.List o una tabla con un traje hecho al momento (Outfits.Soldier)
 function Outfits.Apply(character, id)
 	Outfits.Remove(character)
-	local o = Outfits.List[id]
+	local o = type(id) == "table" and id or Outfits.List[id]
 	if not o or not o.Pieces then
 		return false
 	end
@@ -315,7 +332,7 @@ function Outfits.Apply(character, id)
 
 	local folder = Instance.new("Folder")
 	folder.Name = "Outfit"
-	folder:SetAttribute("Id", id)
+	folder:SetAttribute("Id", type(id) == "string" and id or (o.Id or "Custom"))
 	folder.Parent = character
 
 	local P = o.Pieces
@@ -480,6 +497,18 @@ function Outfits.Apply(character, id)
 		end
 		for _, sx in { -1, 1 } do
 			newPiece(folder, head, "MummyEye", V(0.18 * sx, 0.18, -0.56), Z, V(0.14, 0.07, 0.03), Z, o.Glow, glow)
+		end
+	end
+	if P.CombatHelmet then
+		-- Casco de combate con funda de tela y gafas sobre el casco
+		newPiece(folder, head, "Helmet", V(0, 0.36, 0.02), Z, V(1.12, 0.5, 1.16), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, head, "HelmetRim", V(0, 0.14, 0.02), Z, V(1.18, 0.08, 1.24), Z, o.Plate:Lerp(Color3.new(0, 0, 0), 0.2), Enum.Material.Fabric)
+		newPiece(folder, head, "HelmetGoggles", V(0, 0.44, -0.55), Z, V(0.7, 0.14, 0.08), Z, RGB(30, 32, 34), Enum.Material.Glass)
+	end
+	if P.Armband then
+		local arm = get("LeftUpperArm")
+		if arm then
+			newPiece(folder, arm, "Armband", V(0, 0.15, 0), Z, V(1.12, 0.22, 1.12), Z, o.Glow, Enum.Material.Neon)
 		end
 	end
 	if P.CowboyHat then

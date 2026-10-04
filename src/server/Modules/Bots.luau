@@ -1301,7 +1301,12 @@ spawnAgent = function(agent)
 	if agent.Outfit == nil then
 		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false
 	end
-	if agent.Outfit and not agent.Zombie then
+	-- En los mapas realistas (tipo shooter militar) van de soldado, con el color de su equipo
+	local map = workspace:FindFirstChild("Map")
+	local soldier = map ~= nil and map:GetAttribute("Realistic") == true and not agent.Zombie
+	if soldier then
+		pcall(Outfits.Apply, model, Outfits.Soldier(agent.Team and agent.Team.TeamColor.Color))
+	elseif agent.Outfit and not agent.Zombie then
 		pcall(Outfits.Apply, model, agent.Outfit)
 	end
 	if agent.Zombie then
@@ -1315,7 +1320,7 @@ spawnAgent = function(agent)
 	if agent.Charm == nil then
 		agent.Charm = (#BOT_CHARMS > 0 and math.random() < 0.3) and BOT_CHARMS[math.random(1, #BOT_CHARMS)] or false
 	end
-	agent.Tool = Loadout.MakeTool(agent.Weapon, agent.Zombie and "Default" or agent.Skin, agent.Charm or nil)
+	agent.Tool = Loadout.MakeTool(agent.Weapon, (agent.Zombie or soldier) and "Default" or agent.Skin, (not soldier and agent.Charm) or nil)
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0

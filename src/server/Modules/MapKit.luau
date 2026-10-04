@@ -1362,6 +1362,7 @@ function Kit.Begin(name, options)
 	folder.Name = "Map"
 	folder:SetAttribute("Generated", true)
 	folder:SetAttribute("MapName", name)
+	folder:SetAttribute("Realistic", Kit.Cartoon == false or nil)
 	folder.Parent = workspace
 	Kit.folder = folder
 	return folder
