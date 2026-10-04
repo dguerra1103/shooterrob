@@ -9,11 +9,13 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | Sistema | Detalles |
 |---|---|
 | **Mapas** | **Pastel Plaza** (arena compacta de estilo cartoon: paredes lavanda con pilares de colores, torre central de dos alturas, casas con azotea y plataformas de hierba), **Jardín Sakura** (jardín japonés: pagoda jugable de dos plantas, toriis, estanques con puentes, cerezos con pétalos cayendo, casas de té y linternas), **Harbor Heights** (puerto de día: canal con agua, puente central, torre de control, azoteas A y callejón B), **Container Clash** (puerto al atardecer: pila central de contenedores, pasarelas, grúas y pasillos de flanqueo), **Neon Foundry** (fundición de noche: lava que quema, horno, cintas transportadoras, letreros de neón y chispas), **Frost Station** (base polar: lago helado resbaladizo bajo la torre del radar, hangares, laboratorios sobre pilotes, montículos de nieve y nieve cayendo), **Jungle Temple** (selva: pirámide escalonada con santuario y gema de jade sobre un foso, salones de columnas en ruinas, plataformas con enredaderas, cabezas de piedra gigantes, antorchas y cascadas) y **Downtown** (arena urbana). Cada mapa trae spawns por equipo, puntos para todos contra todos, 5 zonas de control y 2 bases de bandera. |
-| **Modos** | **Duelo por equipos** (40 bajas), **Captura la bandera** (3 capturas), **Zona de control** (150 puntos, la zona cambia cada minuto), **Todos contra todos** (25 bajas) y **Escalada de armas** (subes de arma con cada baja; gana quien la complete con el cuchillo). |
+| **Modos** | **Duelo por equipos** (40 bajas), **Captura la bandera** (3 capturas), **Zona de control** (150 puntos, la zona cambia cada minuto), **Todos contra todos** (25 bajas), **Escalada de armas** (subes de arma con cada baja; gana quien la complete con el cuchillo) y **Eliminación** (rondas de una sola vida al estilo de los duelos: gana la ronda el equipo que deje al otro sin nadie en pie; primero a 5 rondas). |
+| **Bots** | Si hay pocos jugadores, bots con arma de verdad rellenan la partida hasta 6 (`GameConfig.Bots`): recorren el mapa, buscan enemigos, fallan más de lejos, ocupan la zona de control y puntúan para su equipo. Dan menos XP y monedas, y las victorias contra bots no suben la clasificación. Se quitan solos al entrar gente y no salen en Escalada de armas. |
+| **Fin de partida** | Pantalla de victoria con MVP y **resumen de tu partida**: bajas, muertes, mejor racha, la barra de nivel llenándose con la XP ganada (con aviso si subes) y las monedas contando hacia arriba. |
 | **Votación** | En el descanso entre rondas salen 3 opciones de mapa + modo. Pulsa **V** para votar con el ratón. |
 | **Armas** | Principales: **ARX-27 Pulse** (fusil), **Havoc Pump** (escopeta), **Specter-9** (subfusil), **Signal-7** (francotirador, nivel 3), **Vortex AR-9** (fusil de energía con ráfagas de 3, nivel 4), **Nova Drift** (subfusil ágil, nivel 5), **Raptor DMR** (tirador, nivel 7), **Breach Hammer** (escopeta semiautomática, nivel 8), **Titan Grind** (ametralladora pesada, nivel 10), **Ghostline XR** (francotirador con supresor, nivel 12) y **Tempest Core** (lanzacohetes con explosión, nivel 14). Secundarias: **Viper P9**, **Hand Cannon** (nivel 6) y **Phantom Sidewind** (pistola de ráfagas de 2 con mira de punto, nivel 9). Cuerpo a cuerpo: **Colmillo**. Las armas bloqueadas se pueden comprar antes con monedas. |
 | **Habilidades** | Iconos abajo en el centro con recarga: **Impulso** (E, acelerón corto), **Supersalto** (Z) y **Poción** (X, cura 50 en 2,5 s; la valida el servidor). En móvil se tocan los iconos. |
-| **Pantalla de muerte** | Observas al que te eliminó (clic/clic derecho cambia de jugador) y ves cuánta vida le quedaba. **Revivir instantáneo** (B): vuelves donde caíste con escudo breve (3 de regalo y packs con Robux). **Regenerar ahora** (Espacio o F) y **Volver al menú**. |
+| **Pantalla de muerte** | Observas al que te eliminó (clic/clic derecho cambia de jugador) y ves cuánta vida le quedaba. **Revivir instantáneo** (B): vuelves donde caíste con escudo breve (3 de regalo y packs con Robux). **Regenerar ahora** (Espacio o F) y **Volver al menú**. En Eliminación no hay reaparición hasta la siguiente ronda: se observa a los compañeros. |
 | **Emotes** | Tecla **N**: saludar, 3 bailes, celebrar, reír y señalar; la cámara pasa a tercera persona mientras dura. |
 | **Retos diarios** | 3 retos al día distintos para cada jugador (bajas, tiros a la cabeza, victorias, capturas, zona, rachas, bajas con cierto tipo de arma…). Dan monedas y XP al completarse. Completar los 3 regala una caja, y se puede cambiar 1 reto al día. Pestaña **Retos** del menú y siempre a la vista a la izquierda de la pantalla, con barras de progreso. |
 | **Maestría de armas** | Cada arma cuenta sus bajas y desbloquea camuflajes exclusivos para ella: **Carbono** (25), **Oro** (75), **Diamante** (150) y **Materia oscura** (300), más monedas. El camuflaje se equipa solo al ganarlo y se puede cambiar en la pestaña **Armas**. No se venden ni salen en cajas. |
@@ -78,7 +80,7 @@ rojo build -o ShooterRob.rbxlx
 | Votar mapa (en el descanso) | V | Cruceta arriba |
 | Inspeccionar arma | V | Cruceta arriba |
 | Habilidades: Impulso / Supersalto / Poción | E / Z / X | Cruceta izquierda / abajo |
-| Emotes | N | — |
+| Emotes | N (en móvil, botón 😀) | — |
 | Muerto: revivir instantáneo / regenerar ahora | B / Espacio o F | Y / A |
 
 En el móvil aparecen botones táctiles automáticamente (disparar, apuntar, recargar, cuchillo, correr, deslizar, granada, cambiar arma ⇄ y ataque aéreo).
@@ -88,7 +90,8 @@ En el móvil aparecen botones táctiles automáticamente (disparar, apuntar, rec
 Todo lo importante está en `src/shared/`:
 
 - **`GameConfig.luau`**:
-  - Modos que entran en la votación (`Modes`). Pon `{ "CTF" }` para jugar solo a Captura la bandera. Códigos: `TDM`, `CTF`, `KOTH`, `FFA`, `GUN`.
+  - Modos que entran en la votación (`Modes`). Pon `{ "CTF" }` para jugar solo a Captura la bandera. Códigos: `TDM`, `CTF`, `KOTH`, `FFA`, `GUN`, `ELIM`.
+  - Bots (`Bots`): `Enabled`, hasta cuántos rellenan (`FillTo`), armas, puntería (`Accuracy`), daño (`DamageScale`) y premio por eliminarlos (`RewardScale`).
   - Puntos para ganar y duración de cada modo (`ModeSettings`).
   - Ajustes de la bandera (`Flag`), XP, monedas, recompensas del pase y el ID del GamePass premium (`PremiumPassId`).
 - **`Weapons.luau`**: daño, cadencia, cargador, retroceso, dispersión, nivel de desbloqueo y precio de cada arma, y el orden de *Escalada de armas* (`GunGameOrder`).
@@ -163,6 +166,7 @@ Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se
 1. En `GameConfig.luau`:
    - `MinPlayers = 2` (o más).
    - `TrainingDummies = false`.
+   - Si no quieres bots con gente de verdad, baja `Bots.FillTo` (por ejemplo a 4) o pon `Bots.Enabled = false`.
 2. Configura los IDs de la tienda (apartado anterior).
 3. En el Creator Hub, rellena el **cuestionario de madurez** y, como hay cajas, marca que tiene artículos aleatorios de pago (aunque solo se compren con monedas, las monedas se venden por Robux).
 4. En **Game Settings → Places**, pon el máximo de jugadores por servidor en **20** (10 contra 10) o menos de 30: Roblox solo dibuja 31 contornos a la vez (compañeros y radar).
@@ -199,6 +203,7 @@ src/
 │       ├── Flags.luau       Captura la bandera
 │       ├── Hardpoint.luau   Zona de control
 │       ├── Hazards.luau     lava
+│       ├── Bots.luau        bots que rellenan la partida (caminos, puntería, equipos)
 │       ├── Grenades.luau    granadas
 │       ├── Leaderboard.luau clasificación global
 │       ├── Killstreaks.luau recompensas por racha (radar y ataque aéreo)
