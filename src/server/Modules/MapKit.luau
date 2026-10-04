@@ -1163,6 +1163,15 @@ function Kit.ffaSpawn(position)
 	return p
 end
 
+-- Puesto de vigilancia para los bots tiradores (ventana, azotea, torre): se apostan ahí mirando
+-- hacia look. No es un punto de aparición.
+function Kit.botSpot(position, look)
+	local p = deco("BotSpot", V(1, 1, 1), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)
+	p.Transparency = 1
+	p:SetAttribute("Look", look)
+	return p
+end
+
 -- Zona de control (modo "Zona"). order = orden de rotación.
 function Kit.zone(position, radius, order)
 	local z = deco("HardpointZone", V(0.3, radius * 2, radius * 2), CFrame.new(position + V(0, 0.15, 0)) * CFrame.Angles(0, 0, math.pi / 2), C.White, Enum.Material.SmoothPlastic)

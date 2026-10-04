@@ -110,13 +110,13 @@ local function pickTeam()
 end
 
 -- Puntos del mapa (se guardan hasta que cambia el mapa: recorrer todas las piezas es caro)
-local cachedMap, spawnsByColor, ffaPoints = nil, {}, {}
+local cachedMap, spawnsByColor, ffaPoints, botSpots = nil, {}, {}, {}
 local function refreshPoints()
 	local map = workspace:FindFirstChild("Map")
 	if map == cachedMap and map ~= nil and map.Parent ~= nil then
 		return
 	end
-	cachedMap, spawnsByColor, ffaPoints = map, {}, {}
+	cachedMap, spawnsByColor, ffaPoints, botSpots = map, {}, {}, {}
 	if not map then
 		return
 	end
@@ -127,6 +127,8 @@ local function refreshPoints()
 			table.insert(spawnsByColor[key], d.Position)
 		elseif d:IsA("BasePart") and d.Name == "FFASpawn" then
 			table.insert(ffaPoints, d.Position)
+		elseif d:IsA("BasePart") and d.Name == "BotSpot" then
+			table.insert(botSpots, { Position = d.Position, Look = d:GetAttribute("Look") })
 		end
 	end
 end
@@ -547,6 +549,20 @@ laneGoal = function(agent)
 	local maxSide = 1
 	for _, p in ffaPoints do
 		maxSide = math.max(maxSide, math.abs((p - middle):Dot(side)))
+	end
+	-- El tirador va a un puesto de vigilancia de su mitad (ventana, torre...) si el mapa los tiene
+	if agent.Role == "Tirador" and #botSpots > 0 then
+		local mine = {}
+		for _, spot in botSpots do
+			if (spot.Position - own):Dot(axis) / length < 0.55 then
+				table.insert(mine, spot)
+			end
+		end
+		if #mine > 0 then
+			local spot = mine[math.random(1, #mine)]
+			agent.SpotLook = typeof(spot.Look) == "Vector3" and spot.Look or nil
+			return spot.Position
+		end
 	end
 	local depth = ROLE_DEPTH[agent.Role or "Asalto"] or ROLE_DEPTH.Asalto
 	local anyLane = math.random() < 0.2
@@ -1021,7 +1037,8 @@ local function think(agent)
 		-- Ha llegado: se para un momento a mirar (el tirador se aposta un buen rato)
 		if waypoints and agent.WaypointIndex > #waypoints and not agent.Arrived then
 			agent.Arrived = true
-			agent.HoldLook = nil
+			-- (en un puesto de vigilancia, mira hacia donde manda el puesto)
+			agent.HoldLook = (agent.SpotLook and agent.GoalPosition and (agent.GoalPosition - root.Position).Magnitude < 6) and agent.SpotLook or nil
 			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
 			-- (en una bandera de Dominio que no es suya, se queda a capturarla)
 			if ReplicatedStorage:GetAttribute("Mode") == "DOM" then

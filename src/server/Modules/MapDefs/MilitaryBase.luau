@@ -345,6 +345,15 @@ function Map.Build()
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Kit.MIRROR * p)
 	end
+	-- Puestos de los tiradores (torre de vigilancia, barracones y búnker de arriba)
+	for _, spot in {
+		{ V(-40, 14, -100), V(40, 4, -80) }, -- torre de vigilancia
+		{ V(-110, FLOOR_H, -74), V(-20, 4, -40) }, -- barracones, planta de arriba
+		{ V(4, FLOOR_H, -10), V(-60, 4, -40) }, -- búnker, planta de arriba
+	} do
+		Kit.botSpot(spot[1], spot[2])
+		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
+	end
 	-- Zonas de control: delante del búnker, los dos carriles y los dos lados del centro
 	Kit.zone(V(0, 0, 20), 10, 1)
 	Kit.zone(V(-92, 0, 88), 12, 2)

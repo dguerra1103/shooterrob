@@ -285,6 +285,17 @@ function Map.Build()
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Kit.MIRROR * p)
 	end
+	-- Puestos de los tiradores (ventanas que dan a la avenida, la torre del callejón y las obras)
+	for _, spot in {
+		{ V(-108, FLOOR_H, 26), V(-20, 4, 0) }, -- hotel, ventana a la avenida
+		{ V(-100, FLOOR_H, 26), V(-30, 4, 10) },
+		{ V(-112, FLOOR_H, -26), V(-20, 4, 0) }, -- oficinas, ventana a la avenida
+		{ V(-120, FLOOR_H, 104), V(-20, 4, 90) }, -- casa con torre, mirando el callejón
+		{ V(-58, FLOOR_H, -86), V(0, 4, -90) }, -- forjado de las obras
+	} do
+		Kit.botSpot(spot[1], spot[2])
+		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
+	end
 	-- Zonas de control: el monumento, la mitad de cada carril y los dos lados del cruce
 	Kit.zone(V(0, 0, 0), 14, 1)
 	Kit.zone(V(-36, 0, 84), 11, 2)

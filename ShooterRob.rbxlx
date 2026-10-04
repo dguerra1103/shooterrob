@@ -6278,13 +6278,13 @@ local function pickTeam()
 end
 
 -- Puntos del mapa (se guardan hasta que cambia el mapa: recorrer todas las piezas es caro)
-local cachedMap, spawnsByColor, ffaPoints = nil, {}, {}
+local cachedMap, spawnsByColor, ffaPoints, botSpots = nil, {}, {}, {}
 local function refreshPoints()
 	local map = workspace:FindFirstChild("Map")
 	if map == cachedMap and map ~= nil and map.Parent ~= nil then
 		return
 	end
-	cachedMap, spawnsByColor, ffaPoints = map, {}, {}
+	cachedMap, spawnsByColor, ffaPoints, botSpots = map, {}, {}, {}
 	if not map then
 		return
 	end
@@ -6295,6 +6295,8 @@ local function refreshPoints()
 			table.insert(spawnsByColor[key], d.Position)
 		elseif d:IsA("BasePart") and d.Name == "FFASpawn" then
 			table.insert(ffaPoints, d.Position)
+		elseif d:IsA("BasePart") and d.Name == "BotSpot" then
+			table.insert(botSpots, { Position = d.Position, Look = d:GetAttribute("Look") })
 		end
 	end
 end
@@ -6715,6 +6717,20 @@ laneGoal = function(agent)
 	local maxSide = 1
 	for _, p in ffaPoints do
 		maxSide = math.max(maxSide, math.abs((p - middle):Dot(side)))
+	end
+	-- El tirador va a un puesto de vigilancia de su mitad (ventana, torre...) si el mapa los tiene
+	if agent.Role == "Tirador" and #botSpots > 0 then
+		local mine = {}
+		for _, spot in botSpots do
+			if (spot.Position - own):Dot(axis) / length < 0.55 then
+				table.insert(mine, spot)
+			end
+		end
+		if #mine > 0 then
+			local spot = mine[math.random(1, #mine)]
+			agent.SpotLook = typeof(spot.Look) == "Vector3" and spot.Look or nil
+			return spot.Position
+		end
 	end
 	local depth = ROLE_DEPTH[agent.Role or "Asalto"] or ROLE_DEPTH.Asalto
 	local anyLane = math.random() < 0.2
@@ -7189,7 +7205,8 @@ local function think(agent)
 		-- Ha llegado: se para un momento a mirar (el tirador se aposta un buen rato)
 		if waypoints and agent.WaypointIndex > #waypoints and not agent.Arrived then
 			agent.Arrived = true
-			agent.HoldLook = nil
+			-- (en un puesto de vigilancia, mira hacia donde manda el puesto)
+			agent.HoldLook = (agent.SpotLook and agent.GoalPosition and (agent.GoalPosition - root.Position).Magnitude < 6) and agent.SpotLook or nil
 			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
 			-- (en una bandera de Dominio que no es suya, se queda a capturarla)
 			if ReplicatedStorage:GetAttribute("Mode") == "DOM" then
@@ -12946,6 +12963,17 @@ function Map.Build()
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Kit.MIRROR * p)
 	end
+	-- Puestos de los tiradores (ventanas que dan a la avenida, la torre del callejón y las obras)
+	for _, spot in {
+		{ V(-108, FLOOR_H, 26), V(-20, 4, 0) }, -- hotel, ventana a la avenida
+		{ V(-100, FLOOR_H, 26), V(-30, 4, 10) },
+		{ V(-112, FLOOR_H, -26), V(-20, 4, 0) }, -- oficinas, ventana a la avenida
+		{ V(-120, FLOOR_H, 104), V(-20, 4, 90) }, -- casa con torre, mirando el callejón
+		{ V(-58, FLOOR_H, -86), V(0, 4, -90) }, -- forjado de las obras
+	} do
+		Kit.botSpot(spot[1], spot[2])
+		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
+	end
 	-- Zonas de control: el monumento, la mitad de cada carril y los dos lados del cruce
 	Kit.zone(V(0, 0, 0), 14, 1)
 	Kit.zone(V(-36, 0, 84), 11, 2)
@@ -15301,6 +15329,15 @@ function Map.Build()
 	} do
 		Kit.ffaSpawn(p)
 		Kit.ffaSpawn(Kit.MIRROR * p)
+	end
+	-- Puestos de los tiradores (torre de vigilancia, barracones y búnker de arriba)
+	for _, spot in {
+		{ V(-40, 14, -100), V(40, 4, -80) }, -- torre de vigilancia
+		{ V(-110, FLOOR_H, -74), V(-20, 4, -40) }, -- barracones, planta de arriba
+		{ V(4, FLOOR_H, -10), V(-60, 4, -40) }, -- búnker, planta de arriba
+	} do
+		Kit.botSpot(spot[1], spot[2])
+		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
 	end
 	-- Zonas de control: delante del búnker, los dos carriles y los dos lados del centro
 	Kit.zone(V(0, 0, 20), 10, 1)
@@ -18631,6 +18668,15 @@ end
 function Kit.ffaSpawn(position)
 	local p = deco("FFASpawn", V(2, 1, 2), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)
 	p.Transparency = 1
+	return p
+end
+
+-- Puesto de vigilancia para los bots tiradores (ventana, azotea, torre): se apostan ahí mirando
+-- hacia look. No es un punto de aparición.
+function Kit.botSpot(position, look)
+	local p = deco("BotSpot", V(1, 1, 1), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)
+	p.Transparency = 1
+	p:SetAttribute("Look", look)
 	return p
 end
 
