@@ -503,7 +503,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 HALLOWEEN · 🧟 Modo Infección · 🎡 Mapa Feria · 💰 SE BUSCA · 🎨 Grafitis",
+		Text = "🎃 HALLOWEEN · 🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,

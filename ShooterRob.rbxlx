@@ -187,7 +187,7 @@ gui:Destroy()
 --
 -- Stat: "Kill" (con Weapons opcional para limitar a ciertas armas), "Headshot", "Win", "Match",
 -- "Capture", "ZoneTime" (segundos en la zona), "Streak" (mejor racha, no se suma), "Survive" (ganar una
--- Infección como superviviente).
+-- Infección como superviviente), "Pumpkin" (recoger una calabaza enemiga en el modo Calabazas).
 local Challenges = {}
 
 Challenges.PerDay = 3
@@ -213,6 +213,7 @@ Challenges.Pool = {
 	-- Modo Infección (Halloween)
 	{ Id = "Infect", Stat = "Kill", Weapons = { "Claws" }, Goal = 3, Text = "Infecta a 3 supervivientes (Infección)", Coins = 250, XP = 350 },
 	{ Id = "Survive", Stat = "Survive", Goal = 1, Text = "Sobrevive hasta el final de una Infección", Coins = 300, XP = 400 },
+	{ Id = "Pumpkins", Stat = "Pumpkin", Goal = 8, Text = "Recoge 8 calabazas enemigas (modo Calabazas)", Coins = 250, XP = 350 },
 }
 
 Challenges.WeeklyCount = 3
@@ -450,7 +451,7 @@ GameConfig.IntermissionTime = 20
 
 -- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
 -- Quita alguno de la lista si no lo quieres.
-GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF" }
+GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
 	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
@@ -463,6 +464,9 @@ GameConfig.ModeSettings = {
 	-- ZombieRatio se convierte en zombi (equipo B: garras, más vida y algo más rápidos). Quien cae ante
 	-- los zombis se convierte en zombi. Ganan los supervivientes si queda alguno al acabar el tiempo.
 	INF = { Name = "Infección", ScoreToWin = 1, RoundTime = 150, Teams = true, PrepTime = 12, ZombieHealth = 200, ZombieRatio = 5 },
+	-- Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza; un punto si la recoge el equipo
+	-- contrario, y si la recoge un compañero del caído la baja no cuenta
+	CAL = { Name = "Calabazas", ScoreToWin = 30, RoundTime = 8 * 60, Teams = true },
 }
 GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 
@@ -569,7 +573,7 @@ GameConfig.News = {
 	Version = 1,
 	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
 	Items = {
-		{ "🧟", "Modo Infección: sobrevive a los zombis... o conviértete en uno" },
+		{ "🧟", "Modos de Halloween: Infección (zombis) y Calabazas (recoge las de tus enemigos)" },
 		{ "🎡", "Mapas nuevos: Base Lunar (gravedad lunar) y Feria, con noria y tiovivo" },
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
@@ -635,6 +639,8 @@ GameConfig.XP = {
 	Capture = 300, -- capturar la bandera
 	FlagReturn = 75, -- devolver tu bandera caída
 	CarrierKill = 75, -- eliminar al portador de tu bandera
+	PumpkinConfirm = 60, -- Calabazas: recoger la calabaza de un enemigo caído
+	PumpkinDeny = 40, -- Calabazas: recoger la de un compañero (la baja no cuenta)
 	Assist = 40, -- asistencia: le quitaste vida a alguien que remató otro (en los últimos 10 s)
 }
 GameConfig.Coins = {
@@ -5262,6 +5268,7 @@ local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
 
 local Combat = require(script.Parent.Combat)
+local Pumpkins = require(script.Parent.Pumpkins)
 local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
 local Outfits = require(Shared.Outfits)
@@ -5508,6 +5515,13 @@ local function pickGoal(agent)
 	local flagTarget = flagGoal(agent)
 	if typeof(flagTarget) == "Vector3" then
 		return flagTarget, true
+	end
+	-- Calabazas: casi siempre van a por la calabaza más cercana que haya
+	if ReplicatedStorage:GetAttribute("Mode") == "CAL" and agent.Root and math.random() < 0.8 then
+		local pumpkin = Pumpkins.Nearest(agent.Root.Position)
+		if pumpkin then
+			return pumpkin, true
+		end
 	end
 	-- En Zona de control, la mitad de las veces van a la zona activa
 	local zone = ReplicatedStorage:GetAttribute("ZonePosition")
@@ -16500,6 +16514,174 @@ return PlayerData
         </Item>
         <Item class="ModuleScript" referent="63">
           <Properties>
+            <string name="Name">Pumpkins</string>
+            <string name="Source"><![CDATA[-- Modo Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza con el color de su equipo.
+-- Si la recoge el equipo contrario, punto para ellos (baja confirmada); si la recoge un compañero del
+-- caído, la baja no cuenta (recuperada). Las calabazas desaparecen a los LIFETIME segundos.
+-- Round decide qué pasa al recoger (OnCollect) y quién puede recoger (Collectors).
+local Pumpkins = {}
+
+Pumpkins.OnCollect = nil -- function(collector, confirmed, pumpkinTeam)
+Pumpkins.Collectors = nil -- function() -> { { Position, Team, Player?, Bot? } }
+
+local LIFETIME = 30
+local RADIUS = 4.5
+
+local running = false
+local generation = 0 -- (cada Start tiene su propio bucle; el de una partida anterior se para solo)
+local active = {} -- { Model, Position, Team, Expires }
+local folder
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Include
+
+-- Suelo bajo el punto (quien cae en el aire suelta la calabaza en el suelo)
+local function groundBelow(position)
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return position
+	end
+	rayParams.FilterDescendantsInstances = { map }
+	local hit = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -60, 0), rayParams)
+	return hit and hit.Position or position
+end
+
+local function build(position, team)
+	local model = Instance.new("Model")
+	model.Name = "Pumpkin"
+	local body = Instance.new("Part")
+	body.Name = "PumpkinBody"
+	body.Shape = Enum.PartType.Ball
+	body.Size = Vector3.new(2.4, 2.4, 2.4)
+	body.Color = Color3.fromRGB(255, 130, 20)
+	body.Material = Enum.Material.SmoothPlastic
+	body.CFrame = CFrame.new(position + Vector3.new(0, 1.7, 0))
+	body.Anchored = true
+	body.CanCollide = false
+	body.CanQuery = false
+	body.CanTouch = false
+	body.CastShadow = false
+	-- (WorldFX la hace flotar en el cliente)
+	body:SetAttribute("Bob", 0.35)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 160, 60)
+	light.Range = 8
+	light.Brightness = 1
+	light.Parent = body
+	local face = Instance.new("BillboardGui")
+	face.Size = UDim2.fromOffset(46, 46)
+	face.AlwaysOnTop = false
+	face.LightInfluence = 0
+	face.MaxDistance = 120
+	face.Parent = body
+	local icon = Instance.new("TextLabel")
+	icon.Size = UDim2.fromScale(1, 1)
+	icon.BackgroundTransparency = 1
+	icon.Text = "🎃"
+	icon.TextScaled = true
+	icon.Parent = face
+	body.Parent = model
+	-- Anillo en el suelo con el color del equipo del caído
+	local ring = Instance.new("Part")
+	ring.Name = "PumpkinRing"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(0.2, 4.5, 4.5)
+	ring.CFrame = CFrame.new(position + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	ring.Color = team and team.TeamColor.Color or Color3.new(1, 1, 1)
+	ring.Material = Enum.Material.Neon
+	ring.Transparency = 0.35
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.CastShadow = false
+	ring.Parent = model
+	model.Parent = folder
+	return model
+end
+
+-- Suelta una calabaza donde cayó alguien del equipo `team`
+function Pumpkins.Drop(position, team)
+	if not running or typeof(position) ~= "Vector3" or not team then
+		return
+	end
+	local ground = groundBelow(position)
+	table.insert(active, { Model = build(ground, team), Position = ground, Team = team, Expires = os.clock() + LIFETIME })
+end
+
+-- La calabaza más cercana a un punto (para los bots); nil si no hay
+function Pumpkins.Nearest(position)
+	local best, bestDistance = nil, math.huge
+	for _, pumpkin in active do
+		local distance = (pumpkin.Position - position).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = pumpkin.Position, distance
+		end
+	end
+	return best, bestDistance
+end
+
+function Pumpkins.Count()
+	return #active
+end
+
+local function step()
+	local now = os.clock()
+	local collectors = Pumpkins.Collectors and Pumpkins.Collectors() or {}
+	for i = #active, 1, -1 do
+		local pumpkin = active[i]
+		if now > pumpkin.Expires or not pumpkin.Model.Parent then
+			pumpkin.Model:Destroy()
+			table.remove(active, i)
+		else
+			for _, collector in collectors do
+				if collector.Team and (collector.Position - pumpkin.Position).Magnitude <= RADIUS then
+					pumpkin.Model:Destroy()
+					table.remove(active, i)
+					if Pumpkins.OnCollect then
+						task.spawn(Pumpkins.OnCollect, collector, collector.Team ~= pumpkin.Team, pumpkin.Team)
+					end
+					break
+				end
+			end
+		end
+	end
+end
+
+function Pumpkins.Start()
+	Pumpkins.Stop()
+	running = true
+	generation += 1
+	local mine = generation
+	folder = Instance.new("Folder")
+	folder.Name = "Pumpkins"
+	folder.Parent = workspace
+	task.spawn(function()
+		while running and generation == mine do
+			step()
+			task.wait(0.1)
+		end
+	end)
+end
+
+function Pumpkins.Stop()
+	running = false
+	for _, pumpkin in active do
+		pumpkin.Model:Destroy()
+	end
+	table.clear(active)
+	if folder then
+		folder:Destroy()
+		folder = nil
+	end
+end
+
+return Pumpkins
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="64">
+          <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
 --   * Al morir se reaparece solo tras GameConfig.RespawnTime segundos
@@ -16703,7 +16885,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="64">
+        <Item class="ModuleScript" referent="65">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -16737,6 +16919,8 @@ local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
 local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
+local Pumpkins = require(script.Parent.Pumpkins)
+local Combat = require(script.Parent.Combat)
 
 local Round = {}
 
@@ -17103,6 +17287,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Weapon = weapon and weapon.DisplayName or "",
 		Headshot = headshot,
 	})
+	-- Calabazas: el caído suelta una calabaza con el color de su equipo
+	if playing and currentMode == "CAL" and typeof(position) == "Vector3" then
+		local team = (victim and victim.Team) or (victimBot and victimBot.Team)
+		Pumpkins.Drop(position, team)
+	end
 	-- Infección: el superviviente que cae se convierte en zombi en el acto (antes de que pueda revivir)
 	if ReplicatedStorage:GetAttribute("Infection") == "On" and onInfectionDeath then
 		onInfectionDeath(victim, victimBot)
@@ -17821,6 +18010,8 @@ local function playRound()
 			Flags.Start()
 		elseif mode == "KOTH" then
 			Hardpoint.Start()
+		elseif mode == "CAL" then
+			Pumpkins.Start()
 		end
 		if mode ~= "ELIM" then
 			respawnAll() -- (Eliminación reaparece a todos al empezar cada ronda)
@@ -17835,6 +18026,7 @@ local function playRound()
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
 			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
+			CAL = "🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal,
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
 		if mode == "ELIM" then
@@ -17849,6 +18041,7 @@ local function playRound()
 		end
 		Flags.Stop()
 		Hardpoint.Stop()
+		Pumpkins.Stop()
 		Loadout.Override = nil
 		if mode == "INF" then
 			clearInfection()
@@ -17873,6 +18066,7 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
+			pcall(Pumpkins.Stop)
 			clearElimination()
 			clearInfection()
 			pcall(respawnAll)
@@ -17894,6 +18088,39 @@ function Round.Init()
 	end
 	Hardpoint.OnScore = function(team, amount)
 		addScore(team, amount)
+	end
+	-- Calabazas: quién puede recogerlas (jugadores vivos en partida y bots) y qué pasa al recogerlas
+	Pumpkins.Collectors = function()
+		local list = {}
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if root and humanoid and humanoid.Health > 0 and player.Team and not player:GetAttribute("InMenu") then
+				table.insert(list, { Position = root.Position, Team = player.Team, Player = player })
+			end
+		end
+		for _, agent in Combat.BotsByName do
+			if agent.Root and agent.Root.Parent and agent.Humanoid and agent.Humanoid.Health > 0 and agent.Team then
+				table.insert(list, { Position = agent.Root.Position, Team = agent.Team, Bot = agent })
+			end
+		end
+		return list
+	end
+	Pumpkins.OnCollect = function(collector, confirmed)
+		if confirmed then
+			addScore(collector.Team, 1)
+		end
+		local player = collector.Player
+		if player then
+			if confirmed then
+				PlayerData.AddXP(player, GameConfig.XP.PumpkinConfirm or 0, "🎃 Calabaza confirmada")
+				PlayerData.AddCoins(player, 2)
+				PlayerData.Track(player, "Pumpkin", 1)
+			else
+				PlayerData.AddXP(player, GameConfig.XP.PumpkinDeny or 0, "🎃 Calabaza recuperada")
+			end
+		end
 	end
 
 	Remotes.VoteMap.OnServerEvent:Connect(function(player, index)
@@ -17940,7 +18167,7 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="65">
+        <Item class="ModuleScript" referent="66">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -18014,22 +18241,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="66">
+  <Item class="StarterPlayer" referent="67">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="67">
+    <Item class="StarterPlayerScripts" referent="68">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="68">
+      <Item class="Folder" referent="69">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="69">
+        <Item class="LocalScript" referent="70">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -18113,11 +18340,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="70">
+        <Item class="Folder" referent="71">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -18408,7 +18635,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -18477,7 +18704,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -18554,7 +18781,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -18731,7 +18958,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -19202,7 +19429,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -20294,7 +20521,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -20470,7 +20697,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -20580,7 +20807,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -20721,7 +20948,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -20793,7 +21020,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -20922,7 +21149,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -22586,7 +22813,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -22658,7 +22885,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -22723,7 +22950,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -22954,7 +23181,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -23462,7 +23689,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 HALLOWEEN · 🧟 Modo Infección · 🎡 Mapa Feria · 💰 SE BUSCA · 🎨 Grafitis",
+		Text = "🎃 HALLOWEEN · 🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -23648,7 +23875,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -26115,7 +26342,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -26408,7 +26635,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -26514,7 +26741,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -26685,7 +26912,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -26855,7 +27082,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -27182,7 +27409,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -27371,7 +27598,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -27457,7 +27684,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -27614,7 +27841,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -27716,7 +27943,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -27873,7 +28100,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -28821,7 +29048,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -28878,7 +29105,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -29172,7 +29399,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -29391,19 +29618,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="102">
+  <Item class="Teams" referent="103">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="103">
+  <Item class="Workspace" referent="104">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="104">
+    <Item class="Terrain" referent="105">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

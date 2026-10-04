@@ -19,7 +19,7 @@ GameConfig.IntermissionTime = 20
 
 -- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
 -- Quita alguno de la lista si no lo quieres.
-GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF" }
+GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
 	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
@@ -32,6 +32,9 @@ GameConfig.ModeSettings = {
 	-- ZombieRatio se convierte en zombi (equipo B: garras, más vida y algo más rápidos). Quien cae ante
 	-- los zombis se convierte en zombi. Ganan los supervivientes si queda alguno al acabar el tiempo.
 	INF = { Name = "Infección", ScoreToWin = 1, RoundTime = 150, Teams = true, PrepTime = 12, ZombieHealth = 200, ZombieRatio = 5 },
+	-- Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza; un punto si la recoge el equipo
+	-- contrario, y si la recoge un compañero del caído la baja no cuenta
+	CAL = { Name = "Calabazas", ScoreToWin = 30, RoundTime = 8 * 60, Teams = true },
 }
 GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 
@@ -138,7 +141,7 @@ GameConfig.News = {
 	Version = 1,
 	Title = "🎃 ¡NOVEDADES DE HALLOWEEN!",
 	Items = {
-		{ "🧟", "Modo Infección: sobrevive a los zombis... o conviértete en uno" },
+		{ "🧟", "Modos de Halloween: Infección (zombis) y Calabazas (recoge las de tus enemigos)" },
 		{ "🎡", "Mapas nuevos: Base Lunar (gravedad lunar) y Feria, con noria y tiovivo" },
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
@@ -204,6 +207,8 @@ GameConfig.XP = {
 	Capture = 300, -- capturar la bandera
 	FlagReturn = 75, -- devolver tu bandera caída
 	CarrierKill = 75, -- eliminar al portador de tu bandera
+	PumpkinConfirm = 60, -- Calabazas: recoger la calabaza de un enemigo caído
+	PumpkinDeny = 40, -- Calabazas: recoger la de un compañero (la baja no cuenta)
 	Assist = 40, -- asistencia: le quitaste vida a alguien que remató otro (en los últimos 10 s)
 }
 GameConfig.Coins = {

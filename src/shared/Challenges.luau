@@ -5,7 +5,7 @@
 --
 -- Stat: "Kill" (con Weapons opcional para limitar a ciertas armas), "Headshot", "Win", "Match",
 -- "Capture", "ZoneTime" (segundos en la zona), "Streak" (mejor racha, no se suma), "Survive" (ganar una
--- Infección como superviviente).
+-- Infección como superviviente), "Pumpkin" (recoger una calabaza enemiga en el modo Calabazas).
 local Challenges = {}
 
 Challenges.PerDay = 3
@@ -31,6 +31,7 @@ Challenges.Pool = {
 	-- Modo Infección (Halloween)
 	{ Id = "Infect", Stat = "Kill", Weapons = { "Claws" }, Goal = 3, Text = "Infecta a 3 supervivientes (Infección)", Coins = 250, XP = 350 },
 	{ Id = "Survive", Stat = "Survive", Goal = 1, Text = "Sobrevive hasta el final de una Infección", Coins = 300, XP = 400 },
+	{ Id = "Pumpkins", Stat = "Pumpkin", Goal = 8, Text = "Recoge 8 calabazas enemigas (modo Calabazas)", Coins = 250, XP = 350 },
 }
 
 Challenges.WeeklyCount = 3

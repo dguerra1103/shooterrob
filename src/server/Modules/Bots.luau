@@ -15,6 +15,7 @@ local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
 
 local Combat = require(script.Parent.Combat)
+local Pumpkins = require(script.Parent.Pumpkins)
 local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
 local Outfits = require(Shared.Outfits)
@@ -261,6 +262,13 @@ local function pickGoal(agent)
 	local flagTarget = flagGoal(agent)
 	if typeof(flagTarget) == "Vector3" then
 		return flagTarget, true
+	end
+	-- Calabazas: casi siempre van a por la calabaza más cercana que haya
+	if ReplicatedStorage:GetAttribute("Mode") == "CAL" and agent.Root and math.random() < 0.8 then
+		local pumpkin = Pumpkins.Nearest(agent.Root.Position)
+		if pumpkin then
+			return pumpkin, true
+		end
 	end
 	-- En Zona de control, la mitad de las veces van a la zona activa
 	local zone = ReplicatedStorage:GetAttribute("ZonePosition")

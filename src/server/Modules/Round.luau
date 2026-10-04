@@ -29,6 +29,8 @@ local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
 local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
+local Pumpkins = require(script.Parent.Pumpkins)
+local Combat = require(script.Parent.Combat)
 
 local Round = {}
 
@@ -395,6 +397,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Weapon = weapon and weapon.DisplayName or "",
 		Headshot = headshot,
 	})
+	-- Calabazas: el caído suelta una calabaza con el color de su equipo
+	if playing and currentMode == "CAL" and typeof(position) == "Vector3" then
+		local team = (victim and victim.Team) or (victimBot and victimBot.Team)
+		Pumpkins.Drop(position, team)
+	end
 	-- Infección: el superviviente que cae se convierte en zombi en el acto (antes de que pueda revivir)
 	if ReplicatedStorage:GetAttribute("Infection") == "On" and onInfectionDeath then
 		onInfectionDeath(victim, victimBot)
@@ -1113,6 +1120,8 @@ local function playRound()
 			Flags.Start()
 		elseif mode == "KOTH" then
 			Hardpoint.Start()
+		elseif mode == "CAL" then
+			Pumpkins.Start()
 		end
 		if mode ~= "ELIM" then
 			respawnAll() -- (Eliminación reaparece a todos al empezar cada ronda)
@@ -1127,6 +1136,7 @@ local function playRound()
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
 			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
+			CAL = "🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal,
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
 		if mode == "ELIM" then
@@ -1141,6 +1151,7 @@ local function playRound()
 		end
 		Flags.Stop()
 		Hardpoint.Stop()
+		Pumpkins.Stop()
 		Loadout.Override = nil
 		if mode == "INF" then
 			clearInfection()
@@ -1165,6 +1176,7 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
+			pcall(Pumpkins.Stop)
 			clearElimination()
 			clearInfection()
 			pcall(respawnAll)
@@ -1186,6 +1198,39 @@ function Round.Init()
 	end
 	Hardpoint.OnScore = function(team, amount)
 		addScore(team, amount)
+	end
+	-- Calabazas: quién puede recogerlas (jugadores vivos en partida y bots) y qué pasa al recogerlas
+	Pumpkins.Collectors = function()
+		local list = {}
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if root and humanoid and humanoid.Health > 0 and player.Team and not player:GetAttribute("InMenu") then
+				table.insert(list, { Position = root.Position, Team = player.Team, Player = player })
+			end
+		end
+		for _, agent in Combat.BotsByName do
+			if agent.Root and agent.Root.Parent and agent.Humanoid and agent.Humanoid.Health > 0 and agent.Team then
+				table.insert(list, { Position = agent.Root.Position, Team = agent.Team, Bot = agent })
+			end
+		end
+		return list
+	end
+	Pumpkins.OnCollect = function(collector, confirmed)
+		if confirmed then
+			addScore(collector.Team, 1)
+		end
+		local player = collector.Player
+		if player then
+			if confirmed then
+				PlayerData.AddXP(player, GameConfig.XP.PumpkinConfirm or 0, "🎃 Calabaza confirmada")
+				PlayerData.AddCoins(player, 2)
+				PlayerData.Track(player, "Pumpkin", 1)
+			else
+				PlayerData.AddXP(player, GameConfig.XP.PumpkinDeny or 0, "🎃 Calabaza recuperada")
+			end
+		end
 	end
 
 	Remotes.VoteMap.OnServerEvent:Connect(function(player, index)
