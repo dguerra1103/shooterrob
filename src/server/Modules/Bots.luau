@@ -286,8 +286,10 @@ local function checkAlert(agent, now)
 			root.CFrame = CFrame.lookAt(root.Position, look)
 		end
 		agent.AlertPosition = source.Position
+		agent.AlertTime = now
 		agent.GoalDeadline = 0 -- (busca camino nuevo ya)
 		agent.Waypoints = nil
+		humanoid:MoveTo(root.Position) -- (se para a mirar)
 	end
 end
 
@@ -325,9 +327,11 @@ local function pickGoal(agent)
 	end
 	-- Le dispararon desde donde no veía: va hacia allí
 	if agent.AlertPosition then
-		local alert = agent.AlertPosition
+		local alert, fresh = agent.AlertPosition, os.clock() - (agent.AlertTime or 0) < 5
 		agent.AlertPosition = nil
-		return alert, true
+		if fresh then
+			return alert, true
+		end
 	end
 	-- Calabazas: casi siempre van a por la calabaza más cercana que haya
 	if ReplicatedStorage:GetAttribute("Mode") == "CAL" and agent.Root and math.random() < 0.8 then
@@ -540,7 +544,8 @@ local function think(agent)
 			task.spawn(function()
 				computePath(agent, goal)
 				agent.Computing = false
-				if not agent.Waypoints and agent.Humanoid then
+				-- (si mientras tanto le dispararon, no se pisa la alerta: el siguiente turno va hacia allí)
+				if not agent.Waypoints and agent.Humanoid and not agent.AlertPosition then
 					agent.Humanoid:MoveTo(goal)
 					agent.GoalDeadline = os.clock() + 3
 				end
@@ -736,6 +741,7 @@ spawnAgent = function(agent)
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0
+	agent.AlertPosition, agent.AlertTime = nil, nil
 	agent.Waypoints, agent.Target = nil, nil
 
 	Combat.WatchHumanoid(humanoid, nil, agent.Name, agent)
@@ -847,6 +853,7 @@ function Bots.RespawnAll()
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 			agent.Waypoints, agent.Target, agent.Shots, agent.GoalDeadline = nil, nil, 0, 0
+			agent.AlertPosition, agent.AlertTime = nil, nil
 		elseif not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end

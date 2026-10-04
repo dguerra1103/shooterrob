@@ -49,6 +49,8 @@ function EventHUD.Init()
 		Parent = frame,
 	})
 	local milestones = (GameConfig.Event and GameConfig.Event.Milestones) or {}
+	local icon = GameConfig.Event and GameConfig.Event.Icon or "🎉"
+	local itemIcon = GameConfig.Event and GameConfig.Event.ItemIcon or "⭐"
 	local ticks = {}
 	for _, milestone in milestones do
 		table.insert(ticks, UI.new("Frame", {
@@ -81,11 +83,11 @@ function EventHUD.Init()
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then
-					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
+					label.Text = compact and (icon .. "\n✔") or (icon .. " ¡Skin del evento conseguida!")
 				else
 					local target, prize = nextPrize(count, goal, data)
-					label.Text = compact and ("🍬\n" .. count .. "/" .. target)
-						or ("🎃 🍬 " .. count .. "/" .. target .. "  → " .. prize)
+					label.Text = compact and (itemIcon .. "\n" .. count .. "/" .. target)
+						or (icon .. " " .. itemIcon .. " " .. count .. "/" .. target .. "  → " .. prize)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 				for i, tick in ticks do

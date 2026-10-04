@@ -84,6 +84,19 @@ Outfits.List = {
 		Plate = RGB(255, 130, 20),
 		Pieces = { Pumpkin = true, Cape = true, Belt = true, Boots = true, Gloves = true },
 	},
+	-- Navidad: premio del evento (50 regalos)
+	PapaNoel = {
+		Name = "Papá Noel",
+		Rarity = "Legendario",
+		Class = "Evento Navidad",
+		Event = "🎄 50 regalos",
+		Body = RGB(30, 25, 25),
+		Cloth = RGB(205, 30, 40),
+		Glow = RGB(255, 215, 70),
+		Plate = RGB(250, 250, 252),
+		Sleeves = true,
+		Pieces = { SantaHat = true, Beard = true, Belt = true, Boots = true, Gloves = true, FurTrim = true },
+	},
 	-- Halloween (en la tienda con monedas)
 	Vampiro = {
 		Name = "Conde Vampiro",
@@ -153,12 +166,58 @@ end
 local V = Vector3.new
 local Z = Vector3.zero
 
--- Quita el traje actual del personaje
+-- Colores originales del avatar: se guardan (atributo OrigColor) la primera vez que un traje los
+-- cambia y se devuelven al quitarlo o cambiar de traje (si no, la cabeza pálida del vampiro o las
+-- mangas se quedarían con el traje siguiente)
+local BODY_PARTS = {
+	"Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm",
+	"RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot",
+}
+local BODY_COLOR_FIELDS = { "HeadColor3", "TorsoColor3", "LeftArmColor3", "RightArmColor3", "LeftLegColor3", "RightLegColor3" }
+
+local function rememberColors(character)
+	for _, name in BODY_PARTS do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") and part:GetAttribute("OrigColor") == nil then
+			part:SetAttribute("OrigColor", part.Color)
+		end
+	end
+	local bodyColors = character:FindFirstChildOfClass("BodyColors")
+	if bodyColors then
+		for _, field in BODY_COLOR_FIELDS do
+			if bodyColors:GetAttribute(field) == nil then
+				bodyColors:SetAttribute(field, bodyColors[field])
+			end
+		end
+	end
+end
+
+local function restoreColors(character)
+	for _, name in BODY_PARTS do
+		local part = character:FindFirstChild(name)
+		local color = part and part:GetAttribute("OrigColor")
+		if typeof(color) == "Color3" then
+			part.Color = color
+		end
+	end
+	local bodyColors = character:FindFirstChildOfClass("BodyColors")
+	if bodyColors then
+		for _, field in BODY_COLOR_FIELDS do
+			local color = bodyColors:GetAttribute(field)
+			if typeof(color) == "Color3" then
+				bodyColors[field] = color
+			end
+		end
+	end
+end
+
+-- Quita el traje actual del personaje (y le devuelve sus colores)
 function Outfits.Remove(character)
 	local old = character:FindFirstChild("Outfit")
 	if old then
 		old:Destroy()
 	end
+	restoreColors(character)
 end
 
 -- Pone el traje `id` en el personaje (R15). Devuelve true si se aplicó.
@@ -176,6 +235,7 @@ function Outfits.Apply(character, id)
 		return false -- solo R15
 	end
 
+	rememberColors(character)
 	-- La ropa clásica taparía los colores del traje
 	for _, child in character:GetChildren() do
 		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
@@ -312,6 +372,28 @@ function Outfits.Apply(character, id)
 	if P.Cape then
 		newPiece(folder, upper, "Cape", V(0, -0.35, 0.62), Z, V(1.1, 1.7, 0.06), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(-8), 0, 0))
 		newPiece(folder, upper, "CapeCollar", V(0, 0.48, 0.45), Z, V(1.0, 0.18, 0.25), Z, RGB(150, 30, 40), Enum.Material.Fabric)
+	end
+	if P.SantaHat then
+		newPiece(folder, head, "SantaHatBrim", V(0, 0.45, 0), Z, V(1.18, 0.22, 1.18), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, head, "SantaHat", V(0, 0.75, 0.05), Z, V(1.0, 0.5, 1.0), Z, o.Cloth, Enum.Material.Fabric)
+		newPiece(folder, head, "SantaHatTip", V(0.25, 1.0, 0.25), Z, V(0.55, 0.4, 0.55), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(25), 0, math.rad(-30)))
+		local pompom = newPiece(folder, head, "SantaPompom", V(0.5, 1.12, 0.45), Z, V(0.28, 0.28, 0.28), Z, o.Plate, Enum.Material.Fabric)
+		pompom.Shape = Enum.PartType.Ball
+	end
+	if P.Beard then
+		newPiece(folder, head, "Beard", V(0, -0.38, -0.42), Z, V(0.95, 0.55, 0.3), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, head, "Moustache", V(0, -0.12, -0.55), Z, V(0.6, 0.12, 0.08), Z, o.Plate, Enum.Material.Fabric)
+	end
+	if P.FurTrim then
+		-- Ribete blanco en el abrigo y en los puños
+		newPiece(folder, upper, "CoatTrim", V(0, 0, -0.52), Z, V(0.18, 1.0, 0.08), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, lower, "CoatHem", V(0, -0.3, 0), Z, V(1.1, 0.35, 1.14), Z, o.Plate, Enum.Material.Fabric)
+		for _, side in { "Left", "Right" } do
+			local lowerArm = get(side .. "LowerArm")
+			if lowerArm then
+				newPiece(folder, lowerArm, "Cuff", V(0, -0.38, 0), Z, V(1.15, 0.22, 1.15), Z, o.Plate, Enum.Material.Fabric)
+			end
+		end
 	end
 	if P.VampireCollar then
 		-- Cuello alto de la capa, detrás de la cabeza (rojo por dentro)

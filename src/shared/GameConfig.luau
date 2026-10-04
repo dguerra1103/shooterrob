@@ -76,28 +76,84 @@ GameConfig.Bots = {
 	SkillByRank = { 0.75, 0.85, 1, 1.1, 1.2, 1.3 },
 	OutfitChance = 0.6, -- probabilidad de que un bot lleve uno de los trajes de la tienda (y la mitad, skin de arma)
 }
--- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
--- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
--- Pon Enabled = false cuando acabe el evento (el progreso queda guardado por si vuelve).
-GameConfig.Event = {
-	Enabled = true,
-	Id = "Halloween2026", -- cambia el Id para empezar de cero en otro evento
-	Name = "Halloween",
-	CandyCoins = 5, -- monedas por caramelo
-	Goal = 100, -- caramelos para la skin
-	RewardSkin = "Embrujada",
-	-- Premios por el camino (el último premio es la skin al llegar a Goal). Si ya tenías el traje,
-	-- se cambia por Compensate monedas.
-	Milestones = {
-		{ Count = 25, Coins = 150 },
-		{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
-		{ Count = 75, Weapon = "Calabazooka", Compensate = 300 },
+-- Eventos de temporada: durante las rondas aparecen objetos del evento por el mapa (caramelos en
+-- Halloween, regalos en Navidad); cada uno da monedas y suma al contador del evento; hay premios
+-- por el camino (Milestones; si ya tenías el traje, se cambia por Compensate monedas) y al llegar a
+-- Goal se gana la skin exclusiva RewardSkin.
+-- Se elige solo el evento cuyas fechas (StartsAt/EndsAt, hora UTC) incluyen el día de hoy; fuera de
+-- fechas no hay evento. Para otro año cambia el Id (empieza de cero) y las fechas.
+GameConfig.Events = {
+	{
+		Enabled = true,
+		Id = "Halloween2026",
+		Name = "Halloween",
+		Icon = "🎃",
+		Item = "caramelo",
+		Items = "caramelos",
+		ItemIcon = "🍬",
+		ItemShape = "Ball",
+		ItemColors = { Color3.fromRGB(255, 130, 20), Color3.fromRGB(170, 80, 255), Color3.fromRGB(120, 230, 60), Color3.fromRGB(255, 70, 120) },
+		Decoration = "Pumpkin", -- calabazas en los mapas
+		CandyCoins = 5, -- monedas por objeto
+		Goal = 100,
+		RewardSkin = "Embrujada",
+		Milestones = {
+			{ Count = 25, Coins = 150 },
+			{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
+			{ Count = 75, Weapon = "Calabazooka", Compensate = 300 },
+		},
+		SpawnEvery = 12, -- segundos entre objetos
+		MaxCandies = 6, -- a la vez en el mapa
+		EndsAt = 1793750400, -- 4 nov 2026, 00:00 UTC
 	},
-	SpawnEvery = 12, -- segundos entre caramelos
-	MaxCandies = 6, -- a la vez en el mapa
-	Pumpkins = true, -- calabazas de decoración en los mapas
-	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
+	{
+		Enabled = true,
+		Id = "Navidad2026",
+		Name = "Navidad",
+		Icon = "🎄",
+		Item = "regalo",
+		Items = "regalos",
+		ItemIcon = "🎁",
+		ItemShape = "Block",
+		ItemColors = { Color3.fromRGB(230, 40, 50), Color3.fromRGB(40, 170, 80), Color3.fromRGB(255, 200, 60), Color3.fromRGB(80, 160, 255) },
+		Decoration = "Snowman", -- muñecos de nieve en los mapas
+		CandyCoins = 5,
+		Goal = 100,
+		RewardSkin = "Navidena",
+		Milestones = {
+			{ Count = 25, Coins = 150 },
+			{ Count = 50, Outfit = "PapaNoel", Compensate = 400 },
+			{ Count = 75, Coins = 500 },
+		},
+		SpawnEvery = 12,
+		MaxCandies = 6,
+		StartsAt = 1796083200, -- 1 dic 2026, 00:00 UTC
+		EndsAt = 1799366400, -- 8 ene 2027, 00:00 UTC
+	},
 }
+
+-- ¿Está en marcha este evento a esta hora?
+function GameConfig.EventActive(event, now)
+	now = now or os.time()
+	return event ~= nil and event.Enabled == true and (event.StartsAt == nil or now >= event.StartsAt) and (event.EndsAt == nil or now < event.EndsAt)
+end
+
+-- El evento de ahora; si no hay ninguno, el próximo que va a empezar (para tener siempre uno a mano;
+-- fuera de fechas EventActive dice que no y no sale nada)
+function GameConfig.PickEvent(now)
+	now = now or os.time()
+	local upcoming
+	for _, event in GameConfig.Events do
+		if GameConfig.EventActive(event, now) then
+			return event
+		end
+		if event.StartsAt and now < event.StartsAt and (not upcoming or event.StartsAt < upcoming.StartsAt) then
+			upcoming = event
+		end
+	end
+	return upcoming or GameConfig.Events[#GameConfig.Events]
+end
+GameConfig.Event = GameConfig.PickEvent()
 
 -- Logros: metas a largo plazo que se reclaman en la pestaña Perfil (monedas al reclamar).
 -- Stat es un campo de los datos del jugador (TotalKills, Wins, Headshots, Matches, BestStreak, Level,

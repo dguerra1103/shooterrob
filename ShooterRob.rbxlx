@@ -508,28 +508,84 @@ GameConfig.Bots = {
 	SkillByRank = { 0.75, 0.85, 1, 1.1, 1.2, 1.3 },
 	OutfitChance = 0.6, -- probabilidad de que un bot lleve uno de los trajes de la tienda (y la mitad, skin de arma)
 }
--- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
--- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
--- Pon Enabled = false cuando acabe el evento (el progreso queda guardado por si vuelve).
-GameConfig.Event = {
-	Enabled = true,
-	Id = "Halloween2026", -- cambia el Id para empezar de cero en otro evento
-	Name = "Halloween",
-	CandyCoins = 5, -- monedas por caramelo
-	Goal = 100, -- caramelos para la skin
-	RewardSkin = "Embrujada",
-	-- Premios por el camino (el último premio es la skin al llegar a Goal). Si ya tenías el traje,
-	-- se cambia por Compensate monedas.
-	Milestones = {
-		{ Count = 25, Coins = 150 },
-		{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
-		{ Count = 75, Weapon = "Calabazooka", Compensate = 300 },
+-- Eventos de temporada: durante las rondas aparecen objetos del evento por el mapa (caramelos en
+-- Halloween, regalos en Navidad); cada uno da monedas y suma al contador del evento; hay premios
+-- por el camino (Milestones; si ya tenías el traje, se cambia por Compensate monedas) y al llegar a
+-- Goal se gana la skin exclusiva RewardSkin.
+-- Se elige solo el evento cuyas fechas (StartsAt/EndsAt, hora UTC) incluyen el día de hoy; fuera de
+-- fechas no hay evento. Para otro año cambia el Id (empieza de cero) y las fechas.
+GameConfig.Events = {
+	{
+		Enabled = true,
+		Id = "Halloween2026",
+		Name = "Halloween",
+		Icon = "🎃",
+		Item = "caramelo",
+		Items = "caramelos",
+		ItemIcon = "🍬",
+		ItemShape = "Ball",
+		ItemColors = { Color3.fromRGB(255, 130, 20), Color3.fromRGB(170, 80, 255), Color3.fromRGB(120, 230, 60), Color3.fromRGB(255, 70, 120) },
+		Decoration = "Pumpkin", -- calabazas en los mapas
+		CandyCoins = 5, -- monedas por objeto
+		Goal = 100,
+		RewardSkin = "Embrujada",
+		Milestones = {
+			{ Count = 25, Coins = 150 },
+			{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
+			{ Count = 75, Weapon = "Calabazooka", Compensate = 300 },
+		},
+		SpawnEvery = 12, -- segundos entre objetos
+		MaxCandies = 6, -- a la vez en el mapa
+		EndsAt = 1793750400, -- 4 nov 2026, 00:00 UTC
 	},
-	SpawnEvery = 12, -- segundos entre caramelos
-	MaxCandies = 6, -- a la vez en el mapa
-	Pumpkins = true, -- calabazas de decoración en los mapas
-	EndsAt = 1793750400, -- se apaga solo a partir de esta fecha (4 nov 2026, 00:00 UTC); nil = nunca
+	{
+		Enabled = true,
+		Id = "Navidad2026",
+		Name = "Navidad",
+		Icon = "🎄",
+		Item = "regalo",
+		Items = "regalos",
+		ItemIcon = "🎁",
+		ItemShape = "Block",
+		ItemColors = { Color3.fromRGB(230, 40, 50), Color3.fromRGB(40, 170, 80), Color3.fromRGB(255, 200, 60), Color3.fromRGB(80, 160, 255) },
+		Decoration = "Snowman", -- muñecos de nieve en los mapas
+		CandyCoins = 5,
+		Goal = 100,
+		RewardSkin = "Navidena",
+		Milestones = {
+			{ Count = 25, Coins = 150 },
+			{ Count = 50, Outfit = "PapaNoel", Compensate = 400 },
+			{ Count = 75, Coins = 500 },
+		},
+		SpawnEvery = 12,
+		MaxCandies = 6,
+		StartsAt = 1796083200, -- 1 dic 2026, 00:00 UTC
+		EndsAt = 1799366400, -- 8 ene 2027, 00:00 UTC
+	},
 }
+
+-- ¿Está en marcha este evento a esta hora?
+function GameConfig.EventActive(event, now)
+	now = now or os.time()
+	return event ~= nil and event.Enabled == true and (event.StartsAt == nil or now >= event.StartsAt) and (event.EndsAt == nil or now < event.EndsAt)
+end
+
+-- El evento de ahora; si no hay ninguno, el próximo que va a empezar (para tener siempre uno a mano;
+-- fuera de fechas EventActive dice que no y no sale nada)
+function GameConfig.PickEvent(now)
+	now = now or os.time()
+	local upcoming
+	for _, event in GameConfig.Events do
+		if GameConfig.EventActive(event, now) then
+			return event
+		end
+		if event.StartsAt and now < event.StartsAt and (not upcoming or event.StartsAt < upcoming.StartsAt) then
+			upcoming = event
+		end
+	end
+	return upcoming or GameConfig.Events[#GameConfig.Events]
+end
+GameConfig.Event = GameConfig.PickEvent()
 
 -- Logros: metas a largo plazo que se reclaman en la pestaña Perfil (monedas al reclamar).
 -- Stat es un campo de los datos del jugador (TotalKills, Wins, Headshots, Matches, BestStreak, Level,
@@ -904,6 +960,19 @@ Outfits.List = {
 		Plate = RGB(255, 130, 20),
 		Pieces = { Pumpkin = true, Cape = true, Belt = true, Boots = true, Gloves = true },
 	},
+	-- Navidad: premio del evento (50 regalos)
+	PapaNoel = {
+		Name = "Papá Noel",
+		Rarity = "Legendario",
+		Class = "Evento Navidad",
+		Event = "🎄 50 regalos",
+		Body = RGB(30, 25, 25),
+		Cloth = RGB(205, 30, 40),
+		Glow = RGB(255, 215, 70),
+		Plate = RGB(250, 250, 252),
+		Sleeves = true,
+		Pieces = { SantaHat = true, Beard = true, Belt = true, Boots = true, Gloves = true, FurTrim = true },
+	},
 	-- Halloween (en la tienda con monedas)
 	Vampiro = {
 		Name = "Conde Vampiro",
@@ -973,12 +1042,58 @@ end
 local V = Vector3.new
 local Z = Vector3.zero
 
--- Quita el traje actual del personaje
+-- Colores originales del avatar: se guardan (atributo OrigColor) la primera vez que un traje los
+-- cambia y se devuelven al quitarlo o cambiar de traje (si no, la cabeza pálida del vampiro o las
+-- mangas se quedarían con el traje siguiente)
+local BODY_PARTS = {
+	"Head", "UpperTorso", "LowerTorso", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightUpperArm", "RightLowerArm",
+	"RightHand", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "RightUpperLeg", "RightLowerLeg", "RightFoot",
+}
+local BODY_COLOR_FIELDS = { "HeadColor3", "TorsoColor3", "LeftArmColor3", "RightArmColor3", "LeftLegColor3", "RightLegColor3" }
+
+local function rememberColors(character)
+	for _, name in BODY_PARTS do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") and part:GetAttribute("OrigColor") == nil then
+			part:SetAttribute("OrigColor", part.Color)
+		end
+	end
+	local bodyColors = character:FindFirstChildOfClass("BodyColors")
+	if bodyColors then
+		for _, field in BODY_COLOR_FIELDS do
+			if bodyColors:GetAttribute(field) == nil then
+				bodyColors:SetAttribute(field, bodyColors[field])
+			end
+		end
+	end
+end
+
+local function restoreColors(character)
+	for _, name in BODY_PARTS do
+		local part = character:FindFirstChild(name)
+		local color = part and part:GetAttribute("OrigColor")
+		if typeof(color) == "Color3" then
+			part.Color = color
+		end
+	end
+	local bodyColors = character:FindFirstChildOfClass("BodyColors")
+	if bodyColors then
+		for _, field in BODY_COLOR_FIELDS do
+			local color = bodyColors:GetAttribute(field)
+			if typeof(color) == "Color3" then
+				bodyColors[field] = color
+			end
+		end
+	end
+end
+
+-- Quita el traje actual del personaje (y le devuelve sus colores)
 function Outfits.Remove(character)
 	local old = character:FindFirstChild("Outfit")
 	if old then
 		old:Destroy()
 	end
+	restoreColors(character)
 end
 
 -- Pone el traje `id` en el personaje (R15). Devuelve true si se aplicó.
@@ -996,6 +1111,7 @@ function Outfits.Apply(character, id)
 		return false -- solo R15
 	end
 
+	rememberColors(character)
 	-- La ropa clásica taparía los colores del traje
 	for _, child in character:GetChildren() do
 		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then
@@ -1132,6 +1248,28 @@ function Outfits.Apply(character, id)
 	if P.Cape then
 		newPiece(folder, upper, "Cape", V(0, -0.35, 0.62), Z, V(1.1, 1.7, 0.06), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(-8), 0, 0))
 		newPiece(folder, upper, "CapeCollar", V(0, 0.48, 0.45), Z, V(1.0, 0.18, 0.25), Z, RGB(150, 30, 40), Enum.Material.Fabric)
+	end
+	if P.SantaHat then
+		newPiece(folder, head, "SantaHatBrim", V(0, 0.45, 0), Z, V(1.18, 0.22, 1.18), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, head, "SantaHat", V(0, 0.75, 0.05), Z, V(1.0, 0.5, 1.0), Z, o.Cloth, Enum.Material.Fabric)
+		newPiece(folder, head, "SantaHatTip", V(0.25, 1.0, 0.25), Z, V(0.55, 0.4, 0.55), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(25), 0, math.rad(-30)))
+		local pompom = newPiece(folder, head, "SantaPompom", V(0.5, 1.12, 0.45), Z, V(0.28, 0.28, 0.28), Z, o.Plate, Enum.Material.Fabric)
+		pompom.Shape = Enum.PartType.Ball
+	end
+	if P.Beard then
+		newPiece(folder, head, "Beard", V(0, -0.38, -0.42), Z, V(0.95, 0.55, 0.3), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, head, "Moustache", V(0, -0.12, -0.55), Z, V(0.6, 0.12, 0.08), Z, o.Plate, Enum.Material.Fabric)
+	end
+	if P.FurTrim then
+		-- Ribete blanco en el abrigo y en los puños
+		newPiece(folder, upper, "CoatTrim", V(0, 0, -0.52), Z, V(0.18, 1.0, 0.08), Z, o.Plate, Enum.Material.Fabric)
+		newPiece(folder, lower, "CoatHem", V(0, -0.3, 0), Z, V(1.1, 0.35, 1.14), Z, o.Plate, Enum.Material.Fabric)
+		for _, side in { "Left", "Right" } do
+			local lowerArm = get(side .. "LowerArm")
+			if lowerArm then
+				newPiece(folder, lowerArm, "Cuff", V(0, -0.38, 0), Z, V(1.15, 0.22, 1.15), Z, o.Plate, Enum.Material.Fabric)
+			end
+		end
 	end
 	if P.VampireCollar then
 		-- Cuello alto de la capa, detrás de la cabeza (rojo por dentro)
@@ -1949,6 +2087,24 @@ Skins.List.Embrujada = {
 	Dark = Color3.fromRGB(15, 10, 20),
 	Accent2 = Color3.fromRGB(190, 90, 255),
 	Effect = "Flame",
+	Pulse = true,
+	EventText = "🎃 Evento: caramelos",
+}
+
+-- Skin del evento de Navidad (se gana con regalos, ver GameConfig.Events)
+Skins.List.Navidena = {
+	Name = "Navideña",
+	Rarity = "Mítico",
+	Event = true,
+	EventText = "🎄 Evento: regalos",
+	Body = Color3.fromRGB(200, 25, 40),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(245, 245, 250),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(60, 220, 110),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(20, 70, 40),
+	Accent2 = Color3.fromRGB(255, 210, 70),
 	Pulse = true,
 }
 
@@ -5633,8 +5789,10 @@ local function checkAlert(agent, now)
 			root.CFrame = CFrame.lookAt(root.Position, look)
 		end
 		agent.AlertPosition = source.Position
+		agent.AlertTime = now
 		agent.GoalDeadline = 0 -- (busca camino nuevo ya)
 		agent.Waypoints = nil
+		humanoid:MoveTo(root.Position) -- (se para a mirar)
 	end
 end
 
@@ -5672,9 +5830,11 @@ local function pickGoal(agent)
 	end
 	-- Le dispararon desde donde no veía: va hacia allí
 	if agent.AlertPosition then
-		local alert = agent.AlertPosition
+		local alert, fresh = agent.AlertPosition, os.clock() - (agent.AlertTime or 0) < 5
 		agent.AlertPosition = nil
-		return alert, true
+		if fresh then
+			return alert, true
+		end
 	end
 	-- Calabazas: casi siempre van a por la calabaza más cercana que haya
 	if ReplicatedStorage:GetAttribute("Mode") == "CAL" and agent.Root and math.random() < 0.8 then
@@ -5887,7 +6047,8 @@ local function think(agent)
 			task.spawn(function()
 				computePath(agent, goal)
 				agent.Computing = false
-				if not agent.Waypoints and agent.Humanoid then
+				-- (si mientras tanto le dispararon, no se pisa la alerta: el siguiente turno va hacia allí)
+				if not agent.Waypoints and agent.Humanoid and not agent.AlertPosition then
 					agent.Humanoid:MoveTo(goal)
 					agent.GoalDeadline = os.clock() + 3
 				end
@@ -6083,6 +6244,7 @@ spawnAgent = function(agent)
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0
+	agent.AlertPosition, agent.AlertTime = nil, nil
 	agent.Waypoints, agent.Target = nil, nil
 
 	Combat.WatchHumanoid(humanoid, nil, agent.Name, agent)
@@ -6194,6 +6356,7 @@ function Bots.RespawnAll()
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 			agent.Waypoints, agent.Target, agent.Shots, agent.GoalDeadline = nil, nil, 0, 0
+			agent.AlertPosition, agent.AlertTime = nil, nil
 		elseif not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
@@ -7054,11 +7217,12 @@ return Dummies
         <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">Event</string>
-            <string name="Source"><![CDATA[-- Evento de temporada (GameConfig.Event, ahora Halloween): durante las rondas van apareciendo
--- caramelos por el mapa (en los puntos de aparición libres). Al tocar uno: monedas y +1 al contador
--- del evento (se guarda); hay premios por el camino (Milestones) y al llegar a Goal se gana la
--- skin exclusiva. También pone calabazas en los
--- mapas (Event.Decorate lo llama MapBuilder). Los bots no recogen caramelos.
+            <string name="Source"><![CDATA[-- Evento de temporada (GameConfig.Event: el de las fechas de hoy, ver GameConfig.Events): durante
+-- las rondas van apareciendo objetos del evento por el mapa (caramelos en Halloween, regalos en
+-- Navidad) en los puntos de aparición libres. Al tocar uno: monedas y +1 al contador del evento (se
+-- guarda); hay premios por el camino (Milestones) y al llegar a Goal se gana la skin exclusiva.
+-- También decora los mapas (calabazas o muñecos de nieve; Event.Decorate lo llama MapBuilder).
+-- Los bots no recogen objetos.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -7075,12 +7239,10 @@ local Kit = require(script.Parent.MapKit)
 local Event = {}
 
 local CONFIG = GameConfig.Event
-local CANDY_COLORS = {
-	Color3.fromRGB(255, 130, 20),
-	Color3.fromRGB(170, 80, 255),
-	Color3.fromRGB(120, 230, 60),
-	Color3.fromRGB(255, 70, 120),
-}
+local CANDY_COLORS = CONFIG and CONFIG.ItemColors or { Color3.fromRGB(255, 130, 20) }
+local ICON = CONFIG and CONFIG.Icon or "🎉"
+local ITEM_ICON = CONFIG and CONFIG.ItemIcon or "⭐"
+local ITEMS = CONFIG and CONFIG.Items or "objetos"
 
 local folder
 local candies = {}
@@ -7089,7 +7251,7 @@ local LIFETIME = 60 -- segundos que dura un caramelo sin recoger
 local PICKUP_RANGE = 9 -- distancia máxima real al caramelo (contra trampas de "toque" a distancia)
 
 local function enabled()
-	return CONFIG and CONFIG.Enabled and (CONFIG.EndsAt == nil or os.time() < CONFIG.EndsAt)
+	return GameConfig.EventActive(CONFIG)
 end
 
 -- Puntos libres del mapa actual (FFASpawn); se guardan mientras no cambie el mapa
@@ -7163,7 +7325,8 @@ local function collect(player, candy)
 	local count = data.EventProgress.Count
 	PlayerData.MarkDirty(player)
 	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
-	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	local itemName = CONFIG.Item or "objeto"
+	Remotes.Notify:FireClient(player, "XP", ITEM_ICON .. " " .. string.upper(string.sub(itemName, 1, 1)) .. string.sub(itemName, 2) .. "  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
 	-- Premios por el camino (también los que quedaron atrás si el premio se añadió con el evento empezado)
 	local claimed = data.EventProgress.Claimed
 	for _, milestone in CONFIG.Milestones or {} do
@@ -7172,21 +7335,21 @@ local function collect(player, candy)
 			claimed[key] = true
 			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
 				local outfit = Outfits.Get(milestone.Outfit)
-				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+				Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! Traje " .. outfit.Name .. " desbloqueado")
 			elseif milestone.Weapon and PlayerData.GiveWeapon(player, milestone.Weapon) then
-				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Arma " .. Weapons.Get(milestone.Weapon).DisplayName .. " desbloqueada")
+				Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! Arma " .. Weapons.Get(milestone.Weapon).DisplayName .. " desbloqueada")
 			else
 				local amount = milestone.Coins or milestone.Compensate or 0
 				if amount > 0 then
 					PlayerData.AddCoins(player, amount, false) -- premio fijo (no lo dobla el VIP)
-					Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! +" .. amount .. " 🪙")
+					Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! +" .. amount .. " 🪙")
 				end
 			end
 		end
 	end
 	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
-		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")
+		Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡Skin " .. skin.Name .. " desbloqueada!")
 	end
 end
 
@@ -7235,8 +7398,9 @@ local function spawnCandy()
 	end
 	local candy = Instance.new("Part")
 	candy.Name = "Candy"
-	candy.Shape = Enum.PartType.Ball
-	candy.Size = Vector3.new(1.6, 1.6, 1.6)
+	-- (bola en Halloween; caja de regalo en Navidad)
+	candy.Shape = CONFIG.ItemShape == "Block" and Enum.PartType.Block or Enum.PartType.Ball
+	candy.Size = CONFIG.ItemShape == "Block" and Vector3.new(1.4, 1.4, 1.4) or Vector3.new(1.6, 1.6, 1.6)
 	candy.Color = CANDY_COLORS[math.random(1, #CANDY_COLORS)]
 	candy.Material = Enum.Material.SmoothPlastic
 	candy.Anchored = true
@@ -7283,9 +7447,10 @@ local function spawnCandy()
 	end)
 end
 
--- Calabazas junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios)
+-- Decoración junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios):
+-- calabazas (Decoration = "Pumpkin") o muñecos de nieve ("Snowman")
 function Event.Decorate()
-	if not enabled() or not CONFIG.Pumpkins then
+	if not enabled() or not CONFIG.Decoration then
 		return
 	end
 	local points = spawnPoints()
@@ -7299,7 +7464,12 @@ function Event.Decorate()
 			-- Sobre el suelo que haya debajo (si el punto está en una plataforma, que no flote en el aire)
 			local ground = groundAt(point + offset.Unit * 5, 3, 4)
 			if ground then
-				Kit.pumpkin(CFrame.new(ground) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
+				local cf = CFrame.new(ground) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+				if CONFIG.Decoration == "Snowman" then
+					Kit.snowman(cf, rng:NextNumber(0.8, 1.2))
+				else
+					Kit.pumpkin(cf, rng:NextNumber(0.8, 1.3))
+				end
 			end
 		end
 	end
@@ -14776,6 +14946,29 @@ function Kit.pumpkin(cf, scale)
 	return body
 end
 
+-- Muñeco de nieve (decoración del evento de Navidad): tres bolas, ojos de carbón, nariz de
+-- zanahoria, bufanda y sombrero de copa
+function Kit.snowman(cf, scale)
+	scale = scale or 1
+	local snow = RGB(245, 248, 255)
+	Kit.ball("SnowmanBase", 3.2 * scale, cf * CFrame.new(0, 1.5 * scale, 0), snow, Enum.Material.SmoothPlastic, true)
+	Kit.ball("SnowmanBody", 2.4 * scale, cf * CFrame.new(0, 3.4 * scale, 0), snow, Enum.Material.SmoothPlastic, true)
+	local headCf = cf * CFrame.new(0, 4.95 * scale, 0)
+	Kit.ball("SnowmanHead", 1.7 * scale, headCf, snow, Enum.Material.SmoothPlastic, true)
+	for _, s in { -1, 1 } do
+		Kit.ball("SnowmanEye", 0.22 * scale, headCf * CFrame.new(s * 0.3 * scale, 0.2 * scale, -0.75 * scale), RGB(25, 25, 30), Enum.Material.SmoothPlastic, true)
+	end
+	deco("SnowmanNose", V(0.18 * scale, 0.18 * scale, 0.7 * scale), headCf * CFrame.new(0, 0, -1.05 * scale), RGB(255, 130, 30), Enum.Material.SmoothPlastic)
+	for i = 1, 3 do
+		Kit.ball("SnowmanButton", 0.22 * scale, cf * CFrame.new(0, (2.8 + i * 0.4) * scale, -1.12 * scale), RGB(25, 25, 30), Enum.Material.SmoothPlastic, true)
+	end
+	Kit.cylinder("SnowmanScarf", 0.35 * scale, 1.75 * scale, cf * CFrame.new(0, 4.25 * scale, 0), RGB(220, 40, 50), Enum.Material.Fabric, nil, true)
+	deco("SnowmanScarfTail", V(0.35 * scale, 1 * scale, 0.12 * scale), cf * CFrame.new(0.45 * scale, 3.8 * scale, -0.8 * scale), RGB(220, 40, 50), Enum.Material.Fabric)
+	Kit.cylinder("SnowmanHatBrim", 0.12 * scale, 1.9 * scale, headCf * CFrame.new(0, 0.75 * scale, 0), RGB(25, 25, 30), Enum.Material.SmoothPlastic, nil, true)
+	Kit.cylinder("SnowmanHat", 1 * scale, 1.15 * scale, headCf * CFrame.new(0, 1.3 * scale, 0), RGB(25, 25, 30), Enum.Material.SmoothPlastic, nil, true)
+	Kit.cylinder("SnowmanHatBand", 0.2 * scale, 1.18 * scale, headCf * CFrame.new(0, 0.95 * scale, 0), RGB(220, 40, 50), Enum.Material.SmoothPlastic, nil, true)
+end
+
 -- Plataforma de salto: al pisarla te lanza hacia arriba (el cliente lo hace, ver JumpPads).
 -- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
 function Kit.jumpPad(position, power, color)
@@ -20931,6 +21124,8 @@ function EventHUD.Init()
 		Parent = frame,
 	})
 	local milestones = (GameConfig.Event and GameConfig.Event.Milestones) or {}
+	local icon = GameConfig.Event and GameConfig.Event.Icon or "🎉"
+	local itemIcon = GameConfig.Event and GameConfig.Event.ItemIcon or "⭐"
 	local ticks = {}
 	for _, milestone in milestones do
 		table.insert(ticks, UI.new("Frame", {
@@ -20963,11 +21158,11 @@ function EventHUD.Init()
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then
-					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
+					label.Text = compact and (icon .. "\n✔") or (icon .. " ¡Skin del evento conseguida!")
 				else
 					local target, prize = nextPrize(count, goal, data)
-					label.Text = compact and ("🍬\n" .. count .. "/" .. target)
-						or ("🎃 🍬 " .. count .. "/" .. target .. "  → " .. prize)
+					label.Text = compact and (itemIcon .. "\n" .. count .. "/" .. target)
+						or (icon .. " " .. itemIcon .. " " .. count .. "/" .. target .. "  → " .. prize)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 				for i, tick in ticks do
@@ -23887,7 +24082,9 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 HALLOWEEN · 🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
+		-- (empieza por el evento de temporada si hay uno en marcha)
+		Text = (GameConfig.EventActive(GameConfig.Event) and (GameConfig.Event.Icon .. " " .. string.upper(GameConfig.Event.Name) .. " · ") or "")
+			.. "🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -24561,7 +24758,10 @@ local function buildProfilePage(data)
 		{ "🔥", "Mejor racha", tostring(data.BestStreak or 0) },
 		{ "🧠", "A la cabeza", tostring(data.Headshots or 0) },
 		{ "🤝", "Asistencias", tostring(data.Assists or 0) },
-		{ "🍬", "Caramelos", tostring(data.EventCandy or 0) },
+		{ GameConfig.Event and GameConfig.Event.ItemIcon or "⭐", (function()
+			local items = GameConfig.Event and GameConfig.Event.Items or "Evento"
+			return string.upper(string.sub(items, 1, 1)) .. string.sub(items, 2)
+		end)(), tostring(data.EventCandy or 0) },
 	}
 	local grid = UI.new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -12, 0, 170), BackgroundTransparency = 1, Parent = scroll }, {
 		UI.new("UIGridLayout", { CellSize = UDim2.new(0.2, -10, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -24952,7 +25152,8 @@ local function buildChallengesPage(data)
 	end
 	-- Evento de temporada: premios por caramelos (GameConfig.Event) con su vista previa
 	local event = GameConfig.Event
-	if event and event.Enabled and ReplicatedStorage:GetAttribute("EventName") then
+	if event and GameConfig.EventActive(event) and ReplicatedStorage:GetAttribute("EventName") then
+		local icon, itemIcon, items = event.Icon or "🎉", event.ItemIcon or "⭐", event.Items or "objetos"
 		local candy = data.EventCandy or 0
 		local card = UI.new("Frame", {
 			LayoutOrder = 30,
@@ -24963,7 +25164,7 @@ local function buildChallengesPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 8),
 			Size = UDim2.new(1, -32, 0, 28),
-			Text = "🎃 EVENTO DE " .. string.upper(event.Name) .. "  ·  🍬 " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " caramelos",
+			Text = icon .. " EVENTO DE " .. string.upper(event.Name) .. "  ·  " .. itemIcon .. " " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " " .. items,
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(255, 170, 60),
@@ -24972,7 +25173,7 @@ local function buildChallengesPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 34),
 			Size = UDim2.new(1, -32, 0, 20),
-			Text = "Recoge los caramelos que aparecen por el mapa durante las partidas",
+			Text = "Recoge los " .. items .. " que aparecen por el mapa durante las partidas",
 			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(210, 195, 230),
@@ -25027,7 +25228,7 @@ local function buildChallengesPage(data)
 			UI.label({
 				Position = UDim2.new(0, 4, 1, -22),
 				Size = UDim2.new(1, -8, 0, 18),
-				Text = got and "✅ Conseguido" or ("🍬 " .. prize.Count),
+				Text = got and "✅ Conseguido" or (itemIcon .. " " .. prize.Count),
 				TextSize = 15,
 				TextColor3 = got and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 190, 90),
 				Parent = cell,
@@ -25287,7 +25488,7 @@ local function buildSkinsPage(data)
 		priceButton(card, "Skin", id, owned, equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipSkin:FireServer(id)
-		end, skin.Event and "🎃 Evento: caramelos" or nil)
+		end, skin.Event and (skin.EventText or "Evento") or nil)
 	end
 
 	-- Colgantes para el arma (en la misma rejilla, después de las skins)

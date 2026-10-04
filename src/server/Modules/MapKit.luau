@@ -1107,6 +1107,29 @@ function Kit.pumpkin(cf, scale)
 	return body
 end
 
+-- Muñeco de nieve (decoración del evento de Navidad): tres bolas, ojos de carbón, nariz de
+-- zanahoria, bufanda y sombrero de copa
+function Kit.snowman(cf, scale)
+	scale = scale or 1
+	local snow = RGB(245, 248, 255)
+	Kit.ball("SnowmanBase", 3.2 * scale, cf * CFrame.new(0, 1.5 * scale, 0), snow, Enum.Material.SmoothPlastic, true)
+	Kit.ball("SnowmanBody", 2.4 * scale, cf * CFrame.new(0, 3.4 * scale, 0), snow, Enum.Material.SmoothPlastic, true)
+	local headCf = cf * CFrame.new(0, 4.95 * scale, 0)
+	Kit.ball("SnowmanHead", 1.7 * scale, headCf, snow, Enum.Material.SmoothPlastic, true)
+	for _, s in { -1, 1 } do
+		Kit.ball("SnowmanEye", 0.22 * scale, headCf * CFrame.new(s * 0.3 * scale, 0.2 * scale, -0.75 * scale), RGB(25, 25, 30), Enum.Material.SmoothPlastic, true)
+	end
+	deco("SnowmanNose", V(0.18 * scale, 0.18 * scale, 0.7 * scale), headCf * CFrame.new(0, 0, -1.05 * scale), RGB(255, 130, 30), Enum.Material.SmoothPlastic)
+	for i = 1, 3 do
+		Kit.ball("SnowmanButton", 0.22 * scale, cf * CFrame.new(0, (2.8 + i * 0.4) * scale, -1.12 * scale), RGB(25, 25, 30), Enum.Material.SmoothPlastic, true)
+	end
+	Kit.cylinder("SnowmanScarf", 0.35 * scale, 1.75 * scale, cf * CFrame.new(0, 4.25 * scale, 0), RGB(220, 40, 50), Enum.Material.Fabric, nil, true)
+	deco("SnowmanScarfTail", V(0.35 * scale, 1 * scale, 0.12 * scale), cf * CFrame.new(0.45 * scale, 3.8 * scale, -0.8 * scale), RGB(220, 40, 50), Enum.Material.Fabric)
+	Kit.cylinder("SnowmanHatBrim", 0.12 * scale, 1.9 * scale, headCf * CFrame.new(0, 0.75 * scale, 0), RGB(25, 25, 30), Enum.Material.SmoothPlastic, nil, true)
+	Kit.cylinder("SnowmanHat", 1 * scale, 1.15 * scale, headCf * CFrame.new(0, 1.3 * scale, 0), RGB(25, 25, 30), Enum.Material.SmoothPlastic, nil, true)
+	Kit.cylinder("SnowmanHatBand", 0.2 * scale, 1.18 * scale, headCf * CFrame.new(0, 0.95 * scale, 0), RGB(220, 40, 50), Enum.Material.SmoothPlastic, nil, true)
+end
+
 -- Plataforma de salto: al pisarla te lanza hacia arriba (el cliente lo hace, ver JumpPads).
 -- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
 function Kit.jumpPad(position, power, color)

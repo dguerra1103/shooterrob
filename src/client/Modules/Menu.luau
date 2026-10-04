@@ -483,7 +483,10 @@ local function buildProfilePage(data)
 		{ "🔥", "Mejor racha", tostring(data.BestStreak or 0) },
 		{ "🧠", "A la cabeza", tostring(data.Headshots or 0) },
 		{ "🤝", "Asistencias", tostring(data.Assists or 0) },
-		{ "🍬", "Caramelos", tostring(data.EventCandy or 0) },
+		{ GameConfig.Event and GameConfig.Event.ItemIcon or "⭐", (function()
+			local items = GameConfig.Event and GameConfig.Event.Items or "Evento"
+			return string.upper(string.sub(items, 1, 1)) .. string.sub(items, 2)
+		end)(), tostring(data.EventCandy or 0) },
 	}
 	local grid = UI.new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -12, 0, 170), BackgroundTransparency = 1, Parent = scroll }, {
 		UI.new("UIGridLayout", { CellSize = UDim2.new(0.2, -10, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -874,7 +877,8 @@ local function buildChallengesPage(data)
 	end
 	-- Evento de temporada: premios por caramelos (GameConfig.Event) con su vista previa
 	local event = GameConfig.Event
-	if event and event.Enabled and ReplicatedStorage:GetAttribute("EventName") then
+	if event and GameConfig.EventActive(event) and ReplicatedStorage:GetAttribute("EventName") then
+		local icon, itemIcon, items = event.Icon or "🎉", event.ItemIcon or "⭐", event.Items or "objetos"
 		local candy = data.EventCandy or 0
 		local card = UI.new("Frame", {
 			LayoutOrder = 30,
@@ -885,7 +889,7 @@ local function buildChallengesPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 8),
 			Size = UDim2.new(1, -32, 0, 28),
-			Text = "🎃 EVENTO DE " .. string.upper(event.Name) .. "  ·  🍬 " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " caramelos",
+			Text = icon .. " EVENTO DE " .. string.upper(event.Name) .. "  ·  " .. itemIcon .. " " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " " .. items,
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(255, 170, 60),
@@ -894,7 +898,7 @@ local function buildChallengesPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 34),
 			Size = UDim2.new(1, -32, 0, 20),
-			Text = "Recoge los caramelos que aparecen por el mapa durante las partidas",
+			Text = "Recoge los " .. items .. " que aparecen por el mapa durante las partidas",
 			TextSize = 15,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(210, 195, 230),
@@ -949,7 +953,7 @@ local function buildChallengesPage(data)
 			UI.label({
 				Position = UDim2.new(0, 4, 1, -22),
 				Size = UDim2.new(1, -8, 0, 18),
-				Text = got and "✅ Conseguido" or ("🍬 " .. prize.Count),
+				Text = got and "✅ Conseguido" or (itemIcon .. " " .. prize.Count),
 				TextSize = 15,
 				TextColor3 = got and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 190, 90),
 				Parent = cell,
@@ -1209,7 +1213,7 @@ local function buildSkinsPage(data)
 		priceButton(card, "Skin", id, owned, equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipSkin:FireServer(id)
-		end, skin.Event and "🎃 Evento: caramelos" or nil)
+		end, skin.Event and (skin.EventText or "Evento") or nil)
 	end
 
 	-- Colgantes para el arma (en la misma rejilla, después de las skins)

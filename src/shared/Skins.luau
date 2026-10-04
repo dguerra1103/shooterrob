@@ -351,6 +351,24 @@ Skins.List.Embrujada = {
 	Accent2 = Color3.fromRGB(190, 90, 255),
 	Effect = "Flame",
 	Pulse = true,
+	EventText = "🎃 Evento: caramelos",
+}
+
+-- Skin del evento de Navidad (se gana con regalos, ver GameConfig.Events)
+Skins.List.Navidena = {
+	Name = "Navideña",
+	Rarity = "Mítico",
+	Event = true,
+	EventText = "🎄 Evento: regalos",
+	Body = Color3.fromRGB(200, 25, 40),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(245, 245, 250),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(60, 220, 110),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(20, 70, 40),
+	Accent2 = Color3.fromRGB(255, 210, 70),
+	Pulse = true,
 }
 
 -- Skins arcoíris (las anima el cliente, ver SkinFX)

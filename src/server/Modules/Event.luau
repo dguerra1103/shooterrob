@@ -1,8 +1,9 @@
--- Evento de temporada (GameConfig.Event, ahora Halloween): durante las rondas van apareciendo
--- caramelos por el mapa (en los puntos de aparición libres). Al tocar uno: monedas y +1 al contador
--- del evento (se guarda); hay premios por el camino (Milestones) y al llegar a Goal se gana la
--- skin exclusiva. También pone calabazas en los
--- mapas (Event.Decorate lo llama MapBuilder). Los bots no recogen caramelos.
+-- Evento de temporada (GameConfig.Event: el de las fechas de hoy, ver GameConfig.Events): durante
+-- las rondas van apareciendo objetos del evento por el mapa (caramelos en Halloween, regalos en
+-- Navidad) en los puntos de aparición libres. Al tocar uno: monedas y +1 al contador del evento (se
+-- guarda); hay premios por el camino (Milestones) y al llegar a Goal se gana la skin exclusiva.
+-- También decora los mapas (calabazas o muñecos de nieve; Event.Decorate lo llama MapBuilder).
+-- Los bots no recogen objetos.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -19,12 +20,10 @@ local Kit = require(script.Parent.MapKit)
 local Event = {}
 
 local CONFIG = GameConfig.Event
-local CANDY_COLORS = {
-	Color3.fromRGB(255, 130, 20),
-	Color3.fromRGB(170, 80, 255),
-	Color3.fromRGB(120, 230, 60),
-	Color3.fromRGB(255, 70, 120),
-}
+local CANDY_COLORS = CONFIG and CONFIG.ItemColors or { Color3.fromRGB(255, 130, 20) }
+local ICON = CONFIG and CONFIG.Icon or "🎉"
+local ITEM_ICON = CONFIG and CONFIG.ItemIcon or "⭐"
+local ITEMS = CONFIG and CONFIG.Items or "objetos"
 
 local folder
 local candies = {}
@@ -33,7 +32,7 @@ local LIFETIME = 60 -- segundos que dura un caramelo sin recoger
 local PICKUP_RANGE = 9 -- distancia máxima real al caramelo (contra trampas de "toque" a distancia)
 
 local function enabled()
-	return CONFIG and CONFIG.Enabled and (CONFIG.EndsAt == nil or os.time() < CONFIG.EndsAt)
+	return GameConfig.EventActive(CONFIG)
 end
 
 -- Puntos libres del mapa actual (FFASpawn); se guardan mientras no cambie el mapa
@@ -107,7 +106,8 @@ local function collect(player, candy)
 	local count = data.EventProgress.Count
 	PlayerData.MarkDirty(player)
 	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
-	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	local itemName = CONFIG.Item or "objeto"
+	Remotes.Notify:FireClient(player, "XP", ITEM_ICON .. " " .. string.upper(string.sub(itemName, 1, 1)) .. string.sub(itemName, 2) .. "  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
 	-- Premios por el camino (también los que quedaron atrás si el premio se añadió con el evento empezado)
 	local claimed = data.EventProgress.Claimed
 	for _, milestone in CONFIG.Milestones or {} do
@@ -116,21 +116,21 @@ local function collect(player, candy)
 			claimed[key] = true
 			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
 				local outfit = Outfits.Get(milestone.Outfit)
-				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+				Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! Traje " .. outfit.Name .. " desbloqueado")
 			elseif milestone.Weapon and PlayerData.GiveWeapon(player, milestone.Weapon) then
-				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Arma " .. Weapons.Get(milestone.Weapon).DisplayName .. " desbloqueada")
+				Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! Arma " .. Weapons.Get(milestone.Weapon).DisplayName .. " desbloqueada")
 			else
 				local amount = milestone.Coins or milestone.Compensate or 0
 				if amount > 0 then
 					PlayerData.AddCoins(player, amount, false) -- premio fijo (no lo dobla el VIP)
-					Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! +" .. amount .. " 🪙")
+					Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! +" .. amount .. " 🪙")
 				end
 			end
 		end
 	end
 	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
-		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")
+		Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡Skin " .. skin.Name .. " desbloqueada!")
 	end
 end
 
@@ -179,8 +179,9 @@ local function spawnCandy()
 	end
 	local candy = Instance.new("Part")
 	candy.Name = "Candy"
-	candy.Shape = Enum.PartType.Ball
-	candy.Size = Vector3.new(1.6, 1.6, 1.6)
+	-- (bola en Halloween; caja de regalo en Navidad)
+	candy.Shape = CONFIG.ItemShape == "Block" and Enum.PartType.Block or Enum.PartType.Ball
+	candy.Size = CONFIG.ItemShape == "Block" and Vector3.new(1.4, 1.4, 1.4) or Vector3.new(1.6, 1.6, 1.6)
 	candy.Color = CANDY_COLORS[math.random(1, #CANDY_COLORS)]
 	candy.Material = Enum.Material.SmoothPlastic
 	candy.Anchored = true
@@ -227,9 +228,10 @@ local function spawnCandy()
 	end)
 end
 
--- Calabazas junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios)
+-- Decoración junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios):
+-- calabazas (Decoration = "Pumpkin") o muñecos de nieve ("Snowman")
 function Event.Decorate()
-	if not enabled() or not CONFIG.Pumpkins then
+	if not enabled() or not CONFIG.Decoration then
 		return
 	end
 	local points = spawnPoints()
@@ -243,7 +245,12 @@ function Event.Decorate()
 			-- Sobre el suelo que haya debajo (si el punto está en una plataforma, que no flote en el aire)
 			local ground = groundAt(point + offset.Unit * 5, 3, 4)
 			if ground then
-				Kit.pumpkin(CFrame.new(ground) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
+				local cf = CFrame.new(ground) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+				if CONFIG.Decoration == "Snowman" then
+					Kit.snowman(cf, rng:NextNumber(0.8, 1.2))
+				else
+					Kit.pumpkin(cf, rng:NextNumber(0.8, 1.3))
+				end
 			end
 		end
 	end
