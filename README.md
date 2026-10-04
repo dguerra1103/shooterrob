@@ -37,6 +37,8 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Ajustes** | Pestaña ⚙ del menú: calidad gráfica **Auto / Baja / Media / Alta / Ultra** (Auto: Baja en móvil, Media en PC) (sombras, brillo, rayos de sol, nubes, partículas del mapa y desenfoque de distancia en Ultra), **campo de visión** (70–100°), **sensibilidad** y **sensibilidad al apuntar** (baja en proporción al zoom). Se guardan con el progreso. |
 | **Práctica** | Muñecos en el mapa para probar las armas aunque juegues solo en Studio. |
 
+> 🧪 **¿Cómo pruebo las novedades?** Mira [PRUEBAS.md](PRUEBAS.md): lista rápida de qué probar en Studio y qué debería pasar.
+
 ## Cómo abrirlo (opción rápida)
 
 1. Descarga el archivo **`ShooterRob.rbxlx`** de este repositorio.
