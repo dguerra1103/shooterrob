@@ -95,6 +95,8 @@ local function defaults()
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
+		WheelDay = -1, -- último día con giro gratis de la ruleta usado
+		WheelSpins = 0, -- giros de ruleta comprados sin usar
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -193,6 +195,8 @@ local function publicView(player, data)
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
 		Revives = data.Revives,
+		WheelFree = data.WheelDay ~= Shop.DayNumber(),
+		WheelSpins = data.WheelSpins,
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
@@ -374,6 +378,12 @@ local function load(player)
 	end
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
+	end
+	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
+		merged.WheelSpins = 0
+	end
+	if type(merged.WheelDay) ~= "number" then
+		merged.WheelDay = -1
 	end
 	if type(merged.RankBest) ~= "number" then
 		merged.RankBest = Ranks.Index(merged.RankPoints)
@@ -829,6 +839,59 @@ local function claimDaily(player)
 	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
 end
 
+-- Ruleta: gasta el giro gratis de hoy (o uno comprado) y da un premio al azar según su peso.
+-- Devuelve el índice del premio para que el cliente pare la ruleta en él.
+local lastSpin = {} -- [player] = os.clock() (no más de un giro cada 3 s: dura la animación)
+local function spinWheel(player)
+	local data = profiles[player]
+	if not data then
+		return false, "Cargando..."
+	end
+	if os.clock() - (lastSpin[player] or 0) < 3 then
+		return false, "Espera a que pare la ruleta"
+	end
+	local today = Shop.DayNumber()
+	if data.WheelDay ~= today then
+		data.WheelDay = today
+	elseif data.WheelSpins > 0 then
+		data.WheelSpins -= 1
+	else
+		return false, "Vuelve mañana para otro giro gratis"
+	end
+	lastSpin[player] = os.clock()
+	local prizes = Shop.Wheel.Prizes
+	local total = 0
+	for _, prize in prizes do
+		total += prize.Weight
+	end
+	local roll = math.random() * total
+	local index = #prizes
+	for i, prize in prizes do
+		roll -= prize.Weight
+		if roll <= 0 then
+			index = i
+			break
+		end
+	end
+	local prize = prizes[index]
+	-- (premio fijo: no lo multiplica el VIP)
+	if prize.Kind == "Coins" then
+		data.Coins += prize.Amount
+	elseif prize.Kind == "Revives" then
+		data.Revives += prize.Amount
+	elseif prize.Kind == "Crate" then
+		data.FreeCrates += prize.Amount
+	elseif prize.Kind == "XP" then
+		PlayerData.AddXP(player, prize.Amount, "Ruleta")
+	end
+	sendUpdate(player)
+	requestSave(player)
+	return true, index
+end
+Players.PlayerRemoving:Connect(function(player)
+	lastSpin[player] = nil
+end)
+
 -- Abre una caja. Devuelve lo que ha tocado para la animación del cliente.
 local function openCrate(player, crateId, useFree)
 	local data = profiles[player]
@@ -927,7 +990,16 @@ local function processReceipt(receipt)
 	end
 	local grant, undo, message
 	local starter = Shop.StarterPack
-	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
+	local wheel = Shop.Wheel
+	if wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
+		grant = function()
+			data.WheelSpins += wheel.SpinsPerPurchase
+		end
+		undo = function()
+			data.WheelSpins -= wheel.SpinsPerPurchase
+		end
+		message = "+" .. wheel.SpinsPerPurchase .. " GIROS DE RULETA"
+	elseif starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
 		-- Ya lo tenía (compra repetida): Roblox ya cobró, así que se entregan solo las monedas
 		grant = function()
 			data.Coins += starter.Coins
@@ -1207,6 +1279,7 @@ function PlayerData.Init()
 
 	Remotes.BuyItem.OnServerInvoke = buyItem
 	Remotes.ClaimDaily.OnServerInvoke = claimDaily
+	Remotes.SpinWheel.OnServerInvoke = spinWheel
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 

@@ -32,6 +32,40 @@ Shop.StarterPack = {
 	KillEffect = "Confeti",
 }
 
+-- Ruleta diaria: un giro gratis al día y giros extra con Robux (Developer Product SpinProductId,
+-- da SpinsPerPurchase giros). Los premios salen según su peso (Weight); las probabilidades se ven en
+-- la propia ruleta. En los países donde los premios al azar de pago no están permitidos solo hay
+-- giro gratis.
+Shop.Wheel = {
+	SpinProductId = 0, -- pega aquí el ID del Developer Product
+	SpinRobux = 25,
+	SpinsPerPurchase = 3,
+	Prizes = {
+		{ Kind = "Coins", Amount = 50, Weight = 28, Color = Color3.fromRGB(90, 160, 255) },
+		{ Kind = "Coins", Amount = 100, Weight = 24, Color = Color3.fromRGB(255, 200, 60) },
+		{ Kind = "Revives", Amount = 1, Weight = 12, Color = Color3.fromRGB(80, 210, 120) },
+		{ Kind = "Coins", Amount = 250, Weight = 12, Color = Color3.fromRGB(255, 120, 60) },
+		{ Kind = "XP", Amount = 400, Weight = 10, Color = Color3.fromRGB(120, 220, 255) },
+		{ Kind = "Crate", Amount = 1, Weight = 8, Color = Color3.fromRGB(180, 100, 255) },
+		{ Kind = "Coins", Amount = 600, Weight = 5, Color = Color3.fromRGB(255, 80, 140) },
+		{ Kind = "Coins", Amount = 2000, Weight = 1, Color = Color3.fromRGB(255, 230, 90), Jackpot = true },
+	},
+}
+
+-- Texto corto de un premio de la ruleta
+function Shop.WheelPrizeText(prize)
+	if prize.Kind == "Coins" then
+		return prize.Amount .. " 🪙"
+	elseif prize.Kind == "Revives" then
+		return prize.Amount .. " ❤️"
+	elseif prize.Kind == "XP" then
+		return prize.Amount .. " XP"
+	elseif prize.Kind == "Crate" then
+		return prize.Amount .. " 📦"
+	end
+	return "?"
+end
+
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra
 Shop.VIPPassId = 0
 Shop.VIPRobux = 299

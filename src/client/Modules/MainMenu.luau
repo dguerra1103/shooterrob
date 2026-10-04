@@ -19,13 +19,14 @@ local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local Menu = require(script.Parent.Menu)
 local WeaponIcon = require(script.Parent.WeaponIcon)
+local Wheel = require(script.Parent.Wheel)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase, dailyButton, starterButton
+local gui, root, infoLabel, showcase, dailyButton, starterButton, wheelButton
 local rankCard -- { Title, Fill, Next }: progreso hacia el siguiente rango
 local blur
 local titleScale
@@ -87,6 +88,9 @@ local function refreshInfo()
 	local data = ClientState.Data
 	if dailyButton then
 		dailyButton.Visible = data ~= nil and data.DailyAvailable == true
+	end
+	if wheelButton then
+		wheelButton.Text = (data and data.WheelFree) and "🎡  RULETA ¡GRATIS!" or "🎡  RULETA"
 	end
 	if starterButton then
 		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
@@ -480,10 +484,20 @@ function MainMenu.Init()
 		Sounds.Play("Click")
 		Menu.Open("Tienda")
 	end)
-	-- Los botones de regalo y oferta laten mientras están disponibles
+	-- Ruleta diaria (late mientras hay giro gratis)
+	-- (debajo de la tarjeta de rango, para no alargar la columna de botones)
+	wheelButton = bigButton("🎡  RULETA", Color3.fromRGB(255, 120, 40), 7, left)
+	wheelButton.Position = UDim2.fromOffset(330, 298)
+	wheelButton.Size = UDim2.fromOffset(230, 50)
+	wheelButton.TextSize = 24
+	wheelButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		Wheel.Open()
+	end)
+		-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
-		local buttonsList = { dailyButton, starterButton }
+		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale"), wheelButton:FindFirstChildOfClass("UIScale") }
+		local buttonsList = { dailyButton, starterButton, wheelButton }
 		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
 		while gui.Parent do
 			if not ClientState.InMainMenu then
@@ -491,7 +505,9 @@ function MainMenu.Init()
 				continue
 			end
 			for i, button in buttonsList do
-				if button.Visible and scales[i] then
+				-- (la ruleta solo late con giro gratis)
+				local wheelReady = button ~= wheelButton or (ClientState.Data and ClientState.Data.WheelFree)
+				if button.Visible and scales[i] and wheelReady then
 					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
 				end
 			end

@@ -791,6 +791,7 @@ local FUNCTIONS = {
 	"InstantRevive", -- revivir donde moriste (gasta un revivir)
 	"UsePotion", -- habilidad Poción: cura con el tiempo (el servidor controla la recarga)
 	"ClaimGift", -- recoger el siguiente regalo por tiempo jugado
+	"SpinWheel", -- girar la ruleta diaria (gratis o gastando un giro comprado)
 }
 
 local Remotes = {}
@@ -864,6 +865,40 @@ Shop.StarterPack = {
 	Skin = "Sakura",
 	KillEffect = "Confeti",
 }
+
+-- Ruleta diaria: un giro gratis al día y giros extra con Robux (Developer Product SpinProductId,
+-- da SpinsPerPurchase giros). Los premios salen según su peso (Weight); las probabilidades se ven en
+-- la propia ruleta. En los países donde los premios al azar de pago no están permitidos solo hay
+-- giro gratis.
+Shop.Wheel = {
+	SpinProductId = 0, -- pega aquí el ID del Developer Product
+	SpinRobux = 25,
+	SpinsPerPurchase = 3,
+	Prizes = {
+		{ Kind = "Coins", Amount = 50, Weight = 28, Color = Color3.fromRGB(90, 160, 255) },
+		{ Kind = "Coins", Amount = 100, Weight = 24, Color = Color3.fromRGB(255, 200, 60) },
+		{ Kind = "Revives", Amount = 1, Weight = 12, Color = Color3.fromRGB(80, 210, 120) },
+		{ Kind = "Coins", Amount = 250, Weight = 12, Color = Color3.fromRGB(255, 120, 60) },
+		{ Kind = "XP", Amount = 400, Weight = 10, Color = Color3.fromRGB(120, 220, 255) },
+		{ Kind = "Crate", Amount = 1, Weight = 8, Color = Color3.fromRGB(180, 100, 255) },
+		{ Kind = "Coins", Amount = 600, Weight = 5, Color = Color3.fromRGB(255, 80, 140) },
+		{ Kind = "Coins", Amount = 2000, Weight = 1, Color = Color3.fromRGB(255, 230, 90), Jackpot = true },
+	},
+}
+
+-- Texto corto de un premio de la ruleta
+function Shop.WheelPrizeText(prize)
+	if prize.Kind == "Coins" then
+		return prize.Amount .. " 🪙"
+	elseif prize.Kind == "Revives" then
+		return prize.Amount .. " ❤️"
+	elseif prize.Kind == "XP" then
+		return prize.Amount .. " XP"
+	elseif prize.Kind == "Crate" then
+		return prize.Amount .. " 📦"
+	end
+	return "?"
+end
 
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra
 Shop.VIPPassId = 0
@@ -13333,6 +13368,8 @@ local function defaults()
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
+		WheelDay = -1, -- último día con giro gratis de la ruleta usado
+		WheelSpins = 0, -- giros de ruleta comprados sin usar
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -13431,6 +13468,8 @@ local function publicView(player, data)
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
 		Revives = data.Revives,
+		WheelFree = data.WheelDay ~= Shop.DayNumber(),
+		WheelSpins = data.WheelSpins,
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
@@ -13612,6 +13651,12 @@ local function load(player)
 	end
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
+	end
+	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
+		merged.WheelSpins = 0
+	end
+	if type(merged.WheelDay) ~= "number" then
+		merged.WheelDay = -1
 	end
 	if type(merged.RankBest) ~= "number" then
 		merged.RankBest = Ranks.Index(merged.RankPoints)
@@ -14067,6 +14112,59 @@ local function claimDaily(player)
 	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
 end
 
+-- Ruleta: gasta el giro gratis de hoy (o uno comprado) y da un premio al azar según su peso.
+-- Devuelve el índice del premio para que el cliente pare la ruleta en él.
+local lastSpin = {} -- [player] = os.clock() (no más de un giro cada 3 s: dura la animación)
+local function spinWheel(player)
+	local data = profiles[player]
+	if not data then
+		return false, "Cargando..."
+	end
+	if os.clock() - (lastSpin[player] or 0) < 3 then
+		return false, "Espera a que pare la ruleta"
+	end
+	local today = Shop.DayNumber()
+	if data.WheelDay ~= today then
+		data.WheelDay = today
+	elseif data.WheelSpins > 0 then
+		data.WheelSpins -= 1
+	else
+		return false, "Vuelve mañana para otro giro gratis"
+	end
+	lastSpin[player] = os.clock()
+	local prizes = Shop.Wheel.Prizes
+	local total = 0
+	for _, prize in prizes do
+		total += prize.Weight
+	end
+	local roll = math.random() * total
+	local index = #prizes
+	for i, prize in prizes do
+		roll -= prize.Weight
+		if roll <= 0 then
+			index = i
+			break
+		end
+	end
+	local prize = prizes[index]
+	-- (premio fijo: no lo multiplica el VIP)
+	if prize.Kind == "Coins" then
+		data.Coins += prize.Amount
+	elseif prize.Kind == "Revives" then
+		data.Revives += prize.Amount
+	elseif prize.Kind == "Crate" then
+		data.FreeCrates += prize.Amount
+	elseif prize.Kind == "XP" then
+		PlayerData.AddXP(player, prize.Amount, "Ruleta")
+	end
+	sendUpdate(player)
+	requestSave(player)
+	return true, index
+end
+Players.PlayerRemoving:Connect(function(player)
+	lastSpin[player] = nil
+end)
+
 -- Abre una caja. Devuelve lo que ha tocado para la animación del cliente.
 local function openCrate(player, crateId, useFree)
 	local data = profiles[player]
@@ -14165,7 +14263,16 @@ local function processReceipt(receipt)
 	end
 	local grant, undo, message
 	local starter = Shop.StarterPack
-	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
+	local wheel = Shop.Wheel
+	if wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
+		grant = function()
+			data.WheelSpins += wheel.SpinsPerPurchase
+		end
+		undo = function()
+			data.WheelSpins -= wheel.SpinsPerPurchase
+		end
+		message = "+" .. wheel.SpinsPerPurchase .. " GIROS DE RULETA"
+	elseif starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
 		-- Ya lo tenía (compra repetida): Roblox ya cobró, así que se entregan solo las monedas
 		grant = function()
 			data.Coins += starter.Coins
@@ -14445,6 +14552,7 @@ function PlayerData.Init()
 
 	Remotes.BuyItem.OnServerInvoke = buyItem
 	Remotes.ClaimDaily.OnServerInvoke = claimDaily
+	Remotes.SpinWheel.OnServerInvoke = spinWheel
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 
@@ -16413,6 +16521,7 @@ local ClientState = {
 	Emoting = false, -- haciendo un emote (cámara en tercera persona, arma oculta)
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
+	WheelOpen = false, -- ruleta diaria abierta
 	FovKick = 0, -- empujón de campo de visión (habilidades); lo consume WeaponController
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
@@ -16443,7 +16552,7 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen or ClientState.WheelOpen
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
@@ -20567,13 +20676,14 @@ local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local Menu = require(script.Parent.Menu)
 local WeaponIcon = require(script.Parent.WeaponIcon)
+local Wheel = require(script.Parent.Wheel)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase, dailyButton, starterButton
+local gui, root, infoLabel, showcase, dailyButton, starterButton, wheelButton
 local rankCard -- { Title, Fill, Next }: progreso hacia el siguiente rango
 local blur
 local titleScale
@@ -20635,6 +20745,9 @@ local function refreshInfo()
 	local data = ClientState.Data
 	if dailyButton then
 		dailyButton.Visible = data ~= nil and data.DailyAvailable == true
+	end
+	if wheelButton then
+		wheelButton.Text = (data and data.WheelFree) and "🎡  RULETA ¡GRATIS!" or "🎡  RULETA"
 	end
 	if starterButton then
 		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
@@ -21028,10 +21141,20 @@ function MainMenu.Init()
 		Sounds.Play("Click")
 		Menu.Open("Tienda")
 	end)
-	-- Los botones de regalo y oferta laten mientras están disponibles
+	-- Ruleta diaria (late mientras hay giro gratis)
+	-- (debajo de la tarjeta de rango, para no alargar la columna de botones)
+	wheelButton = bigButton("🎡  RULETA", Color3.fromRGB(255, 120, 40), 7, left)
+	wheelButton.Position = UDim2.fromOffset(330, 298)
+	wheelButton.Size = UDim2.fromOffset(230, 50)
+	wheelButton.TextSize = 24
+	wheelButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		Wheel.Open()
+	end)
+		-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
-		local buttonsList = { dailyButton, starterButton }
+		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale"), wheelButton:FindFirstChildOfClass("UIScale") }
+		local buttonsList = { dailyButton, starterButton, wheelButton }
 		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
 		while gui.Parent do
 			if not ClientState.InMainMenu then
@@ -21039,7 +21162,9 @@ function MainMenu.Init()
 				continue
 			end
 			for i, button in buttonsList do
-				if button.Visible and scales[i] then
+				-- (la ruleta solo late con giro gratis)
+				local wheelReady = button ~= wheelButton or (ClientState.Data and ClientState.Data.WheelFree)
+				if button.Visible and scales[i] and wheelReady then
 					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
 				end
 			end
@@ -25726,6 +25851,300 @@ return WeaponIcon
           </Item>
           <Item class="ModuleScript" referent="89">
             <Properties>
+              <string name="Name">Wheel</string>
+              <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
+-- en el premio que decide el servidor. Las probabilidades se ven debajo de la ruleta.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
+local Shop = require(Shared.Shop)
+local Sounds = require(Shared.Sounds)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+
+local Wheel = {}
+
+local SIZE = 340
+local gui, panel, rotor, spinButton, buyButton, status, closeButton
+local spinning = false
+local currentRotation = 0
+
+local function prizes()
+	return Shop.Wheel.Prizes
+end
+
+-- Texto del botón según los giros disponibles
+local function refresh()
+	if not gui then
+		return
+	end
+	local data = ClientState.Data
+	local free = data and data.WheelFree == true
+	local bought = data and data.WheelSpins or 0
+	if spinning then
+		spinButton.Text = "..."
+	elseif free then
+		spinButton.Text = "🎁 ¡GIRO GRATIS!"
+	elseif bought > 0 then
+		spinButton.Text = "🎡 GIRAR (" .. bought .. ")"
+	else
+		spinButton.Text = "Vuelve mañana"
+	end
+	spinButton.BackgroundColor3 = (free or bought > 0) and Color3.fromRGB(60, 200, 90) or Color3.fromRGB(70, 70, 82)
+	local canBuy = Shop.Wheel.SpinProductId ~= 0 and not (data and data.CratesRestricted)
+	buyButton.Visible = canBuy
+end
+
+local function build()
+	gui = UI.new("ScreenGui", {
+		Name = "Wheel",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 20,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	local shade = UI.new("TextButton", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.45,
+		Text = "",
+		AutoButtonColor = false,
+		Modal = true,
+		Parent = gui,
+	})
+	_ = shade
+	panel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(440, 600),
+		BackgroundColor3 = Color3.fromRGB(22, 24, 38),
+		Parent = gui,
+	}, { UI.corner(18), UI.stroke(Color3.fromRGB(255, 200, 60), 3, 0) })
+	local scale = UI.new("UIScale", { Parent = panel })
+	local function fit()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		scale.Scale = math.clamp(math.min((viewport.X - 20) / 440, (viewport.Y - 20) / 600), 0.45, 1)
+	end
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	fit()
+	UI.label({ Position = UDim2.fromOffset(0, 12), Size = UDim2.new(1, 0, 0, 36), Text = "🎡 RULETA DIARIA", TextSize = 30, TextColor3 = Color3.fromRGB(255, 210, 60), Parent = panel })
+	closeButton = UI.button({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 10), Size = UDim2.fromOffset(36, 36), Text = "✕", TextSize = 22, BackgroundColor3 = Color3.fromRGB(200, 60, 70), Parent = panel })
+	closeButton.Activated:Connect(function()
+		if not spinning then
+			Wheel.Close()
+		end
+	end)
+
+	-- Ruleta: un círculo (CanvasGroup redondo que recorta) con una porción por premio
+	local wheelFrame = UI.new("CanvasGroup", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 66),
+		Size = UDim2.fromOffset(SIZE, SIZE),
+		BackgroundColor3 = Color3.fromRGB(40, 44, 70),
+		Parent = panel,
+	}, { UI.corner(SIZE / 2) })
+	rotor = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = wheelFrame })
+	local list = prizes()
+	local step = 360 / #list
+	-- Cada porción es un abanico de barras finas que salen del centro (parece una cuña)
+	local BARS = 10
+	local radius = SIZE / 2 + 2
+	for i, prize in list do
+		local angle = (i - 1) * step
+		for k = 1, BARS do
+			local sub = angle - step / 2 + (k - 0.5) * step / BARS
+			local rad = math.rad(sub)
+			UI.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, math.sin(rad) * radius / 2, 0.5, -math.cos(rad) * radius / 2),
+				Size = UDim2.fromOffset(math.ceil(2 * radius * math.sin(math.rad(step / BARS / 2))) + 2, radius),
+				Rotation = sub,
+				BackgroundColor3 = prize.Color,
+				BorderSizePixel = 0,
+				Parent = rotor,
+			})
+		end
+		-- Separador blanco entre porciones
+		local edge = math.rad(angle - step / 2)
+		UI.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, math.sin(edge) * radius / 2, 0.5, -math.cos(edge) * radius / 2),
+			Size = UDim2.fromOffset(3, radius),
+			Rotation = angle - step / 2,
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0,
+			ZIndex = 2,
+			Parent = rotor,
+		})
+		-- Premio escrito a lo largo del radio
+		local rad = math.rad(angle)
+		UI.label({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, math.sin(rad) * radius * 0.62, 0.5, -math.cos(rad) * radius * 0.62),
+			Size = UDim2.fromOffset(84, 26),
+			Rotation = angle, -- (el ganador queda arriba y se lee derecho)
+			Text = Shop.WheelPrizeText(prize),
+			TextSize = 20,
+			TextScaled = true,
+			TextColor3 = Color3.new(1, 1, 1),
+			ZIndex = 4,
+			Parent = rotor,
+		})
+	end
+	-- Centro y puntero
+	UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(56, 56),
+		BackgroundColor3 = Color3.fromRGB(255, 210, 60),
+		ZIndex = 6,
+		Parent = wheelFrame,
+	}, { UI.corner(28), UI.stroke(Color3.new(1, 1, 1), 3, 0) })
+	UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 44),
+		Size = UDim2.fromOffset(40, 40),
+		Text = "▼",
+		TextSize = 40,
+		TextColor3 = Color3.fromRGB(255, 70, 90),
+		ZIndex = 8,
+		Parent = panel,
+	})
+
+	-- Probabilidades
+	local total = 0
+	for _, prize in list do
+		total += prize.Weight
+	end
+	local odds = {}
+	for _, prize in list do
+		table.insert(odds, Shop.WheelPrizeText(prize) .. " " .. string.format("%g", math.floor(prize.Weight / total * 1000 + 0.5) / 10) .. "%")
+	end
+	UI.label({
+		Position = UDim2.fromOffset(16, 416),
+		Size = UDim2.new(1, -32, 0, 40),
+		Text = "Probabilidades: " .. table.concat(odds, " · "),
+		TextSize = 13,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(180, 185, 210),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = panel,
+	})
+	status = UI.label({ Position = UDim2.fromOffset(0, 460), Size = UDim2.new(1, 0, 0, 30), Text = "", TextSize = 22, TextColor3 = Color3.fromRGB(255, 220, 90), Parent = panel })
+
+	spinButton = UI.button({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 496),
+		Size = UDim2.fromOffset(260, 46),
+		Text = "",
+		TextSize = 24,
+		Parent = panel,
+	}, { UI.gloss() })
+	buyButton = UI.button({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 548),
+		Size = UDim2.fromOffset(260, 36),
+		Text = "+" .. Shop.Wheel.SpinsPerPurchase .. " giros · " .. Shop.Wheel.SpinRobux .. " R$",
+		TextSize = 18,
+		BackgroundColor3 = Color3.fromRGB(40, 170, 90),
+		Parent = panel,
+	}, { UI.gloss() })
+	buyButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, Shop.Wheel.SpinProductId)
+	end)
+	spinButton.Activated:Connect(Wheel.Spin)
+	ClientState.DataChanged.Event:Connect(refresh)
+end
+
+function Wheel.Spin()
+	if spinning then
+		return
+	end
+	local data = ClientState.Data
+	if not data or not (data.WheelFree or (data.WheelSpins or 0) > 0) then
+		status.Text = "Vuelve mañana para otro giro gratis"
+		return
+	end
+	spinning = true
+	status.Text = ""
+	refresh()
+	Sounds.Play("Click")
+	local ok, success, index = pcall(function()
+		return Remotes.SpinWheel:InvokeServer()
+	end)
+	if not (ok and success and type(index) == "number") then
+		spinning = false
+		status.Text = (ok and type(index) == "string") and index or "No se pudo girar"
+		refresh()
+		return
+	end
+	-- Para con el premio arriba (bajo el puntero), tras unas vueltas
+	local step = 360 / #prizes()
+	local target = -((index - 1) * step) + (math.random() - 0.5) * step * 0.6
+	local base = currentRotation - currentRotation % 360
+	local final = base + 360 * 5 + target
+	currentRotation = final
+	local tween = TweenService:Create(rotor, TweenInfo.new(4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Rotation = final })
+	tween:Play()
+	-- Clic de la ruleta al pasar las porciones
+	task.spawn(function()
+		local last = math.floor(rotor.Rotation / step)
+		while tween.PlaybackState == Enum.PlaybackState.Playing do
+			local now = math.floor(rotor.Rotation / step)
+			if now ~= last then
+				last = now
+				Sounds.Play("Click", nil, 1.4, 0.6)
+			end
+			task.wait()
+		end
+	end)
+	tween.Completed:Wait()
+	local prize = prizes()[index]
+	Sounds.Play(prize.Jackpot and "Flag" or "Kill")
+	status.Text = (prize.Jackpot and "💥 ¡PREMIO GORDO! " or "¡Has ganado ") .. Shop.WheelPrizeText(prize) .. (prize.Jackpot and "" or "!")
+	spinning = false
+	refresh()
+end
+
+function Wheel.Open()
+	if not gui then
+		build()
+	end
+	gui.Enabled = true
+	ClientState.WheelOpen = true
+	ClientState.UpdateMouse()
+	status.Text = ""
+	refresh()
+end
+
+function Wheel.Close()
+	if gui then
+		gui.Enabled = false
+	end
+	ClientState.WheelOpen = false
+	ClientState.UpdateMouse()
+end
+
+function Wheel.Init()
+	-- (se construye la primera vez que se abre)
+end
+
+return Wheel
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="90">
+            <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
 --  * Piezas del mapa con atributo Spin (grados/seg) giran y con Bob (studs) flotan
@@ -25919,19 +26338,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="90">
+  <Item class="Teams" referent="91">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="91">
+  <Item class="Workspace" referent="92">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="92">
+    <Item class="Terrain" referent="93">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

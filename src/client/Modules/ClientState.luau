@@ -7,6 +7,7 @@ local ClientState = {
 	Emoting = false, -- haciendo un emote (cámara en tercera persona, arma oculta)
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
+	WheelOpen = false, -- ruleta diaria abierta
 	FovKick = 0, -- empujón de campo de visión (habilidades); lo consume WeaponController
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
@@ -37,7 +38,7 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen or ClientState.WheelOpen
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
