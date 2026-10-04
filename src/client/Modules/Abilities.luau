@@ -122,7 +122,15 @@ local function superJump()
 	end
 	humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 	local v = root.AssemblyLinearVelocity
-	root.AssemblyLinearVelocity = Vector3.new(v.X + forward.X * config.Forward, config.Power, v.Z + forward.Z * config.Forward)
+	local launch = Vector3.new(v.X + forward.X * config.Forward, config.Power, v.Z + forward.Z * config.Forward)
+	root.AssemblyLinearVelocity = launch
+	-- Otra vez en el siguiente paso de física: el salto del Humanoid podría pisar la velocidad
+	task.defer(function()
+		RunService.Heartbeat:Wait()
+		if root.Parent and root.AssemblyLinearVelocity.Y < config.Power * 0.9 then
+			root.AssemblyLinearVelocity = launch
+		end
+	end)
 	ClientState.FovKick = 6
 	Sounds.Play("Swing")
 	burst(root, Color3.fromRGB(170, 220, 255), 18, 8)

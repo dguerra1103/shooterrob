@@ -38,6 +38,14 @@ function JumpPads.Init()
 		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 		local v = root.AssemblyLinearVelocity
 		root.AssemblyLinearVelocity = Vector3.new(v.X, power, v.Z)
+		-- Otra vez en el siguiente paso de física: el salto del Humanoid podría pisar la velocidad
+		task.defer(function()
+			RunService.Heartbeat:Wait()
+			local now = root.AssemblyLinearVelocity
+			if root.Parent and now.Y < power * 0.9 then
+				root.AssemblyLinearVelocity = Vector3.new(now.X, power, now.Z)
+			end
+		end)
 		ClientState.FovKick = 8
 		Sounds.Play("Swing")
 	end)
