@@ -29,6 +29,7 @@ local EVENTS = {
 	"DataUpdate", -- servidor -> cliente: datos de progreso
 	"Died", -- servidor -> cliente: quién te eliminó
 	"RoundEnd", -- servidor -> clientes: resultado de la ronda
+	"MatchSummary", -- servidor -> cliente: resumen de tu partida (XP, monedas, bajas, mejor racha)
 }
 local FUNCTIONS = {
 	"GetData",

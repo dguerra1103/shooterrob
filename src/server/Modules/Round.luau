@@ -168,9 +168,11 @@ local function resetStats()
 		stats.Bajas.Value = 0
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
+		player:SetAttribute("BestStreak", 0)
 		player:SetAttribute("Captures", 0)
 		player:SetAttribute("Score", 0)
 		player:SetAttribute("GunLevel", 1)
+		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
 	Grenades.Reset()
@@ -261,6 +263,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			PlayerData.GetLeaderstats(killer).Bajas.Value += 1
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
+			if streak > (killer:GetAttribute("BestStreak") or 0) then
+				killer:SetAttribute("BestStreak", streak)
+			end
 
 			if playing then
 				if currentMode == "TDM" then
@@ -604,6 +609,18 @@ local function endRound()
 		MVPKills = mvpKills,
 		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
 	})
+	-- Resumen personal: lo ganado en esta partida (el cliente lo anima: barra de nivel, monedas...)
+	for _, player in Players:GetPlayers() do
+		local summary = not player:GetAttribute("InMenu") and PlayerData.MatchSummary(player)
+		if summary then
+			local stats = PlayerData.GetLeaderstats(player)
+			summary.Kills = stats.Bajas.Value
+			summary.Deaths = stats.Muertes.Value
+			summary.BestStreak = player:GetAttribute("BestStreak") or 0
+			summary.Captures = player:GetAttribute("Captures") or 0
+			Remotes.MatchSummary:FireClient(player, summary)
+		end
+	end
 	task.wait(GameConfig.EndScreenTime)
 end
 

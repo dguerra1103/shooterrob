@@ -663,6 +663,67 @@ local function buildFeedsAndOverlays()
 		TextColor3 = Color3.fromRGB(255, 210, 80),
 		Parent = refs.RoundEnd,
 	})
+
+	-- Resumen de tu partida (llega con MatchSummary): estadísticas, barra de nivel y monedas
+	refs.Summary = UI.new("Frame", {
+		Position = UDim2.fromOffset(20, 200),
+		Size = UDim2.new(1, -40, 0, 170),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = refs.RoundEnd,
+	})
+	refs.SummaryStats = UI.label({
+		Size = UDim2.new(1, 0, 0, 30),
+		Text = "",
+		TextSize = 22,
+		RichText = true,
+		Parent = refs.Summary,
+	})
+	refs.SummaryLevel = UI.label({
+		Position = UDim2.fromOffset(0, 44),
+		Size = UDim2.new(0.5, 0, 0, 28),
+		Text = "",
+		TextSize = 24,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.Summary,
+	})
+	refs.SummaryXP = UI.label({
+		Position = UDim2.new(0.5, 0, 0, 44),
+		Size = UDim2.new(0.5, 0, 0, 28),
+		Text = "",
+		TextSize = 24,
+		TextColor3 = Color3.fromRGB(120, 220, 255),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = refs.Summary,
+	})
+	local bar = UI.new("Frame", {
+		Position = UDim2.fromOffset(0, 78),
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundColor3 = Color3.fromRGB(40, 44, 70),
+		Parent = refs.Summary,
+	}, { UI.corner(10), UI.stroke(Color3.new(1, 1, 1), 2, 0.5) })
+	refs.SummaryFill = UI.new("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Color3.fromRGB(80, 200, 255),
+		Parent = bar,
+	}, { UI.corner(10) })
+	refs.SummaryLevelUp = UI.label({
+		Position = UDim2.fromOffset(0, 102),
+		Size = UDim2.new(1, 0, 0, 30),
+		Text = "⬆ ¡SUBES DE NIVEL!",
+		TextSize = 26,
+		TextColor3 = Color3.fromRGB(255, 220, 70),
+		Visible = false,
+		Parent = refs.Summary,
+	})
+	refs.SummaryCoins = UI.label({
+		Position = UDim2.fromOffset(0, 134),
+		Size = UDim2.new(1, 0, 0, 32),
+		Text = "",
+		TextSize = 28,
+		TextColor3 = Color3.fromRGB(255, 210, 60),
+		Parent = refs.Summary,
+	})
 end
 
 ---------------------------------------------------------------------------
@@ -922,10 +983,73 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 	end
 end
 
+local summaryToken = 0
+
+-- Anima el resumen: estadísticas, la barra de nivel se llena (y se vacía al subir de nivel) y las
+-- monedas cuentan hacia arriba
+local function onMatchSummary(summary)
+	if type(summary) ~= "table" or type(summary.XP) ~= "number" then
+		return
+	end
+	summaryToken += 1
+	local token = summaryToken
+	refs.RoundEnd.Size = UDim2.fromOffset(560, 390)
+	refs.Summary.Visible = true
+	refs.SummaryLevelUp.Visible = false
+	local stats = string.format("🎯 %d bajas   💀 %d muertes   🔥 racha %d", summary.Kills or 0, summary.Deaths or 0, summary.BestStreak or 0)
+	if (summary.Captures or 0) > 0 then
+		stats ..= "   🚩 " .. summary.Captures
+	end
+	refs.SummaryStats.Text = stats
+	local perLevel = math.max(1, summary.XPPerLevel or 1)
+	local level = summary.StartLevel or summary.Level or 1
+	refs.SummaryLevel.Text = "NIVEL " .. level
+	refs.SummaryFill.Size = UDim2.fromScale(math.clamp((summary.StartXP or 0) / perLevel, 0, 1), 1)
+	refs.SummaryXP.Text = "+0 XP"
+	refs.SummaryCoins.Text = "+0 🪙"
+	task.spawn(function()
+		task.wait(0.4)
+		-- Barra de XP: un tramo por cada nivel subido
+		local levels = math.max(0, (summary.Level or level) - level)
+		for i = 0, levels do
+			if token ~= summaryToken then
+				return
+			end
+			local target = i < levels and 1 or math.clamp((summary.LevelXP or 0) / perLevel, 0, 1)
+			tween(refs.SummaryFill, 0.7, { Size = UDim2.fromScale(target, 1) })
+			task.wait(0.75)
+			if i < levels then
+				level += 1
+				refs.SummaryLevel.Text = "NIVEL " .. level
+				refs.SummaryLevelUp.Visible = true
+				Sounds.Play("Flag")
+				refs.SummaryFill.Size = UDim2.fromScale(0, 1)
+			end
+		end
+	end)
+	task.spawn(function()
+		-- Contadores de XP y monedas
+		local steps = 24
+		for i = 1, steps do
+			if token ~= summaryToken then
+				return
+			end
+			local t = i / steps
+			refs.SummaryXP.Text = "+" .. math.floor(summary.XP * t) .. " XP"
+			refs.SummaryCoins.Text = "+" .. math.floor((summary.Coins or 0) * t) .. " 🪙"
+			task.wait(0.05)
+		end
+		Sounds.Play("Kill")
+	end)
+end
+
 local function onRoundEnd(info)
 	if type(info) ~= "table" then
 		return
 	end
+	summaryToken += 1
+	refs.RoundEnd.Size = UDim2.fromOffset(560, 220)
+	refs.Summary.Visible = false
 	local teamA = ReplicatedStorage:GetAttribute("TeamA") or "Rojo"
 	local teamB = ReplicatedStorage:GetAttribute("TeamB") or "Azul"
 	if info.TeamMode == false then
@@ -1295,6 +1419,7 @@ function HUD.Init()
 	Remotes.KillFeed.OnClientEvent:Connect(onKillFeed)
 	Remotes.HitConfirm.OnClientEvent:Connect(onHitConfirm)
 	Remotes.RoundEnd.OnClientEvent:Connect(onRoundEnd)
+	Remotes.MatchSummary.OnClientEvent:Connect(onMatchSummary)
 	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName, killerHealth)
 		local weapon = weaponName and Weapons.Get(weaponName)
 		if killerName then

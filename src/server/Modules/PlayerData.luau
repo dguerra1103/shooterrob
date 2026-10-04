@@ -440,12 +440,52 @@ function PlayerData.UseRevive(player)
 	return true
 end
 
+-- Lo ganado en la partida actual (para el resumen del final de la ronda)
+local match = {} -- [player] = { XP, Coins, StartLevel, StartXP }
+
+local function matchOf(player, data)
+	local entry = match[player]
+	if not entry then
+		entry = { XP = 0, Coins = 0, StartLevel = data.Level, StartXP = data.XP }
+		match[player] = entry
+	end
+	return entry
+end
+
+-- Empieza una partida: se pone a cero lo ganado
+function PlayerData.StartMatch(player)
+	match[player] = nil
+	local data = profiles[player]
+	if data then
+		matchOf(player, data)
+	end
+end
+
+-- Resumen de lo ganado desde StartMatch
+function PlayerData.MatchSummary(player)
+	local data = profiles[player]
+	if not data then
+		return nil
+	end
+	local entry = matchOf(player, data)
+	return {
+		XP = entry.XP,
+		Coins = entry.Coins,
+		StartLevel = entry.StartLevel,
+		StartXP = entry.StartXP,
+		Level = data.Level,
+		LevelXP = data.XP,
+		XPPerLevel = GameConfig.XPPerLevel,
+	}
+end
+
 function PlayerData.AddXP(player, amount, reason)
 	local data = profiles[player]
 	if not data or amount <= 0 then
 		return
 	end
 	amount = math.floor(amount * multiplier(player))
+	matchOf(player, data).XP += amount
 	data.XP += amount
 	Remotes.Notify:FireClient(player, "XP", "+" .. amount .. " XP  " .. (reason or ""))
 	local leveled = false
@@ -474,6 +514,7 @@ function PlayerData.AddCoins(player, amount, earned)
 	if data then
 		if earned ~= false then
 			amount = math.floor(amount * multiplier(player))
+			matchOf(player, data).Coins += amount
 		end
 		data.Coins += amount
 		sendUpdate(player)
@@ -847,6 +888,7 @@ function PlayerData.Init()
 		pending -= 1
 		profiles[player] = nil
 		noSave[player] = nil
+		match[player] = nil
 		cratesRestricted[player] = nil
 		dirty[player] = nil
 		saveScheduled[player] = nil
