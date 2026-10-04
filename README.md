@@ -1,6 +1,6 @@
 # SHOOTER NEW 🔫 (ShooterRob)
 
-Un shooter 5v5 en primera persona para Roblox, con el multijugador de los shooters de móvil como referencia: **partidas de 5 contra 5** (los bots rellenan y juegan como personas), **tres mapas grandes y realistas de tres carriles** (Encrucijada, Base Militar y Cumbre) además de los mapas de colores, **Dominio**, Duelo por equipos a 50 bajas, minimapa con puntos rojos, vida que se recupera, apariciones dinámicas, agacharse y deslizarse, **10 modos de juego** con votación (Buscar y destruir y Dominio incluidos), **pase de batalla** y una **tienda** con monedas y Robux.
+Un shooter 5v5 en primera persona para Roblox, con el multijugador de los shooters de móvil como referencia: **partidas de 5 contra 5** (los bots rellenan y juegan como personas), **tres mapas grandes y realistas de tres carriles** (Encrucijada, Base Militar y Cumbre, con calles llenas de detalle, interiores, sonido ambiente y versiones de luz: atardecer, niebla, tormenta con lluvia, mediodía) además de los mapas de colores, **Dominio**, Duelo por equipos a 50 bajas, minimapa con puntos rojos, vida que se recupera, apariciones dinámicas, agacharse y deslizarse, medallas, muñeco de trapo al morir, registro de bajas con la silueta del arma, pantalla de carga, **10 modos de juego** con votación (Buscar y destruir y Dominio incluidos), **pase de batalla** y una **tienda** con monedas y Robux.
 
 Todo está hecho con código (Luau). Los mapas, las armas y los trajes se generan solos, así que puedes darle a **Play** y probarlo sin modelar nada.
 
