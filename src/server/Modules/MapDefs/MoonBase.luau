@@ -9,7 +9,8 @@ local Map = {
 	Id = "MoonBase",
 	Name = "Base Lunar",
 	Icon = "🚀",
-	Description = "Espacio · cohete central · cúpulas y cráteres",
+	Description = "Espacio · cohete central · cúpulas y cráteres · gravedad lunar",
+	Gravity = 120, -- (la normal es 196.2): saltos más altos y lentos
 }
 
 Map.Lighting = {
