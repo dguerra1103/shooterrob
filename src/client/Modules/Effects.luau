@@ -135,7 +135,8 @@ local function hideLater(ring, index, token, delay)
 		end
 	end)
 end
-local bulletRing, trailRing, markRing, chipRing = partRing(30), partRing(30), partRing(40), partRing(20)
+-- (las marcas duran 5 s: con 16 disparos por segundo hacen falta unas 80 para que no desaparezcan antes)
+local bulletRing, trailRing, markRing, chipRing = partRing(30), partRing(30), partRing(80), partRing(80)
 
 ---------------------------------------------------------------------------
 

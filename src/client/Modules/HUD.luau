@@ -1398,12 +1398,13 @@ local function render(dt)
 	if humanoid then
 		local health = math.max(0, humanoid.Health)
 		local ratio = health / math.max(humanoid.MaxHealth, 1)
-		local healthChanged = ratio ~= hudCache.HealthRatio or not (lowHealthCC and lowHealthCC.Parent)
-		hudCache.HealthRatio = ratio
+		local shown = math.ceil(health)
+		local healthChanged = ratio ~= hudCache.HealthRatio or shown ~= hudCache.HealthShown or not (lowHealthCC and lowHealthCC.Parent)
+		hudCache.HealthRatio, hudCache.HealthShown = ratio, shown
 		if healthChanged then
 			refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
 			refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
-			refs.HealthText.Text = tostring(math.ceil(health))
+			refs.HealthText.Text = tostring(shown)
 		end
 		-- La parte blanca baja despacio y deja ver el daño recibido
 		local newChip = ratio > chipRatio and ratio or math.max(ratio, chipRatio - dt * 0.5)

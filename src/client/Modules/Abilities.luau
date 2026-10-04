@@ -229,10 +229,14 @@ end
 
 local function update()
 	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen and not ClientState.VotePanelVisible
+	local now = os.clock()
 	if not gui.Enabled then
+		-- (oculto: solo se apunta si ya está lista, para que el salto no salga al volver a mostrarse)
+		for _, action in ACTIONS do
+			slots[action.Name].WasReady = readyAt[action.Name] - now <= 0
+		end
 		return
 	end
-	local now = os.clock()
 	for _, action in ACTIONS do
 		local slot = slots[action.Name]
 		local left = readyAt[action.Name] - now
