@@ -504,6 +504,8 @@ local function currentSpread()
 	spread *= 1 + math.clamp(speed / 18, 0, 1.5) * (0.6 - aimAlpha * 0.35)
 	if humanoid and humanoid.FloorMaterial == Enum.Material.Air then
 		spread *= 2
+	elseif ClientState.Crouching then
+		spread *= 0.75 -- agachado se apunta mejor
 	end
 	-- Primer disparo quieto y tras una pausa: casi exacto
 	if speed < 2 and os.clock() - lastShot > math.max(0.35, 2.5 / def.FireRate) then

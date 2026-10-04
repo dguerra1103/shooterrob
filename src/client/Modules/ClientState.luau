@@ -22,6 +22,7 @@ local ClientState = {
 	LandKick = 0, -- golpe de cámara al aterrizar desde alto; lo consume WeaponController
 	MinimapBottom = nil :: number?, -- borde de abajo del minimapa (para colocar lo de debajo)
 	Sliding = false,
+	Crouching = false, -- agachado (C sin correr): más bajo, más lento y más preciso
 	CurrentTool = nil,
 	CurrentDef = nil,
 	Ammo = 0,

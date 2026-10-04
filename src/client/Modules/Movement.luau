@@ -1,4 +1,4 @@
--- Movimiento: correr (Shift) y deslizarse (C), con sensación realista (GameConfig.Movement):
+-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
 --   * aceleración: se arranca y se pasa a correr poco a poco, y se frena rápido
 --   * solo se corre hacia delante, y correr gasta estamina (si se agota, hay que recuperarse)
 --   * saltar también gasta un poco; cansado se salta menos
@@ -31,6 +31,7 @@ local lastStaminaUse = 0
 local fallSpeed = 0 -- la mayor velocidad de caída desde que se despegó del suelo
 local slowUntil = 0 -- aterrizaje fuerte: frena hasta entonces
 local baseJumpHeight, baseJumpPower
+local baseHipHeight -- (agacharse baja la cadera: cámara y cuerpo más bajos, también para los demás)
 local staminaBar, staminaFill
 local lastSlide = -10
 local stopSlide
@@ -283,6 +284,16 @@ local function update(dt)
 		and not recentlyShot
 		and not ClientState.Sliding
 		and not ClientState.IsBlocked()
+	-- Correr, deslizarse o estar en el aire te levanta
+	if ClientState.Crouching and (ClientState.Sprinting or ClientState.Sliding or humanoid.FloorMaterial == Enum.Material.Air) then
+		ClientState.Crouching = false
+	end
+	if baseHipHeight then
+		local target = baseHipHeight - (ClientState.Crouching and (GameConfig.CrouchDrop or 1.3) or 0)
+		if math.abs(humanoid.HipHeight - target) > 0.01 then
+			humanoid.HipHeight += (target - humanoid.HipHeight) * math.min(1, dt * 12)
+		end
+	end
 	updateStamina(dt)
 	updateStaminaBar()
 
@@ -300,6 +311,8 @@ local function update(dt)
 	local speed = GameConfig.WalkSpeed
 	if ClientState.Sprinting then
 		speed = GameConfig.SprintSpeed
+	elseif ClientState.Crouching then
+		speed = GameConfig.CrouchSpeed or 10
 	elseif ClientState.Aiming then
 		speed = GameConfig.AimWalkSpeed
 	end
@@ -361,6 +374,8 @@ local function onCharacter(newCharacter)
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
 	baseJumpHeight, baseJumpPower = humanoid.JumpHeight, humanoid.JumpPower
+	baseHipHeight = humanoid.HipHeight
+	ClientState.Crouching = false
 	currentSpeed = GameConfig.WalkSpeed * (MOVE.StartFactor or 0.55)
 	fallSpeed = 0
 	slowUntil = 0
@@ -398,13 +413,20 @@ function Movement.Init()
 	ContextActionService:SetTitle("Sprint", "Correr")
 	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
+	-- C: corriendo te deslizas; si no, te agachas o te levantas (como en los shooters de móvil)
 	ContextActionService:BindAction("Slide", function(_, state)
 		if state == Enum.UserInputState.Begin then
-			slide()
+			local running = ClientState.Sprinting or currentSpeed > GameConfig.WalkSpeed + 1
+			if running then
+				ClientState.Crouching = false
+				slide()
+			elseif not ClientState.Sliding and not ClientState.IsBlocked() and humanoid and humanoid.FloorMaterial ~= Enum.Material.Air then
+				ClientState.Crouching = not ClientState.Crouching
+			end
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
-	ContextActionService:SetTitle("Slide", "Deslizar")
+	ContextActionService:SetTitle("Slide", "Agachar")
 	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr

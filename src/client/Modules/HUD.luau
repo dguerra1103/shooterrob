@@ -360,7 +360,7 @@ local function buildWeaponPanel()
 			{ "Menú y tienda", "B" },
 			{ "Granada", "G" },
 			{ "Ataque aéreo (racha 5)", "T" },
-			{ "Deslizar", "C" },
+			{ "Agacharse / deslizar", "C" },
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },
 			{ "Inspeccionar", "V" },
