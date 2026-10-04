@@ -28,6 +28,12 @@ for id in Shop.OutfitPrices do
 	end
 end
 table.sort(BOT_OUTFITS)
+-- Skins de arma que pueden llevar (las de la tienda)
+local BOT_SKINS = {}
+for id in Shop.SkinPrices do
+	table.insert(BOT_SKINS, id)
+end
+table.sort(BOT_SKINS)
 
 local Bots = {}
 
@@ -633,7 +639,10 @@ spawnAgent = function(agent)
 		Zombie.Apply(model, GameConfig.ModeSettings.INF.ZombieHealth)
 		humanoid.WalkSpeed = CONFIG.WalkSpeed * (claws.WalkSpeedMultiplier or 1)
 	end
-	agent.Tool = Loadout.MakeTool(agent.Weapon, "Default")
+	if agent.Skin == nil then
+		agent.Skin = (#BOT_SKINS > 0 and math.random() < 0.5) and BOT_SKINS[math.random(1, #BOT_SKINS)] or "Default"
+	end
+	agent.Tool = Loadout.MakeTool(agent.Weapon, agent.Zombie and "Default" or agent.Skin)
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0

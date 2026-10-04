@@ -327,7 +327,7 @@ GameConfig.Bots = {
 	-- Puntería y daño contra cada jugador según su rango (Bronce, Plata, Oro, Platino, Diamante,
 	-- Campeón): con los novatos son más blandos y con los mejores aprietan más
 	SkillByRank = { 0.75, 0.85, 1, 1.1, 1.2, 1.3 },
-	OutfitChance = 0.6, -- probabilidad de que un bot lleve uno de los trajes de la tienda
+	OutfitChance = 0.6, -- probabilidad de que un bot lleve uno de los trajes de la tienda (y la mitad, skin de arma)
 }
 -- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
 -- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
@@ -4787,6 +4787,12 @@ for id in Shop.OutfitPrices do
 	end
 end
 table.sort(BOT_OUTFITS)
+-- Skins de arma que pueden llevar (las de la tienda)
+local BOT_SKINS = {}
+for id in Shop.SkinPrices do
+	table.insert(BOT_SKINS, id)
+end
+table.sort(BOT_SKINS)
 
 local Bots = {}
 
@@ -5392,7 +5398,10 @@ spawnAgent = function(agent)
 		Zombie.Apply(model, GameConfig.ModeSettings.INF.ZombieHealth)
 		humanoid.WalkSpeed = CONFIG.WalkSpeed * (claws.WalkSpeedMultiplier or 1)
 	end
-	agent.Tool = Loadout.MakeTool(agent.Weapon, "Default")
+	if agent.Skin == nil then
+		agent.Skin = (#BOT_SKINS > 0 and math.random() < 0.5) and BOT_SKINS[math.random(1, #BOT_SKINS)] or "Default"
+	end
+	agent.Tool = Loadout.MakeTool(agent.Weapon, agent.Zombie and "Default" or agent.Skin)
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0
