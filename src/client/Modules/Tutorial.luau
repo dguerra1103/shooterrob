@@ -49,7 +49,7 @@ local function show()
 		Name = "Tutorial",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
-		DisplayOrder = 5,
+		DisplayOrder = 7, -- (por encima de la tienda)
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	local card = UI.new("Frame", {

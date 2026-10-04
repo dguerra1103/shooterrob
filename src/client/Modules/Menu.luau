@@ -2435,7 +2435,9 @@ function Menu.Init()
 
 	ContextActionService:BindAction("Menu", function(_, state)
 		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte); solo sirve para cerrar la tienda
-		if state == Enum.UserInputState.Begin and (not ClientState.Dead or ClientState.MenuOpen) then
+		-- (con la ruleta, las novedades o la tarjeta de controles abiertas no se abre la tienda detrás)
+		local covered = ClientState.WheelOpen or ClientState.NewsOpen or ClientState.TutorialOpen
+		if state == Enum.UserInputState.Begin and (not ClientState.Dead or ClientState.MenuOpen) and not (covered and not ClientState.MenuOpen) then
 			Menu.Toggle()
 		end
 		return Enum.ContextActionResult.Pass

@@ -345,7 +345,7 @@ local function buildWeaponPanel()
 		-- (compacta para no pisar las ranuras de armas; solo para jugadores nuevos, ver updateData)
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -20, 0.14, 0),
+			Position = UDim2.new(1, -20, 0.42, 0), -- (debajo del registro de bajas)
 			Size = UDim2.fromOffset(220, 228),
 			BackgroundTransparency = 1,
 			Parent = gui,
@@ -758,13 +758,20 @@ end
 -- Mensajes
 ---------------------------------------------------------------------------
 
+-- Orden creciente para los avisos y el registro de bajas (no se reinicia nunca a mitad de partida)
+local orderCounter = 0
+local function nextOrder()
+	orderCounter += 1
+	return orderCounter
+end
+
 local function popup(text, color)
 	local label = UI.label({
 		Size = UDim2.fromOffset(400, 26),
 		Text = text,
 		TextSize = 22,
 		TextColor3 = color or Color3.fromRGB(255, 230, 120),
-		LayoutOrder = math.floor(os.clock() * 100) % 100000,
+		LayoutOrder = nextOrder(),
 		Parent = refs.Popups,
 	})
 	task.delay(1.4, function()
@@ -927,7 +934,7 @@ local function onKillFeed(info)
 		Size = UDim2.fromOffset(380, 26),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.55,
-		LayoutOrder = math.floor(os.clock() * 100) % 1000000,
+		LayoutOrder = nextOrder(),
 		Parent = refs.KillFeed,
 	}, { UI.corner(6) })
 	if killer == player.Name or info.Victim == player.Name then

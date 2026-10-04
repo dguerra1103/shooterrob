@@ -173,7 +173,7 @@ local function build()
 	})
 	local bar = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -18),
+		Position = UDim2.new(0.5, 0, 1, -58), -- (por encima del nivel y la barra de XP)
 		Size = UDim2.fromOffset(3 * 78 + 2 * 12, 92),
 		BackgroundTransparency = 1,
 		Parent = gui,

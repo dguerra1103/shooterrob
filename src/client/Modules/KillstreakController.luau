@@ -206,6 +206,8 @@ function KillstreakController.Init()
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
 	ContextActionService:SetTitle("Airstrike", "✈")
 	ContextActionService:SetPosition("Airstrike", UDim2.new(1, -280, 1, -310))
+	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
+	ClientState.UpdateMouse()
 
 	Remotes.AirstrikeMark.OnClientEvent:Connect(function(points, delay)
 		if type(points) == "table" then

@@ -72,10 +72,31 @@ local function show()
 		Parent = card,
 	}, { UI.gloss() })
 	button.Modal = true
-	button.Activated:Connect(function()
-		Sounds.Play("Click")
+	ClientState.NewsOpen = true
+	ClientState.UpdateMouse()
+	local closed = false
+	local function close()
+		if closed then
+			return
+		end
+		closed = true
 		Remotes.NewsSeen:FireServer()
 		gui:Destroy()
+		ClientState.NewsOpen = false
+		ClientState.UpdateMouse()
+	end
+	button.Activated:Connect(function()
+		Sounds.Play("Click")
+		close()
+	end)
+	-- Si empieza la partida con la tarjeta abierta (por ejemplo con el mando), se cierra sola
+	task.spawn(function()
+		while not closed do
+			if not ClientState.InMainMenu then
+				close()
+			end
+			task.wait(0.3)
+		end
 	end)
 end
 

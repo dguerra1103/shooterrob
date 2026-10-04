@@ -19416,7 +19416,7 @@ local function build()
 	})
 	local bar = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -18),
+		Position = UDim2.new(0.5, 0, 1, -58), -- (por encima del nivel y la barra de XP)
 		Size = UDim2.fromOffset(3 * 78 + 2 * 12, 92),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -19611,6 +19611,7 @@ local ClientState = {
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
 	WheelOpen = false, -- ruleta diaria abierta
+	NewsOpen = false, -- tarjeta de novedades abierta (News)
 	FovKick = 0, -- empujón de campo de visión (habilidades); lo consume WeaponController
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
@@ -19641,7 +19642,8 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen or ClientState.WheelOpen
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen
+		or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
@@ -19655,10 +19657,17 @@ function ClientState.UpdateMouse()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
+	-- (el de emotes sigue visible con su propia rueda abierta: en el móvil es la forma de cerrarla)
+	local onlyEmotes = ClientState.EmoteMenuOpen and not (ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
+		or ClientState.Dead or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen)
 	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Spray", "Scoreboard" } do
 		local button = cas:GetButton(name)
 		if button then
-			button.Visible = not blocked
+			button.Visible = not blocked or (name == "Emotes" and onlyEmotes)
+			-- (el del ataque aéreo solo cuando hay alguno listo)
+			if name == "Airstrike" then
+				button.Visible = button.Visible and (game:GetService("Players").LocalPlayer:GetAttribute("Airstrikes") or 0) > 0
+			end
 		end
 	end
 end
@@ -22425,7 +22434,7 @@ local function buildWeaponPanel()
 		-- (compacta para no pisar las ranuras de armas; solo para jugadores nuevos, ver updateData)
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -20, 0.14, 0),
+			Position = UDim2.new(1, -20, 0.42, 0), -- (debajo del registro de bajas)
 			Size = UDim2.fromOffset(220, 228),
 			BackgroundTransparency = 1,
 			Parent = gui,
@@ -22838,13 +22847,20 @@ end
 -- Mensajes
 ---------------------------------------------------------------------------
 
+-- Orden creciente para los avisos y el registro de bajas (no se reinicia nunca a mitad de partida)
+local orderCounter = 0
+local function nextOrder()
+	orderCounter += 1
+	return orderCounter
+end
+
 local function popup(text, color)
 	local label = UI.label({
 		Size = UDim2.fromOffset(400, 26),
 		Text = text,
 		TextSize = 22,
 		TextColor3 = color or Color3.fromRGB(255, 230, 120),
-		LayoutOrder = math.floor(os.clock() * 100) % 100000,
+		LayoutOrder = nextOrder(),
 		Parent = refs.Popups,
 	})
 	task.delay(1.4, function()
@@ -23007,7 +23023,7 @@ local function onKillFeed(info)
 		Size = UDim2.fromOffset(380, 26),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.55,
-		LayoutOrder = math.floor(os.clock() * 100) % 1000000,
+		LayoutOrder = nextOrder(),
 		Parent = refs.KillFeed,
 	}, { UI.corner(6) })
 	if killer == player.Name or info.Victim == player.Name then
@@ -24105,6 +24121,8 @@ function KillstreakController.Init()
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
 	ContextActionService:SetTitle("Airstrike", "✈")
 	ContextActionService:SetPosition("Airstrike", UDim2.new(1, -280, 1, -310))
+	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
+	ClientState.UpdateMouse()
 
 	Remotes.AirstrikeMark.OnClientEvent:Connect(function(points, delay)
 		if type(points) == "table" then
@@ -24818,7 +24836,7 @@ function MainMenu.Init()
 
 	-- También se puede empezar con Enter / botón A del mando
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or not ClientState.InMainMenu or Menu.IsOpen() or ClientState.WheelOpen then
+		if processed or not ClientState.InMainMenu or Menu.IsOpen() or ClientState.WheelOpen or ClientState.NewsOpen then
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonA then
@@ -27271,7 +27289,9 @@ function Menu.Init()
 
 	ContextActionService:BindAction("Menu", function(_, state)
 		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte); solo sirve para cerrar la tienda
-		if state == Enum.UserInputState.Begin and (not ClientState.Dead or ClientState.MenuOpen) then
+		-- (con la ruleta, las novedades o la tarjeta de controles abiertas no se abre la tienda detrás)
+		local covered = ClientState.WheelOpen or ClientState.NewsOpen or ClientState.TutorialOpen
+		if state == Enum.UserInputState.Begin and (not ClientState.Dead or ClientState.MenuOpen) and not (covered and not ClientState.MenuOpen) then
 			Menu.Toggle()
 		end
 		return Enum.ContextActionResult.Pass
@@ -27678,10 +27698,31 @@ local function show()
 		Parent = card,
 	}, { UI.gloss() })
 	button.Modal = true
-	button.Activated:Connect(function()
-		Sounds.Play("Click")
+	ClientState.NewsOpen = true
+	ClientState.UpdateMouse()
+	local closed = false
+	local function close()
+		if closed then
+			return
+		end
+		closed = true
 		Remotes.NewsSeen:FireServer()
 		gui:Destroy()
+		ClientState.NewsOpen = false
+		ClientState.UpdateMouse()
+	end
+	button.Activated:Connect(function()
+		Sounds.Play("Click")
+		close()
+	end)
+	-- Si empieza la partida con la tarjeta abierta (por ejemplo con el mando), se cierra sola
+	task.spawn(function()
+		while not closed do
+			if not ClientState.InMainMenu then
+				close()
+			end
+			task.wait(0.3)
+		end
 	end)
 end
 
@@ -28704,7 +28745,7 @@ local function show()
 		Name = "Tutorial",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
-		DisplayOrder = 5,
+		DisplayOrder = 7, -- (por encima de la tienda)
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	local card = UI.new("Frame", {

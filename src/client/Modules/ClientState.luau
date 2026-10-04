@@ -8,6 +8,7 @@ local ClientState = {
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
 	WheelOpen = false, -- ruleta diaria abierta
+	NewsOpen = false, -- tarjeta de novedades abierta (News)
 	FovKick = 0, -- empujón de campo de visión (habilidades); lo consume WeaponController
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
@@ -38,7 +39,8 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen or ClientState.TutorialOpen or ClientState.WheelOpen
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen
+		or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
@@ -52,10 +54,17 @@ function ClientState.UpdateMouse()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
+	-- (el de emotes sigue visible con su propia rueda abierta: en el móvil es la forma de cerrarla)
+	local onlyEmotes = ClientState.EmoteMenuOpen and not (ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
+		or ClientState.Dead or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen)
 	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Spray", "Scoreboard" } do
 		local button = cas:GetButton(name)
 		if button then
-			button.Visible = not blocked
+			button.Visible = not blocked or (name == "Emotes" and onlyEmotes)
+			-- (el del ataque aéreo solo cuando hay alguno listo)
+			if name == "Airstrike" then
+				button.Visible = button.Visible and (game:GetService("Players").LocalPlayer:GetAttribute("Airstrikes") or 0) > 0
+			end
 		end
 	end
 end
