@@ -906,6 +906,7 @@ KillEffects.List = {
 	Murcielagos = { Name = "Murciélagos", Rarity = "Épico", Icon = "🦇", Price = 1000, Description = "Una bandada de murciélagos sale volando entre humo morado." },
 	Calabazas = { Name = "Calabazas", Rarity = "Legendario", Icon = "🎃", Price = 1600, Description = "Revienta en calabazas que saltan, con una calabaza gigante y un diablillo." },
 	-- Navidad
+	Fuegos = { Name = "Fuegos artificiales", Rarity = "Legendario", Icon = "🎆", Price = 1700, Description = "Tres cohetes de colores estallan encima de tu rival." },
 	Rodadora = { Name = "Rodadora", Rarity = "Épico", Icon = "🤠", Price = 900, Description = "Polvareda del desierto, matojos que salen rodando y un sombrero de vaquero volando." },
 	Nieve = { Name = "Ventisca", Rarity = "Legendario", Icon = "☃️", Price = 1600, Description = "Revienta en copos de nieve y aparece un muñeco de nieve." },
 }
@@ -2602,6 +2603,7 @@ Sprays.List = {
 	Vaquero = { Name = "Sheriff", Rarity = "Épico", Icon = "🤠", Caption = "YEEHAW", Color = RGB(255, 215, 90), Bg = RGB(150, 80, 40), Price = 450 },
 	Cactus = { Name = "Cactus", Rarity = "Raro", Icon = "🌵", Caption = "PINCHA", Color = RGB(255, 245, 210), Bg = RGB(60, 140, 70), Price = 250 },
 	Pirata = { Name = "Pirata", Rarity = "Épico", Icon = "🏴‍☠️", Caption = "ARRR", Color = RGB(255, 255, 255), Bg = RGB(25, 25, 35), Price = 450 },
+	Espada = { Name = "Caballero", Rarity = "Épico", Icon = "⚔️", Caption = "EN GUARDIA", Color = RGB(255, 225, 120), Bg = RGB(60, 70, 160), Price = 450 },
 	Navidad = { Name = "Navidad", Rarity = "Épico", Icon = "🎄", Caption = "HO HO HO", Color = RGB(255, 255, 255), Bg = RGB(25, 110, 55), Price = 400 },
 	-- Solo para quien tiene el pase VIP (no se vende con monedas)
 	VIP = { Name = "VIP", Rarity = "Legendario", Icon = "👑", Caption = "VIP", Color = RGB(255, 215, 60), Bg = RGB(90, 30, 140), VIPOnly = true },
@@ -23183,6 +23185,26 @@ KILL_FX.Nieve = function(position)
 		floatingText(position + Vector3.new(-1.5, 2.5, 0), "❄️", 60, Vector3.new(0, 2.5, 0), 1.2)
 		floatingText(position + Vector3.new(1.5, 3, 0), "❄️", 50, Vector3.new(0, 2.5, 0), 1.2)
 	end)
+end
+
+KILL_FX.Fuegos = function(position)
+	-- Tres cohetes de colores que estallan uno detrás de otro encima del rival
+	local colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(80, 200, 255), Color3.fromRGB(255, 215, 60) }
+	for i, color in colors do
+		task.delay((i - 1) * 0.18, function()
+			local burstAt = position + Vector3.new((i - 2) * 2.5, 6 + i, 0)
+			flashBall(burstAt, color, 5, 0.3)
+			debrisBurst(burstAt, 10, function()
+				return fxPart({
+					Shape = Enum.PartType.Ball,
+					Size = Vector3.new(0.35, 0.35, 0.35),
+					Color = color,
+					Material = Enum.Material.Neon,
+				})
+			end, 18, 1)
+		end)
+	end
+	floatingText(position + Vector3.new(0, 2, 0), "🎆", 100, Vector3.new(0, 4, 0), 1.4)
 end
 
 KILL_FX.Rodadora = function(position)

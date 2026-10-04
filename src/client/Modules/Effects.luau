@@ -1092,6 +1092,26 @@ KILL_FX.Nieve = function(position)
 	end)
 end
 
+KILL_FX.Fuegos = function(position)
+	-- Tres cohetes de colores que estallan uno detrás de otro encima del rival
+	local colors = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(80, 200, 255), Color3.fromRGB(255, 215, 60) }
+	for i, color in colors do
+		task.delay((i - 1) * 0.18, function()
+			local burstAt = position + Vector3.new((i - 2) * 2.5, 6 + i, 0)
+			flashBall(burstAt, color, 5, 0.3)
+			debrisBurst(burstAt, 10, function()
+				return fxPart({
+					Shape = Enum.PartType.Ball,
+					Size = Vector3.new(0.35, 0.35, 0.35),
+					Color = color,
+					Material = Enum.Material.Neon,
+				})
+			end, 18, 1)
+		end)
+	end
+	floatingText(position + Vector3.new(0, 2, 0), "🎆", 100, Vector3.new(0, 4, 0), 1.4)
+end
+
 KILL_FX.Rodadora = function(position)
 	-- Polvareda del desierto, una bola de matojos que sale rodando y un sombrero volando
 	local anchor = emitterAnchor(position, Vector3.yAxis, 1)
