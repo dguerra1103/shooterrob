@@ -397,7 +397,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "11 MAPAS  ·  6 MODOS  ·  17 ARMAS  ·  HABILIDADES",
+		Text = "12 MAPAS  ·  6 MODOS  ·  17 ARMAS  ·  HABILIDADES",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -407,7 +407,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 EVENTO DE HALLOWEEN · 🆕 Eliminación · 2 mapas · Splat-X · Katana",
+		Text = "🎃 EVENTO DE HALLOWEEN · Mansión Encantada · 🆕 Eliminación · Katana",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,

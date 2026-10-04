@@ -7361,7 +7361,7 @@ for _, module in script.Parent.MapDefs:GetChildren() do
 end
 
 -- Orden de rotación (también son las opciones de la votación)
-MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
+MapBuilder.Order = { "PastelPlaza", "CandyArena", "ToyBox", "HauntedManor", "SakuraGarden", "TikiBeach", "HarborHeights", "ContainerClash", "NeonFoundry", "FrostStation", "JungleTemple", "Downtown" }
 
 MapBuilder.Current = nil
 
@@ -9320,6 +9320,252 @@ return Map
           </Item>
           <Item class="ModuleScript" referent="44">
             <Properties>
+              <string name="Name">HauntedManor</string>
+              <string name="Source"><![CDATA[-- MANSIÓN ENCANTADA (mapa de Halloween): de noche, con luna grande y niebla violeta. Mansión en el
+-- centro con planta baja de lado a lado y azotea con almenas (escaleras por fuera), cementerios con
+-- lápidas como cobertura, criptas, árboles secos, calabazas, faroles naranjas y un caldero de bruja.
+local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
+local Kit = require(script.Parent.Parent.MapKit)
+
+local Map = {
+	Id = "HauntedManor",
+	Name = "Mansión Encantada",
+	Icon = "🎃",
+	Description = "Halloween · noche · mansión y cementerios",
+}
+
+Map.Lighting = {
+	CartoonNeutral = { Hue = 0.76, Sat = 0.2 }, -- grises violetas
+	ClockTime = 0.2,
+	Brightness = 1.2,
+	Exposure = 0.3,
+	Ambient = Color3.fromRGB(60, 45, 85),
+	OutdoorAmbient = Color3.fromRGB(85, 70, 120),
+	Atmosphere = { Density = 0.38, Offset = 0.1, Color = Color3.fromRGB(110, 80, 150), Decay = Color3.fromRGB(60, 35, 90), Glare = 0, Haze = 2.4 },
+	Color = { Saturation = 0.25, Contrast = 0.15, Brightness = 0.04, Tint = Color3.fromRGB(245, 235, 255) },
+	Bloom = { Intensity = 0.9, Size = 26, Threshold = 1.4 },
+	Clouds = 0.4,
+	CloudColor = Color3.fromRGB(90, 70, 120),
+	SunRays = 0,
+	Stars = 4000,
+	MoonSize = 22,
+	TerrainColors = {
+		Grass = Color3.fromRGB(70, 90, 70),
+		LeafyGrass = Color3.fromRGB(60, 80, 65),
+	},
+}
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local rad = math.rad
+
+local GRASS = RGB(70, 95, 75)
+local STONE = RGB(120, 115, 135)
+local STONE_DARK = RGB(85, 80, 100)
+local WOOD = RGB(90, 60, 45)
+local ROOF = RGB(70, 40, 90)
+local ORANGE = RGB(255, 140, 40)
+local GLOW = RGB(255, 190, 90)
+
+local LENGTH, WIDTH = 190, 130
+
+local function wall(name, cf, size, color)
+	local part = Kit.block(name, size, cf * CFrame.new(0, size.Y / 2, 0), color or STONE, Enum.Material.SmoothPlastic)
+	Kit.deco(name .. "Cap", V(size.X + 0.4, 0.6, size.Z + 0.4), cf * CFrame.new(0, size.Y + 0.3, 0), STONE_DARK, Enum.Material.SmoothPlastic)
+	return part
+end
+
+-- Lápida (cobertura baja): losa con parte de arriba redondeada
+local function gravestone(cf, w)
+	w = w or 2.4
+	Kit.block("Gravestone", V(w, 2.6, 0.7), cf * CFrame.new(0, 1.3, 0), STONE, Enum.Material.SmoothPlastic)
+	-- Medio disco arriba: cilindro con el eje hacia delante (Z), del mismo grosor que la losa
+	local top = Kit.cylinder("GravestoneTop", 0.7, w, cf * CFrame.new(0, 2.6, 0) * CFrame.Angles(rad(90), 0, 0), STONE, Enum.Material.SmoothPlastic)
+	top.CastShadow = false
+	Kit.deco("GravestoneCross", V(0.2, 0.9, 0.05), cf * CFrame.new(0, 1.7, -0.37), STONE_DARK, Enum.Material.SmoothPlastic)
+	Kit.deco("GravestoneCrossBar", V(0.6, 0.18, 0.05), cf * CFrame.new(0, 1.9, -0.37), STONE_DARK, Enum.Material.SmoothPlastic)
+end
+
+-- Árbol seco retorcido (decoración, se atraviesa por las ramas)
+local function deadTree(position, scale, seed)
+	local rng = Random.new(seed)
+	local h = 10 * scale
+	Kit.cylinder("DeadTrunk", h, 1.2 * scale, CFrame.new(position + V(0, h / 2, 0)) * CFrame.Angles(0, 0, rad(rng:NextNumber(-6, 6))), WOOD, Enum.Material.SmoothPlastic)
+	for i = 1, 4 do
+		local y = h * (0.45 + i * 0.12)
+		local a = rng:NextNumber(0, math.pi * 2)
+		local len = rng:NextNumber(3, 5) * scale
+		local dir = V(math.cos(a), 0.6, math.sin(a)).Unit
+		local mid = position + V(0, y, 0) + dir * len / 2
+		Kit.deco("DeadBranch", V(0.45 * scale, 0.45 * scale, len), CFrame.lookAt(mid, mid + dir), WOOD, Enum.Material.SmoothPlastic)
+	end
+end
+
+-- Farol de hierro con luz naranja
+local function lamp(position)
+	Kit.cylinder("LampPost", 7, 0.35, CFrame.new(position + V(0, 3.5, 0)), RGB(30, 28, 36), Enum.Material.SmoothPlastic, nil, true)
+	local glass = Kit.deco("LampGlow", V(0.9, 1.1, 0.9), CFrame.new(position + V(0, 7.4, 0)), GLOW, Enum.Material.Neon)
+	Kit.deco("LampCap", V(1.3, 0.3, 1.3), CFrame.new(position + V(0, 8.1, 0)), RGB(30, 28, 36), Enum.Material.SmoothPlastic)
+	Kit.light(glass, "PointLight", ORANGE, 16, 1.2)
+end
+
+-- Cripta pequeña (cobertura grande con puerta oscura)
+local function crypt(cf)
+	Kit.block("Crypt", V(8, 6, 6), cf * CFrame.new(0, 3, 0), STONE_DARK, Enum.Material.SmoothPlastic)
+	Kit.block("CryptRoof", V(9, 1, 7), cf * CFrame.new(0, 6.5, 0), ROOF, Enum.Material.SmoothPlastic)
+	Kit.deco("CryptDoor", V(2.6, 4, 0.2), cf * CFrame.new(0, 2, -3.05), RGB(20, 15, 25), Enum.Material.SmoothPlastic)
+	Kit.deco("CryptCross", V(0.4, 2, 0.4), cf * CFrame.new(0, 8, 0), STONE, Enum.Material.SmoothPlastic)
+	Kit.deco("CryptCrossBar", V(1.4, 0.4, 0.4), cf * CFrame.new(0, 8.4, 0), STONE, Enum.Material.SmoothPlastic)
+end
+
+function Map.Build()
+	local folder = Kit.Begin(Map.Name)
+	Kit.applyLighting(Map.Lighting)
+	local block, deco = Kit.block, Kit.deco
+	local teams = GameConfig.Teams
+
+	-- Suelo de hierba oscura y camino de piedra central
+	block("Floor", V(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), GRASS, Enum.Material.SmoothPlastic)
+	block("Path", V(LENGTH - 20, 0.2, 12), CFrame.new(0, 0.1, 0), STONE_DARK, Enum.Material.SmoothPlastic)
+
+	-- Muro perimetral con verja
+	for _, z in { -1, 1 } do
+		wall("OuterWall", CFrame.new(0, 0, z * (WIDTH / 2 + 1.5)), V(LENGTH + 6, 16, 3))
+	end
+	for _, x in { -1, 1 } do
+		wall("OuterWall", CFrame.new(x * (LENGTH / 2 + 1.5), 0, 0), V(3, 16, WIDTH + 6))
+	end
+
+	-- Mansión central: planta baja de lado a lado (puertas en ±X), ventanas y azotea con almenas
+	local w, d, h, t = 36, 24, 10, 1.6
+	for _, z in { -1, 1 } do
+		-- Paredes largas con ventanas (tres huecos a media altura)
+		block("ManorWallLow", V(w, 3.5, t), CFrame.new(0, 1.75, z * (d / 2 - t / 2)), STONE, Enum.Material.SmoothPlastic)
+		block("ManorWallHigh", V(w, h - 6.5, t), CFrame.new(0, 6.5 + (h - 6.5) / 2, z * (d / 2 - t / 2)), STONE, Enum.Material.SmoothPlastic)
+		for _, x in { -15.5, -5.5, 5.5, 15.5 } do
+			block("ManorWallMid", V(5, 3, t), CFrame.new(x, 5, z * (d / 2 - t / 2)), STONE, Enum.Material.SmoothPlastic)
+		end
+		for _, x in { -10.5, 0, 10.5 } do
+			deco("ManorWindowGlow", V(4.6, 0.3, t + 0.1), CFrame.new(x, 6.4, z * (d / 2 - t / 2)), GLOW, Enum.Material.Neon)
+		end
+	end
+	for _, x in { -1, 1 } do
+		-- Paredes cortas con puerta grande en el centro
+		local side = (d - 2 * t - 6) / 2
+		for _, s in { -1, 1 } do
+			block("ManorWallEnd", V(t, h, side), CFrame.new(x * (w / 2 - t / 2), h / 2, s * (3 + side / 2)), STONE, Enum.Material.SmoothPlastic)
+		end
+		block("ManorLintel", V(t, h - 7, 6), CFrame.new(x * (w / 2 - t / 2), 7 + (h - 7) / 2, 0), STONE, Enum.Material.SmoothPlastic)
+		deco("ManorDoorFrame", V(t + 0.2, 0.5, 6.4), CFrame.new(x * (w / 2 - t / 2), 7.2, 0), ORANGE, Enum.Material.SmoothPlastic)
+	end
+	block("ManorRoof", V(w, 1, d), CFrame.new(0, h + 0.5, 0), ROOF, Enum.Material.SmoothPlastic)
+	for _, z in { -1, 1 } do
+		for x = -15, 15, 6 do
+			block("Battlement", V(3, 1.6, 0.8), CFrame.new(x, h + 1.8, z * (d / 2 - 0.4)), STONE_DARK, Enum.Material.SmoothPlastic)
+		end
+	end
+	-- Torreones con tejado puntiagudo y ventana iluminada en dos esquinas de la azotea (simétricos)
+	Kit.symmetric(function(m)
+		Kit.cylinder("Turret", 6, 4, m * CFrame.new(-14, h + 4, -8), STONE_DARK, Enum.Material.SmoothPlastic)
+		Kit.deco("TurretRoof", V(4.6, 3, 4.6), m * CFrame.new(-14, h + 8.5, -8) * CFrame.Angles(0, rad(45), 0), ROOF, Enum.Material.SmoothPlastic)
+		Kit.deco("TurretWindow", V(1, 1.4, 0.2), m * CFrame.new(-14, h + 4.5, -10.05), GLOW, Enum.Material.Neon)
+	end)
+	-- Lámpara de araña dentro
+	local chandelier = deco("Chandelier", V(3, 0.4, 3), CFrame.new(0, h - 1.2, 0), GLOW, Enum.Material.Neon)
+	Kit.light(chandelier, "PointLight", ORANGE, 18, 1.2)
+
+	Kit.symmetric(function(m, side)
+		local teamColor = side == "A" and RGB(255, 90, 90) or RGB(90, 150, 255)
+		-- Escalera exterior a la azotea (pegada a la pared larga)
+		Kit.stairs((m * CFrame.new(-w / 2 - 6, 0, -(d / 2 + 3))).Position, (m * CFrame.new(4, h + 1, -(d / 2 + 3))).Position, 5, STONE_DARK, Enum.Material.SmoothPlastic)
+		block("StairLanding", V(6, 1, 6), m * CFrame.new(7, h + 0.5, -(d / 2 + 3)), STONE_DARK, Enum.Material.SmoothPlastic)
+
+		-- Cementerio: lápidas en filas
+		for row = 0, 2 do
+			for col = 0, 3 do
+				local x = -40 - col * 6.5 + (row % 2) * 3
+				local z = 24 + row * 9
+				gravestone(m * CFrame.new(x, 0, z) * CFrame.Angles(0, rad((col * 7 + row * 3) % 12 - 6), 0))
+			end
+		end
+		crypt(m * CFrame.new(-36, 0, -36))
+		crypt(m * CFrame.new(-70, 0, 44) * CFrame.Angles(0, rad(90), 0))
+
+		-- Coberturas sueltas: tapias de piedra rotas y ataúdes
+		wall("BrokenWall", m * CFrame.new(-30, 0, 10), V(10, 4, 1.5))
+		wall("BrokenWall", m * CFrame.new(-52, 0, -14) * CFrame.Angles(0, rad(90), 0), V(9, 3.5, 1.5))
+		block("Coffin", V(2.4, 1.6, 6), m * CFrame.new(-20, 0.8, -24) * CFrame.Angles(0, rad(20), 0), WOOD, Enum.Material.SmoothPlastic)
+		Kit.deco("CoffinCross", V(0.3, 0.05, 2), m * CFrame.new(-20, 1.62, -24) * CFrame.Angles(0, rad(20), 0), ORANGE, Enum.Material.SmoothPlastic)
+
+		-- Caldero de bruja con líquido verde brillante
+		local cauldron = m * CFrame.new(-24, 0, 36)
+		Kit.cylinder("Cauldron", 3, 4.2, cauldron * CFrame.new(0, 1.5, 0), RGB(25, 22, 30), Enum.Material.SmoothPlastic)
+		local goo = Kit.cylinder("CauldronGoo", 0.3, 3.6, cauldron * CFrame.new(0, 3.05, 0), RGB(120, 255, 90), Enum.Material.Neon, nil, true)
+		Kit.light(goo, "PointLight", RGB(120, 255, 90), 14, 1.2)
+
+		-- Árboles secos, faroles y calabazas
+		deadTree((m * CFrame.new(-74, 0, -48)).Position, 1.1, 3)
+		deadTree((m * CFrame.new(-58, 0, 50)).Position, 1.3, 7)
+		deadTree((m * CFrame.new(-12, 0, -46)).Position, 1, 11)
+		for _, p in { V(-26, 0, -6), V(-62, 0, 8), V(-40, 0, 52), V(-86, 0, -40) } do
+			lamp((m * CFrame.new(p)).Position)
+		end
+		for i, p in { V(-34, 0, 22), V(-60, 0, -28), V(-16, 0, 16), V(-48, 0, -48) } do
+			Kit.pumpkin(m * CFrame.new(p) * CFrame.Angles(0, rad(i * 70), 0), 1 + (i % 2) * 0.3)
+		end
+		_ = teamColor
+	end)
+
+	-- Bases y banderas
+	local spawnStyle = { Floor = STONE_DARK, Roof = ROOF }
+	Kit.spawnArea(teams[1], CFrame.new(-80, 0, 0), spawnStyle)
+	Kit.spawnArea(teams[2], Kit.MIRROR * CFrame.new(-80, 0, 0), spawnStyle)
+	Kit.flagBase(teams[1], CFrame.new(-56, 0, 0))
+	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-56, 0, 0))
+
+	-- Fondo: árboles secos y colinas oscuras
+	Kit.bounds(LENGTH, WIDTH, 45)
+	local n = 0
+	for x = -130, 130, 24 do
+		for _, z in { -1, 1 } do
+			n += 1
+			deadTree(V(x + z * 8, 0, z * (WIDTH / 2 + 14 + (n % 3) * 7)), 1.4 + (n % 3) * 0.2, n)
+		end
+	end
+	for x = -180, 180, 70 do
+		for _, z in { -1, 1 } do
+			Kit.naturalHill(V(x, -18, z * 125), 48, Enum.Material.Grass, { Inward = V(0, 0, -z), Top = Enum.Material.LeafyGrass, RockCount = 1 })
+		end
+	end
+	for _, sx in { -1, 1 } do
+		for _, z in { -50, 20 } do
+			Kit.naturalHill(V(sx * 150, -18, z), 48, Enum.Material.Grass, { Inward = V(-sx, 0, 0), Top = Enum.Material.LeafyGrass, RockCount = 1 })
+		end
+	end
+
+	-- Modos
+	for _, p in {
+		V(-66, 0.5, 14), V(-66, 0.5, -14), V(-40, 0.5, 0), V(-30, 0.5, 30), V(-44, 0.5, -30),
+		V(-12, 0.5, 0), V(-24, 0.5, -16), V(-6, h + 1.5, 4), V(-56, 0.5, 34), V(-80, 0.5, -46),
+	} do
+		Kit.ffaSpawn(p)
+		Kit.ffaSpawn(Kit.MIRROR * p)
+	end
+	Kit.zone(V(0, h + 1, 0), 6, 1)
+	Kit.zone(V(0, 0.2, 0), 6, 2)
+	Kit.zone(V(-40, 0, 32), 6, 3)
+	Kit.zone(V(40, 0, -32), 6, 4)
+	Kit.zone(V(-28, 0, -36), 5, 5)
+	Kit.dustMotes(CFrame.new(0, 8, 0), V(120, 14, 80), Color3.fromRGB(190, 150, 255), 14)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="45">
+            <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
 -- que gira, rodeada por un foso de agua; salones de columnas en ruinas, plataformas de piedra con
@@ -9652,7 +9898,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="45">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -9888,7 +10134,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -10117,7 +10363,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -10441,7 +10687,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -10683,7 +10929,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">ToyBox</string>
               <string name="Source"><![CDATA[-- CAJA DE JUGUETES: eres del tamaño de un juguete dentro del cuarto de un niño. Castillo de bloques
@@ -10943,7 +11189,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -12290,7 +12536,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="51">
+        <Item class="ModuleScript" referent="52">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -13455,7 +13701,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="53">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -13656,7 +13902,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="53">
+        <Item class="ModuleScript" referent="54">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -14533,22 +14779,22 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="54">
+  <Item class="StarterPlayer" referent="55">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="55">
+    <Item class="StarterPlayerScripts" referent="56">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="56">
+      <Item class="Folder" referent="57">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="57">
+        <Item class="LocalScript" referent="58">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -14624,11 +14870,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="58">
+        <Item class="Folder" referent="59">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -14903,7 +15149,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP y el nivel de cada jugador,
@@ -14959,7 +15205,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -15035,7 +15281,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -15506,7 +15752,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -16476,7 +16722,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -16652,7 +16898,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos / objetivo.
@@ -16725,7 +16971,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -16866,7 +17112,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -16988,7 +17234,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -18501,7 +18747,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -18566,7 +18812,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -18797,7 +19043,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -19199,7 +19445,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = "11 MAPAS  ·  6 MODOS  ·  17 ARMAS  ·  HABILIDADES",
+		Text = "12 MAPAS  ·  6 MODOS  ·  17 ARMAS  ·  HABILIDADES",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -19209,7 +19455,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🎃 EVENTO DE HALLOWEEN · 🆕 Eliminación · 2 mapas · Splat-X · Katana",
+		Text = "🎃 EVENTO DE HALLOWEEN · Mansión Encantada · 🆕 Eliminación · Katana",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -19340,7 +19586,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -21129,7 +21375,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -21422,7 +21668,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -21593,7 +21839,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -21763,7 +22009,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -22079,7 +22325,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -22268,7 +22514,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -22354,7 +22600,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -22511,7 +22757,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -22613,7 +22859,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -22770,7 +23016,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -23663,7 +23909,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -23720,7 +23966,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -23915,19 +24161,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="85">
+  <Item class="Teams" referent="86">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="86">
+  <Item class="Workspace" referent="87">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="87">
+    <Item class="Terrain" referent="88">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
