@@ -23,6 +23,9 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Splat-X** | Menú (B) → Armas → Splat-X (nivel 2) | Dispara bolas de pintura: manchas de colores en paredes y suelo que se desvanecen a los 5 s. |
 | **Skins animadas** | Menú → Skins → Arcoíris o Prisma (cómpralas con monedas: en Studio puedes darte monedas desde la consola, ver abajo) | El arma cambia de color sin parar (en la mano, en la tienda y en las armas de los demás). |
 | **Mapas nuevos** | Vota Arena Caramelo o Caja de Juguetes en el descanso | Arena Caramelo: tarta central, gominolas, plataformas de salto (te lanzan hacia arriba). Caja de Juguetes: castillo de bloques con pasarela, ladrillos gigantes, tren. |
+| **Armas cuerpo a cuerpo** | Menú → Armas → abajo: Martillo de juguete o Katana (dátelas con nivel/monedas, ver abajo) | Al reaparecer llevas esa arma en la ranura 3; la F golpea con ella (la katana llega más lejos). |
+| **Tarjeta de controles** | Entra en partida con un jugador nuevo | Sale una tarjeta con los controles; "¡A JUGAR!" la cierra. En Studio sin DataStore activado sale cada vez (es normal). |
+| **Tonos de los mapas antiguos** | Juega Harbor Heights o Frost Station | Los grises ahora tienen el tono del mapa (arena cálida, azul hielo…). |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 
