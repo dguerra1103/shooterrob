@@ -750,6 +750,10 @@ local function enemyInSights()
 	if not humanoid or humanoid.Health <= 0 or model == character then
 		return false
 	end
+	-- (con la protección de aparición no se le puede herir: no vaciar el cargador en el escudo)
+	if model:FindFirstChildOfClass("ForceField") then
+		return false
+	end
 	if not ReplicatedStorage:GetAttribute("TeamMode") then
 		return true
 	end
@@ -770,8 +774,11 @@ local function renderStep(dt)
 	-- Disparo automático (modo sencillo de los shooters de móvil): con la mira sobre un enemigo,
 	-- el arma dispara sola. Ajustes: 2 = solo en pantallas táctiles (por defecto), 1 = siempre, 0 = no
 	local autoMode = math.floor(((ClientState.Settings or GameConfig.DefaultSettings).AutoFire or 2) + 0.5)
-	if autoMode ~= 0 and (autoMode == 1 or UserInputService.TouchEnabled) and def and def.Type == "Gun"
-		and not reloadStart and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then
+	-- (el rayo solo cuando el arma ya puede disparar: no cada fotograma de la cadencia)
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	if autoMode ~= 0 and (autoMode == 1 or touchOnly) and def and def.Type == "Gun"
+		and not reloadStart and not bursting and os.clock() - lastShot >= 1 / def.FireRate
+		and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then
 		if def.Burst then
 			startBurst()
 		else

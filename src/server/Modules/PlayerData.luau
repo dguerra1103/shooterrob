@@ -59,6 +59,7 @@ local SAVE_COOLDOWN = 7 -- Roblox permite ~1 escritura por clave cada 6 s
 
 local saving = {} -- jugadores con un guardado en curso
 local dirty = {} -- jugadores con cambios pendientes de guardar
+local pendingPerk = {} -- [jugador] = true: la ventaja cambiada se aplica al reaparecer
 local saveScheduled = {}
 
 local function defaults()
@@ -1352,6 +1353,7 @@ local function spinWheel(player)
 end
 Players.PlayerRemoving:Connect(function(player)
 	lastSpin[player] = nil
+	pendingPerk[player] = nil
 end)
 
 -- Abre una caja. Devuelve lo que ha tocado para la animación del cliente.
@@ -1818,7 +1820,19 @@ function PlayerData.Init()
 			end
 		end
 		data.Settings = clean
-		player:SetAttribute("Perk", math.floor(clean.Perk or 0))
+		-- La ventaja nueva vale desde la próxima aparición (no se cambia a mitad de un tiroteo)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if player:GetAttribute("InMenu") or not humanoid or humanoid.Health <= 0 then
+			player:SetAttribute("Perk", math.floor(clean.Perk or 0))
+		elseif not pendingPerk[player] then
+			pendingPerk[player] = true
+			player.CharacterAdded:Once(function()
+				pendingPerk[player] = nil
+				local current = profiles[player]
+				player:SetAttribute("Perk", math.floor((current and current.Settings.Perk) or 0))
+			end)
+		end
 		dirty[player] = true
 	end)
 

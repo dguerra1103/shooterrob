@@ -886,6 +886,19 @@ end
 
 -- Pelea con un enemigo a la vista: se mueve según su rol, se cubre si le queda poca vida y dispara
 -- en ráfagas (a quemarropa, a todo lo que da el arma)
+-- Agacharse (como los jugadores: baja la cadera, se ve y se le da peor). Se levanta solo al
+-- pasar CrouchUntil (ver think)
+local function setCrouch(agent, humanoid, on)
+	if agent.BaseHip == nil then
+		agent.BaseHip = humanoid.HipHeight
+	end
+	agent.Crouched = on
+	local target = agent.BaseHip - (on and (GameConfig.CrouchDrop or 1.3) or 0)
+	if math.abs(humanoid.HipHeight - target) > 0.01 then
+		humanoid.HipHeight = target
+	end
+end
+
 local function fight(agent, humanoid, root, target, distance, now)
 	if agent.Target ~= target.Model then
 		agent.Target = target.Model
@@ -906,6 +919,7 @@ local function fight(agent, humanoid, root, target, distance, now)
 		local cover = findCover(agent, target)
 		if cover then
 			agent.RetreatUntil = now + 2.2
+			setCrouch(agent, humanoid, false)
 			humanoid.WalkSpeed = CONFIG.SprintSpeed or CONFIG.WalkSpeed
 			humanoid.AutoRotate = true
 			humanoid:MoveTo(cover)
@@ -917,6 +931,7 @@ local function fight(agent, humanoid, root, target, distance, now)
 	if now >= agent.NextStrafe then
 		local role = agent.Role
 		local dest
+		local crouch = false
 		if role == "Tirador" then
 			-- Quieto para apuntar; de vez en cuando un paso al lado
 			agent.NextStrafe = now + 2.5 + math.random() * 2
@@ -924,7 +939,13 @@ local function fight(agent, humanoid, root, target, distance, now)
 				dest = root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -4 or 4)
 			else
 				dest = root.Position
+				crouch = math.random() < 0.65 -- (quieto, casi siempre agachado)
 			end
+		elseif (role == "Asalto" or role == "Ametralladora") and distance > 45 and math.random() < 0.35 then
+			-- De lejos, a veces se agacha y aguanta la posición
+			agent.NextStrafe = now + 1.2 + math.random() * 1.3
+			dest = root.Position
+			crouch = true
 		else
 			agent.NextStrafe = now + 0.45 + math.random() * 0.7
 			local strafe = (math.random() < 0.5 and -1 or 1) * (role == "Ametralladora" and 3 or 6)
@@ -941,9 +962,14 @@ local function fight(agent, humanoid, root, target, distance, now)
 		if safeGround(dest) then
 			humanoid:MoveTo(dest)
 		end
-		if math.random() < CONFIG.JumpChance and role ~= "Tirador" then
+		setCrouch(agent, humanoid, crouch)
+		agent.CrouchUntil = crouch and agent.NextStrafe + 0.2 or 0
+		if not crouch and math.random() < CONFIG.JumpChance and role ~= "Tirador" then
 			humanoid.Jump = true
 		end
+	end
+	if agent.Crouched then
+		humanoid.WalkSpeed = GameConfig.CrouchSpeed or 10
 	end
 
 	-- Disparo: ráfagas controladas de lejos con armas automáticas, a todo trapo de cerca
@@ -1022,6 +1048,10 @@ local function think(agent)
 		return
 	end
 	local target, distance = findTarget(agent)
+	-- (se levanta al acabar su rato agachado o si deja de ver al enemigo)
+	if agent.Crouched and (now > (agent.CrouchUntil or 0) or not target) then
+		setCrouch(agent, humanoid, false)
+	end
 	local heard = hear(agent, now)
 	if not target then
 		checkAlert(agent, now)
@@ -1406,6 +1436,7 @@ spawnAgent = function(agent)
 		root:SetNetworkOwner(nil)
 	end)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
+	agent.BaseHip, agent.Crouched, agent.CrouchUntil = nil, false, 0
 	statsOf(agent)
 	animate(humanoid)
 	if agent.Zombie then

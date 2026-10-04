@@ -1480,10 +1480,11 @@ local function buildSettingsPage()
 	local perkSection = section(7, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
-		Position = UDim2.fromOffset(16, 88),
-		Size = UDim2.new(1, -32, 0, 30),
+		Position = UDim2.fromOffset(16, 86),
+		Size = UDim2.new(1, -32, 0, 38),
 		Text = "Sin ventaja",
 		TextSize = 15,
+		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(190, 195, 220),
 		Font = UI.FontBody,
@@ -1497,7 +1498,7 @@ local function buildSettingsPage()
 	for i, perk in perkOptions do
 		local selected = perkNow == perk.Id
 		if selected then
-			perkInfo.Text = perk.Text
+			perkInfo.Text = perk.Text .. (perk.Id ~= 0 and "  ·  (si estás en partida, desde que reaparezcas)" or "")
 		end
 		local button = UI.button({
 			Position = UDim2.fromOffset(16 + (i - 1) * 132, 44),

@@ -7383,6 +7383,19 @@ end
 
 -- Pelea con un enemigo a la vista: se mueve según su rol, se cubre si le queda poca vida y dispara
 -- en ráfagas (a quemarropa, a todo lo que da el arma)
+-- Agacharse (como los jugadores: baja la cadera, se ve y se le da peor). Se levanta solo al
+-- pasar CrouchUntil (ver think)
+local function setCrouch(agent, humanoid, on)
+	if agent.BaseHip == nil then
+		agent.BaseHip = humanoid.HipHeight
+	end
+	agent.Crouched = on
+	local target = agent.BaseHip - (on and (GameConfig.CrouchDrop or 1.3) or 0)
+	if math.abs(humanoid.HipHeight - target) > 0.01 then
+		humanoid.HipHeight = target
+	end
+end
+
 local function fight(agent, humanoid, root, target, distance, now)
 	if agent.Target ~= target.Model then
 		agent.Target = target.Model
@@ -7403,6 +7416,7 @@ local function fight(agent, humanoid, root, target, distance, now)
 		local cover = findCover(agent, target)
 		if cover then
 			agent.RetreatUntil = now + 2.2
+			setCrouch(agent, humanoid, false)
 			humanoid.WalkSpeed = CONFIG.SprintSpeed or CONFIG.WalkSpeed
 			humanoid.AutoRotate = true
 			humanoid:MoveTo(cover)
@@ -7414,6 +7428,7 @@ local function fight(agent, humanoid, root, target, distance, now)
 	if now >= agent.NextStrafe then
 		local role = agent.Role
 		local dest
+		local crouch = false
 		if role == "Tirador" then
 			-- Quieto para apuntar; de vez en cuando un paso al lado
 			agent.NextStrafe = now + 2.5 + math.random() * 2
@@ -7421,7 +7436,13 @@ local function fight(agent, humanoid, root, target, distance, now)
 				dest = root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -4 or 4)
 			else
 				dest = root.Position
+				crouch = math.random() < 0.65 -- (quieto, casi siempre agachado)
 			end
+		elseif (role == "Asalto" or role == "Ametralladora") and distance > 45 and math.random() < 0.35 then
+			-- De lejos, a veces se agacha y aguanta la posición
+			agent.NextStrafe = now + 1.2 + math.random() * 1.3
+			dest = root.Position
+			crouch = true
 		else
 			agent.NextStrafe = now + 0.45 + math.random() * 0.7
 			local strafe = (math.random() < 0.5 and -1 or 1) * (role == "Ametralladora" and 3 or 6)
@@ -7438,9 +7459,14 @@ local function fight(agent, humanoid, root, target, distance, now)
 		if safeGround(dest) then
 			humanoid:MoveTo(dest)
 		end
-		if math.random() < CONFIG.JumpChance and role ~= "Tirador" then
+		setCrouch(agent, humanoid, crouch)
+		agent.CrouchUntil = crouch and agent.NextStrafe + 0.2 or 0
+		if not crouch and math.random() < CONFIG.JumpChance and role ~= "Tirador" then
 			humanoid.Jump = true
 		end
+	end
+	if agent.Crouched then
+		humanoid.WalkSpeed = GameConfig.CrouchSpeed or 10
 	end
 
 	-- Disparo: ráfagas controladas de lejos con armas automáticas, a todo trapo de cerca
@@ -7519,6 +7545,10 @@ local function think(agent)
 		return
 	end
 	local target, distance = findTarget(agent)
+	-- (se levanta al acabar su rato agachado o si deja de ver al enemigo)
+	if agent.Crouched and (now > (agent.CrouchUntil or 0) or not target) then
+		setCrouch(agent, humanoid, false)
+	end
 	local heard = hear(agent, now)
 	if not target then
 		checkAlert(agent, now)
@@ -7903,6 +7933,7 @@ spawnAgent = function(agent)
 		root:SetNetworkOwner(nil)
 	end)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
+	agent.BaseHip, agent.Crouched, agent.CrouchUntil = nil, false, 0
 	statsOf(agent)
 	animate(humanoid)
 	if agent.Zombie then
@@ -19863,6 +19894,7 @@ local SAVE_COOLDOWN = 7 -- Roblox permite ~1 escritura por clave cada 6 s
 
 local saving = {} -- jugadores con un guardado en curso
 local dirty = {} -- jugadores con cambios pendientes de guardar
+local pendingPerk = {} -- [jugador] = true: la ventaja cambiada se aplica al reaparecer
 local saveScheduled = {}
 
 local function defaults()
@@ -21156,6 +21188,7 @@ local function spinWheel(player)
 end
 Players.PlayerRemoving:Connect(function(player)
 	lastSpin[player] = nil
+	pendingPerk[player] = nil
 end)
 
 -- Abre una caja. Devuelve lo que ha tocado para la animación del cliente.
@@ -21622,7 +21655,19 @@ function PlayerData.Init()
 			end
 		end
 		data.Settings = clean
-		player:SetAttribute("Perk", math.floor(clean.Perk or 0))
+		-- La ventaja nueva vale desde la próxima aparición (no se cambia a mitad de un tiroteo)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if player:GetAttribute("InMenu") or not humanoid or humanoid.Health <= 0 then
+			player:SetAttribute("Perk", math.floor(clean.Perk or 0))
+		elseif not pendingPerk[player] then
+			pendingPerk[player] = true
+			player.CharacterAdded:Once(function()
+				pendingPerk[player] = nil
+				local current = profiles[player]
+				player:SetAttribute("Perk", math.floor((current and current.Settings.Perk) or 0))
+			end)
+		end
 		dirty[player] = true
 	end)
 
@@ -22898,7 +22943,8 @@ local function awardMedals(killer, victimName, victimStreak, weaponName, positio
 		firstBlood = true
 		medal(killer, "FirstBlood", scale)
 	end
-	if victimName and killer:GetAttribute("LastKiller") == victimName then
+	-- (no en un intercambio: si los dos caen a la vez no es venganza)
+	if victimName and killer:GetAttribute("LastKiller") == victimName and os.clock() - (killer:GetAttribute("LastKilledAt") or 0) >= 1 then
 		killer:SetAttribute("LastKiller", nil)
 		medal(killer, "Revenge", scale)
 	end
@@ -22926,6 +22972,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	if victim then
 		local by = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
 		victim:SetAttribute("LastKiller", by)
+		victim:SetAttribute("LastKilledAt", os.clock())
 	end
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
@@ -28509,10 +28556,12 @@ local function buildFeedsAndOverlays()
 		Parent = refs.KillBanner,
 	})
 
-	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja
+	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja (en móvil,
+	-- encima: debajo están los botones de habilidades)
+	local medalsAbove = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	refs.Medals = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.7, 38),
+		AnchorPoint = Vector2.new(0.5, medalsAbove and 1 or 0),
+		Position = UDim2.new(0.5, 0, 0.7, medalsAbove and -38 or 38),
 		Size = UDim2.fromOffset(640, 34),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -32456,10 +32505,11 @@ local function buildSettingsPage()
 	local perkSection = section(7, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
-		Position = UDim2.fromOffset(16, 88),
-		Size = UDim2.new(1, -32, 0, 30),
+		Position = UDim2.fromOffset(16, 86),
+		Size = UDim2.new(1, -32, 0, 38),
 		Text = "Sin ventaja",
 		TextSize = 15,
+		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(190, 195, 220),
 		Font = UI.FontBody,
@@ -32473,7 +32523,7 @@ local function buildSettingsPage()
 	for i, perk in perkOptions do
 		local selected = perkNow == perk.Id
 		if selected then
-			perkInfo.Text = perk.Text
+			perkInfo.Text = perk.Text .. (perk.Id ~= 0 and "  ·  (si estás en partida, desde que reaparezcas)" or "")
 		end
 		local button = UI.button({
 			Position = UDim2.fromOffset(16 + (i - 1) * 132, 44),
@@ -36978,6 +37028,10 @@ local function enemyInSights()
 	if not humanoid or humanoid.Health <= 0 or model == character then
 		return false
 	end
+	-- (con la protección de aparición no se le puede herir: no vaciar el cargador en el escudo)
+	if model:FindFirstChildOfClass("ForceField") then
+		return false
+	end
 	if not ReplicatedStorage:GetAttribute("TeamMode") then
 		return true
 	end
@@ -36998,8 +37052,11 @@ local function renderStep(dt)
 	-- Disparo automático (modo sencillo de los shooters de móvil): con la mira sobre un enemigo,
 	-- el arma dispara sola. Ajustes: 2 = solo en pantallas táctiles (por defecto), 1 = siempre, 0 = no
 	local autoMode = math.floor(((ClientState.Settings or GameConfig.DefaultSettings).AutoFire or 2) + 0.5)
-	if autoMode ~= 0 and (autoMode == 1 or UserInputService.TouchEnabled) and def and def.Type == "Gun"
-		and not reloadStart and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then
+	-- (el rayo solo cuando el arma ya puede disparar: no cada fotograma de la cadencia)
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	if autoMode ~= 0 and (autoMode == 1 or touchOnly) and def and def.Type == "Gun"
+		and not reloadStart and not bursting and os.clock() - lastShot >= 1 / def.FireRate
+		and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then
 		if def.Burst then
 			startBurst()
 		else

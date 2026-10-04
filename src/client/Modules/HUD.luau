@@ -641,10 +641,12 @@ local function buildFeedsAndOverlays()
 		Parent = refs.KillBanner,
 	})
 
-	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja
+	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja (en móvil,
+	-- encima: debajo están los botones de habilidades)
+	local medalsAbove = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	refs.Medals = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.7, 38),
+		AnchorPoint = Vector2.new(0.5, medalsAbove and 1 or 0),
+		Position = UDim2.new(0.5, 0, 0.7, medalsAbove and -38 or 38),
 		Size = UDim2.fromOffset(640, 34),
 		BackgroundTransparency = 1,
 		Parent = gui,

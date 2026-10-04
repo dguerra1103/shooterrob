@@ -337,7 +337,8 @@ local function awardMedals(killer, victimName, victimStreak, weaponName, positio
 		firstBlood = true
 		medal(killer, "FirstBlood", scale)
 	end
-	if victimName and killer:GetAttribute("LastKiller") == victimName then
+	-- (no en un intercambio: si los dos caen a la vez no es venganza)
+	if victimName and killer:GetAttribute("LastKiller") == victimName and os.clock() - (killer:GetAttribute("LastKilledAt") or 0) >= 1 then
 		killer:SetAttribute("LastKiller", nil)
 		medal(killer, "Revenge", scale)
 	end
@@ -365,6 +366,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	if victim then
 		local by = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
 		victim:SetAttribute("LastKiller", by)
+		victim:SetAttribute("LastKilledAt", os.clock())
 	end
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
