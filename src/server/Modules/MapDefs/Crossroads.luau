@@ -183,6 +183,12 @@ function Map.Build()
 				deco("Rubble", size, m * CFrame.new(pile + V((j - 2.5) * 1.1, size.Y / 2, ((i + j) % 3 - 1) * 0.9)) * CFrame.Angles(j * 0.4, i + j, j * 0.25), j % 2 == 0 and PALETTE.Concrete or PALETTE.Plaster[(i % 5) + 1], M.Concrete)
 			end
 		end
+		-- Pintadas y carteles en las paredes que dan a la avenida
+		RealKit.graffiti(m * CFrame.new(-156, 2.4, 24.95), side == "A" and "¡RESISTE!" or "NO PASARÁN", RGB(200, 40, 36), 8)
+		RealKit.graffiti(m * CFrame.new(-72, 2.4, -24.95) * CFrame.Angles(0, math.pi, 0), "ZONA 4  →", RGB(235, 235, 230), 7)
+		for i, p in { V(-140, 3.1, 24.95), V(-138.1, 3, 24.95), V(-100, 3.2, 23.95), V(-148, 3, -24.95), V(-82, 3.1, -24.95) } do
+			RealKit.poster(m * CFrame.new(p) * CFrame.Angles(0, p.Z < 0 and math.pi or 0, 0), i)
+		end
 		RealKit.trafficLight(m * CFrame.new(-14, 0, -19.5))
 		RealKit.trafficLight(m * CFrame.new(-14, 0, 19.5) * CFrame.Angles(0, math.pi, 0))
 		for _, t in { V(-160, 0, 22), V(-92, 0, 22.2), V(-132, 0, -22.4), V(-86, 0, -22.2) } do

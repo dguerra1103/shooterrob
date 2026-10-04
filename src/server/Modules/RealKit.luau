@@ -278,7 +278,14 @@ function RealKit.solidBlock(cf, sx, sz, height, color, opts)
 				local count = math.max(1, math.floor(sx / 8))
 				for i = 1, count do
 					local x = -sx / 2 + (i - 0.5) * sx / count
-					deco("Window", V(3, 3.4, 0.2), cf * CFrame.new(x, f * FLOOR_H + 4.4, side * (sz / 2 + 0.1)), RGB(40, 44, 50), M.Glass)
+					local windowCf = cf * CFrame.new(x, f * FLOOR_H + 4.4, side * (sz / 2 + 0.1))
+					deco("Window", V(3, 3.4, 0.2), windowCf, RGB(40, 44, 50), M.Glass)
+					-- Algunas ventanas tapiadas con tablones (ciudad en guerra)
+					if opts.Boarded ~= false and hash(windowCf, f * 7 + i) < 0.22 then
+						for b, angle in { 0.35, -0.3 } do
+							deco("Board", V(3.6, 0.5, 0.12), windowCf * CFrame.new(0, (b - 1.5) * 0.6, side * 0.12) * CFrame.Angles(0, 0, angle), RGB(120 - b * 12, 92 - b * 8, 62), M.WoodPlanks)
+						end
+					end
 				end
 			end
 		end
@@ -293,6 +300,9 @@ function RealKit.solidBlock(cf, sx, sz, height, color, opts)
 	end
 	facadeDetails(cf, sx, sz, height, floorsHigh, true, windowXs)
 	if opts.Sign then
+		if opts.Awning ~= false then
+			RealKit.awning(cf * CFrame.new(0, 6.6, -sz / 2), math.min(sx - 4, 14), opts.AwningColor)
+		end
 		local plate = deco("ShopSign", V(math.min(sx - 4, 14), 2.2, 0.3), cf * CFrame.new(0, 8.2, -sz / 2 - 0.3), RGB(40, 38, 36), M.Wood)
 		Kit.sign(plate, Enum.NormalId.Front, opts.Sign, RGB(235, 225, 200), RGB(20, 20, 20))
 	end
@@ -352,6 +362,42 @@ function RealKit.trafficLight(cf)
 	local box = deco("SignalBox", V(1.2, 3.2, 1.1), cf * CFrame.new(0, 9.4, 5.6), RGB(40, 42, 40), M.Metal)
 	for i, color in { RGB(90, 30, 28), RGB(90, 80, 30), RGB(30, 80, 40) } do
 		deco("SignalLamp", V(0.75, 0.75, 0.1), box.CFrame * CFrame.new(-0.62, 1.05 - (i - 1) * 1.05, 0) * CFrame.Angles(0, math.pi / 2, 0), color, M.Glass)
+	end
+end
+
+-- Toldo de tienda a rayas sobre la fachada (cf = centro del borde de arriba, pegado al muro)
+local AWNING_COLORS = { RGB(150, 46, 40), RGB(40, 90, 120), RGB(60, 110, 60), RGB(170, 120, 40) }
+function RealKit.awning(cf, width, color)
+	color = color or AWNING_COLORS[math.floor(hash(cf, 3) * #AWNING_COLORS) + 1]
+	local depth = 3
+	local stripes = math.max(3, math.floor(width / 1.6))
+	for i = 1, stripes do
+		local x = -width / 2 + (i - 0.5) * width / stripes
+		deco("Awning", V(width / stripes, 0.12, depth), cf * CFrame.new(x, -0.6, -depth / 2) * CFrame.Angles(rad(-22), 0, 0), i % 2 == 0 and RGB(226, 218, 200) or color, M.Fabric)
+	end
+	deco("AwningValance", V(width, 0.5, 0.08), cf * CFrame.new(0, -1.5, -depth + 0.15), color, M.Fabric)
+end
+
+-- Cartel de papel pegado en una pared (cf = sobre la cara del muro, mirando hacia fuera por -Z)
+local POSTER_COLORS = { RGB(200, 70, 50), RGB(220, 200, 150), RGB(60, 90, 140), RGB(230, 225, 210) }
+function RealKit.poster(cf, i)
+	local color = POSTER_COLORS[(i % #POSTER_COLORS) + 1]
+	local paper = deco("Poster", V(1.7, 2.3, 0.04), cf * CFrame.Angles(0, 0, rad((i % 3 - 1) * 4)), color, M.SmoothPlastic)
+	deco("PosterBand", V(1.5, 0.35, 0.05), paper.CFrame * CFrame.new(0, 0.6, 0), color:Lerp(RGB(20, 20, 20), 0.6), M.SmoothPlastic)
+	deco("PosterBand", V(1.2, 0.18, 0.05), paper.CFrame * CFrame.new(0, -0.3, 0), color:Lerp(RGB(20, 20, 20), 0.45), M.SmoothPlastic)
+end
+
+-- Pintada en una pared (cf igual que poster): texto con aerosol
+function RealKit.graffiti(cf, text, color, width)
+	local plate = deco("Graffiti", V(width or 8, 2.6, 0.04), cf, RGB(255, 255, 255), M.SmoothPlastic)
+	plate.Transparency = 1
+	local gui = Kit.sign(plate, Enum.NormalId.Front, text, color, color)
+	gui.LightInfluence = 1
+	local label = gui:FindFirstChildOfClass("TextLabel")
+	if label then
+		label.Font = Enum.Font.PermanentMarker
+		label.TextStrokeTransparency = 1
+		label.TextTransparency = 0.12
 	end
 end
 

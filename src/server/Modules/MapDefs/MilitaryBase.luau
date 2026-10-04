@@ -302,7 +302,7 @@ function Map.Build()
 		------------------------------------------------------------------
 		fence(m * V(-170, 0, 30), m * V(-132, 0, 30))
 		fence(m * V(-118, 0, 30), m * V(-80, 0, 30))
-		solidBlock(m * CFrame.new(-66, 0, 36), 18, 12, 9, RGB(140, 136, 120), { Material = M.Concrete, Sign = side == "A" and "ARMERÍA" or "COMBUSTIBLE" })
+		solidBlock(m * CFrame.new(-66, 0, 36), 18, 12, 9, RGB(140, 136, 120), { Material = M.Concrete, Sign = side == "A" and "ARMERÍA" or "COMBUSTIBLE", Awning = false })
 		tWallRow(m * V(-48, 0, 28), m * V(-24, 0, 28), 3)
 
 		------------------------------------------------------------------
