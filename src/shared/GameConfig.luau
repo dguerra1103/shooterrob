@@ -203,7 +203,8 @@ do
 		{ "Headshots", "🧠", "Haz %d bajas a la cabeza", { 10, 100, 500 }, { 150, 600, 2000 } },
 		{ "Matches", "🎮", "Juega %d partidas", { 10, 50, 200 }, { 150, 500, 1500 } },
 		{ "BestStreak", "🔥", "Consigue una racha de %d bajas", { 5, 10, 20 }, { 150, 500, 1500 } },
-		{ "Level", "⭐", "Llega al nivel %d", { 10, 25, 50 }, { 300, 800, 2000 } },
+		{ "Level", "⭐", "Llega al nivel %d", { 10, 25, 50, 100 }, { 300, 800, 2000, 5000 } },
+		{ "Assists", "🤝", "Consigue %d asistencias", { 10, 100, 500 }, { 100, 500, 1500 } },
 		{ "RankBest", "👑", "Llega al rango %s", { 3, 5, 6 }, { 500, 1500, 4000 } },
 	}
 	local rankNames = { [3] = "Oro", [5] = "Diamante", [6] = "Campeón" }
