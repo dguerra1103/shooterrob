@@ -320,6 +320,13 @@ local function update(dt)
 	if weaponDef and weaponDef.WalkSpeedMultiplier then
 		speed *= weaponDef.WalkSpeedMultiplier
 	end
+	-- Ventaja "Ligero"
+	local perkId = player:GetAttribute("Perk")
+	for _, perk in GameConfig.Perks or {} do
+		if perk.Id == perkId and perk.SpeedMultiplier then
+			speed *= perk.SpeedMultiplier
+		end
+	end
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier
 	end

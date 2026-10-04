@@ -765,7 +765,8 @@ GameConfig.Movement = {
 -- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2 }
+-- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -773,7 +774,16 @@ GameConfig.SettingsLimits = {
 	CrossColor = { 1, 6 }, -- índice de GameConfig.CrosshairColors
 	CrossSize = { 0.6, 2 },
 	AutoFire = { 0, 2 },
+	Perk = { 0, 3 },
 }
+-- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
+-- el valor guardado (Settings.Perk) y el atributo "Perk" del jugador.
+GameConfig.Perks = {
+	{ Id = 1, Name = "Ligero", Icon = "🏃", Text = "Corres y andas un 8 % más rápido", SpeedMultiplier = 1.08 },
+	{ Id = 2, Name = "Persistente", Icon = "❤️", Text = "La vida empieza a recuperarse antes (2,5 s) y más deprisa", RegenDelay = 2.5, RegenMultiplier = 1.3 },
+	{ Id = 3, Name = "Fantasma", Icon = "👻", Text = "Al disparar no sales en el minimapa enemigo y los bots te oyen la mitad de lejos" },
+}
+
 -- Colores de la mira que se pueden elegir en Ajustes
 GameConfig.CrosshairColors = {
 	Color3.fromRGB(255, 255, 255),
@@ -8418,6 +8428,11 @@ local NOISE_KEEP = 24
 function Combat.ReportNoise(position, team, model, weaponName)
 	local def = Weapons.Get(weaponName or "")
 	local range = (def and def.Suppressed) and 25 or 110
+	-- Ventaja "Fantasma": los bots le oyen la mitad de lejos
+	local owner = model and Players:GetPlayerFromCharacter(model)
+	if owner and owner:GetAttribute("Perk") == 3 then
+		range *= 0.5
+	end
 	table.insert(Combat.Noise, { Position = position, Time = os.clock(), Team = team, Model = model, Range = range })
 	if #Combat.Noise > NOISE_KEEP then
 		table.remove(Combat.Noise, 1)
@@ -10946,15 +10961,26 @@ local HealthRegen = {}
 
 local STEP = 0.25
 
-local function regen(humanoid, now, config)
+-- perk: la ventaja "Persistente" (GameConfig.Perks) empieza antes y recupera más deprisa
+local function regen(humanoid, now, config, perk)
 	if humanoid.Health <= 0 or humanoid.Health >= humanoid.MaxHealth then
 		return
 	end
 	local hitTime = humanoid:GetAttribute("LastHitTime") or 0
-	if now - hitTime < config.Delay then
+	if now - hitTime < ((perk and perk.RegenDelay) or config.Delay) then
 		return
 	end
-	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + config.PerSecond * STEP)
+	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + config.PerSecond * ((perk and perk.RegenMultiplier) or 1) * STEP)
+end
+
+local function perkOf(player)
+	local id = player:GetAttribute("Perk")
+	for _, perk in GameConfig.Perks or {} do
+		if perk.Id == id then
+			return perk
+		end
+	end
+	return nil
 end
 
 function HealthRegen.Init()
@@ -10969,7 +10995,7 @@ function HealthRegen.Init()
 			for _, player in Players:GetPlayers() do
 				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 				if humanoid then
-					regen(humanoid, now, config)
+					regen(humanoid, now, config, perkOf(player))
 				end
 			end
 			local bots = workspace:FindFirstChild("Bots")
@@ -20260,6 +20286,7 @@ local function load(player)
 	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
+	player:SetAttribute("Perk", math.floor((merged.Settings and merged.Settings.Perk) or 0)) -- (ventaja: la leen los demás sistemas)
 	PlayerData.PublishTitle(player)
 	grantTierRewards(player)
 	if isNew and not noSave[player] then -- (si no se pudieron cargar sus datos, quizá no es nuevo)
@@ -21505,6 +21532,7 @@ function PlayerData.Init()
 			end
 		end
 		data.Settings = clean
+		player:SetAttribute("Perk", math.floor(clean.Perk or 0))
 		dirty[player] = true
 	end)
 
@@ -31978,8 +32006,45 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Ventaja (una, gratis)
+	local perkSection = section(7, "🎖️ Ventaja", 130)
+	local perkNow = math.floor(current.Perk or 0)
+	local perkInfo = UI.label({
+		Position = UDim2.fromOffset(16, 88),
+		Size = UDim2.new(1, -32, 0, 30),
+		Text = "Sin ventaja",
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = perkSection,
+	})
+	local perkOptions = { { Id = 0, Name = "Ninguna", Icon = "—", Text = "Sin ventaja" } }
+	for _, perk in GameConfig.Perks do
+		table.insert(perkOptions, perk)
+	end
+	for i, perk in perkOptions do
+		local selected = perkNow == perk.Id
+		if selected then
+			perkInfo.Text = perk.Text
+		end
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 132, 44),
+			Size = UDim2.fromOffset(124, 36),
+			Text = perk.Icon .. " " .. perk.Name,
+			TextSize = 16,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = perkSection,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("Perk", perk.Id)
+			refresh()
+		end)
+	end
 	UI.label({
-		LayoutOrder = 7,
+		LayoutOrder = 8,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,
@@ -33446,6 +33511,10 @@ local function onShot(tool)
 	if def and def.Suppressed then
 		return -- con silenciador no sale en el minimapa
 	end
+	local owner = Players:GetPlayerFromCharacter(model)
+	if owner and owner:GetAttribute("Perk") == 3 then
+		return -- (ventaja "Fantasma")
+	end
 	local part = model:FindFirstChild("HumanoidRootPart") or tool:FindFirstChild("Handle")
 	if part and part:IsA("BasePart") and isEnemy(model) then
 		shots[model] = { Position = part.Position, Time = os.clock() }
@@ -33829,6 +33898,13 @@ local function update(dt)
 	local weaponDef = ClientState.CurrentDef
 	if weaponDef and weaponDef.WalkSpeedMultiplier then
 		speed *= weaponDef.WalkSpeedMultiplier
+	end
+	-- Ventaja "Ligero"
+	local perkId = player:GetAttribute("Perk")
+	for _, perk in GameConfig.Perks or {} do
+		if perk.Id == perkId and perk.SpeedMultiplier then
+			speed *= perk.SpeedMultiplier
+		end
 	end
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier

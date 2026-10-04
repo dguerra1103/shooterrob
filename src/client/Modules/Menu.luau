@@ -1476,8 +1476,45 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Ventaja (una, gratis)
+	local perkSection = section(7, "🎖️ Ventaja", 130)
+	local perkNow = math.floor(current.Perk or 0)
+	local perkInfo = UI.label({
+		Position = UDim2.fromOffset(16, 88),
+		Size = UDim2.new(1, -32, 0, 30),
+		Text = "Sin ventaja",
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Font = UI.FontBody,
+		TextStrokeTransparency = 1,
+		Parent = perkSection,
+	})
+	local perkOptions = { { Id = 0, Name = "Ninguna", Icon = "—", Text = "Sin ventaja" } }
+	for _, perk in GameConfig.Perks do
+		table.insert(perkOptions, perk)
+	end
+	for i, perk in perkOptions do
+		local selected = perkNow == perk.Id
+		if selected then
+			perkInfo.Text = perk.Text
+		end
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 132, 44),
+			Size = UDim2.fromOffset(124, 36),
+			Text = perk.Icon .. " " .. perk.Name,
+			TextSize = 16,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = perkSection,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("Perk", perk.Id)
+			refresh()
+		end)
+	end
 	UI.label({
-		LayoutOrder = 7,
+		LayoutOrder = 8,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,

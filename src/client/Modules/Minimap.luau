@@ -265,6 +265,10 @@ local function onShot(tool)
 	if def and def.Suppressed then
 		return -- con silenciador no sale en el minimapa
 	end
+	local owner = Players:GetPlayerFromCharacter(model)
+	if owner and owner:GetAttribute("Perk") == 3 then
+		return -- (ventaja "Fantasma")
+	end
 	local part = model:FindFirstChild("HumanoidRootPart") or tool:FindFirstChild("Handle")
 	if part and part:IsA("BasePart") and isEnemy(model) then
 		shots[model] = { Position = part.Position, Time = os.clock() }

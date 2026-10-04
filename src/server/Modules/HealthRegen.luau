@@ -9,15 +9,26 @@ local HealthRegen = {}
 
 local STEP = 0.25
 
-local function regen(humanoid, now, config)
+-- perk: la ventaja "Persistente" (GameConfig.Perks) empieza antes y recupera más deprisa
+local function regen(humanoid, now, config, perk)
 	if humanoid.Health <= 0 or humanoid.Health >= humanoid.MaxHealth then
 		return
 	end
 	local hitTime = humanoid:GetAttribute("LastHitTime") or 0
-	if now - hitTime < config.Delay then
+	if now - hitTime < ((perk and perk.RegenDelay) or config.Delay) then
 		return
 	end
-	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + config.PerSecond * STEP)
+	humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + config.PerSecond * ((perk and perk.RegenMultiplier) or 1) * STEP)
+end
+
+local function perkOf(player)
+	local id = player:GetAttribute("Perk")
+	for _, perk in GameConfig.Perks or {} do
+		if perk.Id == id then
+			return perk
+		end
+	end
+	return nil
 end
 
 function HealthRegen.Init()
@@ -32,7 +43,7 @@ function HealthRegen.Init()
 			for _, player in Players:GetPlayers() do
 				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 				if humanoid then
-					regen(humanoid, now, config)
+					regen(humanoid, now, config, perkOf(player))
 				end
 			end
 			local bots = workspace:FindFirstChild("Bots")

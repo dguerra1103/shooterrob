@@ -155,6 +155,11 @@ local NOISE_KEEP = 24
 function Combat.ReportNoise(position, team, model, weaponName)
 	local def = Weapons.Get(weaponName or "")
 	local range = (def and def.Suppressed) and 25 or 110
+	-- Ventaja "Fantasma": los bots le oyen la mitad de lejos
+	local owner = model and Players:GetPlayerFromCharacter(model)
+	if owner and owner:GetAttribute("Perk") == 3 then
+		range *= 0.5
+	end
 	table.insert(Combat.Noise, { Position = position, Time = os.clock(), Team = team, Model = model, Range = range })
 	if #Combat.Noise > NOISE_KEEP then
 		table.remove(Combat.Noise, 1)

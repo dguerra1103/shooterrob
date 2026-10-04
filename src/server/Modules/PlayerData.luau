@@ -572,6 +572,7 @@ local function load(player)
 	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
+	player:SetAttribute("Perk", math.floor((merged.Settings and merged.Settings.Perk) or 0)) -- (ventaja: la leen los demás sistemas)
 	PlayerData.PublishTitle(player)
 	grantTierRewards(player)
 	if isNew and not noSave[player] then -- (si no se pudieron cargar sus datos, quizá no es nuevo)
@@ -1817,6 +1818,7 @@ function PlayerData.Init()
 			end
 		end
 		data.Settings = clean
+		player:SetAttribute("Perk", math.floor(clean.Perk or 0))
 		dirty[player] = true
 	end)
 
