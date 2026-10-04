@@ -7247,6 +7247,9 @@ local function shoot(agent, target, distance, now)
 	if agent.Root.AssemblyLinearVelocity.Magnitude > 8 then
 		chance *= 0.8 -- disparar andando
 	end
+	if agent.Crouched then
+		chance = math.min(0.95, chance * 1.15) -- agachado apunta más estable
+	end
 	local targetRoot = target.Model:FindFirstChild("HumanoidRootPart")
 	if targetRoot and targetRoot.AssemblyLinearVelocity.Magnitude > 12 then
 		chance *= 0.7 -- cuesta más acertar a quien se mueve rápido
