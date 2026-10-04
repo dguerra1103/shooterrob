@@ -1146,7 +1146,7 @@ local function topPlayers()
 		local stats = PlayerData.GetLeaderstats(player)
 		local kills, deaths = stats.Bajas.Value, stats.Muertes.Value
 		if not player:GetAttribute("InMenu") or kills + deaths > 0 then
-			table.insert(list, { Name = player.DisplayName, Kills = kills, Deaths = deaths, Team = player.Team and player.Team.Name or nil })
+			table.insert(list, { Name = tostring(player.DisplayName), Kills = kills, Deaths = deaths, Team = player.Team and player.Team.Name or nil })
 		end
 	end
 	local botStats = ReplicatedStorage:FindFirstChild("BotStats")
@@ -1180,7 +1180,12 @@ end
 local function endRound()
 	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
 	local leader, leaderScore = updateLeader()
-	local top = topPlayers()
+	-- (el podio es un extra: si fallara, la partida termina igual)
+	local okTop, top = pcall(topPlayers)
+	if not okTop then
+		warn("[Round] podio:", top)
+		top = nil
+	end
 	setState("Ended")
 	local teamMode = isTeamMode()
 	local a, b = teams[1], teams[2]
