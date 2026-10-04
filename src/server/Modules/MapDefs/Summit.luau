@@ -9,6 +9,7 @@ local RealKit = require(script.Parent.Parent.RealKit)
 
 local Map = {
 	Id = "Summit",
+	Bomb = true, -- tiene sitios para Buscar y destruir
 	Name = "Cumbre",
 	Icon = "🏔️",
 	Description = "Estación de montaña nevada · teleférico y laboratorio · 5 contra 5",

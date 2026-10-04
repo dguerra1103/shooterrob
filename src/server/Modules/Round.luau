@@ -556,12 +556,16 @@ end
 
 local function availableModes(mapId)
 	local list = {}
+	local def = MapBuilder.Get(mapId)
 	for _, mode in GameConfig.Modes do
-		if GameConfig.ModeSettings[mode] then
+		-- (Buscar y destruir, solo en los mapas con sitios para la bomba)
+		if GameConfig.ModeSettings[mode] and (mode ~= "SND" or (def and def.Bomb)) then
 			table.insert(list, mode)
 		end
 	end
-	_ = mapId
+	if #list == 0 then
+		table.insert(list, GameConfig.Modes[1] or "TDM")
+	end
 	return list
 end
 

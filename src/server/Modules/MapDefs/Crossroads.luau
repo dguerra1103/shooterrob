@@ -9,6 +9,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 
 local Map = {
 	Id = "Crossroads",
+	Bomb = true, -- tiene sitios para Buscar y destruir
 	Name = "Encrucijada",
 	Icon = "🏚️",
 	Description = "Ciudad en guerra · 3 carriles · 5 contra 5",

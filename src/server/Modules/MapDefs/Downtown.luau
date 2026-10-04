@@ -4,6 +4,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 
 local Map = {
 	Id = "Downtown",
+	Bomb = true, -- tiene sitios para Buscar y destruir
 	Name = "Downtown",
 	Icon = "🏙",
 	Description = "Ciudad · día · calles y azoteas",
