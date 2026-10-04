@@ -635,6 +635,21 @@ function Kit.flowers(position, count, seed)
 	end
 end
 
+-- Pino cartoon (pisos redondos cada vez más estrechos, verde vivo). far = menos pisos (fondo)
+function Kit.cartoonPine(position, scale, far)
+	scale = scale or 1
+	cylinder("PineTrunk", 4 * scale, 1.2 * scale, CFrame.new(position + V(0, 2 * scale, 0)), RGB(120, 80, 50), Enum.Material.Wood)
+	local tiers = far and 3 or 5
+	for i = 1, tiers do
+		local t = (i - 1) / (tiers - 1)
+		local d = (9 - 6.5 * t) * scale
+		local y = (3.5 + t * 9) * scale
+		local h = (12 / tiers + 0.8) * scale
+		local tier = cylinder("PineTier", h, d, CFrame.new(position + V(0, y, 0)), RGB(60, 190, 90):Lerp(RGB(40, 150, 70), (i % 2) * 0.5), Enum.Material.SmoothPlastic, nil, true)
+		tier.CastShadow = not far
+	end
+end
+
 -- Mata de hierba alta (hojas finas inclinadas en abanico)
 function Kit.grassTuft(position, scale, seed)
 	local rng = Random.new(seed or math.floor(position.X * 23 + position.Z * 7))
