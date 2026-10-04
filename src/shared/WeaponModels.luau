@@ -33,7 +33,23 @@ local function camoVariant(pal)
 	return MaterialService:FindFirstChild(name) and name or nil
 end
 
+-- Skins arcoíris (pal.Rainbow = { Accent = true, ... }): las piezas de esos papeles llevan la etiqueta
+-- "RainbowSkin" y el cliente (SkinFX) les va cambiando el color. Las etiquetas se replican.
+local rainbowPhase = 0
+local function setRainbow(part, role, pal)
+	if pal.Rainbow and pal.Rainbow[role or "Body"] then
+		rainbowPhase = (rainbowPhase + 0.09) % 1
+		part:SetAttribute("RainbowPhase", rainbowPhase)
+		part:SetAttribute("RainbowSat", pal.RainbowSat or 1)
+		part:SetAttribute("RainbowVal", pal.RainbowVal or 1)
+		part:AddTag("RainbowSkin")
+	elseif part:HasTag("RainbowSkin") then
+		part:RemoveTag("RainbowSkin")
+	end
+end
+
 local function paint(part, role, pal)
+	setRainbow(part, role, pal)
 	part.Transparency = 0
 	part.Reflectance = 0
 	part.MaterialVariant = ""

@@ -725,6 +725,8 @@ Shop.SkinPrices = {
 	CamoArtico = 1200,
 	CamoTigre = 2200,
 	CamoNebulosa = 3200,
+	Prisma = 2800,
+	Arcoiris = 4500,
 }
 
 -- Precio en monedas de cada traje de operador (ver Outfits)
@@ -830,6 +832,8 @@ return Shop
 -- Opcional:
 --   Effect = "Sparkle" (destellos) o "Flame" (llamas) alrededor del arma
 --   Pulse  = true: los detalles de neón laten entre Accent y Accent2
+--   Rainbow = { Accent = true, Body = true, ... }: esas piezas cambian de color sin parar (arcoíris);
+--             RainbowSat / RainbowVal = saturación y brillo de los colores (0-1)
 local Skins = {}
 
 Skins.List = {
@@ -1104,6 +1108,39 @@ Skins.List = {
 		Effect = "Flame",
 		Pulse = true,
 	},
+}
+
+-- Skins arcoíris (las anima el cliente, ver SkinFX)
+Skins.List.Arcoiris = {
+	Name = "Arcoíris",
+	Rarity = "Mítico",
+	Body = Color3.fromRGB(24, 24, 32),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(255, 60, 60),
+	PanelMaterial = Enum.Material.Neon, -- paneles y detalles brillan con los colores del arcoíris
+	Accent = Color3.fromRGB(255, 60, 60),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(12, 12, 16),
+	Accent2 = Color3.fromRGB(255, 255, 255),
+	Effect = "Sparkle",
+	Rainbow = { Panel = true, Accent = true, Accent2 = true },
+	RainbowSat = 1,
+	RainbowVal = 1,
+}
+Skins.List.Prisma = {
+	Name = "Prisma",
+	Rarity = "Legendario",
+	Body = Color3.fromRGB(255, 170, 210),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(250, 250, 255),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(255, 255, 255),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(60, 60, 80),
+	Accent2 = Color3.fromRGB(200, 230, 255),
+	Rainbow = { Body = true },
+	RainbowSat = 0.45,
+	RainbowVal = 1,
 }
 
 Skins.RarityColors = {
@@ -2806,7 +2843,23 @@ local function camoVariant(pal)
 	return MaterialService:FindFirstChild(name) and name or nil
 end
 
+-- Skins arcoíris (pal.Rainbow = { Accent = true, ... }): las piezas de esos papeles llevan la etiqueta
+-- "RainbowSkin" y el cliente (SkinFX) les va cambiando el color. Las etiquetas se replican.
+local rainbowPhase = 0
+local function setRainbow(part, role, pal)
+	if pal.Rainbow and pal.Rainbow[role or "Body"] then
+		rainbowPhase = (rainbowPhase + 0.09) % 1
+		part:SetAttribute("RainbowPhase", rainbowPhase)
+		part:SetAttribute("RainbowSat", pal.RainbowSat or 1)
+		part:SetAttribute("RainbowVal", pal.RainbowVal or 1)
+		part:AddTag("RainbowSkin")
+	elseif part:HasTag("RainbowSkin") then
+		part:RemoveTag("RainbowSkin")
+	end
+end
+
 local function paint(part, role, pal)
+	setRainbow(part, role, pal)
 	part.Transparency = 0
 	part.Reflectance = 0
 	part.MaterialVariant = ""
@@ -13310,6 +13363,7 @@ local Abilities = require(Modules.Abilities)
 local Emotes = require(Modules.Emotes)
 local Scoreboard = require(Modules.Scoreboard)
 local PlaytimeGifts = require(Modules.PlaytimeGifts)
+local SkinFX = require(Modules.SkinFX)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -13334,6 +13388,7 @@ Abilities.Init()
 Emotes.Init()
 Scoreboard.Init()
 PlaytimeGifts.Init()
+SkinFX.Init()
 VoteUI.Init()
 GrenadeController.Init()
 KillstreakController.Init()
@@ -20570,6 +20625,63 @@ return Settings
           </Item>
           <Item class="ModuleScript" referent="71">
             <Properties>
+              <string name="Name">SkinFX</string>
+              <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
+-- de color. Cada pieza tiene su fase (RainbowPhase) para que el color recorra el arma como una ola.
+-- Funciona igual en tu arma (viewmodel) y en las de los demás. ~30 veces por segundo.
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+
+local SkinFX = {}
+
+local TAG = "RainbowSkin"
+local SPEED = 0.22 -- vueltas al arcoíris por segundo
+local parts = {} -- [part] = { Phase, Sat, Val }
+
+local function add(part)
+	if part:IsA("BasePart") then
+		parts[part] = {
+			Phase = part:GetAttribute("RainbowPhase") or 0,
+			Sat = part:GetAttribute("RainbowSat") or 1,
+			Val = part:GetAttribute("RainbowVal") or 1,
+		}
+	end
+end
+
+local function remove(part)
+	parts[part] = nil
+end
+
+function SkinFX.Init()
+	for _, part in CollectionService:GetTagged(TAG) do
+		add(part)
+	end
+	CollectionService:GetInstanceAddedSignal(TAG):Connect(add)
+	CollectionService:GetInstanceRemovedSignal(TAG):Connect(remove)
+	local accumulator = 0
+	RunService.RenderStepped:Connect(function(dt)
+		accumulator += dt
+		if accumulator < 1 / 30 then
+			return
+		end
+		accumulator = 0
+		local t = os.clock() * SPEED
+		for part, info in parts do
+			if part.Parent then
+				part.Color = Color3.fromHSV((t + info.Phase) % 1, info.Sat, info.Val)
+			else
+				parts[part] = nil
+			end
+		end
+	end)
+end
+
+return SkinFX
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="72">
+            <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
 local UI = {}
@@ -20670,7 +20782,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -20823,7 +20935,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -21691,7 +21803,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -21748,7 +21860,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -21942,19 +22054,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="76">
+  <Item class="Teams" referent="77">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="77">
+  <Item class="Workspace" referent="78">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="78">
+    <Item class="Terrain" referent="79">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

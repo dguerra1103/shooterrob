@@ -6,6 +6,8 @@
 -- Opcional:
 --   Effect = "Sparkle" (destellos) o "Flame" (llamas) alrededor del arma
 --   Pulse  = true: los detalles de neón laten entre Accent y Accent2
+--   Rainbow = { Accent = true, Body = true, ... }: esas piezas cambian de color sin parar (arcoíris);
+--             RainbowSat / RainbowVal = saturación y brillo de los colores (0-1)
 local Skins = {}
 
 Skins.List = {
@@ -280,6 +282,39 @@ Skins.List = {
 		Effect = "Flame",
 		Pulse = true,
 	},
+}
+
+-- Skins arcoíris (las anima el cliente, ver SkinFX)
+Skins.List.Arcoiris = {
+	Name = "Arcoíris",
+	Rarity = "Mítico",
+	Body = Color3.fromRGB(24, 24, 32),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(255, 60, 60),
+	PanelMaterial = Enum.Material.Neon, -- paneles y detalles brillan con los colores del arcoíris
+	Accent = Color3.fromRGB(255, 60, 60),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(12, 12, 16),
+	Accent2 = Color3.fromRGB(255, 255, 255),
+	Effect = "Sparkle",
+	Rainbow = { Panel = true, Accent = true, Accent2 = true },
+	RainbowSat = 1,
+	RainbowVal = 1,
+}
+Skins.List.Prisma = {
+	Name = "Prisma",
+	Rarity = "Legendario",
+	Body = Color3.fromRGB(255, 170, 210),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(250, 250, 255),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(255, 255, 255),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(60, 60, 80),
+	Accent2 = Color3.fromRGB(200, 230, 255),
+	Rainbow = { Body = true },
+	RainbowSat = 0.45,
+	RainbowVal = 1,
 }
 
 Skins.RarityColors = {

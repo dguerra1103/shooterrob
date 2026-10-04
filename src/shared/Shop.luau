@@ -57,6 +57,8 @@ Shop.SkinPrices = {
 	CamoArtico = 1200,
 	CamoTigre = 2200,
 	CamoNebulosa = 3200,
+	Prisma = 2800,
+	Arcoiris = 4500,
 }
 
 -- Precio en monedas de cada traje de operador (ver Outfits)
