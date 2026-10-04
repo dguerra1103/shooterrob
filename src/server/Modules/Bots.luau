@@ -23,6 +23,7 @@ local CONFIG = GameConfig.Bots
 local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega" }
 
 local folder
+local statsFolder -- ReplicatedStorage.BotStats: una carpeta por bot con Team, Kills, Deaths y Score (marcador)
 local agents = {} -- lista de bots activos
 local nameIndex = 0
 
@@ -319,6 +320,33 @@ end
 
 local spawnAgent, safeSpawn
 
+-- Estadísticas del bot para el marcador (Tab) de los clientes
+local function statsOf(agent)
+	if not statsFolder or not table.find(agents, agent) then
+		return nil
+	end
+	local entry = statsFolder:FindFirstChild(agent.Name)
+	if not entry then
+		entry = Instance.new("Folder")
+		entry.Name = agent.Name
+		entry:SetAttribute("Kills", 0)
+		entry:SetAttribute("Deaths", 0)
+		entry:SetAttribute("Score", 0)
+		entry.Parent = statsFolder
+	end
+	entry:SetAttribute("Team", agent.Team and agent.Team.Name or "")
+	return entry
+end
+
+-- Suma a una estadística del bot (Kills, Deaths o Score); lo llama Round al registrar bajas
+function Bots.AddStat(agent, field, amount)
+	local entry = agent and statsOf(agent)
+	if entry then
+		entry:SetAttribute(field, (entry:GetAttribute(field) or 0) + amount)
+	end
+end
+
+
 -- Nombre que no lleve ya otro bot activo
 local function nextName()
 	for _ = 1, #NAMES do
@@ -437,6 +465,7 @@ spawnAgent = function(agent)
 		root:SetNetworkOwner(nil)
 	end)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
+	statsOf(agent)
 	animate(humanoid)
 	agent.Weapon = CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
 	agent.Tool = Loadout.MakeTool(agent.Weapon, "Default")
@@ -464,6 +493,12 @@ local function removeAgent(agent)
 	local index = table.find(agents, agent)
 	if index then
 		table.remove(agents, index)
+	end
+	if statsFolder then
+		local entry = statsFolder:FindFirstChild(agent.Name)
+		if entry then
+			entry:Destroy()
+		end
 	end
 	Combat.BotsByName[agent.Name] = nil
 	if agent.Model then
@@ -577,6 +612,9 @@ function Bots.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "Bots"
 	folder.Parent = workspace
+	statsFolder = Instance.new("Folder")
+	statsFolder.Name = "BotStats"
+	statsFolder.Parent = ReplicatedStorage
 	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
 		if state() ~= "Playing" then
 			Bots.Reset()

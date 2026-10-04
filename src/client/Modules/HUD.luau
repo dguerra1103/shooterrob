@@ -343,7 +343,7 @@ local function buildWeaponPanel()
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -20, 0.18, 0),
-			Size = UDim2.fromOffset(220, 207),
+			Size = UDim2.fromOffset(220, 230),
 			BackgroundTransparency = 1,
 			Parent = gui,
 		}, {
@@ -363,6 +363,7 @@ local function buildWeaponPanel()
 			{ "Inspeccionar", "V" },
 			{ "Habilidades", "E Z X" },
 			{ "Emotes", "N" },
+			{ "Marcador", "Tab" },
 		} do
 			local row = UI.new("Frame", {
 				LayoutOrder = i,

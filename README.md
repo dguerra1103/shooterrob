@@ -81,6 +81,7 @@ rojo build -o ShooterRob.rbxlx
 | Inspeccionar arma | V | Cruceta arriba |
 | Habilidades: Impulso / Supersalto / Poción | E / Z / X | Cruceta izquierda / abajo |
 | Emotes | N (en móvil, botón 😀) | — |
+| Marcador (equipos, bajas, muertes; bots incluidos) | Tab (mantener; en móvil, botón 📋) | — |
 | Muerto: revivir instantáneo / regenerar ahora | B / Espacio o F | Y / A |
 
 En el móvil aparecen botones táctiles automáticamente (disparar, apuntar, recargar, cuchillo, correr, deslizar, granada, cambiar arma ⇄ y ataque aéreo).

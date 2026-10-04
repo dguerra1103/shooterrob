@@ -236,8 +236,12 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		victimColor = victimBot.Team.TeamColor.Color
 	end
 
+	if victimBot then
+		Bots.AddStat(victimBot, "Deaths", 1)
+	end
 	-- Un bot hace una baja: punto para su equipo (en equipos) o para él (todos contra todos)
 	if killerBot then
+		Bots.AddStat(killerBot, "Kills", 1)
 		if killerBot.Team then
 			killerColor = killerBot.Team.TeamColor.Color
 			if playing and currentMode == "TDM" then
@@ -245,6 +249,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			end
 		elseif playing and currentMode == "FFA" then
 			killerBot.Score = (killerBot.Score or 0) + 1
+			Bots.AddStat(killerBot, "Score", 1)
 			updateLeader()
 			if killerBot.Score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
 				roundOver = true
