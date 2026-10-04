@@ -31446,6 +31446,13 @@ local meleeWithKnife = false
 
 local recoilKick, recoilRot = 0, 0
 local camKick, camYaw = 0, 0
+-- Retroceso realista: muelles para el golpe del arma (empuja, se pasa un poco y vuelve) y la
+-- "deuda" de retroceso: lo que subió la mira en la ráfaga; al dejar de disparar vuelve una parte
+local kickVel, rotVel = 0, 0
+local recoilSide, sideVel = 0, 0
+local sprayCount = 0 -- disparos seguidos de la ráfaga actual
+local debtPitch, debtYaw = 0, 0
+local RECOVER = 0.65 -- parte del retroceso que la mira recupera sola al soltar
 local swayX, swayY = 0, 0
 local bobTime = 0
 local aimAlpha, sprintAlpha = 0, 0
@@ -31699,6 +31706,7 @@ local function onEquipped(tool)
 	end
 	equippedTool, def = tool, weaponDef
 	equipTime = os.clock()
+	sprayCount, debtPitch, debtYaw = 0, 0, 0 -- (el retroceso de otra arma no se recupera con esta)
 	inspectTime = -10
 	reloadStart = nil
 	localAmmo = tool:GetAttribute("Ammo") or 0
@@ -31784,14 +31792,19 @@ local function currentSpread()
 		return 0
 	end
 	local spread = lerp(def.Spread, def.AimSpread, aimAlpha)
+	local speed = 0
 	if rootPart then
 		local velocity = rootPart.AssemblyLinearVelocity
-		if Vector3.new(velocity.X, 0, velocity.Z).Magnitude > 2 then
-			spread *= 1.5
-		end
+		speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
 	end
+	-- Cuanto más rápido te mueves, menos preciso (apuntando se nota menos)
+	spread *= 1 + math.clamp(speed / 18, 0, 1.5) * (0.6 - aimAlpha * 0.35)
 	if humanoid and humanoid.FloorMaterial == Enum.Material.Air then
 		spread *= 2
+	end
+	-- Primer disparo quieto y tras una pausa: casi exacto
+	if speed < 2 and os.clock() - lastShot > math.max(0.35, 2.5 / def.FireRate) then
+		spread *= 0.45
 	end
 	return spread + ClientState.Bloom * (1 - aimAlpha * 0.7)
 end
@@ -31825,6 +31838,11 @@ local function fire()
 		return
 	end
 
+	if now - lastShot > math.max(0.3, 2.2 / def.FireRate) then
+		sprayCount = 0 -- ráfaga nueva
+	end
+	sprayCount += 1
+	local spread = currentSpread() -- (antes de apuntar este disparo: el primero va más preciso)
 	lastShot = now
 	localAmmo -= 1
 	ClientState.LastShotTime = now
@@ -31837,7 +31855,6 @@ local function fire()
 	local muzzle = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Muzzle")
 	local muzzlePos = muzzle and muzzle.WorldPosition or origin
 	local tracerColor = WeaponModels.GetPalette(equippedTool:GetAttribute("Weapon"), equippedTool:GetAttribute("Skin")).Accent
-	local spread = currentSpread()
 
 	local rays = {}
 	if def.Explosive then
@@ -31875,15 +31892,38 @@ local function fire()
 	if not def.Explosive then
 		Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
 	end
-	Sounds.PlayShot(equippedTool and equippedTool:GetAttribute("Weapon"), def)
+	local weaponName = equippedTool:GetAttribute("Weapon") or ""
+	Sounds.PlayShot(weaponName, def)
 	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
+	-- Mecánica del arma: cerrojo de los francotiradores y corredera de las escopetas
+	if not def.Explosive and def.FireRate <= 1.6 and localAmmo > 0 then
+		task.delay(0.28, function()
+			Sounds.Play("Reload", nil, def.Pellets > 1 and 0.85 or 1.35, 0.55)
+		end)
+	end
 
-	-- Retroceso
+	-- Retroceso. La mira sube más en los primeros disparos de la ráfaga y luego se estabiliza;
+	-- el lado sigue un patrón propio de cada arma (se puede aprender a controlar) con algo de azar.
 	local recoil = math.rad(def.Recoil)
-	recoilKick += 0.08 + def.Recoil * 0.03
-	recoilRot += recoil * 0.6
-	camKick += recoil * (1 - aimAlpha * 0.35)
-	camYaw += (math.random() - 0.5) * recoil * 0.5
+	local ads = 1 - aimAlpha * 0.35
+	local climb = recoil * (0.75 + 0.5 * math.min(sprayCount, 6) / 6) * ads
+	local seed = #weaponName * 1.7
+	local drift = math.sin(sprayCount * 0.55 + seed) * 0.45 + (math.random() - 0.5) * 0.25
+	local yaw = recoil * drift * (sprayCount > 3 and 1 or 0.4) * ads
+	camKick += climb
+	camYaw += yaw
+	debtPitch += climb
+	debtYaw += yaw
+	-- Golpe del arma en la mano (muelles): hacia atrás, hacia arriba y un poco de lado
+	local hip = 1 - aimAlpha * 0.5
+	kickVel += (1.6 + def.Recoil * 0.55) * hip
+	rotVel += recoil * 10 * hip
+	sideVel += (math.random() - 0.5) * recoil * 9
+	-- Las armas potentes sacuden la cámara y abren un poco el campo de visión
+	if def.Recoil >= 3 then
+		ClientState.Shake = math.max(ClientState.Shake or 0, def.Recoil * 0.05)
+		ClientState.FovKick = (ClientState.FovKick or 0) + def.Recoil * 0.22
+	end
 	ClientState.Bloom = math.min(ClientState.Bloom + def.Recoil * 0.4, 6)
 	ClientState.ShotFired:Fire()
 
@@ -31958,7 +31998,8 @@ local function renderStep(dt)
 		fire()
 	end
 
-	ClientState.Bloom = math.max(0, ClientState.Bloom - dt * 8)
+	local firing = os.clock() - lastShot < 0.15
+	ClientState.Bloom = math.max(0, ClientState.Bloom - dt * (firing and 5 or 14))
 	ClientState.Spread = currentSpread()
 
 	-- Recarga: tiempo límite por si el servidor la rechazó
@@ -31990,6 +32031,19 @@ local function renderStep(dt)
 	camYaw -= applyYaw
 	if applyPitch ~= 0 or applyYaw ~= 0 then
 		camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
+	end
+	-- Recuperación: al dejar de disparar, la mira baja sola parte de lo que subió. Si mientras
+	-- disparabas ya tirabas del ratón hacia abajo, eso cuenta y no baja de más.
+	local mouseDown = UserInputService:GetMouseDelta().Y
+	if mouseDown > 0 and debtPitch > 0 then
+		debtPitch = math.max(0, debtPitch - mouseDown * 0.0025)
+	end
+	if os.clock() - lastShot > 0.12 and math.abs(camKick) < 0.002 and (debtPitch > 0.0005 or math.abs(debtYaw) > 0.0005) then
+		local r = math.min(1, dt * 7)
+		local backPitch, backYaw = debtPitch * r, debtYaw * r
+		debtPitch -= backPitch
+		debtYaw -= backYaw
+		camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
 	end
 
 	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
@@ -32096,9 +32150,15 @@ local function renderStep(dt)
 	local sway = CFrame.Angles(swayY * swayScale, swayX * swayScale, swayX * 0.6 * swayScale)
 
 	-- Retroceso del arma
-	recoilKick = lerp(recoilKick, 0, math.min(1, dt * 16))
-	recoilRot = lerp(recoilRot, 0, math.min(1, dt * 14))
-	local recoilCF = CFrame.new(0, 0, recoilKick) * CFrame.Angles(recoilRot, 0, 0)
+	-- (muelles amortiguados: el arma va hacia atrás, se pasa un poquito al volver y se asienta)
+	local sdt = math.min(dt, 1 / 30)
+	kickVel += (-260 * recoilKick - 24 * kickVel) * sdt
+	recoilKick += kickVel * sdt
+	rotVel += (-220 * recoilRot - 20 * rotVel) * sdt
+	recoilRot += rotVel * sdt
+	sideVel += (-180 * recoilSide - 18 * sideVel) * sdt
+	recoilSide += sideVel * sdt
+	local recoilCF = CFrame.new(recoilSide * 0.4, 0, recoilKick) * CFrame.Angles(recoilRot, recoilSide * 0.6, recoilSide * 1.5)
 
 	-- Cadera -> mira
 	local base = def.ViewOffset
@@ -32289,6 +32349,10 @@ local function onCharacter(newCharacter)
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	aimHeld = false
 	camKick, camYaw = 0, 0
+	debtPitch, debtYaw = 0, 0
+	recoilKick, recoilRot, recoilSide = 0, 0, 0
+	kickVel, rotVel, sideVel = 0, 0, 0
+	sprayCount = 0
 	updateRayFilter()
 
 	table.insert(characterConnections, newCharacter.ChildAdded:Connect(function(child)
