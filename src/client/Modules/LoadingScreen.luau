@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
 
 local LoadingScreen = {}
 
@@ -53,7 +54,8 @@ end
 
 local function refresh()
 	local mapName = ReplicatedStorage:GetAttribute("LoadingMap")
-	if mapName then
+	-- (en la pantalla de inicio no: taparía el menú, la tienda y las noticias)
+	if mapName and not ClientState.InMainMenu then
 		show(mapName)
 	else
 		hide()
@@ -65,7 +67,7 @@ function LoadingScreen.Init()
 		Name = "LoadingScreen",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
-		DisplayOrder = 30,
+		DisplayOrder = 7, -- (por debajo de la presentación de la partida)
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})

@@ -71,6 +71,7 @@ end
 function EnemyName.Init()
 	billboard = Instance.new("BillboardGui")
 	billboard.Name = "EnemyName"
+	billboard.ResetOnSpawn = false -- (si no, Roblox lo borraría al aparecer)
 	billboard.Size = UDim2.fromOffset(160, 24)
 	billboard.StudsOffset = Vector3.new(0, 2.4, 0)
 	billboard.AlwaysOnTop = true

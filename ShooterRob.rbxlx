@@ -13631,7 +13631,7 @@ local function fire(cf, size)
 	flames.Color = RGB(255, 140, 40)
 	flames.SecondaryColor = RGB(255, 60, 20)
 	flames.Parent = core
-	Kit.light(core, "PointLight", RGB(255, 150, 70), 20, 1.6)
+	Kit.light(core, "PointLight", RGB(255, 150, 70), 14, 1.6)
 end
 
 ---------------------------------------------------------------------------
@@ -28804,6 +28804,7 @@ end
 function EnemyName.Init()
 	billboard = Instance.new("BillboardGui")
 	billboard.Name = "EnemyName"
+	billboard.ResetOnSpawn = false -- (si no, Roblox lo borraría al aparecer)
 	billboard.Size = UDim2.fromOffset(160, 24)
 	billboard.StudsOffset = Vector3.new(0, 2.4, 0)
 	billboard.AlwaysOnTop = true
@@ -31638,6 +31639,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
 
 local LoadingScreen = {}
 
@@ -31685,7 +31687,8 @@ end
 
 local function refresh()
 	local mapName = ReplicatedStorage:GetAttribute("LoadingMap")
-	if mapName then
+	-- (en la pantalla de inicio no: taparía el menú, la tienda y las noticias)
+	if mapName and not ClientState.InMainMenu then
 		show(mapName)
 	else
 		hide()
@@ -31697,7 +31700,7 @@ function LoadingScreen.Init()
 		Name = "LoadingScreen",
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
-		DisplayOrder = 30,
+		DisplayOrder = 7, -- (por debajo de la presentación de la partida)
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
@@ -37312,6 +37315,16 @@ local function applyDetail(inst)
 	end
 end
 
+-- Fuegos del mapa (Encrucijada de noche): en calidad Baja, sin llamas (la luz se queda)
+local function applyFire(inst)
+	if inst:IsA("Fire") then
+		local map = workspace:FindFirstChild("Map")
+		if map and inst:IsDescendantOf(map) then
+			inst.Enabled = effectiveQuality() ~= "Baja"
+		end
+	end
+end
+
 local function applyQuality()
 	local q = effectiveQuality()
 	ClientState.EffectiveQuality = q
@@ -37351,6 +37364,7 @@ local function applyQuality()
 			scaleEmitter(d)
 			applyLightShadow(d)
 			applyDetail(d)
+			applyFire(d)
 		end
 	end
 end
@@ -37414,6 +37428,8 @@ function Settings.Init()
 			task.defer(scaleEmitter, inst)
 		elseif inst:IsA("Light") then
 			task.defer(applyLightShadow, inst)
+		elseif inst:IsA("Fire") then
+			task.defer(applyFire, inst)
 		elseif HIDE_BELOW[inst.Name] then
 			task.defer(applyDetail, inst)
 		end

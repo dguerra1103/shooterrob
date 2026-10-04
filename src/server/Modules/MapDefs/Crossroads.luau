@@ -92,7 +92,7 @@ local function fire(cf, size)
 	flames.Color = RGB(255, 140, 40)
 	flames.SecondaryColor = RGB(255, 60, 20)
 	flames.Parent = core
-	Kit.light(core, "PointLight", RGB(255, 150, 70), 20, 1.6)
+	Kit.light(core, "PointLight", RGB(255, 150, 70), 14, 1.6)
 end
 
 ---------------------------------------------------------------------------

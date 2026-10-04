@@ -88,6 +88,16 @@ local function applyDetail(inst)
 	end
 end
 
+-- Fuegos del mapa (Encrucijada de noche): en calidad Baja, sin llamas (la luz se queda)
+local function applyFire(inst)
+	if inst:IsA("Fire") then
+		local map = workspace:FindFirstChild("Map")
+		if map and inst:IsDescendantOf(map) then
+			inst.Enabled = effectiveQuality() ~= "Baja"
+		end
+	end
+end
+
 local function applyQuality()
 	local q = effectiveQuality()
 	ClientState.EffectiveQuality = q
@@ -127,6 +137,7 @@ local function applyQuality()
 			scaleEmitter(d)
 			applyLightShadow(d)
 			applyDetail(d)
+			applyFire(d)
 		end
 	end
 end
@@ -190,6 +201,8 @@ function Settings.Init()
 			task.defer(scaleEmitter, inst)
 		elseif inst:IsA("Light") then
 			task.defer(applyLightShadow, inst)
+		elseif inst:IsA("Fire") then
+			task.defer(applyFire, inst)
 		elseif HIDE_BELOW[inst.Name] then
 			task.defer(applyDetail, inst)
 		end
