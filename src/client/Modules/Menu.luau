@@ -423,6 +423,19 @@ local function buildPassPage(data)
 			Parent = scroll,
 		})
 	end
+	-- Después del pase
+	local bonus = GameConfig.PostPassRewards
+	if bonus then
+		UI.label({
+			LayoutOrder = last + 2,
+			Size = UDim2.fromOffset(150, 280),
+			Text = "⭐ Después del nivel " .. #GameConfig.BattlePass .. ":\ncada " .. bonus.Every .. " niveles\n+" .. bonus.Coins .. " 🪙\ny " .. bonus.Crates .. " 📦",
+			TextSize = 16,
+			TextWrapped = true,
+			TextColor3 = GOLD,
+			Parent = scroll,
+		})
+	end
 end
 
 ---------------------------------------------------------------------------

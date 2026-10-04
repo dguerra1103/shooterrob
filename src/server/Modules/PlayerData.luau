@@ -89,6 +89,7 @@ local function defaults()
 		LastDailyDay = -1,
 		LastPlayDay = -1,
 		FirstWinDay = -1, -- día de la última "primera victoria del día"
+		BonusLevel = 0, -- último nivel revisado para los premios de después del pase (0 = sin empezar)
 		CratePity = 0, -- partidas seguidas sin caja sorpresa -- último día (Shop.DayNumber) en que entró: para el premio de regreso
 		FreeCrates = 0,
 		Purchases = {},
@@ -345,6 +346,25 @@ local function grantTierRewards(player)
 		if data.Premium and not data.ClaimedPremium[k] then
 			data.ClaimedPremium[k] = true
 			grant(player, data, t.Premium)
+		end
+	end
+	-- Tras el pase: premio cada pocos niveles (GameConfig.PostPassRewards). BonusLevel = último nivel
+	-- ya revisado; 0 = sin empezar (los que ya estaban por encima del pase empiezan a contar desde ahora)
+	local bonus = GameConfig.PostPassRewards
+	local passLevels = #GameConfig.BattlePass
+	if bonus then
+		local checked = tonumber(data.BonusLevel) or 0
+		if checked <= 0 then
+			data.BonusLevel = math.max(data.Level, passLevels)
+		elseif data.Level > checked then
+			for level = checked + 1, data.Level do
+				if level > passLevels and (level - passLevels) % bonus.Every == 0 then
+					data.Coins += bonus.Coins
+					data.FreeCrates += bonus.Crates
+					Remotes.Notify:FireClient(player, "Challenge", "⭐ ¡Nivel " .. level .. "! +" .. bonus.Coins .. " 🪙 y " .. bonus.Crates .. (bonus.Crates == 1 and " caja" or " cajas"))
+				end
+			end
+			data.BonusLevel = data.Level
 		end
 	end
 end

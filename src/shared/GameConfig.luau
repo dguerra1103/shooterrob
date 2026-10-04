@@ -373,6 +373,9 @@ GameConfig.Badges = {
 	RankChampion = 0, -- llegar a rango Campeón
 }
 
+-- Después del último nivel del pase: cada Every niveles, Coins monedas y Crates cajas gratis.
+GameConfig.PostPassRewards = { Every = 5, Coins = 300, Crates = 1 }
+
 -- Recompensas por nivel. Free = pase gratis, Premium = pase de pago.
 -- Tipos: { Type = "Skin", Id = "<id de Skins>" } o { Type = "Coins", Amount = n }
 GameConfig.BattlePass = {
