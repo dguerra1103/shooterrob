@@ -37,6 +37,7 @@ local FUNCTIONS = {
 	"OpenCrate", -- abrir una caja
 	"RerollChallenge", -- cambiar un reto diario
 	"InstantRevive", -- revivir donde moriste (gasta un revivir)
+	"UsePotion", -- habilidad Poción: cura con el tiempo (el servidor controla la recarga)
 }
 
 local Remotes = {}

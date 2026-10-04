@@ -566,7 +566,13 @@ local function renderStep(dt)
 		targetFov = lerp(baseFov, math.min(def.AimFOV, baseFov), aimAlpha)
 		aimScale = lerp(1, (settings.AimSensitivity or 0.8) * math.min(1, def.AimFOV / baseFov) ^ 0.5, aimAlpha)
 	end
-	camera.FieldOfView = targetFov + sprintAlpha * 6
+	local kick = ClientState.FovKick or 0
+	if kick > 0.01 then
+		ClientState.FovKick = kick * math.max(0, 1 - dt * 5)
+	else
+		ClientState.FovKick = 0
+	end
+	camera.FieldOfView = targetFov + sprintAlpha * 6 + kick
 	UserInputService.MouseDeltaSensitivity = (settings.Sensitivity or 1) * aimScale
 
 	if not viewmodel or not def then

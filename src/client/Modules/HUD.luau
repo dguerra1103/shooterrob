@@ -361,6 +361,7 @@ local function buildWeaponPanel()
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },
 			{ "Inspeccionar", "V" },
+			{ "Habilidades", "E Z X" },
 			{ "Correr", "Shift" },
 		} do
 			local row = UI.new("Frame", {

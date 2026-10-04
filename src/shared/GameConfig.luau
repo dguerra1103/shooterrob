@@ -41,6 +41,13 @@ GameConfig.RespawnTime = 3
 GameConfig.RespawnNowDelay = 1 -- "Regenerar ahora" se puede pulsar a partir de este segundo
 GameConfig.StartingRevives = 3 -- revivir instantáneos con los que empieza un jugador nuevo
 GameConfig.ReviveShieldTime = 2 -- segundos de escudo al revivir
+
+-- Habilidades (iconos abajo en el centro): Impulso (E), Supersalto (Z) y Poción (X)
+GameConfig.Abilities = {
+	Dash = { Cooldown = 6, Speed = 78, Duration = 0.2 },
+	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
+	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },
+}
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
 
