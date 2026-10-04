@@ -15,6 +15,7 @@ local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 local Friends = require(script.Parent.Friends)
+local Badges = require(script.Parent.Badges)
 local Challenges = require(Shared.Challenges)
 local Mastery = require(Shared.Mastery)
 local KillEffects = require(Shared.KillEffects)
@@ -370,6 +371,7 @@ local function load(player)
 		return
 	end
 	profiles[player] = merged
+	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
 	grantTierRewards(player)
 	sendUpdate(player)
@@ -532,6 +534,7 @@ function PlayerData.AddXP(player, amount, reason)
 		leveled = true
 	end
 	if leveled then
+		Badges.Check(player, data)
 		PlayerData.GetLeaderstats(player).Nivel.Value = data.Level
 		Remotes.Notify:FireClient(player, "LevelUp", data.Level)
 		-- ¿Desbloquea alguna arma este nivel?
@@ -562,6 +565,9 @@ function PlayerData.Increment(player, field, amount)
 	local data = profiles[player]
 	if data and type(data[field]) == "number" then
 		data[field] += amount or 1
+		if field == "TotalKills" or field == "Wins" then
+			Badges.Check(player, data)
+		end
 	end
 end
 
@@ -928,6 +934,7 @@ function PlayerData.Init()
 		save(player, true)
 		pending -= 1
 		profiles[player] = nil
+		Badges.Forget(player)
 		noSave[player] = nil
 		match[player] = nil
 		cratesRestricted[player] = nil

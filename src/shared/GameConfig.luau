@@ -119,6 +119,15 @@ GameConfig.Coins = {
 -- Con 0 el botón de compra queda desactivado.
 GameConfig.PremiumPassId = 0
 
+-- Insignias de Roblox (Creator Hub → Insignias). Pega el ID de cada una; con 0 no se da.
+GameConfig.Badges = {
+	Welcome = 0, -- entrar por primera vez
+	FirstKill = 0, -- primera baja
+	Kills100 = 0, -- 100 bajas
+	FirstWin = 0, -- primera victoria
+	Level10 = 0, -- nivel 10
+}
+
 -- Recompensas por nivel. Free = pase gratis, Premium = pase de pago.
 -- Tipos: { Type = "Skin", Id = "<id de Skins>" } o { Type = "Coins", Amount = n }
 GameConfig.BattlePass = {
