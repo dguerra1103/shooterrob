@@ -5,6 +5,7 @@
 -- con cualquier otra skin, todas las armas usan los colores de esa skin.
 local Weapons = require(script.Parent.Weapons)
 local Skins = require(script.Parent.Skins)
+local Charms = require(script.Parent.Charms)
 
 local WeaponModels = {}
 
@@ -188,7 +189,14 @@ end
 
 -- Devuelve un Model con PrimaryPart = Handle. Las piezas van soldadas al Handle.
 -- withEffects = false para no añadir partículas (por ejemplo en iconos).
-function WeaponModels.Build(weaponName, skinId, withEffects)
+-- Punto del que cuelga el colgante: lateral derecho del arma, por encima y delante de la empuñadura
+function WeaponModels.CharmPoint(def)
+	local grip = def.RightHand or Vector3.new(0, -0.4, 0.2)
+	return CFrame.new(0.13, grip.Y + 0.42, grip.Z - 0.28)
+end
+
+-- charmId (opcional): colgante (Charms) para las armas de fuego
+function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
 	local def = Weapons.Get(weaponName)
 	assert(def, "Arma desconocida: " .. tostring(weaponName))
 	local pal = WeaponModels.GetPalette(weaponName, skinId)
@@ -250,6 +258,17 @@ function WeaponModels.Build(weaponName, skinId, withEffects)
 		attach("AimPoint", def.AimPoint)
 	end
 	attach("Eject", def.Eject or Vector3.new(0.22, 0.08, 0))
+
+	-- Colgante (cuelga del lateral; en el arma en primera persona se balancea, ver WeaponController)
+	if charmId and charmId ~= "Default" and def.Type == "Gun" and handle then
+		for _, piece in Charms.Build(charmId, handle.CFrame * WeaponModels.CharmPoint(def)) do
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = piece
+			weld.Parent = piece
+			piece.Parent = model
+		end
+	end
 
 	model:SetAttribute("Weapon", weaponName)
 	model.PrimaryPart = handle

@@ -34,6 +34,15 @@ for id in Shop.SkinPrices do
 	table.insert(BOT_SKINS, id)
 end
 table.sort(BOT_SKINS)
+-- Colgantes de arma que pueden llevar
+local Charms = require(Shared.Charms)
+local BOT_CHARMS = {}
+for id, charm in Charms.List do
+	if charm.Price then
+		table.insert(BOT_CHARMS, id)
+	end
+end
+table.sort(BOT_CHARMS)
 
 local Bots = {}
 
@@ -642,7 +651,10 @@ spawnAgent = function(agent)
 	if agent.Skin == nil then
 		agent.Skin = (#BOT_SKINS > 0 and math.random() < 0.5) and BOT_SKINS[math.random(1, #BOT_SKINS)] or "Default"
 	end
-	agent.Tool = Loadout.MakeTool(agent.Weapon, agent.Zombie and "Default" or agent.Skin)
+	if agent.Charm == nil then
+		agent.Charm = (#BOT_CHARMS > 0 and math.random() < 0.3) and BOT_CHARMS[math.random(1, #BOT_CHARMS)] or false
+	end
+	agent.Tool = Loadout.MakeTool(agent.Weapon, agent.Zombie and "Default" or agent.Skin, agent.Charm or nil)
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
 	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0

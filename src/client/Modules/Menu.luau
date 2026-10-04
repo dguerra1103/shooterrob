@@ -16,6 +16,7 @@ local KillEffects = require(Shared.KillEffects)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
+local Charms = require(Shared.Charms)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -1054,6 +1055,40 @@ local function buildSkinsPage(data)
 			Sounds.Play("Click")
 			Remotes.EquipSkin:FireServer(id)
 		end, skin.Event and "🎃 Evento: caramelos" or nil)
+	end
+
+	-- Colgantes para el arma (en la misma rejilla, después de las skins)
+	local header = UI.new("Frame", { LayoutOrder = 999, BackgroundColor3 = Color3.fromRGB(60, 50, 90), Parent = scroll }, { UI.corner(10) })
+	UI.label({
+		Size = UDim2.fromScale(1, 1),
+		Text = "🔑 COLGANTES\nCuelgan de tu arma y se balancean\n(se ven al reaparecer)",
+		TextSize = 16,
+		TextWrapped = true,
+		TextColor3 = GOLD,
+		Parent = header,
+	})
+	local charmsOwned = data.Charms or { Default = true }
+	for i, id in sortedIds(Charms.List) do
+		local charm = Charms.List[id]
+		local equipped = (data.EquippedCharm or "Default") == id
+		local card = UI.new("Frame", { LayoutOrder = 1000 + i, BackgroundColor3 = CARD_BG, Parent = scroll }, {
+			UI.corner(10),
+			UI.stroke(equipped and GOLD or rarityColor(charm.Rarity), 2, equipped and 0 or 0.4),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 56), Text = charm.Icon, TextSize = 44, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 62), Size = UDim2.new(1, 0, 0, 22), Text = charm.Name, TextSize = 18, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 84),
+			Size = UDim2.new(1, 0, 0, 16),
+			Text = charm.Rarity,
+			TextSize = 14,
+			TextColor3 = rarityColor(charm.Rarity),
+			Parent = card,
+		})
+		priceButton(card, "Charm", id, charmsOwned[id] == true, equipped, function()
+			Sounds.Play("Click")
+			Remotes.EquipCharm:FireServer(id)
+		end)
 	end
 end
 

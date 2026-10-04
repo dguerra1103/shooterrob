@@ -149,6 +149,29 @@ local function hideToolLocally(tool)
 	end
 end
 
+local charmParts = {} -- { Part, Offset } del colgante del arma en primera persona
+local charmRing = nil
+local charmSwing, charmVelocity, lastCameraLook = 0, 0, nil
+
+-- El colgante se balancea como un péndulo: lo empuja el giro de la cámara y vuelve solo
+local function swingCharm(dt)
+	if not charmRing or not charmRing.Parent then
+		return
+	end
+	local look = camera.CFrame.LookVector
+	local push = 0
+	if lastCameraLook then
+		push = lastCameraLook:Cross(look).Y * 40 -- giro horizontal de este fotograma
+	end
+	lastCameraLook = look
+	charmVelocity += (-charmSwing * 60 - charmVelocity * 4 + push * 30) * math.min(dt, 0.05)
+	charmSwing = math.clamp(charmSwing + charmVelocity * math.min(dt, 0.05), -0.8, 0.8)
+	local pivot = charmRing.CFrame * CFrame.Angles(0, 0, charmSwing)
+	for _, entry in charmParts do
+		entry.Part.CFrame = pivot * entry.Offset
+	end
+end
+
 local function destroyViewmodel()
 	if viewmodel then
 		viewmodel:Destroy()
@@ -161,7 +184,18 @@ local function createViewmodel(tool)
 	destroyViewmodel()
 	local weaponName = tool:GetAttribute("Weapon")
 	local weaponDef = Weapons.Get(weaponName)
-	local model = WeaponModels.Build(weaponName, tool:GetAttribute("Skin"))
+	local model = WeaponModels.Build(weaponName, tool:GetAttribute("Skin"), nil, tool:GetAttribute("Charm"))
+	-- Colgante: se guarda dónde está cada pieza respecto a la anilla para balancearlas (renderStep)
+	table.clear(charmParts)
+	local ring = model:FindFirstChild("CharmRing")
+	if ring then
+		for _, part in model:GetChildren() do
+			if part:IsA("BasePart") and part ~= ring and string.sub(part.Name, 1, 5) == "Charm" then
+				table.insert(charmParts, { Part = part, Offset = ring.CFrame:ToObjectSpace(part.CFrame) })
+			end
+		end
+	end
+	charmRing = ring
 	if weaponDef.RightHand then
 		addArm(model, weaponDef.RightHand, RIGHT_SHOULDER, weaponDef)
 	end
@@ -685,6 +719,7 @@ local function renderStep(dt)
 	setViewmodelHidden(hide)
 	if not hide then -- oculta no hace falta moverla cada fotograma
 		viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
+		swingCharm(dt)
 	end
 end
 

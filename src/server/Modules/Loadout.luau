@@ -15,7 +15,7 @@ local Loadout = {}
 -- Los modos de juego pueden cambiar las armas: function(player) -> { "Arma1", "Arma2", ... } o nil
 Loadout.Override = nil
 
-function Loadout.MakeTool(weaponName, skinId)
+function Loadout.MakeTool(weaponName, skinId, charmId)
 	local def = Weapons.Get(weaponName)
 	local tool = Instance.new("Tool")
 	tool.Name = def.DisplayName
@@ -36,7 +36,8 @@ function Loadout.MakeTool(weaponName, skinId)
 		end)
 	end
 
-	local model = WeaponModels.Build(weaponName, skinId)
+	local model = WeaponModels.Build(weaponName, skinId, nil, charmId)
+	tool:SetAttribute("Charm", charmId or "Default")
 	for _, child in model:GetChildren() do
 		child.Parent = tool
 	end
@@ -106,7 +107,7 @@ function Loadout.Give(player, list)
 	local first
 	for _, weaponName in list do
 		if Weapons.Get(weaponName) then
-			local tool = Loadout.MakeTool(weaponName, PlayerData.SkinFor(data, weaponName))
+			local tool = Loadout.MakeTool(weaponName, PlayerData.SkinFor(data, weaponName), data and data.EquippedCharm)
 			tool.Parent = backpack
 			first = first or tool
 		end
