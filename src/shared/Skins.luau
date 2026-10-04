@@ -284,6 +284,58 @@ Skins.List = {
 	},
 }
 
+-- Skins de los mapas nuevos
+Skins.List.Caramelo = {
+	Name = "Caramelo",
+	Rarity = "Raro",
+	Body = Color3.fromRGB(255, 150, 200),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(140, 230, 200),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(255, 255, 255),
+	AccentMaterial = Enum.Material.SmoothPlastic,
+	Dark = Color3.fromRGB(120, 60, 90),
+	Accent2 = Color3.fromRGB(255, 220, 90),
+}
+Skins.List.Juguete = {
+	Name = "Juguete",
+	Rarity = "Raro",
+	Body = Color3.fromRGB(235, 50, 50),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(40, 120, 235),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(255, 210, 40),
+	AccentMaterial = Enum.Material.SmoothPlastic,
+	Dark = Color3.fromRGB(40, 40, 46),
+	Accent2 = Color3.fromRGB(60, 200, 90),
+}
+Skins.List.Tiki = {
+	Name = "Tiki",
+	Rarity = "Épico",
+	Body = Color3.fromRGB(150, 95, 50),
+	BodyMaterial = Enum.Material.Wood,
+	Panel = Color3.fromRGB(60, 210, 220),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(255, 140, 40),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(70, 45, 25),
+	Accent2 = Color3.fromRGB(255, 220, 90),
+	Effect = "Flame",
+}
+Skins.List.Pintura = {
+	Name = "Salpicón",
+	Rarity = "Legendario",
+	Body = Color3.fromRGB(245, 245, 250),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(255, 60, 140),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(60, 200, 255),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(255, 200, 40),
+	Accent2 = Color3.fromRGB(120, 230, 60),
+	Effect = "Sparkle",
+}
+
 -- Skins arcoíris (las anima el cliente, ver SkinFX)
 Skins.List.Arcoiris = {
 	Name = "Arcoíris",

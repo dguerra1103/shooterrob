@@ -58,6 +58,10 @@ Shop.SkinPrices = {
 	CamoTigre = 2200,
 	CamoNebulosa = 3200,
 	Prisma = 2800,
+	Caramelo = 450,
+	Juguete = 450,
+	Tiki = 900,
+	Pintura = 2200,
 	Arcoiris = 4500,
 }
 
