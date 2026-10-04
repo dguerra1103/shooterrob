@@ -503,7 +503,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 14, #GameConfig.Modes, weaponCount()),
+		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 15, #GameConfig.Modes, weaponCount()),
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -515,7 +515,7 @@ function MainMenu.Init()
 		Size = UDim2.new(1, 0, 0, 26),
 		-- (empieza por el evento de temporada si hay uno en marcha)
 		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. string.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
-			.. "🧟 Infección · 🎃 Modo Calabazas · 🎡 Mapa Feria · 💰 SE BUSCA",
+			.. "🧟 Infección · 🎃 Modo Calabazas · 🤠 Pueblo Vaquero · ⚡ Potenciadores",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
