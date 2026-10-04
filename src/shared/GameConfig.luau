@@ -146,6 +146,7 @@ GameConfig.News = {
 		{ "👤", "Pestaña Perfil con tus estadísticas y 24 logros con premio" },
 		{ "🔪", "Guadaña, colgantes para tu arma y efectos de Halloween en la tienda" },
 		{ "💰", "SE BUSCA: con 5 bajas seguidas hay recompensa por tu cabeza" },
+		{ "📅", "Retos semanales con grandes premios y grafitis (tecla J)" },
 	},
 }
 

@@ -97,6 +97,7 @@ local function defaults()
 		WeaponKills = {}, -- bajas con cada arma (maestría)
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
+		WeeklyChallenges = { Week = -1, List = {}, Bonus = false }, -- retos semanales
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
@@ -130,8 +131,43 @@ local function ensureChallenges(player, data)
 	return state
 end
 
+-- Reparte retos semanales nuevos si ha empezado otra semana
+local function ensureWeekly(player, data)
+	local week = Challenges.WeekNumber(Shop.DayNumber())
+	local state = data.WeeklyChallenges
+	if type(state) ~= "table" or state.Week ~= week or type(state.List) ~= "table" then
+		local list = {}
+		for _, id in Challenges.Pick(week, player.UserId, data.Level, Challenges.WeeklyCount, nil, 17, Challenges.WeeklyPool) do
+			table.insert(list, { Id = id, Progress = 0, Done = false })
+		end
+		state = { Week = week, List = list, Bonus = false }
+		data.WeeklyChallenges = state
+	end
+	return state
+end
+
+local function entriesView(entries)
+	local list = {}
+	for _, entry in entries do
+		local def = Challenges.Get(entry.Id)
+		if def then
+			table.insert(list, {
+				Id = entry.Id,
+				Text = def.Text,
+				Goal = def.Goal,
+				Progress = math.min(entry.Progress, def.Goal),
+				Done = entry.Done,
+				Coins = def.Coins,
+				XP = def.XP,
+			})
+		end
+	end
+	return list
+end
+
 local function challengesView(player, data)
 	local state = ensureChallenges(player, data)
+	local weekly = ensureWeekly(player, data)
 	local list = {}
 	for _, entry in state.List do
 		local def = Challenges.Get(entry.Id)
@@ -152,6 +188,12 @@ local function challengesView(player, data)
 		RerollsLeft = math.max(0, Challenges.RerollsPerDay - (state.Rerolls or 0)),
 		Bonus = state.Bonus == true,
 		BonusCrates = Challenges.BonusCrates,
+		Weekly = {
+			List = entriesView(weekly.List),
+			Bonus = weekly.Bonus == true,
+			BonusCrates = Challenges.WeeklyBonusCrates,
+			EndsAt = Challenges.WeekEndsAt(weekly.Week),
+		},
 	}
 end
 
@@ -791,7 +833,38 @@ function PlayerData.Track(player, stat, amount, weaponName)
 			Remotes.Notify:FireClient(player, "Unlock", "¡Todos los retos de hoy completados! Caja gratis 🎁")
 		end
 	end
-	if changed then
+	-- Retos semanales
+	local weekly = ensureWeekly(player, data)
+	local weeklyChanged = false
+	for _, entry in weekly.List do
+		local def = Challenges.Get(entry.Id)
+		if def and not entry.Done and Challenges.Matches(def, stat, weaponName) then
+			if stat == "Streak" then
+				entry.Progress = math.max(entry.Progress, amount or 0)
+			else
+				entry.Progress += amount or 1
+			end
+			if entry.Progress >= def.Goal then
+				entry.Done = true
+				weeklyChanged = true
+				Remotes.Notify:FireClient(player, "Challenge", "¡RETO SEMANAL COMPLETADO! +" .. def.Coins .. " 🪙")
+				PlayerData.AddCoins(player, def.Coins, false)
+				PlayerData.AddXP(player, def.XP, "Reto semanal")
+			end
+		end
+	end
+	if weeklyChanged and not weekly.Bonus then
+		local all = #weekly.List > 0
+		for _, entry in weekly.List do
+			all = all and entry.Done
+		end
+		if all then
+			weekly.Bonus = true
+			data.FreeCrates += Challenges.WeeklyBonusCrates
+			Remotes.Notify:FireClient(player, "Unlock", "¡Retos de la semana completados! " .. Challenges.WeeklyBonusCrates .. " cajas gratis 🎁")
+		end
+	end
+	if changed or weeklyChanged then
 		sendUpdate(player)
 	end
 end

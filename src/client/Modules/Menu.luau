@@ -718,12 +718,82 @@ local function buildChallengesPage(data)
 		TextColor3 = GOLD,
 		Parent = bonus,
 	})
+	-- Retos semanales: más largos y con más premio (sin cambio de reto)
+	local weekly = info.Weekly
+	if weekly and #weekly.List > 0 then
+		local left = math.max(0, (weekly.EndsAt or 0) - os.time())
+		UI.label({
+			LayoutOrder = 11,
+			Size = UDim2.new(1, -12, 0, 34),
+			Text = string.format("📅 RETOS DE LA SEMANA  ·  nuevos en %dd %dh", left // 86400, (left % 86400) // 3600),
+			TextSize = 22,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(120, 200, 255),
+			Parent = scroll,
+		})
+		local weeklyDone = 0
+		for i, challenge in weekly.List do
+			if challenge.Done then
+				weeklyDone += 1
+			end
+			local card = UI.new("Frame", {
+				LayoutOrder = 11 + i,
+				Size = UDim2.new(1, -12, 0, 76),
+				BackgroundColor3 = challenge.Done and Color3.fromRGB(34, 70, 50) or Color3.fromRGB(28, 40, 66),
+				Parent = scroll,
+			}, { UI.corner(12), UI.stroke(challenge.Done and GREEN or Color3.fromRGB(80, 150, 230), 2, 0) })
+			UI.label({
+				Position = UDim2.fromOffset(16, 8),
+				Size = UDim2.new(1, -260, 0, 28),
+				Text = (challenge.Done and "✅ " or "📅 ") .. challenge.Text,
+				TextSize = 21,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = card,
+			})
+			progressBar(card, UDim2.fromOffset(16, 46), UDim2.new(1, -300, 0, 14), challenge.Progress / challenge.Goal, challenge.Done and GREEN or Color3.fromRGB(80, 150, 230))
+			UI.label({
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -270, 0, 42),
+				Size = UDim2.fromOffset(140, 20),
+				Text = challenge.Progress .. " / " .. challenge.Goal,
+				TextSize = 16,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				Parent = card,
+			})
+			UI.label({
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -16, 0, 10),
+				Size = UDim2.fromOffset(230, 26),
+				Text = coinsText(challenge.Coins) .. "   +" .. challenge.XP .. " XP",
+				TextSize = 20,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				TextColor3 = GOLD,
+				Parent = card,
+			})
+		end
+		local weeklyBonus = UI.new("Frame", {
+			LayoutOrder = 20,
+			Size = UDim2.new(1, -12, 0, 56),
+			BackgroundColor3 = weekly.Bonus and Color3.fromRGB(70, 60, 20) or Color3.fromRGB(30, 45, 80),
+			Parent = scroll,
+		}, { UI.corner(12), UI.stroke(Color3.fromRGB(120, 200, 255), 2, weekly.Bonus and 0 or 0.5) })
+		UI.label({
+			Position = UDim2.fromOffset(16, 0),
+			Size = UDim2.new(1, -32, 1, 0),
+			Text = weekly.Bonus and "🎁 ¡Premio de la semana conseguido! Tus cajas están en la Tienda"
+				or ("🎁 Completa los " .. #weekly.List .. " retos semanales (" .. weeklyDone .. "/" .. #weekly.List .. ") y gana " .. weekly.BonusCrates .. " cajas gratis"),
+			TextSize = 19,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(150, 215, 255),
+			Parent = weeklyBonus,
+		})
+	end
 	-- Evento de temporada: premios por caramelos (GameConfig.Event) con su vista previa
 	local event = GameConfig.Event
 	if event and event.Enabled and ReplicatedStorage:GetAttribute("EventName") then
 		local candy = data.EventCandy or 0
 		local card = UI.new("Frame", {
-			LayoutOrder = 11,
+			LayoutOrder = 30,
 			Size = UDim2.new(1, -12, 0, 214),
 			BackgroundColor3 = Color3.fromRGB(50, 26, 66),
 			Parent = scroll,
@@ -803,7 +873,7 @@ local function buildChallengesPage(data)
 		end
 	end
 	UI.label({
-		LayoutOrder = 12,
+		LayoutOrder = 31,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Consejo: cada arma tiene MAESTRÍA. Consigue bajas con ella para ganar camuflajes Carbono, Oro, Diamante y Materia oscura (pestaña Armas).",
 		TextSize = 15,
