@@ -316,7 +316,8 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 					addScore(killer.Team, 1)
 				elseif currentMode == "FFA" then
 					addPlayerScore(killer, 1)
-				elseif currentMode == "GUN" and victim then
+				elseif currentMode == "GUN" then
+					-- (también cuentan las bajas a bots: así se puede jugar solo)
 					gunGameKill(killer, victim, weaponName)
 				end
 			end

@@ -47,7 +47,8 @@ end
 
 -- ¿Cuántos bots hacen falta ahora mismo?
 local function desiredCount()
-	if not CONFIG.Enabled or state() ~= "Playing" or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+	-- (en la Escalada de armas también: son rivales para subir de arma, aunque ellos no suben)
+	if not CONFIG.Enabled or state() ~= "Playing" then
 		return 0
 	end
 	return math.max(0, CONFIG.FillTo - #Players:GetPlayers())
