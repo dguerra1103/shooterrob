@@ -24,6 +24,38 @@ Ranks.Points = {
 	BotWin = 8, -- partida solo contra bots (menos de 2 jugadores de verdad): sube poco y no baja
 }
 
+-- Temporadas (fechas de fin en hora UTC): al acabar una, cada jugador recibe SeasonRewards según el
+-- mejor rango que alcanzó en ella, y sus RP bajan a SeasonCarry (la mitad) para la siguiente. Los
+-- premios de llegar a un rango por primera vez (Reward) son de una vez para siempre.
+Ranks.Seasons = {
+	{ Id = "T1", Name = "Temporada 1", EndsAt = 1798761600 }, -- 1 ene 2027
+	{ Id = "T2", Name = "Temporada 2", EndsAt = 1806537600 }, -- 1 abr 2027
+	{ Id = "T3", Name = "Temporada 3", EndsAt = 1814400000 }, -- 1 jul 2027
+	{ Id = "T4", Name = "Temporada 4", EndsAt = 1822348800 }, -- 1 oct 2027
+}
+Ranks.SeasonRewards = { 100, 250, 500, 800, 1200, 2000 } -- monedas por el mejor rango (Bronce..Campeón)
+Ranks.SeasonCarry = 0.5
+
+-- La temporada en curso (si ya pasaron todas, la última)
+function Ranks.CurrentSeason(now)
+	now = now or os.time()
+	for _, season in ipairs(Ranks.Seasons) do
+		if now < season.EndsAt then
+			return season
+		end
+	end
+	return Ranks.Seasons[#Ranks.Seasons]
+end
+
+function Ranks.SeasonName(id)
+	for _, season in Ranks.Seasons do
+		if season.Id == id then
+			return season.Name
+		end
+	end
+	return "Temporada"
+end
+
 -- Índice del rango (1 = Bronce)
 function Ranks.Index(points)
 	local index = 1

@@ -96,6 +96,8 @@ local function defaults()
 		Sprays = { Default = true }, -- grafitis comprados (tecla J)
 		EquippedSpray = "Default",
 		Assists = 0, -- asistencias (ver Combat)
+		RankSeason = "", -- temporada de rango de sus RP (ver Ranks.Seasons)
+		SeasonBest = 1, -- mejor rango alcanzado en esta temporada
 		ReferredBy = 0, -- quién le invitó (UserId), ver GameConfig.Referral
 		Referrals = 0, -- amigos nuevos que entraron con su invitación y le dieron premio
 		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
@@ -255,6 +257,8 @@ local function publicView(player, data)
 		Achievements = data.Achievements,
 		GroupReward = data.GroupReward == true,
 		RankBest = data.RankBest,
+		RankSeasonName = Ranks.SeasonName(data.RankSeason),
+		RankSeasonEndsAt = Ranks.CurrentSeason().EndsAt,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		BundlesAvailable = (function()
@@ -514,6 +518,15 @@ local function load(player)
 		cratesRestricted[player] = nil
 		return
 	end
+	-- Temporada de rango (premio de la que acabó mientras no jugaba; el aviso, cuando ya ve la pantalla)
+	local seasonText = PlayerData.RollSeason(merged)
+	if seasonText then
+		task.delay(8, function()
+			if player.Parent then
+				Remotes.Notify:FireClient(player, "Big", seasonText)
+			end
+		end)
+	end
 	profiles[player] = merged
 	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
@@ -751,15 +764,45 @@ function PlayerData.MatchSummary(player)
 end
 
 -- Suma (o resta) puntos de rango al acabar una partida; nunca baja del inicio del rango actual
+-- Cambio de temporada de rango: premio por el mejor rango de la anterior y RP a la mitad.
+-- Devuelve el texto del aviso (o nil si no tocaba).
+function PlayerData.RollSeason(data)
+	local season = Ranks.CurrentSeason()
+	if data.RankSeason == season.Id then
+		return nil
+	end
+	if type(data.RankSeason) ~= "string" or data.RankSeason == "" then
+		-- (jugador nuevo o guardado de antes de las temporadas: empieza en la actual sin premio)
+		data.RankSeason = season.Id
+		data.SeasonBest = Ranks.Index(data.RankPoints)
+		return nil
+	end
+	local best = math.clamp(tonumber(data.SeasonBest) or 1, 1, #Ranks.Tiers)
+	local coins = Ranks.SeasonRewards[best] or 0
+	local finished = Ranks.SeasonName(data.RankSeason)
+	data.Coins += coins
+	data.RankPoints = math.floor((data.RankPoints or 0) * Ranks.SeasonCarry)
+	data.RankSeason = season.Id
+	data.SeasonBest = Ranks.Index(data.RankPoints)
+	local tier = Ranks.Tiers[best]
+	return "🏁 ¡Fin de la " .. finished .. "! Llegaste a " .. tier.Icon .. " " .. tier.Name .. ": +" .. coins .. " 🪙. Empieza la " .. season.Name
+end
+
 function PlayerData.AddRankPoints(player, delta)
 	local data = profiles[player]
 	if not data or delta == 0 then
 		return 0
 	end
 	matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
+	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar)
+	local seasonText = PlayerData.RollSeason(data)
+	if seasonText then
+		Remotes.Notify:FireClient(player, "Big", seasonText)
+	end
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
 	local index = Ranks.Index(data.RankPoints)
+	data.SeasonBest = math.max(tonumber(data.SeasonBest) or 1, index)
 	player:SetAttribute("Rank", index)
 	-- Premios de los rangos alcanzados por primera vez
 	while (data.RankBest or 1) < index do

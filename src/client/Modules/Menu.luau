@@ -456,6 +456,20 @@ local function buildProfilePage(data)
 		Parent = top,
 	})
 	progressBar(top, UDim2.fromOffset(120, 54), UDim2.new(1, -140, 0, 16), fraction, tier.Color)
+	-- Temporada de rango (al acabar: premio por el mejor rango y los RP a la mitad)
+	if data.RankSeasonName and data.RankSeasonEndsAt then
+		local daysLeft = math.max(0, math.ceil((data.RankSeasonEndsAt - os.time()) / 86400))
+		UI.label({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -16, 0, 16),
+			Size = UDim2.fromOffset(300, 24),
+			Text = "🏁 " .. data.RankSeasonName .. " · quedan " .. daysLeft .. " días",
+			TextSize = 17,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextColor3 = Color3.fromRGB(200, 205, 225),
+			Parent = top,
+		})
+	end
 	local nextText = "¡Rango máximo!"
 	if nextTier then
 		nextText = string.format("Faltan %d RP para %s %s", nextTier.Min - points, nextTier.Icon, nextTier.Name)
