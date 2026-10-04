@@ -17,6 +17,17 @@ local Remotes = require(Shared.Remotes)
 local Combat = require(script.Parent.Combat)
 local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
+local Outfits = require(Shared.Outfits)
+local Shop = require(Shared.Shop)
+
+-- Trajes que pueden llevar los bots (los de la tienda: así se ven en partida)
+local BOT_OUTFITS = {}
+for id in Shop.OutfitPrices do
+	if Outfits.List[id] and not Outfits.List[id].Event then
+		table.insert(BOT_OUTFITS, id)
+	end
+end
+table.sort(BOT_OUTFITS)
 
 local Bots = {}
 
@@ -610,6 +621,13 @@ spawnAgent = function(agent)
 	statsOf(agent)
 	animate(humanoid)
 	agent.Weapon = agent.Zombie and "Claws" or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	-- Traje de operador al azar (cada bot conserva el suyo al reaparecer)
+	if agent.Outfit == nil then
+		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false
+	end
+	if agent.Outfit and not agent.Zombie then
+		pcall(Outfits.Apply, model, agent.Outfit)
+	end
 	if agent.Zombie then
 		local claws = Weapons.Get("Claws")
 		Zombie.Apply(model, GameConfig.ModeSettings.INF.ZombieHealth)

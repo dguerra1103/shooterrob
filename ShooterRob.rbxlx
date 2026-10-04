@@ -327,6 +327,7 @@ GameConfig.Bots = {
 	-- Puntería y daño contra cada jugador según su rango (Bronce, Plata, Oro, Platino, Diamante,
 	-- Campeón): con los novatos son más blandos y con los mejores aprietan más
 	SkillByRank = { 0.75, 0.85, 1, 1.1, 1.2, 1.3 },
+	OutfitChance = 0.6, -- probabilidad de que un bot lleve uno de los trajes de la tienda
 }
 -- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
 -- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
@@ -4775,6 +4776,17 @@ local Remotes = require(Shared.Remotes)
 local Combat = require(script.Parent.Combat)
 local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
+local Outfits = require(Shared.Outfits)
+local Shop = require(Shared.Shop)
+
+-- Trajes que pueden llevar los bots (los de la tienda: así se ven en partida)
+local BOT_OUTFITS = {}
+for id in Shop.OutfitPrices do
+	if Outfits.List[id] and not Outfits.List[id].Event then
+		table.insert(BOT_OUTFITS, id)
+	end
+end
+table.sort(BOT_OUTFITS)
 
 local Bots = {}
 
@@ -5368,6 +5380,13 @@ spawnAgent = function(agent)
 	statsOf(agent)
 	animate(humanoid)
 	agent.Weapon = agent.Zombie and "Claws" or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	-- Traje de operador al azar (cada bot conserva el suyo al reaparecer)
+	if agent.Outfit == nil then
+		agent.Outfit = (#BOT_OUTFITS > 0 and math.random() < (CONFIG.OutfitChance or 0)) and BOT_OUTFITS[math.random(1, #BOT_OUTFITS)] or false
+	end
+	if agent.Outfit and not agent.Zombie then
+		pcall(Outfits.Apply, model, agent.Outfit)
+	end
 	if agent.Zombie then
 		local claws = Weapons.Get("Claws")
 		Zombie.Apply(model, GameConfig.ModeSettings.INF.ZombieHealth)

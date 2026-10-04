@@ -71,6 +71,7 @@ GameConfig.Bots = {
 	-- Puntería y daño contra cada jugador según su rango (Bronce, Plata, Oro, Platino, Diamante,
 	-- Campeón): con los novatos son más blandos y con los mejores aprietan más
 	SkillByRank = { 0.75, 0.85, 1, 1.1, 1.2, 1.3 },
+	OutfitChance = 0.6, -- probabilidad de que un bot lleve uno de los trajes de la tienda
 }
 -- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
 -- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
