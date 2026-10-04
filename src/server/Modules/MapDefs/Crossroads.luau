@@ -34,6 +34,23 @@ Map.Lighting = {
 	TerrainColors = { Ground = Color3.fromRGB(128, 108, 82), Sand = Color3.fromRGB(176, 152, 116), Rock = Color3.fromRGB(120, 112, 102), Pavement = Color3.fromRGB(112, 104, 94), Mud = Color3.fromRGB(86, 70, 54) },
 }
 
+-- Versiones de luz (a veces): atardecer naranja con sombras largas
+Map.LightingVariants = {
+	{
+		Name = "Atardecer",
+		Chance = 0.3,
+		ClockTime = 17.85,
+		Brightness = 2.2,
+		Exposure = 0.05,
+		Ambient = Color3.fromRGB(86, 64, 58),
+		OutdoorAmbient = Color3.fromRGB(150, 112, 92),
+		Atmosphere = { Density = 0.4, Offset = 0.1, Color = Color3.fromRGB(240, 172, 122), Decay = Color3.fromRGB(160, 92, 70), Glare = 0.8, Haze = 2.4 },
+		Color = { Saturation = 0, Contrast = 0.18, Brightness = 0, Tint = Color3.fromRGB(255, 226, 200) },
+		CloudColor = Color3.fromRGB(255, 190, 150),
+		SunRays = 0.14,
+	},
+}
+
 local V = Vector3.new
 local RGB = Color3.fromRGB
 local rad = math.rad
@@ -56,7 +73,8 @@ local block, deco = Kit.block, Kit.deco
 function Map.Build()
 	local folder = Kit.Begin(Map.Name, { Realistic = true })
 	folder:SetAttribute("Ambience", "War") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
 	local teams = GameConfig.Teams
 
 	-- Suelo: tierra en los carriles, asfalto en la avenida y aceras

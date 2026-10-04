@@ -35,6 +35,23 @@ Map.Lighting = {
 	TerrainColors = { Snow = Color3.fromRGB(232, 236, 246), Rock = Color3.fromRGB(96, 98, 108), Glacier = Color3.fromRGB(170, 205, 235) },
 }
 
+-- Versiones de luz (a veces): mediodía despejado con el cielo azul
+Map.LightingVariants = {
+	{
+		Name = "Mediodía",
+		Chance = 0.3,
+		ClockTime = 12.4,
+		Brightness = 3,
+		Exposure = -0.05,
+		Ambient = Color3.fromRGB(90, 98, 112),
+		OutdoorAmbient = Color3.fromRGB(160, 170, 190),
+		Atmosphere = { Density = 0.28, Offset = 0.2, Color = Color3.fromRGB(205, 222, 245), Decay = Color3.fromRGB(120, 140, 170), Glare = 0.3, Haze = 1 },
+		Color = { Saturation = 0, Contrast = 0.14, Brightness = 0, Tint = Color3.fromRGB(245, 250, 255) },
+		CloudColor = Color3.fromRGB(255, 255, 255),
+		SunRays = 0.06,
+	},
+}
+
 local V = Vector3.new
 local RGB = Color3.fromRGB
 local rad = math.rad
@@ -145,7 +162,8 @@ end
 function Map.Build()
 	local folder = Kit.Begin(Map.Name, { Realistic = true })
 	folder:SetAttribute("Ambience", "Wind") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
 	local teams = GameConfig.Teams
 
 	-- Suelo nevado con la carretera despejada

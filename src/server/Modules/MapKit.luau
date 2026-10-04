@@ -1315,6 +1315,26 @@ local function cartoonize(preset)
 	return p
 end
 
+-- Luz de esta partida: a veces sale otra hora del día del mapa (como las versiones de los mapas en
+-- los shooters de móvil). map.LightingVariants = { { Name = "Atardecer", Chance = 0.3, ...cambios } }.
+-- Deja el nombre de la variante en Kit.Variant (y el mapa lo guarda en su atributo Variant).
+function Kit.pickLighting(map)
+	Kit.Variant = nil
+	for _, variant in map.LightingVariants or {} do
+		if math.random() < (variant.Chance or 0.3) then
+			local preset = table.clone(map.Lighting)
+			for key, value in variant do
+				if key ~= "Name" and key ~= "Chance" then
+					preset[key] = value
+				end
+			end
+			Kit.Variant = variant.Name
+			return preset
+		end
+	end
+	return map.Lighting
+end
+
 -- preset: tabla con ClockTime, Brightness, Ambient, OutdoorAmbient, Atmosphere{...}, Color{...}, Bloom{...}, Clouds
 function Kit.applyLighting(preset)
 	-- Tono de los grises de este mapa (se usa al crear las piezas, que van después)

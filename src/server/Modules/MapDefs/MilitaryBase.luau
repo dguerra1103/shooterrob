@@ -34,6 +34,22 @@ Map.Lighting = {
 	TerrainColors = { Grass = Color3.fromRGB(88, 112, 62), LeafyGrass = Color3.fromRGB(78, 100, 56), Ground = Color3.fromRGB(110, 96, 74), Rock = Color3.fromRGB(110, 112, 110) },
 }
 
+-- Versiones de luz (a veces): niebla de primera hora (se ve menos de lejos)
+Map.LightingVariants = {
+	{
+		Name = "Niebla",
+		Chance = 0.3,
+		ClockTime = 7.4,
+		Brightness = 1.9,
+		Ambient = Color3.fromRGB(80, 86, 92),
+		OutdoorAmbient = Color3.fromRGB(140, 148, 156),
+		Atmosphere = { Density = 0.48, Offset = 0.05, Color = Color3.fromRGB(205, 212, 218), Decay = Color3.fromRGB(150, 160, 170), Glare = 0, Haze = 3 },
+		Color = { Saturation = -0.15, Contrast = 0.1, Brightness = 0.02, Tint = Color3.fromRGB(235, 242, 250) },
+		Clouds = 0.85,
+		SunRays = 0.02,
+	},
+}
+
 local V = Vector3.new
 local RGB = Color3.fromRGB
 local rad = math.rad
@@ -233,7 +249,8 @@ end
 function Map.Build()
 	local folder = Kit.Begin(Map.Name, { Realistic = true })
 	folder:SetAttribute("Ambience", "Base") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
 	local teams = GameConfig.Teams
 
 	-- Suelo: hierba con caminos de hormigón y tierra
