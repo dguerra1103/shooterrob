@@ -687,6 +687,28 @@ function MainMenu.Init()
 	end
 	ClientState.DataChanged.Event:Connect(refreshFirstWin)
 	refreshFirstWin()
+	-- Mapa destacado del día (GameConfig.FeaturedMap)
+	local featuredLabel = UI.label({
+		Position = UDim2.fromOffset(330, 408),
+		Size = UDim2.fromOffset(230, 22),
+		Text = "",
+		TextSize = 16,
+		TextScaled = true,
+		TextColor3 = Color3.fromRGB(255, 235, 140),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Visible = false,
+		Parent = left,
+	})
+	local function refreshFeatured()
+		local featured = ReplicatedStorage:GetAttribute("FeaturedMap")
+		local config = GameConfig.FeaturedMap
+		featuredLabel.Visible = featured ~= nil and config ~= nil
+		if featured and config then
+			featuredLabel.Text = "⭐ Hoy: " .. featured .. " +" .. math.floor((config.XPBonus - 1) * 100 + 0.5) .. "% XP"
+		end
+	end
+	ReplicatedStorage:GetAttributeChangedSignal("FeaturedMap"):Connect(refreshFeatured)
+	refreshFeatured()
 
 	-- Escaparate del arma a la derecha (fuera del CanvasGroup para que el 3D se dibuje siempre)
 	showcase = UI.new("Frame", {
