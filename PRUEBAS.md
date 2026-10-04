@@ -30,6 +30,14 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Infección (zombis)** | `Modes = { "INF" }` y Play solo | "La infección empieza en…", y al llegar a 0 un bot (o tú) se convierte en zombi verde con ojos rojos y garras. Arriba: supervivientes contra zombis. Si te alcanzan, reapareces como zombi (brazos verdes, solo garras, sin granadas). Ganan los supervivientes si queda alguno al acabar el tiempo. |
 | **Ruleta diaria** | Pantalla de inicio → 🎡 RULETA ¡GRATIS! | Gira unos segundos con clics y se para en un premio ("¡Has ganado 100 🪙!"). El segundo giro del día dice "Vuelve mañana" (los giros con Robux salen cuando pongas `Shop.Wheel.SpinProductId`). |
 | **Rangos** | Termina una partida | En el resumen sale tu rango (🥉 BRONCE) y los RP ganados; contra bots +8 si ganas. En la pantalla de inicio: "🥉 Bronce (8 RP)". El icono sale también en el marcador (Tab) y en el chat. |
+| **Pantalla de carga** | Play | Antes del juego sale "SHOOTER NEW" con una calabaza que bota y consejos; se desvanece sola. |
+| **Novedades** | Con datos guardados de antes (o pon `NewsSeen = 0` desde la consola) | En la pantalla de inicio sale la tarjeta "¡NOVEDADES DE HALLOWEEN!"; "¡A JUGAR!" la cierra y no vuelve a salir. |
+| **Base Lunar** | Vota la Base Lunar | Noche con la Tierra en el cielo, cohete central con pasarela, cúpulas, rover, paneles solares y plataformas con propulsores. |
+| **Bots en Captura la bandera** | `Modes = { "CTF" }` y Play solo | Los bots van a por tu bandera, se la llevan a su base y puntúan; si los eliminas, la bandera cae. |
+| **Escalada de armas solo** | `Modes = { "GUN" }` | Hay bots; cada baja (también a bots) te sube de arma. |
+| **Guadaña y Calabazooka** | Menú → Armas | Guadaña (cuerpo a cuerpo, 1500 monedas). Calabazooka (lanzacohetes) sale bloqueada con "🎃 75 caramelos"; al conseguirla dispara calabazas. |
+| **Mira** | Menú → Ajustes → Mira | Cambia el color (6) y el tamaño; se nota al momento en la mira. |
+| **Pase de 50 niveles** | Menú → Pase | Los niveles cercanos al tuyo; al final "… y N niveles más". |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 
