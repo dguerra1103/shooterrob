@@ -235,7 +235,7 @@ GameConfig.News = {
 	Version = 2, -- (súbelo en cada actualización; la de Navidad tiene que quedar por encima)
 	Title = "🎃 ¡NOVEDADES DE OCTUBRE!",
 	Items = {
-		{ "🤠", "Mapas nuevos: Pueblo Vaquero y Bahía Pirata, y traje Sheriff Vaquero" },
+		{ "🤠", "Mapas nuevos: Pueblo Vaquero, Bahía Pirata y Castillo del Rey" },
 		{ "🧟", "Modos de Halloween: Infección (zombis) y Calabazas (recoge las de tus enemigos)" },
 		{ "🏁", "Temporadas de rango: al acabar, premio según el mejor rango que logres" },
 		{ "🏆", "Primera victoria del día: +150 monedas extra cada día" },

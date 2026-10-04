@@ -503,7 +503,7 @@ function MainMenu.Init()
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
 		Size = UDim2.new(1, 0, 0, 30),
-		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 16, #GameConfig.Modes, weaponCount()),
+		Text = string.format("%d MAPAS  ·  %d MODOS  ·  %d ARMAS  ·  HABILIDADES", ReplicatedStorage:GetAttribute("MapCount") or 17, #GameConfig.Modes, weaponCount()),
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(200, 230, 255),
 		TextXAlignment = Enum.TextXAlignment.Left,
