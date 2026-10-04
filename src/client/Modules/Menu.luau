@@ -482,9 +482,11 @@ local function buildProfilePage(data)
 		{ "📈", "% victorias", matches > 0 and (math.floor(wins / matches * 100 + 0.5) .. "%") or "-" },
 		{ "🔥", "Mejor racha", tostring(data.BestStreak or 0) },
 		{ "🧠", "A la cabeza", tostring(data.Headshots or 0) },
+		{ "🤝", "Asistencias", tostring(data.Assists or 0) },
+		{ "🍬", "Caramelos", tostring(data.EventCandy or 0) },
 	}
 	local grid = UI.new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -12, 0, 170), BackgroundTransparency = 1, Parent = scroll }, {
-		UI.new("UIGridLayout", { CellSize = UDim2.new(0.25, -8, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+		UI.new("UIGridLayout", { CellSize = UDim2.new(0.2, -10, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for i, stat in stats do
 		local cell = UI.new("Frame", { LayoutOrder = i, BackgroundColor3 = CARD_BG, Parent = grid }, { UI.corner(10) })

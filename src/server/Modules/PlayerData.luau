@@ -221,6 +221,7 @@ local function publicView(player, data)
 		TotalKills = data.TotalKills,
 		Wins = data.Wins,
 		TotalDeaths = data.TotalDeaths,
+		Assists = data.Assists,
 		Matches = data.Matches,
 		BestStreak = data.BestStreak,
 		Headshots = data.Headshots,
