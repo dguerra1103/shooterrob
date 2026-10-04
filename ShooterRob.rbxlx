@@ -13477,7 +13477,7 @@ Map.Lighting = {
 	CloudColor = Color3.fromRGB(240, 225, 205),
 	SunRays = 0.08,
 	Wind = Vector3.new(6, 0, 3),
-	TerrainColors = { Ground = Color3.fromRGB(128, 108, 82), Sand = Color3.fromRGB(176, 152, 116), Rock = Color3.fromRGB(120, 112, 102) },
+	TerrainColors = { Ground = Color3.fromRGB(128, 108, 82), Sand = Color3.fromRGB(176, 152, 116), Rock = Color3.fromRGB(120, 112, 102), Pavement = Color3.fromRGB(112, 104, 94), Mud = Color3.fromRGB(86, 70, 54) },
 }
 
 local V = Vector3.new
@@ -13592,6 +13592,23 @@ function Map.Build()
 		RealKit.utilityLine(m * CFrame.new(0, 0, -21.5), -170, -30, 35)
 		for _, patch in { { -150, 6, 7, 5 }, { -108, -8, 9, 6 }, { -76, 10, 6, 4 }, { -40, -5, 8, 5 } } do
 			RealKit.roadPatch(m * CFrame.new(patch[1], 0, patch[2]) * CFrame.Angles(0, rad(patch[1] % 40), 0), patch[3], patch[4])
+		end
+		-- Suelo con variedad: adoquines en el callejón del mercado, barro en las obras y tierra suelta
+		Kit.terrainPatch(m * CFrame.new(-95, 0, 76), V(130, 1, 22), M.Pavement)
+		Kit.terrainPatch(m * CFrame.new(-62, 0, -88), V(56, 1, 44), M.Mud)
+		Kit.terrainPatch(m * CFrame.new(-140, 0, -100) * CFrame.Angles(0, rad(25), 0), V(30, 1, 18), M.Sand)
+		Kit.terrainPatch(m * CFrame.new(-30, 0, 100) * CFrame.Angles(0, rad(-15), 0), V(22, 1, 16), M.Sand)
+		-- Marcas de quemado (explosiones) y montones de escombros
+		for _, scorch in { V(-138, 0, -9), V(-48, 0, 9), V(-92, 0, 66), V(-30, 0, -104), V(-118, 0, -95) } do
+			local onRoad = math.abs(scorch.Z) < 18 -- (la avenida está 0,4 por encima del terreno)
+			local disc = Kit.cylinder("Scorch", 0.06, 7, m * CFrame.new(scorch + V(0, onRoad and 0.45 or 0.04, 0)), RGB(34, 31, 28), M.Slate, nil, true)
+			disc.CastShadow = false
+		end
+		for i, pile in { V(-150, 0, 96), V(-78, 0, 90), V(-138, 0, -80), V(-92, 0, -102), V(-58, 0, 52) } do
+			for j = 1, 4 do
+				local size = V(1.4 + (j % 2) * 0.8, 0.6 + (j % 3) * 0.3, 1.2 + ((i + j) % 2) * 0.7)
+				deco("Rubble", size, m * CFrame.new(pile + V((j - 2.5) * 1.1, size.Y / 2, ((i + j) % 3 - 1) * 0.9)) * CFrame.Angles(j * 0.4, i + j, j * 0.25), j % 2 == 0 and PALETTE.Concrete or PALETTE.Plaster[(i % 5) + 1], M.Concrete)
+			end
 		end
 		RealKit.trafficLight(m * CFrame.new(-14, 0, -19.5))
 		RealKit.trafficLight(m * CFrame.new(-14, 0, 19.5) * CFrame.Angles(0, math.pi, 0))
@@ -19946,6 +19963,7 @@ local TERRAIN_DEFAULTS = {
 	Sand = RGB(143, 126, 95),
 	Sandstone = RGB(137, 90, 71),
 	Slate = RGB(63, 127, 107),
+	Pavement = RGB(148, 148, 140),
 }
 
 -- Hierba y hojas más vivas en estilo Cartoon

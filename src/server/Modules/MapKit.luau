@@ -1240,6 +1240,7 @@ local TERRAIN_DEFAULTS = {
 	Sand = RGB(143, 126, 95),
 	Sandstone = RGB(137, 90, 71),
 	Slate = RGB(63, 127, 107),
+	Pavement = RGB(148, 148, 140),
 }
 
 -- Hierba y hojas más vivas en estilo Cartoon
