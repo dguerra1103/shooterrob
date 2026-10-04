@@ -54,6 +54,7 @@ Sounds.WeaponShots = {
 	BreachHammer = { "ShotHeavy", 0.7, 1.2 },
 	TitanLMG = { "ShotHeavy", 1.2, 0.7 },
 	NovaLauncher = { "ShotHeavy", 0.5, 1.3 },
+	Calabazooka = { "ShotHeavy", 0.45, 1.3 },
 	Viper = { "Shot", 1.1, 0.8 },
 	HandCannon = { "ShotHeavy", 0.9, 1 },
 	PhantomSidewind = { "Shot", 1.35, 0.8 },

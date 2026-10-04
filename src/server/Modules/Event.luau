@@ -60,6 +60,12 @@ local function clear()
 	table.clear(candies)
 end
 
+-- Clave de un premio por el camino en la lista de reclamados. Los de arma llevan una clave propia:
+-- ese premio antes eran monedas, y quien ya las cobró también debe recibir el arma.
+local function milestoneKey(milestone)
+	return "m" .. milestone.Count .. (milestone.Weapon and "w" or "")
+end
+
 local function collect(player, candy)
 	if not candy.Parent or candy:GetAttribute("Taken") then
 		return
@@ -91,8 +97,8 @@ local function collect(player, candy)
 		-- lista se dieron al llegar justo a su número: se marcan como dados para no pagarlos dos veces
 		local claimed = {}
 		for _, milestone in CONFIG.Milestones or {} do
-			if data.EventProgress.Count >= milestone.Count then
-				claimed["m" .. milestone.Count] = true
+			if data.EventProgress.Count >= milestone.Count and not milestone.Weapon then
+				claimed[milestoneKey(milestone)] = true
 			end
 		end
 		data.EventProgress.Claimed = claimed
@@ -105,7 +111,7 @@ local function collect(player, candy)
 	-- Premios por el camino (también los que quedaron atrás si el premio se añadió con el evento empezado)
 	local claimed = data.EventProgress.Claimed
 	for _, milestone in CONFIG.Milestones or {} do
-		local key = "m" .. milestone.Count
+		local key = milestoneKey(milestone)
 		if count >= milestone.Count and milestone.Count < CONFIG.Goal and not claimed[key] then
 			claimed[key] = true
 			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then

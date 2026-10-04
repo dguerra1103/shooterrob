@@ -659,6 +659,9 @@ local function buildChallengesPage(data)
 		local width = 1 / #prizes
 		for i, prize in prizes do
 			local got = candy >= prize.Count
+			if prize.Weapon then
+				got = (data.OwnedWeapons or {})[prize.Weapon] == true -- (se da al recoger el siguiente caramelo)
+			end
 			local cell = UI.new("Frame", {
 				Position = UDim2.new(width * (i - 1), i == 1 and 16 or 6, 0, 82),
 				Size = UDim2.new(width, i == 1 and -22 or -12, 0, 122),
