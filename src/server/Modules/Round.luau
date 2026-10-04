@@ -245,6 +245,7 @@ end
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
+		PlayerData.Increment(victim, "TotalDeaths", 1)
 		victim:SetAttribute("Streak", 0)
 	end
 	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
@@ -314,7 +315,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			PlayerData.AddWeaponKill(killer, weaponName)
 			PlayerData.Track(killer, "Kill", 1, weaponName)
 			PlayerData.Track(killer, "Streak", streak)
+			PlayerData.SetBest(killer, "BestStreak", streak)
 			if headshot then
+				PlayerData.Increment(killer, "Headshots", 1)
 				PlayerData.Track(killer, "Headshot", 1, weaponName)
 			end
 
@@ -847,6 +850,7 @@ local function endRound()
 		local played = joined ~= nil
 			and (active or (if elim then player:GetAttribute("ElimPlayed") == true else now - joined >= 60))
 		if played then
+			PlayerData.Increment(player, "Matches", 1)
 			local won
 			if teamMode then
 				won = winner ~= nil and player.Team == winner

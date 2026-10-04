@@ -74,6 +74,10 @@ local function defaults()
 		ClaimedPremium = {},
 		TotalKills = 0,
 		Wins = 0,
+		TotalDeaths = 0, -- estadísticas del perfil
+		Matches = 0,
+		BestStreak = 0,
+		Headshots = 0,
 		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
 		RankBest = 1, -- rango más alto alcanzado (sus premios ya se dieron)
 		Premium = false,
@@ -171,6 +175,10 @@ local function publicView(player, data)
 		EquippedOutfit = data.EquippedOutfit,
 		TotalKills = data.TotalKills,
 		Wins = data.Wins,
+		TotalDeaths = data.TotalDeaths,
+		Matches = data.Matches,
+		BestStreak = data.BestStreak,
+		Headshots = data.Headshots,
 		RankPoints = data.RankPoints,
 		Premium = data.Premium,
 		VIP = player:GetAttribute("VIP") == true,
@@ -651,6 +659,15 @@ function PlayerData.Increment(player, field, amount)
 		if field == "TotalKills" or field == "Wins" then
 			Badges.Check(player, data)
 		end
+	end
+end
+
+-- Guarda un récord (por ejemplo la mejor racha de bajas) si lo supera
+function PlayerData.SetBest(player, field, value)
+	local data = profiles[player]
+	if data and type(data[field]) == "number" and value > data[field] then
+		data[field] = value
+		dirty[player] = true
 	end
 end
 

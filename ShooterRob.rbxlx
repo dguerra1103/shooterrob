@@ -12936,6 +12936,10 @@ local function defaults()
 		ClaimedPremium = {},
 		TotalKills = 0,
 		Wins = 0,
+		TotalDeaths = 0, -- estadísticas del perfil
+		Matches = 0,
+		BestStreak = 0,
+		Headshots = 0,
 		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
 		RankBest = 1, -- rango más alto alcanzado (sus premios ya se dieron)
 		Premium = false,
@@ -13033,6 +13037,10 @@ local function publicView(player, data)
 		EquippedOutfit = data.EquippedOutfit,
 		TotalKills = data.TotalKills,
 		Wins = data.Wins,
+		TotalDeaths = data.TotalDeaths,
+		Matches = data.Matches,
+		BestStreak = data.BestStreak,
+		Headshots = data.Headshots,
 		RankPoints = data.RankPoints,
 		Premium = data.Premium,
 		VIP = player:GetAttribute("VIP") == true,
@@ -13513,6 +13521,15 @@ function PlayerData.Increment(player, field, amount)
 		if field == "TotalKills" or field == "Wins" then
 			Badges.Check(player, data)
 		end
+	end
+end
+
+-- Guarda un récord (por ejemplo la mejor racha de bajas) si lo supera
+function PlayerData.SetBest(player, field, value)
+	local data = profiles[player]
+	if data and type(data[field]) == "number" and value > data[field] then
+		data[field] = value
+		dirty[player] = true
 	end
 end
 
@@ -14531,6 +14548,7 @@ end
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
+		PlayerData.Increment(victim, "TotalDeaths", 1)
 		victim:SetAttribute("Streak", 0)
 	end
 	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
@@ -14600,7 +14618,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			PlayerData.AddWeaponKill(killer, weaponName)
 			PlayerData.Track(killer, "Kill", 1, weaponName)
 			PlayerData.Track(killer, "Streak", streak)
+			PlayerData.SetBest(killer, "BestStreak", streak)
 			if headshot then
+				PlayerData.Increment(killer, "Headshots", 1)
 				PlayerData.Track(killer, "Headshot", 1, weaponName)
 			end
 
@@ -15133,6 +15153,7 @@ local function endRound()
 		local played = joined ~= nil
 			and (active or (if elim then player:GetAttribute("ElimPlayed") == true else now - joined >= 60))
 		if played then
+			PlayerData.Increment(player, "Matches", 1)
 			local won
 			if teamMode then
 				won = winner ~= nil and player.Team == winner
@@ -20449,7 +20470,7 @@ return MainMenu
           <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">Menu</string>
-              <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
+              <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -20466,6 +20487,7 @@ local Mastery = require(Shared.Mastery)
 local KillEffects = require(Shared.KillEffects)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
+local Ranks = require(Shared.Ranks)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -20490,7 +20512,7 @@ local GREEN = Color3.fromRGB(60, 170, 90)
 local BLUE = Color3.fromRGB(40, 120, 255)
 local GREY = Color3.fromRGB(70, 70, 82)
 
-local TABS = { "Pase", "Retos", "Armas", "Skins", "Trajes", "Efectos", "Tienda", "Ajustes" }
+local TABS = { "Perfil", "Pase", "Retos", "Armas", "Skins", "Trajes", "Efectos", "Tienda", "Ajustes" }
 
 local function rarityColor(rarity)
 	return Skins.RarityColors[rarity] or Color3.new(1, 1, 1)
@@ -20828,6 +20850,116 @@ end
 ---------------------------------------------------------------------------
 -- Pestaña: Retos diarios
 ---------------------------------------------------------------------------
+
+-- Perfil: rango, nivel, estadísticas de siempre, arma favorita y colección
+local function buildProfilePage(data)
+	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }))
+	-- Rango y nivel
+	local points = data.RankPoints or 0
+	local tier = Ranks.Get(points)
+	local fraction, nextTier = Ranks.Progress(points)
+	local top = UI.new("Frame", { LayoutOrder = 1, Size = UDim2.new(1, -12, 0, 120), BackgroundColor3 = CARD_BG, Parent = scroll }, {
+		UI.corner(12),
+		UI.stroke(tier.Color, 2, 0.2),
+	})
+	UI.label({ Position = UDim2.fromOffset(12, 10), Size = UDim2.fromOffset(100, 100), Text = tier.Icon, TextSize = 72, Parent = top })
+	UI.label({
+		Position = UDim2.fromOffset(120, 12),
+		Size = UDim2.new(1, -140, 0, 34),
+		Text = string.upper(tier.Name) .. "   ·   " .. points .. " RP",
+		TextSize = 30,
+		TextColor3 = tier.Color,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = top,
+	})
+	progressBar(top, UDim2.fromOffset(120, 54), UDim2.new(1, -140, 0, 16), fraction, tier.Color)
+	local nextText = "¡Rango máximo!"
+	if nextTier then
+		nextText = string.format("Faltan %d RP para %s %s", nextTier.Min - points, nextTier.Icon, nextTier.Name)
+	end
+	UI.label({
+		Position = UDim2.fromOffset(120, 78),
+		Size = UDim2.new(1, -140, 0, 26),
+		Text = nextText .. "     ·     Nivel " .. data.Level .. (data.VIP and "  👑 VIP" or ""),
+		TextSize = 18,
+		TextColor3 = Color3.fromRGB(200, 205, 225),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = top,
+	})
+
+	-- Estadísticas
+	local kills, deaths = data.TotalKills or 0, data.TotalDeaths or 0
+	local matches, wins = data.Matches or 0, data.Wins or 0
+	local stats = {
+		{ "🎯", "Bajas", tostring(kills) },
+		{ "💀", "Muertes", tostring(deaths) },
+		{ "⚖", "K/D", string.format("%.2f", kills / math.max(1, deaths)) },
+		{ "🏆", "Victorias", tostring(wins) },
+		{ "🎮", "Partidas", tostring(matches) },
+		{ "📈", "% victorias", matches > 0 and (math.floor(wins / matches * 100 + 0.5) .. "%") or "-" },
+		{ "🔥", "Mejor racha", tostring(data.BestStreak or 0) },
+		{ "🧠", "A la cabeza", tostring(data.Headshots or 0) },
+	}
+	local grid = UI.new("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -12, 0, 170), BackgroundTransparency = 1, Parent = scroll }, {
+		UI.new("UIGridLayout", { CellSize = UDim2.new(0.25, -8, 0, 80), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	for i, stat in stats do
+		local cell = UI.new("Frame", { LayoutOrder = i, BackgroundColor3 = CARD_BG, Parent = grid }, { UI.corner(10) })
+		UI.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 36), Text = stat[1] .. " " .. stat[3], TextSize = 28, Parent = cell })
+		UI.label({ Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 22), Text = stat[2], TextSize = 16, TextColor3 = Color3.fromRGB(170, 180, 215), Parent = cell })
+	end
+
+	-- Arma favorita (la de más bajas) y colección
+	local favorite, favoriteKills = nil, 0
+	for name, count in data.WeaponKills or {} do
+		local def = Weapons.Get(name)
+		if def and not def.Hidden and type(count) == "number" and count > favoriteKills then
+			favorite, favoriteKills = name, count
+		end
+	end
+	local bottom = UI.new("Frame", { LayoutOrder = 3, Size = UDim2.new(1, -12, 0, 130), BackgroundTransparency = 1, Parent = scroll })
+	local favCard = UI.new("Frame", { Size = UDim2.new(0.5, -5, 1, 0), BackgroundColor3 = CARD_BG, Parent = bottom }, { UI.corner(12) })
+	UI.label({ Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 24), Text = "⭐ ARMA FAVORITA", TextSize = 18, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Parent = favCard })
+	if favorite then
+		WeaponIcon.Create(favorite, skinFor(data, favorite), { Position = UDim2.fromOffset(10, 34), Size = UDim2.new(0.55, 0, 0, 86), Parent = favCard }, "angled", 2.2)
+		UI.label({
+			Position = UDim2.new(0.58, 0, 0, 44),
+			Size = UDim2.new(0.42, -12, 0, 60),
+			Text = Weapons.Get(favorite).DisplayName .. "\n" .. favoriteKills .. " bajas",
+			TextSize = 20,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = favCard,
+		})
+	else
+		UI.label({ Position = UDim2.fromOffset(14, 50), Size = UDim2.new(1, -28, 0, 40), Text = "¡Haz alguna baja para descubrirla!", TextSize = 18, Parent = favCard })
+	end
+	local function count(owned, list, skip)
+		local have, total = 0, 0
+		for id, item in list do
+			if id ~= "Default" and not (skip and skip(item)) then
+				total += 1
+				if owned and owned[id] then
+					have += 1
+				end
+			end
+		end
+		return have, total
+	end
+	local skinsHave, skinsTotal = count(data.Skins, Skins.List, function(skin)
+		return skin.Mastery == true
+	end)
+	local outfitsHave, outfitsTotal = count(data.Outfits, Outfits.List)
+	local effectsHave, effectsTotal = count(data.KillEffects, KillEffects.List)
+	local collection = UI.new("Frame", { Position = UDim2.new(0.5, 5, 0, 0), Size = UDim2.new(0.5, -5, 1, 0), BackgroundColor3 = CARD_BG, Parent = bottom }, { UI.corner(12) })
+	UI.label({ Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 24), Text = "🎒 COLECCIÓN", TextSize = 18, TextColor3 = GOLD, TextXAlignment = Enum.TextXAlignment.Left, Parent = collection })
+	for i, row in { { "🎨 Skins", skinsHave, skinsTotal }, { "🦺 Trajes", outfitsHave, outfitsTotal }, { "💥 Efectos", effectsHave, effectsTotal } } do
+		local y = 36 + (i - 1) * 30
+		UI.label({ Position = UDim2.fromOffset(14, y), Size = UDim2.fromOffset(110, 22), Text = row[1], TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = collection })
+		progressBar(collection, UDim2.fromOffset(124, y + 5), UDim2.new(1, -210, 0, 12), row[2] / math.max(1, row[3]), BLUE)
+		UI.label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, y), Size = UDim2.fromOffset(70, 22), Text = row[2] .. "/" .. row[3], TextSize = 16, TextXAlignment = Enum.TextXAlignment.Right, Parent = collection })
+	end
+end
 
 local function buildChallengesPage(data)
 	local info = data.Challenges
@@ -21979,7 +22111,9 @@ function refresh()
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })
 		return
 	end
-	if currentTab == "Pase" then
+	if currentTab == "Perfil" then
+		buildProfilePage(data)
+	elseif currentTab == "Pase" then
 		buildPassPage(data)
 	elseif currentTab == "Retos" then
 		buildChallengesPage(data)
