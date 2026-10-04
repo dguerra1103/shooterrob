@@ -27,6 +27,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Tarjeta de controles** | Entra en partida con un jugador nuevo | Sale una tarjeta con los controles; "¡A JUGAR!" la cierra. En Studio sin DataStore activado sale cada vez (es normal). |
 | **Tonos de los mapas antiguos** | Juega Harbor Heights o Frost Station | Los grises ahora tienen el tono del mapa (arena cálida, azul hielo…). |
 | **Evento de Halloween** | Juega una ronda | Aparecen caramelos que flotan y brillan; al tocarlos: "🍬 Caramelo +5 🪙 (1/100)" y sube el contador de abajo a la izquierda, que dice el siguiente premio ("→ Traje" a los 50). Hay calabazas en el mapa. |
+| **Rangos** | Termina una partida | En el resumen sale tu rango (🥉 BRONCE) y los RP ganados; contra bots +8 si ganas. En la pantalla de inicio: "🥉 Bronce (8 RP)". El icono sale también en el marcador (Tab) y en el chat. |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 

@@ -61,11 +61,12 @@ function EventHUD.Init()
 			Parent = frame,
 		}))
 	end
-	-- Siguiente premio: { Count, texto corto }
-	local function nextPrize(count, goal)
+	-- Siguiente premio: caramelos que hacen falta y texto corto (si ya tienes el traje, son monedas)
+	local function nextPrize(count, goal, data)
 		for _, milestone in milestones do
 			if count < milestone.Count and milestone.Count < goal then
-				return milestone.Count, milestone.Outfit and "Traje" or ((milestone.Coins or 0) .. " 🪙")
+				local outfit = milestone.Outfit and not (data.Outfits or {})[milestone.Outfit]
+				return milestone.Count, outfit and "Traje" or ((milestone.Coins or milestone.Compensate or 0) .. " 🪙")
 			end
 		end
 		return goal, "Skin"
@@ -81,13 +82,14 @@ function EventHUD.Init()
 				if count >= goal then
 					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
 				else
-					local target, prize = nextPrize(count, goal)
+					local target, prize = nextPrize(count, goal, data)
 					label.Text = compact and ("🍬\n" .. count .. "/" .. target)
 						or ("🎃 🍬 " .. count .. "/" .. target .. "  → " .. prize)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 				for i, tick in ticks do
 					local at = milestones[i].Count / goal
+					tick.Visible = not compact and at < 1
 					tick.Position = UDim2.new(at, 4 - 8 * at, 1, -6)
 					tick.BackgroundColor3 = count >= milestones[i].Count and Color3.fromRGB(255, 140, 30)
 						or Color3.fromRGB(255, 230, 150)

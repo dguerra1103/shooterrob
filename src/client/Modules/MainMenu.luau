@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
+local Ranks = require(Shared.Ranks)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -90,7 +91,17 @@ local function refreshInfo()
 		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
 	end
 	if infoLabel then
-		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
+		local rank = data and Ranks.Get(data.RankPoints)
+		infoLabel.Text = data and rank
+				and string.format(
+					"%s %s (%d RP)  ·  Nivel %d  ·  🪙 %d  ·  %d bajas",
+					rank.Icon,
+					rank.Name,
+					data.RankPoints or 0,
+					data.Level,
+					data.Coins,
+					data.TotalKills or 0
+				)
 			or "Cargando..."
 	end
 	-- Arma principal con la skin equipada, a la derecha (solo se rehace si cambia)

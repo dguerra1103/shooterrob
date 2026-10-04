@@ -72,11 +72,12 @@ Outfits.List = {
 		PlateMaterial = Enum.Material.Foil,
 		Pieces = { Vest = true, Pouches = true, Backpack = true, Shoulders = true, Belt = true, Knees = true, Boots = true, Gloves = true, Visor = true, Gauntlets = true },
 	},
-	-- Halloween: cabeza de calabaza con cara iluminada y capa
+	-- Halloween: cabeza de calabaza con cara iluminada y capa (premio del evento, ver GameConfig.Event)
 	Calabaza = {
 		Name = "Cabeza de Calabaza",
 		Rarity = "Legendario",
-		Class = "Edición Halloween",
+		Class = "Evento Halloween",
+		Event = "🎃 50 caramelos", -- solo se consigue en el evento (no se vende ni sale en cajas)
 		Body = RGB(25, 20, 30),
 		Cloth = RGB(60, 30, 80),
 		Glow = RGB(255, 170, 40),
@@ -267,7 +268,7 @@ function Outfits.Apply(character, id)
 		newPiece(folder, head, "PumpkinMouth", V(0, -0.2, -0.74), Z, V(0.55, 0.12, 0.06), Z, o.Glow, glow)
 	end
 	if P.Cape then
-		newPiece(folder, upper, "Cape", V(0, -0.35, 0.62), Z, V(1.1, 1.7, 0.06), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(8), 0, 0))
+		newPiece(folder, upper, "Cape", V(0, -0.35, 0.62), Z, V(1.1, 1.7, 0.06), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(-8), 0, 0))
 		newPiece(folder, upper, "CapeCollar", V(0, 0.48, 0.45), Z, V(1.0, 0.18, 0.25), Z, RGB(150, 30, 40), Enum.Material.Fabric)
 	end
 	if P.Scarf then

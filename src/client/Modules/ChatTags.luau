@@ -1,7 +1,10 @@
--- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP y el nivel de cada jugador,
--- con color según el nivel. Solo cambia cómo se ve el mensaje (TextChatService, chat nuevo de Roblox).
+-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo
+-- y el nivel de cada jugador, con color según el nivel. Solo cambia cómo se ve el mensaje (TextChatService, chat nuevo de Roblox).
 local Players = game:GetService("Players")
 local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
 
 local ChatTags = {}
 
@@ -23,6 +26,10 @@ local function tagsFor(player)
 	local tags = ""
 	if player:GetAttribute("VIP") then
 		tags ..= '<font color="#FFC83C">[VIP]</font> '
+	end
+	local rank = Ranks.Tiers[player:GetAttribute("Rank") or 0]
+	if rank then
+		tags ..= rank.Icon .. " "
 	end
 	local stats = player:FindFirstChild("leaderstats")
 	local level = stats and stats:FindFirstChild("Nivel")

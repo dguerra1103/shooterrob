@@ -13,6 +13,7 @@ local GameConfig = require(Shared.GameConfig)
 local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
+local Ranks = require(Shared.Ranks)
 local Shop = require(Shared.Shop)
 local Friends = require(script.Parent.Friends)
 local Badges = require(script.Parent.Badges)
@@ -73,6 +74,7 @@ local function defaults()
 		ClaimedPremium = {},
 		TotalKills = 0,
 		Wins = 0,
+		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
 		Premium = false,
 		DailyStreak = 0,
 		LastDailyDay = -1,
@@ -168,6 +170,7 @@ local function publicView(player, data)
 		EquippedOutfit = data.EquippedOutfit,
 		TotalKills = data.TotalKills,
 		Wins = data.Wins,
+		RankPoints = data.RankPoints,
 		Premium = data.Premium,
 		VIP = player:GetAttribute("VIP") == true,
 		DailyStreak = data.DailyStreak,
@@ -360,6 +363,9 @@ local function load(player)
 	if not table.find(Weapons.Melees, merged.Melee) or not Weapons.IsUnlocked(merged.Melee, merged) then
 		merged.Melee = Weapons.Melee
 	end
+	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
+		merged.RankPoints = 0
+	end
 	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
 		merged.EventProgress = { Id = "", Count = 0 }
 	end
@@ -379,6 +385,7 @@ local function load(player)
 	profiles[player] = merged
 	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
+	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
 	grantTierRewards(player)
 	sendUpdate(player)
 end
@@ -520,7 +527,7 @@ local match = {} -- [player] = { XP, Coins, StartLevel, StartXP }
 local function matchOf(player, data)
 	local entry = match[player]
 	if not entry then
-		entry = { XP = 0, Coins = 0, StartLevel = data.Level, StartXP = data.XP }
+		entry = { XP = 0, Coins = 0, StartLevel = data.Level, StartXP = data.XP, StartRank = data.RankPoints }
 		match[player] = entry
 	end
 	return entry
@@ -550,7 +557,23 @@ function PlayerData.MatchSummary(player)
 		Level = data.Level,
 		LevelXP = data.XP,
 		XPPerLevel = GameConfig.XPPerLevel,
+		StartRank = entry.StartRank or data.RankPoints,
+		RankPoints = data.RankPoints,
 	}
+end
+
+-- Suma (o resta) puntos de rango al acabar una partida; nunca baja del inicio del rango actual
+function PlayerData.AddRankPoints(player, delta)
+	local data = profiles[player]
+	if not data or delta == 0 then
+		return 0
+	end
+	local before = data.RankPoints
+	data.RankPoints = Ranks.Apply(before, delta)
+	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	dirty[player] = true
+	sendUpdate(player)
+	return data.RankPoints - before
 end
 
 function PlayerData.AddXP(player, amount, reason)
@@ -810,7 +833,7 @@ local function openCrate(player, crateId, useFree)
 		end
 	end
 	for id, outfit in Outfits.List do
-		if id ~= "Default" and outfit.Rarity == rarity then
+		if id ~= "Default" and not outfit.Event and outfit.Rarity == rarity then
 			table.insert(pool, { Kind = "Outfit", Id = id })
 		end
 	end

@@ -82,21 +82,28 @@ local function collect(player, candy)
 	if type(data.EventProgress) ~= "table" or data.EventProgress.Id ~= CONFIG.Id then
 		data.EventProgress = { Id = CONFIG.Id, Count = 0 }
 	end
+	if type(data.EventProgress.Claimed) ~= "table" then
+		data.EventProgress.Claimed = {} -- premios por el camino ya dados ("m25" = true)
+	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count
 	PlayerData.MarkDirty(player)
 	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
 	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	-- Premios por el camino (también los que quedaron atrás si el premio se añadió con el evento empezado)
+	local claimed = data.EventProgress.Claimed
 	for _, milestone in CONFIG.Milestones or {} do
-		if count == milestone.Count then
+		local key = "m" .. milestone.Count
+		if count >= milestone.Count and milestone.Count < CONFIG.Goal and not claimed[key] then
+			claimed[key] = true
 			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
 				local outfit = Outfits.Get(milestone.Outfit)
-				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
 			else
 				local amount = milestone.Coins or milestone.Compensate or 0
 				if amount > 0 then
-					local given = PlayerData.AddCoins(player, amount)
-					Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. count .. " caramelos! +" .. given .. " 🪙")
+					PlayerData.AddCoins(player, amount, false) -- premio fijo (no lo dobla el VIP)
+					Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! +" .. amount .. " 🪙")
 				end
 			end
 		end

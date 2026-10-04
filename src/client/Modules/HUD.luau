@@ -13,6 +13,7 @@ local GameConfig = require(Shared.GameConfig)
 local Skins = require(Shared.Skins)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
+local Ranks = require(Shared.Ranks)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -730,10 +731,21 @@ local function buildFeedsAndOverlays()
 	})
 	refs.SummaryCoins = UI.label({
 		Position = UDim2.fromOffset(0, 134),
-		Size = UDim2.new(1, 0, 0, 32),
+		Size = UDim2.new(0.45, 0, 0, 32),
 		Text = "",
 		TextSize = 28,
 		TextColor3 = Color3.fromRGB(255, 210, 60),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.Summary,
+	})
+	-- Rango competitivo: icono, nombre y puntos ganados o perdidos
+	refs.SummaryRank = UI.label({
+		Position = UDim2.new(0.45, 0, 0, 134),
+		Size = UDim2.new(0.55, 0, 0, 32),
+		Text = "",
+		TextSize = 24,
+		RichText = true,
+		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = refs.Summary,
 	})
 end
@@ -1019,6 +1031,21 @@ local function onMatchSummary(summary)
 	refs.SummaryFill.Size = UDim2.fromScale(math.clamp((summary.StartXP or 0) / perLevel, 0, 1), 1)
 	refs.SummaryXP.Text = "+0 XP"
 	refs.SummaryCoins.Text = "+0 🪙"
+	local levelsUp = math.max(0, (summary.Level or level) - level)
+	local startRank = summary.StartRank or summary.RankPoints or 0
+	local endRank = summary.RankPoints or startRank
+	local rankDelta = endRank - startRank
+	local function rankText(points, delta)
+		local tier = Ranks.Get(points)
+		local deltaText = ""
+		if delta > 0 then
+			deltaText = '  <font color="#6EE06E">+' .. delta .. " RP</font>"
+		elseif delta < 0 then
+			deltaText = '  <font color="#FF6E6E">' .. delta .. " RP</font>"
+		end
+		return string.format('%s <font color="%s"><b>%s</b></font>%s', tier.Icon, UI.hex(tier.Color), string.upper(tier.Name), deltaText)
+	end
+	refs.SummaryRank.Text = rankText(startRank, 0)
 	task.spawn(function()
 		task.wait(0.4)
 		-- Barra de XP: un tramo por cada nivel subido
@@ -1033,6 +1060,8 @@ local function onMatchSummary(summary)
 			if i < levels then
 				level += 1
 				refs.SummaryLevel.Text = "NIVEL " .. level
+				refs.SummaryLevelUp.Text = "⬆ ¡SUBES DE NIVEL!"
+				refs.SummaryLevelUp.TextColor3 = Color3.fromRGB(255, 220, 70)
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
 				refs.SummaryFill.Size = UDim2.fromScale(0, 1)
@@ -1052,6 +1081,22 @@ local function onMatchSummary(summary)
 			task.wait(0.05)
 		end
 		Sounds.Play("Kill")
+		if rankDelta ~= 0 and token == summaryToken then
+			refs.SummaryRank.Text = rankText(endRank, rankDelta)
+			-- ¡Subes de rango!
+			if Ranks.Index(endRank) > Ranks.Index(startRank) then
+				-- (después de la animación de subir de nivel, que usa el mismo cartel)
+				task.wait(math.max(0.3, 0.4 + 0.75 * (levelsUp + 1) - 1.2))
+				if token ~= summaryToken then
+					return
+				end
+				local tier = Ranks.Get(endRank)
+				refs.SummaryLevelUp.Text = tier.Icon .. " ¡ASCIENDES A " .. string.upper(tier.Name) .. "!"
+				refs.SummaryLevelUp.TextColor3 = tier.Color
+				refs.SummaryLevelUp.Visible = true
+				Sounds.Play("Flag")
+			end
+		end
 	end)
 end
 

@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage.Shared
 local GameConfig = require(Shared.GameConfig)
 local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
+local Ranks = require(Shared.Ranks)
 
 local PlayerData = require(script.Parent.PlayerData)
 local Flags = require(script.Parent.Flags)
@@ -656,6 +657,10 @@ local function endRound()
 		else
 			won = leader == player and leaderScore > 0
 		end
+		-- Rango: empate (por equipos) = sin cambios; el MVP gana un poco más
+		local draw = teamMode and winner == nil
+		local result = won and "Win" or (draw and "Draw" or "Loss")
+		PlayerData.AddRankPoints(player, Ranks.Delta(result, not teamMode, soloMatch, mvp == player and mvpScore > 0))
 		if won then
 			PlayerData.AddXP(player, math.floor(GameConfig.XP.Win * winScale), "Victoria")
 			PlayerData.AddCoins(player, math.floor(GameConfig.Coins.Win * winScale))

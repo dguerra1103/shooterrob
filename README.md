@@ -30,7 +30,8 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Efectos de eliminación** | Lo que ven todos cuando eliminas a alguien: Confeti, Amor, Llamarada, Congelado, Fantasma, Calavera, Rayo, Lluvia de monedas, Agujero negro, Pintura y Arcoíris. Se compran con monedas en la pestaña **Efectos** (con botón para verlos antes). |
 | **Rachas** | 3 bajas seguidas: **Radar** (tu equipo ve a los enemigos a través de las paredes 12 s). 5 bajas seguidas: **Ataque aéreo** (tecla T: marcas rojas y 5 bombas en línea donde apuntas). No hay en Escalada de armas. |
 | **Clasificación global** | Top 10 mundial de bajas y de victorias (todos los servidores) en la pantalla de inicio. Se actualiza cada 90 s; tu fila se resalta si estás dentro. |
-| **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue, Golden Ace y **Cabeza de Calabaza** (Halloween: cabeza de calabaza con ojos que brillan y capa; gratis con 50 caramelos del evento o con monedas). Se ven en la partida sobre tu avatar. |
+| **Rangos competitivos** | 🥉 Bronce, 🥈 Plata, 🥇 Oro, 💠 Platino, 💎 Diamante y 👑 Campeón. Ganar da +25 RP, perder −12 (−5 en todos contra todos) y el MVP +5 extra; nunca se baja de rango. Contra bots solo se gana un poco (+8) y no se pierde. Se ve en la pantalla de inicio, en el marcador, en el chat y al final de cada partida ("¡ASCIENDES A ORO!"). Se ajusta en `src/shared/Ranks.luau`. |
+| **Trajes** | Blaze Runner, Neon Recon, Volt Bruiser (los del concept pack), Frost Byte, Toxic Rogue, Golden Ace y **Cabeza de Calabaza** (Halloween: cabeza de calabaza con ojos que brillan y capa; solo se consigue con 50 caramelos del evento). Se ven en la partida sobre tu avatar. |
 | **Disparo** | Armas de estilo clásico (siluetas reales, madera y metal, miras de punto rojo, holográficas y telescópicas; `Weapons.Style = "SciFi"` vuelve al concept pack), inspeccionar arma (V), números de daño que saltan sobre el enemigo, viewmodel con brazos, retroceso, balanceo, apuntado (clic derecho), mira telescópica, recarga, trazadoras, fogonazo, hitmarkers, números de daño, disparos a la cabeza y cohetes con explosión. |
 | **Anti-trampas** | El servidor revisa la cadencia, la munición, la distancia y la línea de visión de cada disparo. |
 | **Movimiento** | Correr (Shift) y deslizarse (C), con impulso. |
@@ -108,6 +109,7 @@ Todo lo importante está en `src/shared/`:
 - **`Weapons.luau`**: daño, cadencia, cargador, retroceso, dispersión, nivel de desbloqueo y precio de cada arma, y el orden de *Escalada de armas* (`GunGameOrder`).
 - **`WeaponDesigns.luau`**: la forma de cada arma (piezas). Para añadir un arma nueva, copia una entrada aquí y en `Weapons.luau` y añádela a `Weapons.Primaries`.
 - **`Skins.luau`** y **`Outfits.luau`**: skins de armas y trajes de operador.
+- **`Ranks.luau`**: rangos competitivos y puntos por partida.
 - **`Shop.luau`**: precios, packs de Robux, VIP, recompensa diaria, cajas y ofertas.
 - **`Challenges.luau`**: lista de retos diarios (objetivo, texto y premio).
 - **`Mastery.luau`**: bajas necesarias y premio de cada nivel de maestría.

@@ -963,7 +963,7 @@ local function buildOutfitsPage(data)
 		priceButton(card, "Outfit", id, owned, equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipOutfit:FireServer(id)
-		end)
+		end, outfit.Event)
 	end
 end
 
@@ -1019,8 +1019,8 @@ local function crateAnimation(result)
 			table.insert(pool, { "Skin", id })
 		end
 	end
-	for id in Outfits.List do
-		if id ~= "Default" then
+	for id, outfit in Outfits.List do
+		if id ~= "Default" and not outfit.Event then
 			table.insert(pool, { "Outfit", id })
 		end
 	end

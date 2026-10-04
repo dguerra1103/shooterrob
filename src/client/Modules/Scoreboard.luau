@@ -8,6 +8,7 @@ local ContextActionService = game:GetService("ContextActionService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
+local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -27,8 +28,9 @@ local function collect()
 		local stats = p:FindFirstChild("leaderstats")
 		local kills = stats and stats:FindFirstChild("Bajas")
 		local deaths = stats and stats:FindFirstChild("Muertes")
+		local rank = Ranks.Tiers[p:GetAttribute("Rank") or 0]
 		table.insert(rows, {
-			Name = p.DisplayName,
+			Name = (rank and (rank.Icon .. " ") or "") .. p.DisplayName,
 			Team = p.Team,
 			Kills = kills and kills.Value or 0,
 			Deaths = deaths and deaths.Value or 0,
