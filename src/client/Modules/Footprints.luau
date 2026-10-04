@@ -1,5 +1,5 @@
 -- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
--- personajes cercanos. Se desvanecen solas y hay un máximo para no gastar memoria. En calidad Baja
+-- personajes cercanos (jugadores y bots). Se desvanecen solas y hay un máximo para no gastar memoria. En calidad Baja
 -- no se crean.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -110,8 +110,20 @@ function Footprints.Init()
 		end
 		local camera = workspace.CurrentCamera
 		local seen = {}
+		local characters = {}
 		for _, player in Players:GetPlayers() do
-			local character = player.Character
+			if player.Character then
+				table.insert(characters, player.Character)
+			end
+		end
+		-- (los bots también dejan huellas)
+		local bots = workspace:FindFirstChild("Bots")
+		if bots then
+			for _, model in bots:GetChildren() do
+				table.insert(characters, model)
+			end
+		end
+		for _, character in characters do
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local root = character and character:FindFirstChild("HumanoidRootPart")
 			if humanoid and root and humanoid.Health > 0 and camera and (root.Position - camera.CFrame.Position).Magnitude < MAX_DISTANCE then

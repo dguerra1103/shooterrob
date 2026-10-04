@@ -24354,6 +24354,7 @@ local Minimap = require(Modules.Minimap)
 local DominationHUD = require(Modules.DominationHUD)
 local MatchIntro = require(Modules.MatchIntro)
 local BombHUD = require(Modules.BombHUD)
+local BotFootsteps = require(Modules.BotFootsteps)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -24379,6 +24380,7 @@ start("Minimap", Minimap.Init)
 start("DominationHUD", DominationHUD.Init)
 start("MatchIntro", MatchIntro.Init)
 start("BombHUD", BombHUD.Init)
+start("BotFootsteps", BotFootsteps.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -24892,6 +24894,106 @@ return BoostHUD
           </Item>
           <Item class="ModuleScript" referent="87">
             <Properties>
+              <string name="Name">BotFootsteps</string>
+              <string name="Source"><![CDATA[-- Pasos de los bots (solo en el cliente). Los personajes de los jugadores ya suenan al correr con los
+-- sonidos de Roblox, pero los bots no: aquí cada bot cercano lleva el mismo sonido de pasos en bucle,
+-- más rápido cuanto más corre, y solo mientras se mueve por el suelo. Los enemigos se oyen más que
+-- los compañeros (como en los shooters: oír los pasos del rival es información).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local BotFootsteps = {}
+
+local SOUND_ID = "rbxasset://sounds/action_footsteps_plastic.mp3"
+local MAX_DISTANCE = 90 -- más lejos no se oyen (y no se gastan sonidos)
+local CHECK_INTERVAL = 0.1
+local ENEMY_VOLUME = 0.8
+local ALLY_VOLUME = 0.35
+
+local player = Players.LocalPlayer
+local sounds = {} -- [modelo del bot] = Sound
+
+local function isEnemy(model)
+	if ReplicatedStorage:GetAttribute("TeamMode") == false then
+		return true
+	end
+	local team = model:GetAttribute("Team")
+	return team == nil or player.Team == nil or team ~= player.Team.Name
+end
+
+local function soundFor(model, root)
+	local sound = sounds[model]
+	if sound and sound.Parent == root then
+		return sound
+	end
+	sound = Instance.new("Sound")
+	sound.Name = "Pasos"
+	sound.SoundId = SOUND_ID
+	sound.Looped = true
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.RollOffMinDistance = 6
+	sound.RollOffMaxDistance = MAX_DISTANCE
+	sound.Parent = root
+	sounds[model] = sound
+	return sound
+end
+
+local function update()
+	local folder = workspace:FindFirstChild("Bots")
+	local camera = workspace.CurrentCamera
+	local seen = {}
+	if folder and camera then
+		for _, model in folder:GetChildren() do
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local root = model:FindFirstChild("HumanoidRootPart")
+			if humanoid and root and root:IsA("BasePart") and humanoid.Health > 0
+				and (root.Position - camera.CFrame.Position).Magnitude < MAX_DISTANCE then
+				seen[model] = true
+				local velocity = root.AssemblyLinearVelocity
+				local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+				local sound = soundFor(model, root)
+				-- (en el aire o casi quieto no suenan)
+				if speed > 3 and math.abs(velocity.Y) < 6 then
+					sound.Volume = isEnemy(model) and ENEMY_VOLUME or ALLY_VOLUME
+					sound.PlaybackSpeed = math.clamp(speed / 16, 0.7, 1.6)
+					if not sound.IsPlaying then
+						sound:Play()
+					end
+				elseif sound.IsPlaying then
+					sound:Stop()
+				end
+			end
+		end
+	end
+	-- Bots que se alejan, mueren o desaparecen: fuera su sonido
+	for model, sound in sounds do
+		if not seen[model] then
+			sound:Destroy()
+			sounds[model] = nil
+		end
+	end
+end
+
+function BotFootsteps.Init()
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed < CHECK_INTERVAL then
+			return
+		end
+		elapsed = 0
+		update()
+	end)
+end
+
+BotFootsteps.Update = update
+return BotFootsteps
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="88">
+            <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
 -- el nivel de cada jugador (con color según el nivel) y su título. Solo cambia cómo se ve el mensaje (TextChatService, chat nuevo de Roblox).
@@ -24959,7 +25061,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -25050,7 +25152,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -25227,7 +25329,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -25698,7 +25800,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">DominationHUD</string>
               <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
@@ -25809,7 +25911,7 @@ return DominationHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -26965,7 +27067,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -27142,7 +27244,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -27266,11 +27368,11 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
--- personajes cercanos. Se desvanecen solas y hay un máximo para no gastar memoria. En calidad Baja
+-- personajes cercanos (jugadores y bots). Se desvanecen solas y hay un máximo para no gastar memoria. En calidad Baja
 -- no se crean.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -27381,8 +27483,20 @@ function Footprints.Init()
 		end
 		local camera = workspace.CurrentCamera
 		local seen = {}
+		local characters = {}
 		for _, player in Players:GetPlayers() do
-			local character = player.Character
+			if player.Character then
+				table.insert(characters, player.Character)
+			end
+		end
+		-- (los bots también dejan huellas)
+		local bots = workspace:FindFirstChild("Bots")
+		if bots then
+			for _, model in bots:GetChildren() do
+				table.insert(characters, model)
+			end
+		end
+		for _, character in characters do
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local root = character and character:FindFirstChild("HumanoidRootPart")
 			if humanoid and root and humanoid.Health > 0 and camera and (root.Position - camera.CFrame.Position).Magnitude < MAX_DISTANCE then
@@ -27407,7 +27521,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -27480,7 +27594,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -27610,7 +27724,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -29355,7 +29469,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -29427,7 +29541,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -29492,7 +29606,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -29726,7 +29840,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -30473,7 +30587,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -30710,7 +30824,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -33426,7 +33540,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -33759,7 +33873,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -34216,7 +34330,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -34343,7 +34457,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -34514,7 +34628,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -34684,7 +34798,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -35011,7 +35125,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -35200,7 +35314,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -35286,7 +35400,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -35338,7 +35452,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -35495,7 +35609,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -35597,7 +35711,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -35791,7 +35905,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -37213,7 +37327,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -37270,7 +37384,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -37564,7 +37678,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -37783,19 +37897,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="121">
+  <Item class="Teams" referent="122">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="122">
+  <Item class="Workspace" referent="123">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="123">
+    <Item class="Terrain" referent="124">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

@@ -43,6 +43,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Skins animadas** | **Arcoíris** (mítica: paneles y detalles de neón que recorren todos los colores, con destellos) y **Prisma** (legendaria: el arma entera cambia de color en tonos pastel). Se animan en tu arma, en las de los demás y en los iconos de la tienda. Se compran con monedas o salen en la Caja Neón. |
 | **Colgantes** | Adornos que cuelgan del lateral del arma y se balancean al girar la cámara: Dado, Corazón, Calabacita, Estrella, Calavera, Patito de goma y Diamante (300-1200 monedas, pestaña **Skins**, abajo). Valen para todas las armas de fuego. |
 | **Efectos de eliminación** | Lo que ven todos cuando eliminas a alguien: Confeti, Amor, Llamarada, Congelado, Fantasma, Calavera, Rayo, Lluvia de monedas, Agujero negro, Pintura, Arcoíris, Fuegos artificiales (tres cohetes de colores), Rodadora (del Oeste: polvareda, matojos rodando y sombrero de vaquero) y los de Halloween: Murciélagos y Calabazas. Se compran con monedas en la pestaña **Efectos** (con botón para verlos antes). |
+| **Pasos de los bots** | Los bots cercanos (a menos de 90 studs) suenan al correr con los pasos de Roblox, más rápidos cuanto más corren; los enemigos se oyen más que los compañeros, como en los shooters de móvil. También dejan huellas en nieve, arena y barro. `src/client/Modules/BotFootsteps.luau`. |
 | **Medallas** | Al hacer una baja pueden salir placas doradas bajo el aviso de baja, con XP extra: **🩸 Primera sangre** (la primera baja de la partida), **😤 Venganza** (eliminas a quien te eliminó), **🛑 Cazarrachas** (el caído llevaba 3 o más bajas seguidas), **🔭 Larga distancia** (a 90 studs o más, sin explosivos ni cuerpo a cuerpo) y **👻 Desde la tumba** (la baja llega estando ya muerto, p. ej. con una granada). Se configuran en `GameConfig.Medals`. |
 | **Rachas** | 3 bajas seguidas: **Radar** (tu equipo ve a los enemigos a través de las paredes 12 s). 5 bajas seguidas: **Ataque aéreo** (tecla T: marcas rojas y 5 bombas en línea donde apuntas). No hay en Escalada de armas. |
 | **Asistencias** | Si le quitas al menos 20 de vida a alguien y otro lo remata en menos de 10 s: "🤝 ASISTENCIA" con +40 XP y +2 monedas (la mitad si era un bot). Se cuentan en tus estadísticas. Se ajusta en `GameConfig.XP.Assist` y `GameConfig.Coins.Assist`. |
@@ -294,6 +295,7 @@ src/
         ├── VoteUI.luau            votación de mapa y modo
         ├── GrenadeController.luau granada (tecla G) e indicador
         ├── KillstreakController.luau radar y ataque aéreo (tecla T)
+        ├── BotFootsteps.luau  pasos de los bots que se oyen al correr
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
         ├── Footprints.luau        huellas en nieve, arena y barro
