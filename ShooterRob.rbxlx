@@ -5554,6 +5554,38 @@ local function canSee(agent, target)
 	return hit == nil or hit.Instance:IsDescendantOf(target.Model)
 end
 
+-- Visión: los bots no ven por la espalda. Se fijan en lo que tienen delante (cono de VISION_ANGLE
+-- grados), en quien está muy cerca, en quien les acaba de disparar y en con quien ya peleaban.
+-- Así flanquear y atacar por detrás funciona, como contra una persona.
+local VISION_DOT = math.cos(math.rad(70)) -- 140° en total
+local NOTICE_DISTANCE = 14
+
+-- ¿Le ha disparado este objetivo hace poco?
+local function hitBy(agent, target)
+	local humanoid = agent.Humanoid
+	local hitTime = humanoid and humanoid:GetAttribute("LastHitTime")
+	if not hitTime or os.clock() - hitTime > 3 then
+		return false
+	end
+	local attackerId = humanoid:GetAttribute("LastAttacker")
+	if attackerId then
+		local player = Players:GetPlayerFromCharacter(target.Model)
+		return player ~= nil and player.UserId == attackerId
+	end
+	return humanoid:GetAttribute("LastBot") == target.Model.Name
+end
+
+local function notices(agent, target)
+	if agent.Target == target.Model or target.Distance < NOTICE_DISTANCE then
+		return true
+	end
+	local offset = target.Head.Position - agent.Root.Position
+	if offset.Magnitude > 0 and agent.Root.CFrame.LookVector:Dot(offset.Unit) > VISION_DOT then
+		return true
+	end
+	return hitBy(agent, target)
+end
+
 -- El enemigo visible más cercano: se ordenan por distancia y solo se lanzan rayos hasta encontrar
 -- uno a la vista (antes se comprobaban todos)
 local function findTarget(agent)
@@ -5571,11 +5603,39 @@ local function findTarget(agent)
 		return x.Distance * (x.Wanted and 0.6 or 1) < y.Distance * (y.Wanted and 0.6 or 1)
 	end)
 	for _, target in inRange do
-		if canSee(agent, target) then
+		if notices(agent, target) and canSee(agent, target) then
 			return target, target.Distance
 		end
 	end
 	return nil, CONFIG.Range
+end
+
+-- Le han disparado y no ve a nadie: se gira hacia el disparo y va a ver qué pasa
+local function checkAlert(agent, now)
+	local humanoid, root = agent.Humanoid, agent.Root
+	local hitTime = humanoid:GetAttribute("LastHitTime")
+	if not hitTime or hitTime == agent.LastAlert or now - hitTime > 2 then
+		return
+	end
+	agent.LastAlert = hitTime
+	local source
+	local attackerId = humanoid:GetAttribute("LastAttacker")
+	if attackerId then
+		local attacker = Players:GetPlayerByUserId(attackerId)
+		source = attacker and attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
+	else
+		local other = Combat.BotsByName[humanoid:GetAttribute("LastBot") or ""]
+		source = other and other.Root
+	end
+	if source and source.Parent then
+		local look = Vector3.new(source.Position.X, root.Position.Y, source.Position.Z)
+		if (look - root.Position).Magnitude > 0.5 then
+			root.CFrame = CFrame.lookAt(root.Position, look)
+		end
+		agent.AlertPosition = source.Position
+		agent.GoalDeadline = 0 -- (busca camino nuevo ya)
+		agent.Waypoints = nil
+	end
 end
 
 -- Captura la bandera: si lleva la bandera, a casa; si no, a devolver la suya caída, a perseguir a
@@ -5609,6 +5669,12 @@ local function pickGoal(agent)
 	local flagTarget = flagGoal(agent)
 	if typeof(flagTarget) == "Vector3" then
 		return flagTarget, true
+	end
+	-- Le dispararon desde donde no veía: va hacia allí
+	if agent.AlertPosition then
+		local alert = agent.AlertPosition
+		agent.AlertPosition = nil
+		return alert, true
 	end
 	-- Calabazas: casi siempre van a por la calabaza más cercana que haya
 	if ReplicatedStorage:GetAttribute("Mode") == "CAL" and agent.Root and math.random() < 0.8 then
@@ -5757,6 +5823,9 @@ local function think(agent)
 		return
 	end
 	local target, distance = findTarget(agent)
+	if not target then
+		checkAlert(agent, now)
+	end
 	-- Con la bandera a cuestas no se para a pelear: dispara mientras sigue su camino a casa
 	if target and agent.CarryingFlag then
 		if agent.Target ~= target.Model then
