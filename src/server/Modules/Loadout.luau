@@ -172,6 +172,11 @@ function Loadout.Init()
 	PlayerData.OnOutfitChanged = onOutfitChanged
 	-- "Volver al menú": vuelve a ser invulnerable y queda fuera de los objetivos
 	Remotes.EnterMenu.OnServerEvent:Connect(function(player)
+		-- Solo desde la pantalla de muerte: si no, cualquiera podría volverse invulnerable en plena pelea
+		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			return
+		end
 		player:SetAttribute("InMenu", true)
 		if player.Character then
 			addMenuShield(player, player.Character)

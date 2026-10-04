@@ -415,9 +415,7 @@ end
 
 local function respawnAll()
 	for _, player in Players:GetPlayers() do
-		task.spawn(function()
-			player:LoadCharacter()
-		end)
+		task.spawn(Respawn.Load, player) -- con la protección contra cargas dobles
 	end
 end
 
@@ -635,7 +633,7 @@ function Round.Init()
 	for _, player in Players:GetPlayers() do
 		if not player.Team then
 			onPlayer(player)
-			player:LoadCharacter()
+			Respawn.Load(player)
 		end
 	end
 

@@ -27,7 +27,14 @@ local function load(player)
 	local ok, err = pcall(player.LoadCharacter, player)
 	loading[player] = nil
 	if not ok then
+		-- Sin CharacterAutoLoads nadie más lo reintentaría: se queda muerto. Reintento en un segundo.
 		warn("[Respawn] No se pudo cargar el personaje:", err)
+		revivePoints[player] = nil
+		task.delay(1, function()
+			if player.Parent and (not player.Character or not player.Character:FindFirstChildOfClass("Humanoid")) then
+				load(player)
+			end
+		end)
 	end
 end
 Respawn.Load = load
@@ -98,7 +105,29 @@ local function reviveCheck(player)
 	if not point or point.Y < -20 then
 		return nil, "No se puede revivir aquí"
 	end
-	return point
+	-- Tiene que haber suelo debajo (no en el aire sobre un hueco) y no puede ser lava
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local ignore = {}
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(ignore, p.Character)
+		end
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	params.FilterDescendantsInstances = ignore
+	local hit = workspace:Raycast(point + Vector3.new(0, 2, 0), Vector3.new(0, -14, 0), params)
+	if not hit then
+		return nil, "No hay suelo aquí"
+	end
+	if hit.Instance:GetAttribute("Hazard") or hit.Material == Enum.Material.CrackedLava then
+		return nil, "No se puede revivir en la lava"
+	end
+	return hit.Position
 end
 
 function Respawn.Init()

@@ -62,7 +62,7 @@ local CARTOON_FLAT = {}
 for _, name in {
 	"Plaster", "Concrete", "Brick", "Limestone", "Cobblestone", "Slate", "Pavement", "Asphalt", "Granite", "Marble",
 	"Sandstone", "Pebble", "CorrodedMetal", "DiamondPlate", "Rock", "Basalt", "Plastic", "Grass", "LeafyGrass",
-	"Ground", "Mud", "ClayRoofTiles", "CeramicTiles", "Fabric",
+	"ClayRoofTiles", "CeramicTiles", "Fabric",
 } do
 	local ok, material = pcall(function()
 		return (Enum.Material :: any)[name]
