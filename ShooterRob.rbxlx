@@ -691,6 +691,12 @@ Shop.SkinPrices = {
 	Galaxia = 2500,
 	Dragon = 3000,
 	Magma = 3000,
+	CamoBosque = 700,
+	CamoDesierto = 700,
+	CamoDigital = 1200,
+	CamoArtico = 1200,
+	CamoTigre = 2200,
+	CamoNebulosa = 3200,
 }
 
 -- Precio en monedas de cada traje de operador (ver Outfits)
@@ -939,6 +945,78 @@ Skins.List = {
 		Dark = Color3.fromRGB(255, 50, 0),
 		Accent2 = Color3.fromRGB(255, 200, 0),
 		Effect = "Flame",
+		Pulse = true,
+	},
+
+	-- Camuflajes con imagen (MaterialVariant "Camo<nombre>", ver assets/textures/LEEME.md). Mientras la
+	-- imagen no esté subida, el arma se pinta con los colores de respaldo (Body/Panel).
+	CamoBosque = {
+		Name = "Bosque",
+		Rarity = "Raro",
+		Camo = "Bosque",
+		Body = Color3.fromRGB(98, 112, 70),
+		Panel = Color3.fromRGB(128, 100, 62),
+		Accent = Color3.fromRGB(230, 220, 160),
+		AccentMaterial = Enum.Material.SmoothPlastic,
+		Dark = Color3.fromRGB(34, 34, 28),
+		Accent2 = Color3.fromRGB(62, 78, 46),
+	},
+	CamoDesierto = {
+		Name = "Desierto",
+		Rarity = "Raro",
+		Camo = "Desierto",
+		Body = Color3.fromRGB(204, 178, 132),
+		Panel = Color3.fromRGB(168, 138, 98),
+		Accent = Color3.fromRGB(255, 140, 40),
+		AccentMaterial = Enum.Material.SmoothPlastic,
+		Dark = Color3.fromRGB(60, 52, 42),
+		Accent2 = Color3.fromRGB(126, 100, 72),
+	},
+	CamoDigital = {
+		Name = "Digital urbano",
+		Rarity = "Épico",
+		Camo = "Digital",
+		Body = Color3.fromRGB(140, 145, 152),
+		Panel = Color3.fromRGB(98, 102, 108),
+		Accent = Color3.fromRGB(0, 200, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(40, 42, 46),
+		Accent2 = Color3.fromRGB(196, 200, 206),
+	},
+	CamoArtico = {
+		Name = "Ártico",
+		Rarity = "Épico",
+		Camo = "Artico",
+		Body = Color3.fromRGB(236, 240, 246),
+		Panel = Color3.fromRGB(140, 160, 182),
+		Accent = Color3.fromRGB(120, 210, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(70, 84, 100),
+		Accent2 = Color3.fromRGB(190, 205, 220),
+	},
+	CamoTigre = {
+		Name = "Tigre",
+		Rarity = "Legendario",
+		Camo = "Tigre",
+		Body = Color3.fromRGB(240, 132, 30),
+		Panel = Color3.fromRGB(25, 20, 18),
+		Accent = Color3.fromRGB(255, 220, 120),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(25, 20, 18),
+		Accent2 = Color3.fromRGB(180, 80, 20),
+		Effect = "Sparkle",
+	},
+	CamoNebulosa = {
+		Name = "Nebulosa",
+		Rarity = "Mítico",
+		Camo = "Nebulosa",
+		Body = Color3.fromRGB(90, 40, 170),
+		Panel = Color3.fromRGB(40, 20, 90),
+		Accent = Color3.fromRGB(200, 140, 255),
+		AccentMaterial = Enum.Material.Neon,
+		Dark = Color3.fromRGB(20, 10, 40),
+		Accent2 = Color3.fromRGB(80, 200, 255),
+		Effect = "Sparkle",
 		Pulse = true,
 	},
 
@@ -2690,9 +2768,20 @@ function WeaponModels.GetPalette(weaponName, skinId)
 	return Skins.Get(skinId)
 end
 
+-- Camuflaje con imagen: solo si su MaterialVariant existe (si no, se usan los colores de respaldo)
+local MaterialService = game:GetService("MaterialService")
+local function camoVariant(pal)
+	if not pal.Camo then
+		return nil
+	end
+	local name = "Camo" .. pal.Camo
+	return MaterialService:FindFirstChild(name) and name or nil
+end
+
 local function paint(part, role, pal)
 	part.Transparency = 0
 	part.Reflectance = 0
+	part.MaterialVariant = ""
 	if role == "Accent" then
 		part.Color = pal.Accent
 		part.Material = pal.AccentMaterial or Enum.Material.Neon
@@ -2735,6 +2824,15 @@ local function paint(part, role, pal)
 		part.Color = pal.Body
 		-- Polímero con textura fina (el plástico liso parecía de juguete)
 		part.Material = pal.BodyMaterial or Enum.Material.Plastic
+	end
+	-- Cuerpo y paneles con la imagen del camuflaje (el color blanco no la tiñe)
+	if role == "Body" or role == "Panel" or role == nil then
+		local variant = camoVariant(pal)
+		if variant then
+			part.Material = Enum.Material.Plastic
+			part.MaterialVariant = variant
+			part.Color = role == "Panel" and Color3.fromRGB(205, 205, 205) or WHITE
+		end
 	end
 end
 

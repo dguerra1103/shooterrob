@@ -23,9 +23,20 @@ function WeaponModels.GetPalette(weaponName, skinId)
 	return Skins.Get(skinId)
 end
 
+-- Camuflaje con imagen: solo si su MaterialVariant existe (si no, se usan los colores de respaldo)
+local MaterialService = game:GetService("MaterialService")
+local function camoVariant(pal)
+	if not pal.Camo then
+		return nil
+	end
+	local name = "Camo" .. pal.Camo
+	return MaterialService:FindFirstChild(name) and name or nil
+end
+
 local function paint(part, role, pal)
 	part.Transparency = 0
 	part.Reflectance = 0
+	part.MaterialVariant = ""
 	if role == "Accent" then
 		part.Color = pal.Accent
 		part.Material = pal.AccentMaterial or Enum.Material.Neon
@@ -68,6 +79,15 @@ local function paint(part, role, pal)
 		part.Color = pal.Body
 		-- Polímero con textura fina (el plástico liso parecía de juguete)
 		part.Material = pal.BodyMaterial or Enum.Material.Plastic
+	end
+	-- Cuerpo y paneles con la imagen del camuflaje (el color blanco no la tiñe)
+	if role == "Body" or role == "Panel" or role == nil then
+		local variant = camoVariant(pal)
+		if variant then
+			part.Material = Enum.Material.Plastic
+			part.MaterialVariant = variant
+			part.Color = role == "Panel" and Color3.fromRGB(205, 205, 205) or WHITE
+		end
 	end
 end
 

@@ -1,34 +1,45 @@
-# Textura de cuadrícula ("Grid")
+# Texturas del juego (subir a Roblox)
 
-`grid.png` es una cuadrícula en escala de grises (como la de los shooters más jugados de Roblox).
-Roblox la tiñe del color de cada pieza: la misma imagen sirve para paredes lavanda, columnas rosas,
-suelos verdes, etc.
+Estas imágenes las usa el juego como **MaterialVariant**: una sola imagen se aplica a cientos de
+piezas sin crear nada extra, así que no gasta rendimiento.
 
-## Cómo activarla
+| Archivo | Variante | Para qué | Tamaño de repetición |
+|---|---|---|---|
+| `grid.png` | `Grid` | Cuadrícula de paredes y suelos de los mapas (se tiñe del color de cada pieza) | 4 studs |
+| `camo_bosque.png` | `CamoBosque` | Skin de arma "Bosque" | 2 studs |
+| `camo_desierto.png` | `CamoDesierto` | Skin de arma "Desierto" | 2 studs |
+| `camo_digital.png` | `CamoDigital` | Skin de arma "Digital urbano" | 2 studs |
+| `camo_artico.png` | `CamoArtico` | Skin de arma "Ártico" | 2 studs |
+| `camo_tigre.png` | `CamoTigre` | Skin de arma "Tigre" | 2 studs |
+| `camo_nebulosa.png` | `CamoNebulosa` | Skin de arma "Nebulosa" | 2 studs |
 
-1. Sube `grid.png` a Roblox (con la misma cuenta o grupo que publica el juego):
-   - **Opción fácil (Studio):** abre Roblox Studio → pestaña *Ver* → *Gestor de recursos* (Asset Manager)
-     → botón *Importar* → elige `grid.png`. Cuando termine, clic derecho sobre la imagen →
-     *Copiar ID del recurso*.
-   - **Opción web:** create.roblox.com → *Creaciones* → *Elementos de desarrollo* → *Calcomanías*
-     (Decals) → *Subir recurso*.
-2. Pasa ese número a Claude (no es secreto: es solo el ID de una imagen).
-3. Claude añade la variante a `default.project.json`:
+Mientras una variante no exista, el juego usa colores normales: no se rompe nada. Las skins de
+camuflaje se pueden comprar desde ya; al subir la imagen, todas las que ya se compraron pasan a
+verse con el dibujo.
+
+## Cómo subirlas
+
+1. Abre Roblox Studio → pestaña **Ver** → **Gestor de recursos** (Asset Manager) → **Importar** y
+   elige los 7 PNG de esta carpeta (se pueden elegir todos a la vez).
+2. Cuando terminen, clic derecho sobre cada imagen → **Copiar ID del recurso**.
+3. Pasa los ID a Claude (no son secretos: son solo imágenes). Claude los añade a
+   `default.project.json` así:
 
 ```json
 "MaterialService": {
   "$properties": { "Use2022Materials": true },
   "Grid": {
     "$className": "MaterialVariant",
-    "$properties": {
-      "BaseMaterial": { "Enum": 272 },
-      "ColorMap": "rbxassetid://ID_DE_LA_IMAGEN",
-      "StudsPerTile": 4
-    }
+    "$properties": { "BaseMaterial": { "Enum": 272 }, "ColorMap": "rbxassetid://ID", "StudsPerTile": 4 }
+  },
+  "CamoBosque": {
+    "$className": "MaterialVariant",
+    "$properties": { "BaseMaterial": { "Enum": 256 }, "ColorMap": "rbxassetid://ID", "StudsPerTile": 2 }
   }
 }
 ```
 
-Los mapas ya marcan todas sus superficies lisas con `MaterialVariant = "Grid"`
-(`Kit.applyStyle` en `src/server/Modules/MapKit.luau`). Mientras la variante no exista, Roblox usa
-el plástico liso normal, así que no se rompe nada.
+(`272` = SmoothPlastic para la cuadrícula de los mapas; `256` = Plastic para los camuflajes.)
+
+Los mapas marcan sus superficies lisas con `MaterialVariant = "Grid"` (`Kit.applyStyle` en
+`src/server/Modules/MapKit.luau`) y las armas usan `Camo<nombre>` (`src/shared/WeaponModels.luau`).

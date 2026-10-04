@@ -51,6 +51,12 @@ Shop.SkinPrices = {
 	Galaxia = 2500,
 	Dragon = 3000,
 	Magma = 3000,
+	CamoBosque = 700,
+	CamoDesierto = 700,
+	CamoDigital = 1200,
+	CamoArtico = 1200,
+	CamoTigre = 2200,
+	CamoNebulosa = 3200,
 }
 
 -- Precio en monedas de cada traje de operador (ver Outfits)
