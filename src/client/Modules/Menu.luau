@@ -1969,7 +1969,8 @@ local function buildShopPage(data)
 	UI.label({
 		Position = UDim2.fromOffset(16, 0),
 		Size = UDim2.new(1, -260, 1, 0),
-		Text = "🎁 Recompensa diaria · Día " .. tostring(nextDay) .. "/" .. #Shop.DailyRewards .. "  (día 7: caja gratis)",
+		Text = "🎁 Recompensa diaria · Día " .. tostring(nextDay) .. "/" .. #Shop.DailyRewards .. "  (día 7: caja gratis)"
+			.. ((GameConfig.CurrentEvent() and (GameConfig.EventDailyBonus or 0) > 0) and ("  + " .. GameConfig.EventDailyBonus .. " " .. (GameConfig.CurrentEvent().ItemIcon or GameConfig.CurrentEvent().Icon)) or ""),
 		TextSize = 20,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = daily,

@@ -707,6 +707,9 @@ local function xpBoost()
 end
 PlayerData.XPBoost = xpBoost
 
+-- Lo pone Event: se llama al recoger la recompensa diaria
+PlayerData.OnDailyClaimed = nil :: ((Player) -> ())?
+
 -- Roblox Premium (atributo RobloxPremium: lo leen el multiplicador y la Tienda)
 function PlayerData.UpdatePremium(player)
 	local ok, premium = pcall(function()
@@ -1273,6 +1276,10 @@ local function claimDaily(player)
 		data.FreeCrates += 1 -- caja diaria extra del VIP
 	end
 	sendUpdate(player)
+	-- (el evento en marcha regala también unos objetos; lo pone Event)
+	if PlayerData.OnDailyClaimed then
+		task.spawn(PlayerData.OnDailyClaimed, player)
+	end
 	return true, { Streak = streak, Coins = given, Crate = crate }
 end
 

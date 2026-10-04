@@ -775,6 +775,9 @@ GameConfig.RobloxPremium = { Multiplier = 1.2 }
 -- gratis y BoostXPMinutes minutos de XP doble (de muestra de los potenciadores de la Tienda).
 GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1, BoostXPMinutes = 30 }
 
+-- Mientras hay un evento, la recompensa diaria regala también estos objetos del evento (caramelos...)
+GameConfig.EventDailyBonus = 5
+
 -- Primera victoria del día: la primera partida que ganas cada día (hora UTC) da esto de más.
 GameConfig.FirstWinOfDay = { Coins = 150, XP = 300 }
 
@@ -7604,6 +7607,8 @@ local function milestoneKey(milestone)
 	return "m" .. milestone.Count .. (milestone.Weapon and "w" or "")
 end
 
+local addProgress -- (definida justo después)
+
 local function collect(player, candy)
 	if not candy.Parent or candy:GetAttribute("Taken") then
 		return
@@ -7623,6 +7628,12 @@ local function collect(player, candy)
 		table.remove(candies, index)
 	end
 	candy:Destroy()
+	addProgress(player, 1, true)
+end
+
+-- Suma objetos del evento al contador del jugador y da los premios por el camino.
+-- pickup = true: recogido en el mapa (da monedas y avisa con el contador)
+addProgress = function(player, amount, pickup)
 	local data = PlayerData.Get(player)
 	if not data then
 		return
@@ -7641,12 +7652,17 @@ local function collect(player, candy)
 		end
 		data.EventProgress.Claimed = claimed
 	end
-	data.EventProgress.Count += 1
+	data.EventProgress.Count += amount
 	local count = data.EventProgress.Count
 	PlayerData.MarkDirty(player)
-	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
-	local itemName = CONFIG.Item or "objeto"
-	Remotes.Notify:FireClient(player, "XP", ITEM_ICON .. " " .. string.upper(string.sub(itemName, 1, 1)) .. string.sub(itemName, 2) .. "  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	if pickup then
+		local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
+		local itemName = CONFIG.Item or "objeto"
+		Remotes.Notify:FireClient(player, "XP", ITEM_ICON .. " " .. string.upper(string.sub(itemName, 1, 1)) .. string.sub(itemName, 2) .. "  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	else
+		PlayerData.SendUpdate(player)
+		Remotes.Notify:FireClient(player, "Challenge", ITEM_ICON .. " +" .. amount .. " " .. ITEMS .. " de regalo  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	end
 	-- Premios por el camino (también los que quedaron atrás si el premio se añadió con el evento empezado)
 	local claimed = data.EventProgress.Claimed
 	for _, milestone in CONFIG.Milestones or {} do
@@ -7816,7 +7832,15 @@ local function setActive(on)
 	end
 end
 
+-- Mientras haya evento, la recompensa diaria regala también unos cuantos objetos del evento
+Event.DailyBonus = GameConfig.EventDailyBonus or 0
+
 function Event.Init()
+	PlayerData.OnDailyClaimed = function(player)
+		if active and CONFIG and (Event.DailyBonus or 0) > 0 then
+			addProgress(player, Event.DailyBonus, false)
+		end
+	end
 	if not CONFIG or not GameConfig.Events then
 		return
 	end
@@ -16944,6 +16968,9 @@ local function xpBoost()
 end
 PlayerData.XPBoost = xpBoost
 
+-- Lo pone Event: se llama al recoger la recompensa diaria
+PlayerData.OnDailyClaimed = nil :: ((Player) -> ())?
+
 -- Roblox Premium (atributo RobloxPremium: lo leen el multiplicador y la Tienda)
 function PlayerData.UpdatePremium(player)
 	local ok, premium = pcall(function()
@@ -17510,6 +17537,10 @@ local function claimDaily(player)
 		data.FreeCrates += 1 -- caja diaria extra del VIP
 	end
 	sendUpdate(player)
+	-- (el evento en marcha regala también unos objetos; lo pone Event)
+	if PlayerData.OnDailyClaimed then
+		task.spawn(PlayerData.OnDailyClaimed, player)
+	end
 	return true, { Streak = streak, Coins = given, Crate = crate }
 end
 
@@ -27898,7 +27929,8 @@ local function buildShopPage(data)
 	UI.label({
 		Position = UDim2.fromOffset(16, 0),
 		Size = UDim2.new(1, -260, 1, 0),
-		Text = "🎁 Recompensa diaria · Día " .. tostring(nextDay) .. "/" .. #Shop.DailyRewards .. "  (día 7: caja gratis)",
+		Text = "🎁 Recompensa diaria · Día " .. tostring(nextDay) .. "/" .. #Shop.DailyRewards .. "  (día 7: caja gratis)"
+			.. ((GameConfig.CurrentEvent() and (GameConfig.EventDailyBonus or 0) > 0) and ("  + " .. GameConfig.EventDailyBonus .. " " .. (GameConfig.CurrentEvent().ItemIcon or GameConfig.CurrentEvent().Icon)) or ""),
 		TextSize = 20,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = daily,
