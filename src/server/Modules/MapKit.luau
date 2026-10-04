@@ -1075,6 +1075,28 @@ function Kit.flagBase(team, cf)
 	return pad
 end
 
+-- Plataforma de salto: al pisarla te lanza hacia arriba (el cliente lo hace, ver JumpPads).
+-- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
+function Kit.jumpPad(position, power, color)
+	color = color or RGB(80, 230, 255)
+	Kit.cylinder("JumpPadRing", 0.4, 7.6, CFrame.new(position + V(0, 0.2, 0)), RGB(250, 250, 255), Enum.Material.SmoothPlastic)
+	local pad = Kit.cylinder("JumpPad", 0.5, 6, CFrame.new(position + V(0, 0.3, 0)), color, Enum.Material.Neon)
+	pad:SetAttribute("JumpPad", power or 75)
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "JumpPadSparks"
+	sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparks.Color = ColorSequence.new(color)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new(0.6, 0)
+	sparks.Lifetime = NumberRange.new(0.6, 1)
+	sparks.Rate = 8
+	sparks.Speed = NumberRange.new(8, 12)
+	sparks.SpreadAngle = Vector2.new(12, 12)
+	sparks.EmissionDirection = Enum.NormalId.Right -- el eje X del cilindro es el vertical: suben
+	sparks.Parent = pad
+	return pad
+end
+
 -- Punto de aparición para "Todos contra todos" y "Escalada" (invisible)
 function Kit.ffaSpawn(position)
 	local p = deco("FFASpawn", V(2, 1, 2), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)

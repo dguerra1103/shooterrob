@@ -199,6 +199,9 @@ function Map.Build()
 		waferWall(m * CFrame.new(-54, 0, -16) * CFrame.Angles(0, rad(90), 0), 10)
 		candyStack(m * CFrame.new(-36, 0, -6) * CFrame.Angles(0, rad(20), 0))
 		candyStack(m * CFrame.new(-52, 0, 46))
+		-- Plataformas de salto: a la tarta y a la cornisa
+		Kit.jumpPad((m * CFrame.new(-17, 0, -8)).Position, 75)
+		Kit.jumpPad((m * CFrame.new(-28, 0, -40)).Position, 75, RGB(255, 120, 200))
 
 		-- Piruletas medianas (solo decoración, se atraviesan) y caramelos en el suelo
 		lollipop((m * CFrame.new(-80, 0, -46)).Position, 7, 5, teamColor, true)

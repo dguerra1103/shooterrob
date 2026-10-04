@@ -6830,6 +6830,9 @@ function Map.Build()
 		waferWall(m * CFrame.new(-54, 0, -16) * CFrame.Angles(0, rad(90), 0), 10)
 		candyStack(m * CFrame.new(-36, 0, -6) * CFrame.Angles(0, rad(20), 0))
 		candyStack(m * CFrame.new(-52, 0, 46))
+		-- Plataformas de salto: a la tarta y a la cornisa
+		Kit.jumpPad((m * CFrame.new(-17, 0, -8)).Position, 75)
+		Kit.jumpPad((m * CFrame.new(-28, 0, -40)).Position, 75, RGB(255, 120, 200))
 
 		-- Piruletas medianas (solo decoración, se atraviesan) y caramelos en el suelo
 		lollipop((m * CFrame.new(-80, 0, -46)).Position, 7, 5, teamColor, true)
@@ -10964,6 +10967,28 @@ function Kit.flagBase(team, cf)
 	return pad
 end
 
+-- Plataforma de salto: al pisarla te lanza hacia arriba (el cliente lo hace, ver JumpPads).
+-- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
+function Kit.jumpPad(position, power, color)
+	color = color or RGB(80, 230, 255)
+	Kit.cylinder("JumpPadRing", 0.4, 7.6, CFrame.new(position + V(0, 0.2, 0)), RGB(250, 250, 255), Enum.Material.SmoothPlastic)
+	local pad = Kit.cylinder("JumpPad", 0.5, 6, CFrame.new(position + V(0, 0.3, 0)), color, Enum.Material.Neon)
+	pad:SetAttribute("JumpPad", power or 75)
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "JumpPadSparks"
+	sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparks.Color = ColorSequence.new(color)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new(0.6, 0)
+	sparks.Lifetime = NumberRange.new(0.6, 1)
+	sparks.Rate = 8
+	sparks.Speed = NumberRange.new(8, 12)
+	sparks.SpreadAngle = Vector2.new(12, 12)
+	sparks.EmissionDirection = Enum.NormalId.Right -- el eje X del cilindro es el vertical: suben
+	sparks.Parent = pad
+	return pad
+end
+
 -- Punto de aparición para "Todos contra todos" y "Escalada" (invisible)
 function Kit.ffaSpawn(position)
 	local p = deco("FFASpawn", V(2, 1, 2), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)
@@ -13364,6 +13389,7 @@ local Emotes = require(Modules.Emotes)
 local Scoreboard = require(Modules.Scoreboard)
 local PlaytimeGifts = require(Modules.PlaytimeGifts)
 local SkinFX = require(Modules.SkinFX)
+local JumpPads = require(Modules.JumpPads)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -13389,6 +13415,7 @@ Emotes.Init()
 Scoreboard.Init()
 PlaytimeGifts.Init()
 SkinFX.Init()
+JumpPads.Init()
 VoteUI.Init()
 GrenadeController.Init()
 KillstreakController.Init()
@@ -17007,6 +17034,58 @@ return HUD
           </Item>
           <Item class="ModuleScript" referent="63">
             <Properties>
+              <string name="Name">JumpPads</string>
+              <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
+-- Kit.jumpPad): al pisar una sales disparado hacia arriba y puedes dirigirte en el aire.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
+
+local ClientState = require(script.Parent.ClientState)
+
+local player = Players.LocalPlayer
+
+local JumpPads = {}
+
+local COOLDOWN = 0.6
+local lastLaunch = 0
+local params = RaycastParams.new()
+params.FilterType = Enum.RaycastFilterType.Exclude
+
+function JumpPads.Init()
+	RunService.Heartbeat:Connect(function()
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not humanoid or not root or humanoid.Health <= 0 or ClientState.Frozen() then
+			return
+		end
+		if os.clock() - lastLaunch < COOLDOWN then
+			return
+		end
+		params.FilterDescendantsInstances = { character }
+		local hit = workspace:Raycast(root.Position, Vector3.new(0, -4, 0), params)
+		local power = hit and hit.Instance:GetAttribute("JumpPad")
+		if type(power) ~= "number" then
+			return
+		end
+		lastLaunch = os.clock()
+		humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		local v = root.AssemblyLinearVelocity
+		root.AssemblyLinearVelocity = Vector3.new(v.X, power, v.Z)
+		ClientState.FovKick = 8
+		Sounds.Play("Swing")
+	end)
+end
+
+return JumpPads
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="64">
+            <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
 --  * Radar: resalta en rojo a los enemigos a través de las paredes mientras dure (RadarUntil)
@@ -17236,7 +17315,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -17753,7 +17832,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -19535,7 +19614,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -19828,7 +19907,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -19976,7 +20055,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -20146,7 +20225,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -20434,7 +20513,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -20623,7 +20702,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -20680,7 +20759,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -20782,7 +20861,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -20935,7 +21014,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -21803,7 +21882,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -21860,7 +21939,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -22054,19 +22133,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="77">
+  <Item class="Teams" referent="78">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="78">
+  <Item class="Workspace" referent="79">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="79">
+    <Item class="Terrain" referent="80">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
