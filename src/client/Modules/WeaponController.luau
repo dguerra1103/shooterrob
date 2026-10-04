@@ -308,6 +308,11 @@ local function onEquipped(tool)
 	inspectTime = -10
 	reloadStart = nil
 	localAmmo = tool:GetAttribute("Ammo") or 0
+	if weaponDef.Type == "Melee" then
+		Sounds.Play("Unsheath")
+	else
+		Sounds.PlayGun("Equip", nil, weaponDef.Pellets > 1 and 0.85 or 1, 1)
+	end
 
 	hideToolLocally(tool)
 	createViewmodel(tool)
@@ -418,7 +423,29 @@ local function requestReload()
 	reloadStart = os.clock()
 	inspectTime = -10
 	Remotes.Reload:FireServer(equippedTool)
-	Sounds.Play("Reload")
+	-- Secuencia de la recarga: sacar el cargador, meter el nuevo y (si estaba vacía) montar el arma.
+	-- Si la recarga se corta (cambias de arma, cuchillo...) deja de sonar.
+	local token, reloadTime, wasEmpty = reloadStart, def.ReloadTime or 2, localAmmo <= 0
+	local shotgun = def.Pellets > 1
+	local function step(at, name, pitch, volume)
+		task.delay(reloadTime * at, function()
+			if reloadStart == token then
+				Sounds.PlayGun(name, nil, pitch, volume)
+			end
+		end)
+	end
+	if shotgun then
+		-- Escopetas: cartucho a cartucho
+		for index, at in { 0.2, 0.38, 0.56, 0.74 } do
+			step(at, "MagIn", 1.25 + index * 0.03, 0.55)
+		end
+	else
+		step(0.12, "MagOut", 1, 1)
+		step(0.55, "MagIn", 1, 1)
+	end
+	if wasEmpty or shotgun then
+		step(0.85, "Bolt", shotgun and 0.75 or 1, 1)
+	end
 end
 
 local function fire()
@@ -495,9 +522,16 @@ local function fire()
 	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
 	-- Mecánica del arma: cerrojo de los francotiradores y corredera de las escopetas
 	if not def.Explosive and def.FireRate <= 1.6 and localAmmo > 0 then
+		local shotDef = def
 		task.delay(0.28, function()
-			Sounds.Play("Reload", nil, def.Pellets > 1 and 0.85 or 1.35, 0.55)
+			if def == shotDef then
+				Sounds.PlayGun("Bolt", nil, shotDef.Pellets > 1 and 0.7 or 1.05, 0.8)
+			end
 		end)
+	end
+	-- Quedan pocas balas: un "tic" más agudo cuanto menos quede (avisa sin mirar el HUD)
+	if def.MagSize >= 4 and localAmmo > 0 and localAmmo <= math.ceil(def.MagSize * 0.25) then
+		Sounds.Play("LowAmmo", nil, 1 + (1 - localAmmo / (def.MagSize * 0.25)) * 0.3, 1)
 	end
 
 	-- Retroceso. La mira sube más en los primeros disparos de la ráfaga y luego se estabiliza;
@@ -978,6 +1012,20 @@ end
 -- con calidad Baja solo la trazadora, y como mucho un sonido por arma cada 0,1 s.
 local FAR_SHOT = 120
 local lastRemoteSound = setmetatable({}, { __mode = "k" }) -- [tool] = os.clock()
+local lastWhiz = 0
+
+local function isTeammateTool(tool)
+	local owner = tool.Parent and Players:GetPlayerFromCharacter(tool.Parent)
+	if owner == player then
+		return true
+	end
+	-- (los bots guardan el nombre de su equipo en el atributo "Team" del modelo)
+	local team = tool.Parent and tool.Parent:GetAttribute("Team")
+	if owner then
+		team = owner.Team and owner.Team.Name
+	end
+	return team ~= nil and team ~= "" and player.Team ~= nil and team == player.Team.Name
+end
 
 local function onShotFX(tool, endpoints)
 	if typeof(tool) ~= "Instance" or not tool.Parent or type(endpoints) ~= "table" then
@@ -1016,7 +1064,32 @@ local function onShotFX(tool, endpoints)
 	local now = os.clock()
 	if now - (lastRemoteSound[tool] or 0) >= 0.1 then
 		lastRemoteSound[tool] = now
-		Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle)
+		Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle, camera.CFrame.Position)
+	end
+	-- Bala que te pasa rozando: "fiuu" (solo si no te ha dado de lleno y no es de tu equipo)
+	if weaponDef and not weaponDef.Explosive and now - lastWhiz > 0.15 and not isTeammateTool(tool) then
+		local listener = camera.CFrame.Position
+		local from = muzzle.WorldPosition
+		for _, position in endpoints do
+			if typeof(position) == "Vector3" then
+				local segment = position - from
+				local length = segment.Magnitude
+				if length > 1 then
+					local along = math.clamp((listener - from):Dot(segment / length), 0, length)
+					local closest = from + segment / length * along
+					local gap = (listener - closest).Magnitude
+					-- (lejos del final: si acaba justo en ti, es que te ha dado)
+					if gap < 7 and gap > 1.5 and length - along > 4 then
+						lastWhiz = now
+						local sound = Sounds.Play("Whiz", nil, 0.9 + math.random() * 0.25, 1.2 - gap / 7)
+						if sound then
+							sound.TimePosition = 0.05
+						end
+						break
+					end
+				end
+			end
+		end
 	end
 end
 
