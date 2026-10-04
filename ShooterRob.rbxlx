@@ -7802,7 +7802,7 @@ local function think(agent)
 	end
 	local target, distance = findTarget(agent)
 	-- (se levanta al acabar su rato agachado o si deja de ver al enemigo)
-	if agent.Crouched and (now > (agent.CrouchUntil or 0) or not target) then
+	if agent.Crouched and (now > (agent.CrouchUntil or 0) or (not target and not agent.HoldCrouch)) then
 		setCrouch(agent, humanoid, false)
 	end
 	local heard = hear(agent, now)
@@ -7849,6 +7849,13 @@ local function think(agent)
 	local busy = sndBusy(agent, root)
 	if busy and (agent.HoldUntil or 0) <= now then
 		agent.HoldUntil = now + 1 -- (sigue plantando o desactivando)
+	end
+	-- Plantando o desactivando: agachado y quieto, como un jugador
+	agent.HoldCrouch = busy
+	if busy and not target then
+		setCrouch(agent, humanoid, true)
+		agent.CrouchUntil = now + 0.5
+		humanoid:MoveTo(root.Position)
 	end
 	local lostFor = agent.LastSeenTime and now - agent.LastSeenTime or math.huge
 	if lostFor < 3 and agent.LastSeenPosition and not busy then
