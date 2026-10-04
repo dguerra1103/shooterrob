@@ -466,7 +466,12 @@ function MainMenu.Init()
 	task.spawn(function()
 		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale") }
 		local buttonsList = { dailyButton, starterButton }
-		while gui.Parent and ClientState.InMainMenu do
+		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
+		while gui.Parent do
+			if not ClientState.InMainMenu then
+				task.wait(0.5)
+				continue
+			end
 			for i, button in buttonsList do
 				if button.Visible and scales[i] then
 					TweenService:Create(scales[i], TweenInfo.new(0.5, Enum.EasingStyle.Sine), { Scale = 1.06 }):Play()
