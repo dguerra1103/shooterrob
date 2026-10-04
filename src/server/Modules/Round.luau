@@ -1226,6 +1226,7 @@ function Round.Init()
 		end
 		local player = collector.Player
 		if player then
+			Remotes.Notify:FireClient(player, "Pumpkin", confirmed)
 			if confirmed then
 				PlayerData.AddXP(player, GameConfig.XP.PumpkinConfirm or 0, "🎃 Calabaza confirmada")
 				PlayerData.AddCoins(player, 2)
