@@ -245,6 +245,8 @@ GameConfig.Coins = {
 	Kill = 5,
 	Win = 50,
 	Capture = 20,
+	WinStreak = 10, -- extra por cada victoria seguida (2.ª victoria +10, 3.ª +20...)
+	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
 }
 
 -- ID del GamePass del pase premium. Créalo en el Creator Hub y pon el número aquí.
@@ -14843,11 +14845,20 @@ local function endRound()
 		if won then
 			PlayerData.AddXP(player, math.floor(GameConfig.XP.Win * winScale), "Victoria")
 			PlayerData.AddCoins(player, math.floor(GameConfig.Coins.Win * winScale))
+			-- Racha de victorias (en esta sesión): cada victoria seguida da un poco más
+			local winStreak = (player:GetAttribute("WinStreak") or 0) + 1
+			player:SetAttribute("WinStreak", winStreak)
+			local extra = math.floor((GameConfig.Coins.WinStreak or 0) * math.min(winStreak - 1, GameConfig.Coins.WinStreakMax or 5) * winScale)
+			if extra > 0 then
+				local given = PlayerData.AddCoins(player, extra)
+				Remotes.Notify:FireClient(player, "Challenge", "🔥 ¡" .. winStreak .. " victorias seguidas!  +" .. given .. " 🪙")
+			end
 			if not soloMatch then
 				PlayerData.Increment(player, "Wins", 1)
 			end
 			PlayerData.Track(player, "Win", 1)
 		else
+			player:SetAttribute("WinStreak", 0)
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
 		end
 		PlayerData.Track(player, "Match", 1)
@@ -14873,6 +14884,7 @@ local function endRound()
 			summary.Deaths = stats.Muertes.Value
 			summary.BestStreak = player:GetAttribute("BestStreak") or 0
 			summary.Captures = player:GetAttribute("Captures") or 0
+			summary.WinStreak = player:GetAttribute("WinStreak") or 0
 			Remotes.MatchSummary:FireClient(player, summary)
 		end
 	end
@@ -18582,6 +18594,9 @@ local function onMatchSummary(summary)
 	local stats = string.format("🎯 %d bajas   💀 %d muertes   🔥 racha %d", summary.Kills or 0, summary.Deaths or 0, summary.BestStreak or 0)
 	if (summary.Captures or 0) > 0 then
 		stats ..= "   🚩 " .. summary.Captures
+	end
+	if (summary.WinStreak or 0) >= 2 then
+		stats ..= "   🏆 x" .. summary.WinStreak
 	end
 	refs.SummaryStats.Text = stats
 	local perLevel = math.max(1, summary.XPPerLevel or 1)

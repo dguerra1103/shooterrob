@@ -703,11 +703,20 @@ local function endRound()
 		if won then
 			PlayerData.AddXP(player, math.floor(GameConfig.XP.Win * winScale), "Victoria")
 			PlayerData.AddCoins(player, math.floor(GameConfig.Coins.Win * winScale))
+			-- Racha de victorias (en esta sesión): cada victoria seguida da un poco más
+			local winStreak = (player:GetAttribute("WinStreak") or 0) + 1
+			player:SetAttribute("WinStreak", winStreak)
+			local extra = math.floor((GameConfig.Coins.WinStreak or 0) * math.min(winStreak - 1, GameConfig.Coins.WinStreakMax or 5) * winScale)
+			if extra > 0 then
+				local given = PlayerData.AddCoins(player, extra)
+				Remotes.Notify:FireClient(player, "Challenge", "🔥 ¡" .. winStreak .. " victorias seguidas!  +" .. given .. " 🪙")
+			end
 			if not soloMatch then
 				PlayerData.Increment(player, "Wins", 1)
 			end
 			PlayerData.Track(player, "Win", 1)
 		else
+			player:SetAttribute("WinStreak", 0)
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
 		end
 		PlayerData.Track(player, "Match", 1)
@@ -733,6 +742,7 @@ local function endRound()
 			summary.Deaths = stats.Muertes.Value
 			summary.BestStreak = player:GetAttribute("BestStreak") or 0
 			summary.Captures = player:GetAttribute("Captures") or 0
+			summary.WinStreak = player:GetAttribute("WinStreak") or 0
 			Remotes.MatchSummary:FireClient(player, summary)
 		end
 	end

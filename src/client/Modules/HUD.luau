@@ -1024,6 +1024,9 @@ local function onMatchSummary(summary)
 	if (summary.Captures or 0) > 0 then
 		stats ..= "   🚩 " .. summary.Captures
 	end
+	if (summary.WinStreak or 0) >= 2 then
+		stats ..= "   🏆 x" .. summary.WinStreak
+	end
 	refs.SummaryStats.Text = stats
 	local perLevel = math.max(1, summary.XPPerLevel or 1)
 	local level = summary.StartLevel or summary.Level or 1
