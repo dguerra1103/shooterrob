@@ -1,10 +1,11 @@
 -- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
 -- Modos: TDM (duelo por equipos), CTF (captura la bandera), KOTH (zona de control),
---        FFA (todos contra todos) y GUN (escalada de armas).
+--        FFA (todos contra todos), GUN (escalada de armas) y ELIM (eliminación: rondas de una vida).
 --
 -- Estado publicado en ReplicatedStorage para la interfaz:
 --   State ("Intermission" | "Playing" | "Ended"), Mode, ModeName, TeamMode, TimeLeft, ScoreToWin,
 --   Score_<Equipo>, LeaderName, LeaderScore, MapName,
+--   NoRespawn (true en plena ronda de Eliminación), AliveA / AliveB (vivos de cada equipo en Eliminación),
 --   VoteN_Map, VoteN_Mode, VoteN_Count (N = 1..3) durante el descanso
 -- En cada jugador: atributo Score (bajas en FFA / nivel en Escalada), Streak, Captures, GunLevel
 local Players = game:GetService("Players")
@@ -24,6 +25,7 @@ local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
 local Respawn = require(script.Parent.Respawn)
+local Bots = require(script.Parent.Bots)
 
 local Round = {}
 
@@ -439,6 +441,87 @@ local function respawnAll()
 	end
 end
 
+---------------------------------------------------------------------------
+-- Eliminación (ELIM)
+---------------------------------------------------------------------------
+
+-- Vivos y participantes de un equipo (jugadores fuera del menú + bots)
+local function aliveCount(team)
+	local alive, members = 0, 0
+	for _, player in team:GetPlayers() do
+		if not player:GetAttribute("InMenu") then
+			members += 1
+			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				alive += 1
+			end
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Team == team then
+			members += 1
+			if agent.Humanoid and agent.Humanoid.Health > 0 then
+				alive += 1
+			end
+		end
+	end
+	return alive, members
+end
+
+-- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
+local function eliminationRounds(s)
+	local deadline = os.clock() + s.RoundTime
+	local number = 0
+	local a, b = teams[1], teams[2]
+	while not roundOver and os.clock() < deadline do
+		number += 1
+		-- Preparación: todos vuelven a su base con la vida llena
+		ReplicatedStorage:SetAttribute("NoRespawn", false)
+		respawnAll()
+		Bots.RespawnAll()
+		Remotes.Notify:FireAllClients("Big", "RONDA " .. number .. " · ¡Una sola vida!")
+		countdown(s.PrepTime)
+		ReplicatedStorage:SetAttribute("NoRespawn", true)
+
+		local roundEnd = math.min(os.clock() + s.SubRoundTime, deadline)
+		local winner, decided = nil, false
+		while not roundOver do
+			local aliveA, membersA = aliveCount(a)
+			local aliveB, membersB = aliveCount(b)
+			ReplicatedStorage:SetAttribute("AliveA", aliveA)
+			ReplicatedStorage:SetAttribute("AliveB", aliveB)
+			ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
+			-- Solo hay ronda si los dos equipos tienen a alguien
+			if membersA > 0 and membersB > 0 and (aliveA == 0 or aliveB == 0) then
+				winner = (aliveA > 0 and a) or (aliveB > 0 and b) or nil
+				decided = true
+				break
+			end
+			if os.clock() >= roundEnd then
+				-- Se acaba el tiempo: gana el equipo con más supervivientes
+				winner = (aliveA > aliveB and a) or (aliveB > aliveA and b) or nil
+				decided = true
+				break
+			end
+			task.wait(0.25)
+		end
+		if decided then
+			if winner then
+				addScore(winner, 1)
+				Remotes.Notify:FireAllClients("Big", "¡RONDA PARA " .. string.upper(winner.Name) .. "!")
+			else
+				Remotes.Notify:FireAllClients("Big", "RONDA EMPATADA")
+			end
+			task.wait(3)
+		end
+	end
+	ReplicatedStorage:SetAttribute("NoRespawn", false)
+	ReplicatedStorage:SetAttribute("AliveA", nil)
+	ReplicatedStorage:SetAttribute("AliveB", nil)
+	-- Nadie se queda muerto durante la pantalla final
+	respawnAll()
+end
+
 local function endRound()
 	setState("Ended")
 	local teamMode = isTeamMode()
@@ -568,7 +651,9 @@ local function playRound()
 		elseif mode == "KOTH" then
 			Hardpoint.Start()
 		end
-		respawnAll()
+		if mode ~= "ELIM" then
+			respawnAll() -- (Eliminación reaparece a todos al empezar cada ronda)
+		end
 		local s = settings(mode)
 		local goal = ReplicatedStorage:GetAttribute("ScoreToWin")
 		local intro = {
@@ -577,11 +662,17 @@ local function playRound()
 			KOTH = "¡ZONA DE CONTROL! Primero a " .. goal .. " puntos",
 			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
+			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
-		countdown(s.RoundTime, function()
-			return roundOver
-		end)
+		if mode == "ELIM" then
+			task.wait(2)
+			eliminationRounds(s)
+		else
+			countdown(s.RoundTime, function()
+				return roundOver
+			end)
+		end
 		Flags.Stop()
 		Hardpoint.Stop()
 		Loadout.Override = nil
@@ -603,6 +694,7 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
+			ReplicatedStorage:SetAttribute("NoRespawn", false)
 			Loadout.Override = nil
 			roundOver = true
 			task.wait(3)

@@ -3,7 +3,10 @@
 --   * VOLVER AL MENÚ, REVIVIR INSTANTÁNEO (B, gasta un revivir: vuelves donde caíste) y
 --     REGENERAR AHORA (Espacio o F, a partir de GameConfig.RespawnNowDelay)
 -- Sin revivir disponibles, el botón abre la compra del pack (si está configurado en Shop).
+-- En plena ronda de Eliminación (NoRespawn) no hay revivir ni regenerar: se observa hasta la siguiente.
+-- También se puede observar a los bots (modelos en workspace.Bots).
 local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -28,9 +31,9 @@ local DeathScreen = {}
 local gui: any = nil
 local refs: { [string]: any } = {}
 local deathTime = 0
-local targets = {} -- jugadores que se pueden observar
+local targets = {} -- jugadores (Player) o bots (Model) que se pueden observar
 local targetIndex = 0
-local spectating = nil -- Player observado
+local spectating = nil -- Player o bot observado
 local reviving = false
 local originalZoom = { 0.5, 400 } -- zoom de la cámara del jugador (se restaura al reaparecer)
 
@@ -38,10 +41,31 @@ local BLUE = Color3.fromRGB(40, 140, 255)
 local PINK = Color3.fromRGB(255, 70, 200)
 local GREEN = Color3.fromRGB(70, 220, 60)
 
+-- Personaje de un objetivo: el Character de un jugador o el propio modelo de un bot
+local function characterOf(target)
+	if target:IsA("Player") then
+		return target.Character
+	end
+	return target.Parent and target or nil
+end
+
+local function teamOf(target)
+	if target:IsA("Player") then
+		return target.Team
+	end
+	local name = target:GetAttribute("Team")
+	local team = name and name ~= "" and Teams:FindFirstChild(name)
+	return team and team:IsA("Team") and team or nil
+end
+
 local function alive(p)
-	local character = p.Character
+	local character = characterOf(p)
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	return humanoid ~= nil and humanoid.Health > 0, humanoid
+end
+
+local function noRespawn()
+	return ReplicatedStorage:GetAttribute("NoRespawn") == true
 end
 
 -- Cámara en tercera persona detrás del jugador observado
@@ -56,7 +80,7 @@ local function watch(target)
 	player.CameraMaxZoomDistance = 14
 	camera.CameraType = Enum.CameraType.Custom
 	camera.CameraSubject = humanoid
-	refs.SpectateName.Text = target.DisplayName .. " (" .. target.Name .. ")"
+	refs.SpectateName.Text = target:IsA("Player") and (target.DisplayName .. " (" .. target.Name .. ")") or target.Name
 	refs.SpectatePanel.Visible = true
 end
 
@@ -83,14 +107,22 @@ local function refreshTargets(firstChoice)
 			table.insert(targets, p)
 		end
 	end
-	-- Primero el que te eliminó, luego tus compañeros
-	table.sort(targets, function(a, b)
-		local function rank(p)
-			if p == firstChoice then
-				return 0
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			if model:IsA("Model") and alive(model) then
+				table.insert(targets, model)
 			end
-			return (player.Team and p.Team == player.Team) and 1 or 2
 		end
+	end
+	-- Primero el que te eliminó, luego tus compañeros
+	local function rank(p)
+		if p == firstChoice then
+			return 0
+		end
+		return (player.Team and teamOf(p) == player.Team) and 1 or 2
+	end
+	table.sort(targets, function(a, b)
 		return rank(a) < rank(b)
 	end)
 end
@@ -125,6 +157,10 @@ local function tryRevive()
 	if not ClientState.Dead or reviving then
 		return
 	end
+	if noRespawn() then
+		toast("Una sola vida por ronda")
+		return
+	end
 	if revivesLeft() <= 0 then
 		local pack = Shop.RevivePacks[1]
 		if pack and pack.ProductId ~= 0 then
@@ -146,7 +182,7 @@ local function tryRevive()
 end
 
 local function respawnNow()
-	if ClientState.Dead and os.clock() - deathTime >= GameConfig.RespawnNowDelay then
+	if ClientState.Dead and os.clock() - deathTime >= GameConfig.RespawnNowDelay and not noRespawn() then
 		Sounds.Play("Click")
 		Remotes.RespawnNow:FireServer()
 	end
@@ -171,7 +207,8 @@ local function open(killerName)
 	gui.Enabled = true
 	refs.Toast.Visible = false
 	ClientState.UpdateMouse()
-	local killer = killerName and Players:FindFirstChild(killerName)
+	local bots = workspace:FindFirstChild("Bots")
+	local killer = killerName and (Players:FindFirstChild(killerName) or (bots and bots:FindFirstChild(killerName)))
 	refreshTargets(killer)
 	if killer and alive(killer) then
 		watch(killer)
@@ -245,8 +282,20 @@ local function build()
 
 	local _, menuButton = actionButton("VOLVER AL MENÚ", nil, BLUE, -300)
 	local reviveHolder, reviveButton, reviveFill = actionButton("REVIVIR INSTANTÁNEO", "Presiona B", PINK, 0)
-	local _, respawnButton, respawnFill = actionButton("REGENERAR AHORA", "Presiona Espacio o F", GREEN, 300)
+	local respawnHolder, respawnButton, respawnFill = actionButton("REGENERAR AHORA", "Presiona Espacio o F", GREEN, 300)
 	refs.ReviveButton, refs.ReviveFill, refs.RespawnButton, refs.RespawnFill = reviveButton, reviveFill, respawnButton, respawnFill
+	refs.ReviveHolder, refs.RespawnHolder = reviveHolder, respawnHolder
+	-- Eliminación: en lugar de revivir/regenerar, un aviso
+	refs.WaitLabel = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 150, 1, -170),
+		Size = UDim2.fromOffset(560, 60),
+		Text = "UNA VIDA POR RONDA\nEspera a la siguiente ronda",
+		TextSize = 26,
+		TextColor3 = Color3.fromRGB(255, 220, 90),
+		Visible = false,
+		Parent = refs.Bottom,
+	})
 
 	-- Corazón con alas y "N restantes"
 	refs.ReviveBadge = UI.label({
@@ -330,6 +379,10 @@ local function update()
 	if not ClientState.Dead then
 		return
 	end
+	local oneLife = noRespawn()
+	refs.ReviveHolder.Visible = not oneLife
+	refs.RespawnHolder.Visible = not oneLife
+	refs.WaitLabel.Visible = oneLife
 	local elapsed = os.clock() - deathTime
 	-- Revivir: la barra se vacía mientras queda tiempo para usarlo
 	local reviveWindow = math.clamp(1 - elapsed / GameConfig.RespawnTime, 0, 1)

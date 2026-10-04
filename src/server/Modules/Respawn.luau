@@ -3,6 +3,7 @@
 --   * "Regenerar ahora": a partir de GameConfig.RespawnNowDelay se puede reaparecer antes
 --   * "Revivir instantáneo": gasta un revivir (data.Revives) y vuelve justo donde moriste
 -- Round llama a Respawn.ApplyRevive al aparecer el personaje para colocarlo en ese punto.
+-- En plena ronda de Eliminación (atributo NoRespawn) no hay reaparición: se espera a la siguiente ronda.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,6 +18,10 @@ local Respawn = {}
 local deaths = {} -- [player] = { Time = os.clock(), Position = Vector3?, Character = Model }
 local revivePoints = {} -- [player] = Vector3 donde debe aparecer tras revivir
 local loading = {} -- [player] = true mientras se carga un personaje (evita cargas dobles)
+
+local function noRespawn()
+	return ReplicatedStorage:GetAttribute("NoRespawn") == true
+end
 
 local function isDead(player)
 	local character = player.Character
@@ -57,7 +62,7 @@ local function watch(player, character)
 		deaths[player] = { Time = os.clock(), Position = root and root.Position, Character = character }
 		task.delay(GameConfig.RespawnTime, function()
 			-- Solo si sigue con el mismo personaje muerto (no ha usado "Regenerar" ni "Revivir")
-			if player.Parent and player.Character == character then
+			if player.Parent and player.Character == character and not noRespawn() then
 				load(player)
 			end
 		end)
@@ -103,6 +108,9 @@ local function reviveCheck(player)
 	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
 		return nil, "La ronda no está en juego"
 	end
+	if noRespawn() then
+		return nil, "Una sola vida por ronda"
+	end
 	local point = death.Position
 	if not point or point.Y < -20 then
 		return nil, "No se puede revivir aquí"
@@ -136,7 +144,7 @@ function Respawn.Init()
 	Players.CharacterAutoLoads = false -- también en default.project.json; aquí por si se usa otro lugar
 	Remotes.RespawnNow.OnServerEvent:Connect(function(player)
 		local death = deaths[player]
-		if death and isDead(player) and os.clock() - death.Time >= GameConfig.RespawnNowDelay then
+		if death and isDead(player) and os.clock() - death.Time >= GameConfig.RespawnNowDelay and not noRespawn() then
 			load(player)
 		end
 	end)

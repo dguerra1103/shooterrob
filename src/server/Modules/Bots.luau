@@ -2,7 +2,8 @@
 -- (los demás ven trazadoras, fogonazo y sonido como con un jugador), recorren el mapa con
 -- PathfindingService, buscan enemigos con línea de visión y fallan más cuanto más lejos disparan.
 -- Cuentan para el marcador por equipos y dan algo de XP y monedas, pero no para la clasificación global.
--- Solo durante la ronda; en "Escalada de armas" no hay bots.
+-- Solo durante la ronda; en "Escalada de armas" no hay bots. En Eliminación (NoRespawn) no reaparecen
+-- hasta la ronda siguiente (Round llama a Bots.RespawnAll).
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local PathfindingService = game:GetService("PathfindingService")
@@ -27,6 +28,10 @@ local nameIndex = 0
 
 local function state()
 	return ReplicatedStorage:GetAttribute("State")
+end
+
+local function noRespawn()
+	return ReplicatedStorage:GetAttribute("NoRespawn") == true
 end
 
 local function teamMode()
@@ -362,7 +367,11 @@ local function animate(humanoid)
 end
 
 spawnAgent = function(agent)
+	if agent.Spawning then
+		return false
+	end
 	agent.Team = agent.Team or pickTeam()
+	agent.Spawning = true
 	local ok, model = pcall(function()
 		return Players:CreateHumanoidModelFromDescriptionAsync(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
 	end)
@@ -371,6 +380,7 @@ spawnAgent = function(agent)
 			return Players:CreateHumanoidModelFromDescription(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
 		end)
 	end
+	agent.Spawning = false
 	if not ok or not model then
 		warn("[Bots] No se pudo crear el bot:", model)
 		return false
@@ -415,7 +425,7 @@ spawnAgent = function(agent)
 			model:Destroy()
 		end)
 		task.delay(GameConfig.RespawnTime + 1, function()
-			if table.find(agents, agent) and desiredCount() >= #agents then
+			if table.find(agents, agent) and not agent.Humanoid and desiredCount() >= #agents and not noRespawn() then
 				spawnAgent(agent)
 			end
 		end)
@@ -434,18 +444,34 @@ local function removeAgent(agent)
 	end
 end
 
--- Ajusta el número de bots (de uno en uno para no crear muchos de golpe)
+-- Ajusta el número de bots. En plena ronda de Eliminación no entran bots nuevos.
 local function balance()
 	local desired = desiredCount()
-	if #agents < desired then
+	while #agents < desired and not noRespawn() and state() == "Playing" do
 		local agent = { Name = nextName() }
 		table.insert(agents, agent)
 		Combat.BotsByName[agent.Name] = agent
 		if not spawnAgent(agent) then
 			removeAgent(agent)
+			break
 		end
-	elseif #agents > desired then
+		desired = desiredCount()
+	end
+	if #agents > desired then
 		removeAgent(agents[#agents])
+	end
+end
+
+-- Nueva ronda de Eliminación: los muertos reaparecen y los vivos vuelven a su base con la vida llena
+function Bots.RespawnAll()
+	for _, agent in table.clone(agents) do
+		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
+			agent.Humanoid.Health = agent.Humanoid.MaxHealth
+			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+			agent.Waypoints, agent.Target, agent.Shots = nil, nil, 0
+		elseif not agent.Spawning then
+			task.spawn(spawnAgent, agent)
+		end
 	end
 end
 

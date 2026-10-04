@@ -1070,6 +1070,11 @@ local function updateScoreboard()
 		refs.Mode.Text = "Fin de la ronda"
 	else
 		refs.Mode.Text = mapName .. " · " .. modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+		-- Eliminación: cuántos quedan en pie de cada equipo
+		local aliveA, aliveB = ReplicatedStorage:GetAttribute("AliveA"), ReplicatedStorage:GetAttribute("AliveB")
+		if aliveA and aliveB and teamA and teamB then
+			refs.Mode.Text = modeName .. " · En pie: " .. teamA .. " " .. aliveA .. " – " .. aliveB .. " " .. teamB
+		end
 	end
 
 	-- Modos sin equipos: tu puntuación contra la del líder
