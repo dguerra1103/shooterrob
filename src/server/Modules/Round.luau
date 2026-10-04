@@ -22,6 +22,7 @@ local PlayerData = require(script.Parent.PlayerData)
 local Flags = require(script.Parent.Flags)
 local Hardpoint = require(script.Parent.Hardpoint)
 local Domination = require(script.Parent.Domination)
+local Bomb = require(script.Parent.Bomb)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
@@ -603,7 +604,7 @@ local function makeVoteOptions()
 		if i == 1 and realisticFirst then
 			local classic = {}
 			for _, mode in modes do
-				if mode == "TDM" or mode == "DOM" then
+				if mode == "TDM" or mode == "DOM" or mode == "SND" then
 					table.insert(classic, mode)
 				end
 			end
@@ -914,6 +915,7 @@ end
 
 -- Limpia el estado de Eliminación (al acabar o si la ronda falla)
 local function clearElimination()
+	Bomb.Stop()
 	ReplicatedStorage:SetAttribute("NoRespawn", false)
 	ReplicatedStorage:SetAttribute("Frozen", false)
 	ReplicatedStorage:SetAttribute("AliveA", nil)
@@ -925,12 +927,16 @@ end
 
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
 local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
+-- Buscar y destruir (SND) usa las mismas rondas con la bomba: atacan y defienden por turnos
 local function eliminationRounds(s)
 	local deadline = os.clock() + s.RoundTime
 	local number = 0
 	local a, b = teams[1], teams[2]
+	local snd = currentMode == "SND"
 	while not roundOver and deadline - os.clock() >= s.PrepTime + MIN_SUBROUND do
 		number += 1
+		local attackers = number % 2 == 1 and a or b
+		local defenders = attackers == a and b or a
 		-- Preparación: todos vuelven a su base con la vida llena y quietos (no se puede disparar)
 		ReplicatedStorage:SetAttribute("Frozen", true)
 		ReplicatedStorage:SetAttribute("NoRespawn", false)
@@ -968,7 +974,19 @@ local function eliminationRounds(s)
 		Bots.RespawnDead()
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
 		ReplicatedStorage:SetAttribute("Frozen", false)
-		Remotes.Notify:FireAllClients("Big", "¡YA!")
+		if snd and Bomb.Start(attackers, defenders) then
+			-- Cada equipo sabe qué le toca
+			for _, player in Players:GetPlayers() do
+				if player.Team == attackers then
+					Remotes.Notify:FireClient(player, "Big", "💣 ATACAS: planta la bomba en A o B")
+				elseif player.Team == defenders then
+					Remotes.Notify:FireClient(player, "Big", "🛡️ DEFIENDES: protege A y B")
+				end
+			end
+		else
+			snd = false -- (sin sitios en el mapa: como Eliminación)
+			Remotes.Notify:FireAllClients("Big", "¡YA!")
+		end
 		task.wait(0.5)
 
 		local roundEnd = math.min(os.clock() + s.SubRoundTime, deadline)
@@ -980,6 +998,35 @@ local function eliminationRounds(s)
 			ReplicatedStorage:SetAttribute("AliveB", aliveB)
 			ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
 			local contest = membersA > 0 and membersB > 0
+			if snd then
+				-- Bomba: explota = atacantes; desactivada = defensores. Sin bomba plantada, si caen todos
+				-- los atacantes o se acaba el tiempo, ganan los defensores; si caen todos los defensores,
+				-- los atacantes. Con la bomba plantada, los defensores tienen que desactivarla.
+				local aliveAtt = attackers == a and aliveA or aliveB
+				local aliveDef = attackers == a and aliveB or aliveA
+				if Bomb.Planted then
+					ReplicatedStorage:SetAttribute("TimeLeft", ReplicatedStorage:GetAttribute("Bomb_Timer") or 0)
+				end
+				local result = nil
+				if Bomb.Result == "Exploded" then
+					result = attackers
+				elseif Bomb.Result == "Defused" then
+					result = defenders
+				elseif contest and aliveDef == 0 then
+					result = attackers
+				elseif contest and aliveAtt == 0 and not Bomb.Planted then
+					result = defenders
+				elseif not Bomb.Planted and os.clock() >= roundEnd then
+					result = defenders
+				end
+				if result or (not contest and os.clock() >= roundEnd) then
+					winner = contest and result or nil
+					decided = true
+					break
+				end
+				task.wait(0.25)
+				continue
+			end
 			-- Solo hay ronda si los dos equipos tienen a alguien
 			if contest and (aliveA == 0 or aliveB == 0) then
 				winner = (aliveA > 0 and a) or (aliveB > 0 and b) or nil
@@ -994,6 +1041,7 @@ local function eliminationRounds(s)
 			end
 			task.wait(0.25)
 		end
+		Bomb.Stop()
 		if decided then
 			if winner then
 				addScore(winner, 1)
@@ -1067,7 +1115,7 @@ local function endRound()
 	-- muertes, o ha jugado alguna ronda de Eliminación). También si ha vuelto al menú (no se esquiva
 	-- la derrota así). Empate (por equipos, o nadie puntúa en todos contra todos) = sin cambios.
 	local now = workspace:GetServerTimeNow()
-	local elim = currentMode == "ELIM"
+	local elim = currentMode == "ELIM" or currentMode == "SND"
 	local playedMatch = {} -- [player] = true si ha jugado de verdad (para la primera victoria del día y la caja sorpresa)
 	for _, player in Players:GetPlayers() do
 		local joined = player:GetAttribute("MatchJoinedAt")
@@ -1240,6 +1288,8 @@ local function playRound()
 			mode = "TDM"
 		elseif mode == "DOM" and not Domination.IsAvailable() then
 			mode = "TDM"
+		elseif mode == "SND" and not Bomb.IsAvailable() then
+			mode = "ELIM" -- (mapa sin sitios para la bomba)
 		end
 		startMode(mode)
 
@@ -1262,7 +1312,7 @@ local function playRound()
 		elseif mode == "CAL" then
 			Pumpkins.Start()
 		end
-		if mode ~= "ELIM" then
+		if mode ~= "ELIM" and mode ~= "SND" then
 			respawnAll() -- (Eliminación reaparece a todos al empezar cada ronda)
 		end
 		local s = settings(mode)
@@ -1275,11 +1325,12 @@ local function playRound()
 			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
+			SND = "💣 ¡BUSCAR Y DESTRUIR! Una vida · planta o desactiva la bomba · primero a " .. goal .. " rondas",
 			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
 			CAL = "🎃 ¡CALABAZAS! Recoge las de tus enemigos caídos · primero a " .. goal,
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
-		if mode == "ELIM" then
+		if mode == "ELIM" or mode == "SND" then
 			task.wait(2)
 			eliminationRounds(s)
 		elseif mode == "INF" then

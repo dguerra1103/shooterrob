@@ -223,6 +223,24 @@ local function update()
 			label.Text = letter
 		end
 	end
+	-- Buscar y destruir: los sitios de la bomba (en rojo el de la bomba plantada)
+	for _, letter in { "A", "B" } do
+		local position = ReplicatedStorage:GetAttribute("Bomb_" .. letter .. "_Position")
+		if typeof(position) == "Vector3" then
+			local p, edge = toMap(position, center)
+			local planted = ReplicatedStorage:GetAttribute("Bomb_State") == "Planted" and ReplicatedStorage:GetAttribute("Bomb_Site") == letter
+			local d = dot(p or edge, planted and Color3.fromRGB(255, 60, 50) or Color3.fromRGB(255, 190, 60), 7, true)
+			local label = d:FindFirstChild("Letter") or UI.label({
+				Name = "Letter",
+				Size = UDim2.fromScale(1, 1),
+				TextSize = 11,
+				TextStrokeTransparency = 1,
+				TextColor3 = Color3.new(0, 0, 0),
+				Parent = d,
+			})
+			label.Text = letter
+		end
+	end
 	for _, team in GameConfig.Teams do
 		local flag = ReplicatedStorage:GetAttribute("FlagPos_" .. team.Name)
 		if typeof(flag) == "Vector3" then

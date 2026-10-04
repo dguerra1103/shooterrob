@@ -21,6 +21,7 @@ local Zombie = require(script.Parent.Zombie)
 local Grenades = require(script.Parent.Grenades)
 local SpawnPicker = require(script.Parent.SpawnPicker)
 local Domination = require(script.Parent.Domination)
+local Bomb = require(script.Parent.Bomb)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 
@@ -339,6 +340,7 @@ local function flagGoal(agent)
 end
 
 local laneGoal, bestIntel, chooseRole -- (más abajo)
+local sndPick = { Sites = nil, Index = 1 } -- sitio que atacan los bots en esta ronda de Buscar y destruir
 
 -- Adónde ir: objetivo del modo, alerta, pista del equipo o su carril
 local function pickGoal(agent)
@@ -387,6 +389,38 @@ local function pickGoal(agent)
 		if chosen then
 			local spread = chosen.Radius * 0.5
 			return chosen.Position + Vector3.new((math.random() - 0.5) * spread, 0, (math.random() - 0.5) * spread), true
+		end
+	end
+	-- Buscar y destruir: los atacantes van juntos al sitio elegido para la ronda y plantan; los
+	-- defensores se reparten entre A y B. Con la bomba plantada, los defensores corren a
+	-- desactivarla y los atacantes (casi todos) se quedan a protegerla.
+	if ReplicatedStorage:GetAttribute("Mode") == "SND" and agent.Team then
+		local sites = Bomb.Sites()
+		if #sites > 0 then
+			local attacking = ReplicatedStorage:GetAttribute("Bomb_Attackers") == agent.Team.Name
+			local planted = ReplicatedStorage:GetAttribute("Bomb_State") == "Planted" and ReplicatedStorage:GetAttribute("Bomb_Site")
+			if sndPick.Sites ~= sites then
+				sndPick.Sites, sndPick.Index = sites, math.random(1, #sites)
+			end
+			local chosen
+			if planted then
+				for _, site in sites do
+					if site.Letter == planted then
+						chosen = site
+					end
+				end
+				if attacking and math.random() < 0.3 then
+					chosen = nil -- (alguno sale a cazar)
+				end
+			elseif attacking then
+				chosen = sites[sndPick.Index]
+			elseif not (agent.Role == "Subfusil" and math.random() < 0.4) then
+				chosen = sites[(agent.Lane or 0) >= 0 and 1 or math.min(2, #sites)]
+			end
+			if chosen then
+				local spread = chosen.Radius * 0.6
+				return chosen.Position + Vector3.new((math.random() - 0.5) * spread, 0, (math.random() - 0.5) * spread), true
+			end
 		end
 	end
 	-- En Zona de control, la mitad de las veces van a la zona activa
@@ -1041,6 +1075,21 @@ local function think(agent)
 			-- (en un puesto de vigilancia, mira hacia donde manda el puesto)
 			agent.HoldLook = (agent.SpotLook and agent.GoalPosition and (agent.GoalPosition - root.Position).Magnitude < 6) and agent.SpotLook or nil
 			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
+			-- (en Buscar y destruir, se queda a plantar o a desactivar)
+			if ReplicatedStorage:GetAttribute("Mode") == "SND" then
+				local attacking = ReplicatedStorage:GetAttribute("Bomb_Attackers") == (agent.Team and agent.Team.Name)
+				local planted = ReplicatedStorage:GetAttribute("Bomb_State") == "Planted"
+				for _, site in Bomb.Sites() do
+					local offset = site.Position - root.Position
+					if Vector3.new(offset.X, 0, offset.Z).Magnitude <= site.Radius then
+						if attacking and not planted then
+							agent.HoldUntil = now + 4.6
+						elseif planted and ReplicatedStorage:GetAttribute("Bomb_Site") == site.Letter then
+							agent.HoldUntil = now + (attacking and 6 or 6.6)
+						end
+					end
+				end
+			end
 			-- (en una bandera de Dominio que no es suya, se queda a capturarla)
 			if ReplicatedStorage:GetAttribute("Mode") == "DOM" then
 				for _, flag in Domination.Points() do

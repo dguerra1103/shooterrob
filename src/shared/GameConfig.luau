@@ -19,7 +19,7 @@ GameConfig.IntermissionTime = 20
 
 -- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
 -- Quita alguno de la lista si no lo quieres.
-GameConfig.Modes = { "TDM", "DOM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
+GameConfig.Modes = { "TDM", "DOM", "SND", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
 	TDM = { Name = "Duelo por equipos", ScoreToWin = 50, RoundTime = 10 * 60, Teams = true }, -- puntos = bajas (50 en 10 min, como en los shooters de móvil)
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
@@ -29,6 +29,10 @@ GameConfig.ModeSettings = {
 	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
 	GUN = { Name = "Escalada de armas", ScoreToWin = 0, RoundTime = 10 * 60, Teams = false }, -- 0 = una baja por arma
 	-- Eliminación: rondas cortas de UNA vida; gana la ronda el equipo que deje al otro sin nadie en pie
+	-- Buscar y destruir: rondas de una vida; atacan y defienden por turnos. Los atacantes plantan la
+	-- bomba en A o B (PlantTime s dentro del sitio) y explota a los BombTime s; los defensores la
+	-- desactivan (DefuseTime s junto a ella). Solo en mapas con sitios (si no, es Eliminación).
+	SND = { Name = "Buscar y destruir", ScoreToWin = 4, RoundTime = 12 * 60, Teams = true, SubRoundTime = 100, PrepTime = 5, PlantTime = 4, DefuseTime = 6, BombTime = 35 },
 	ELIM = { Name = "Eliminación", ScoreToWin = 5, RoundTime = 10 * 60, Teams = true, SubRoundTime = 75, PrepTime = 4 },
 	-- Infección (Halloween): todos empiezan como supervivientes (equipo A) y tras PrepTime uno de cada
 	-- ZombieRatio se convierte en zombi (equipo B: garras, más vida y algo más rápidos). Quien cae ante
@@ -39,7 +43,7 @@ GameConfig.ModeSettings = {
 	CAL = { Name = "Calabazas", ScoreToWin = 30, RoundTime = 8 * 60, Teams = true },
 }
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
--- Encrucijada, Base Militar) con Duelo por equipos o Dominio. false = votación totalmente al azar
+-- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
 GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 

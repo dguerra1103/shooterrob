@@ -357,6 +357,11 @@ function Map.Build()
 		Kit.botSpot(spot[1], spot[2])
 		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])
 	end
+	-- Buscar y destruir: cada equipo defiende dos sitios en su mitad (A y B)
+	for _, site in { { V(-108, 0, 100), "A" }, { V(-135, 0, -110), "B" } } do
+		Kit.bombSite(site[1], site[2], 1)
+		Kit.bombSite(Kit.MIRROR * site[1], site[2], 2)
+	end
 	-- Zonas de control: delante del búnker, los dos carriles y los dos lados del centro
 	Kit.zone(V(0, 0, 20), 10, 1)
 	Kit.zone(V(-92, 0, 88), 12, 2)

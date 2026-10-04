@@ -1184,6 +1184,17 @@ function Kit.botSpot(position, look)
 	return p
 end
 
+-- Sitio de la bomba (Buscar y destruir): letra "A" o "B" y qué equipo lo defiende (1 o 2, el de
+-- GameConfig.Teams). Cada equipo defiende los dos sitios de su mitad.
+function Kit.bombSite(position, letter, defender)
+	local p = deco("BombSite", V(1, 1, 1), CFrame.new(position + V(0, 0.5, 0)), C.White, Enum.Material.SmoothPlastic)
+	p.Transparency = 1
+	p:SetAttribute("Letter", letter)
+	p:SetAttribute("Defender", defender)
+	p:SetAttribute("Radius", 7)
+	return p
+end
+
 -- Zona de control (modo "Zona"). order = orden de rotación.
 function Kit.zone(position, radius, order)
 	local z = deco("HardpointZone", V(0.3, radius * 2, radius * 2), CFrame.new(position + V(0, 0.15, 0)) * CFrame.Angles(0, 0, math.pi / 2), C.White, Enum.Material.SmoothPlastic)
