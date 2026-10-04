@@ -413,6 +413,11 @@ local function pickGoal(agent)
 					chosen = nil -- (alguno sale a cazar)
 				end
 			elseif attacking then
+				-- La bomba en el suelo: van a recogerla (solo la puede plantar quien la lleve)
+				local dropped = ReplicatedStorage:GetAttribute("Bomb_Dropped")
+				if typeof(dropped) == "Vector3" then
+					return dropped + Vector3.new((math.random() - 0.5) * 2, 0, (math.random() - 0.5) * 2), true
+				end
 				chosen = sites[sndPick.Index]
 			elseif not (agent.Role == "Subfusil" and math.random() < 0.4) then
 				chosen = sites[(agent.Lane or 0) >= 0 and 1 or math.min(2, #sites)]
@@ -1028,7 +1033,8 @@ local function sndBusy(agent, root)
 	for _, site in Bomb.Sites() do
 		local offset = site.Position - root.Position
 		if Vector3.new(offset.X, 0, offset.Z).Magnitude <= site.Radius then
-			if (attacking and not planted) or (not attacking and planted and ReplicatedStorage:GetAttribute("Bomb_Site") == site.Letter) then
+			local carrying = agent.Model and ReplicatedStorage:GetAttribute("Bomb_Carrier") == agent.Model.Name
+			if (attacking and not planted and carrying) or (not attacking and planted and ReplicatedStorage:GetAttribute("Bomb_Site") == site.Letter) then
 				return true
 			end
 		end

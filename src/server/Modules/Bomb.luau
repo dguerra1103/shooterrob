@@ -6,7 +6,10 @@
 -- Estado para la interfaz (atributos de ReplicatedStorage):
 --   Bomb_Attackers / Bomb_Defenders (nombres de equipo), Bomb_A_Position / Bomb_B_Position,
 --   Bomb_State ("Idle" | "Planted" | "Exploded" | "Defused"), Bomb_Site (letra), Bomb_Timer (s),
---   Bomb_Action ("Planting" | "Defusing" | ""), Bomb_Progress (0..1)
+--   Bomb_Action ("Planting" | "Defusing" | ""), Bomb_Progress (0..1),
+--   Bomb_Carrier (nombre de quien lleva la bomba), Bomb_Dropped (Vector3 si está en el suelo)
+-- Como en los shooters: solo un atacante lleva la bomba y solo él puede plantarla. Si cae, la bomba
+-- se queda en el suelo y cualquier atacante la recoge pasando por encima.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -22,6 +25,10 @@ local STEP = 0.25
 
 local active = false
 local sites = {} -- { Letter, Position, Radius, Visual }
+local PICKUP_RADIUS = 5
+local carrier -- { Model, Player, Name, LastPosition }
+local droppedAt -- Vector3: la bomba está en el suelo
+local droppedVisual
 local thread
 local visuals = {}
 
@@ -152,6 +159,135 @@ local function setAttr(name, value)
 	ReplicatedStorage:SetAttribute("Bomb_" .. name, value)
 end
 
+-- Miembros vivos de un equipo (jugadores y bots): { Model, Player, Name, Root }
+local function aliveMembers(team)
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if player.Team == team and humanoid and humanoid.Health > 0 and root and not player:GetAttribute("InMenu") then
+			table.insert(list, { Model = character, Player = player, Name = player.Name, Root = root })
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local root = model:FindFirstChild("HumanoidRootPart")
+			if model:GetAttribute("Team") == team.Name and humanoid and humanoid.Health > 0 and root then
+				table.insert(list, { Model = model, Name = model.Name, Root = root })
+			end
+		end
+	end
+	return list
+end
+
+-- Raíz del portador si sigue vivo (si murió o reapareció con otro cuerpo, nil)
+local function carrierRoot()
+	if not carrier then
+		return nil
+	end
+	local model = carrier.Model
+	if not model or not model.Parent or (carrier.Player and carrier.Player.Character ~= model) then
+		return nil
+	end
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if humanoid and humanoid.Health > 0 and root then
+		return root
+	end
+	return nil
+end
+
+local function clearDropped()
+	droppedAt = nil
+	if droppedVisual then
+		droppedVisual:Destroy()
+		droppedVisual = nil
+	end
+	setAttr("Dropped", nil)
+end
+
+local function setCarrier(member)
+	clearDropped()
+	carrier = member and { Model = member.Model, Player = member.Player, Name = member.Name, LastPosition = member.Root.Position } or nil
+	setAttr("Carrier", member and member.Name or nil)
+	if member and member.Player then
+		Remotes.Notify:FireClient(member.Player, "Big", "💣 ¡LLEVAS LA BOMBA! Plántala en A o B")
+	end
+end
+
+local function dropBomb(position, attackers)
+	carrier = nil
+	setAttr("Carrier", nil)
+	droppedAt = position
+	setAttr("Dropped", position)
+	local part = Instance.new("Part")
+	part.Name = "DroppedBomb"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Size = Vector3.new(1.4, 0.8, 1)
+	part.Color = Color3.fromRGB(60, 60, 55)
+	part.Material = Enum.Material.Metal
+	part.CFrame = CFrame.new(position - Vector3.new(0, 2.3, 0))
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(36, 36)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 250
+	billboard.Parent = part
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Text = "💣"
+	label.Parent = billboard
+	part.Parent = workspace
+	droppedVisual = part
+	for _, player in Players:GetPlayers() do
+		if player.Team == attackers then
+			Remotes.Notify:FireClient(player, "Info", "💣 ¡La bomba está en el suelo! Recógela")
+		end
+	end
+end
+
+-- Cada paso sin plantar: quién lleva la bomba (si su portador cae, se queda en el suelo)
+local function updateCarrier(attackers)
+	if carrier then
+		local root = carrierRoot()
+		if root then
+			carrier.LastPosition = root.Position
+			return
+		end
+		dropBomb(carrier.LastPosition, attackers)
+	end
+	local members = aliveMembers(attackers)
+	if droppedAt then
+		for _, member in members do
+			if (member.Root.Position - droppedAt).Magnitude <= PICKUP_RADIUS then
+				setCarrier(member)
+				return
+			end
+		end
+	elseif #members > 0 then
+		setCarrier(members[math.random(1, #members)])
+	end
+end
+
+-- ¿Está el portador dentro del sitio?
+local function carrierIn(site)
+	local root = carrierRoot()
+	if not root then
+		return false
+	end
+	local offset = root.Position - site.Position
+	return Vector3.new(offset.X, 0, offset.Z).Magnitude <= site.Radius and math.abs(offset.Y) < 8
+end
+
 -- Empieza una ronda: attackers plantan en los sitios de la mitad de defenders
 function Bomb.Start(attackers, defenders)
 	Bomb.Stop()
@@ -174,6 +310,9 @@ function Bomb.Start(attackers, defenders)
 	local s = settings()
 	local plantTime, defuseTime, bombTime = s.PlantTime or 4, s.DefuseTime or 6, s.BombTime or 35
 	Bomb.Result, Bomb.Planted, Bomb.Site = nil, false, nil
+	carrier = nil
+	clearDropped()
+	setAttr("Carrier", nil)
 	setAttr("Attackers", attackers.Name)
 	setAttr("Defenders", defenders.Name)
 	setAttr("State", "Idle")
@@ -188,23 +327,22 @@ function Bomb.Start(attackers, defenders)
 			-- (el progreso con el tiempo de verdad: con el servidor cargado la espera dura más)
 			local dt = task.wait(STEP)
 			if not Bomb.Planted then
-				-- Plantar: algún atacante vivo dentro de un sitio, sin moverse de él. Primero el sitio en
-				-- el que ya se está plantando (que otro entre en el otro sitio no lo reinicia)
+				-- Plantar: el portador de la bomba, vivo dentro de un sitio y sin salir de él
+				updateCarrier(attackers)
 				local here, players = nil, {}
-				if site then
-					local list, count = inside(attackers, site.Position, site.Radius)
-					if count > 0 then
-						here, players = site, list
-					end
+				if site and carrierIn(site) then
+					here = site
 				end
 				for _, candidate in sites do
 					if here then
 						break
 					end
-					local list, count = inside(attackers, candidate.Position, candidate.Radius)
-					if count > 0 then
-						here, players = candidate, list
+					if carrierIn(candidate) then
+						here = candidate
 					end
+				end
+				if here and carrier and carrier.Player then
+					players = { carrier.Player }
 				end
 				if here and (site == nil or site == here) then
 					site = here
@@ -213,6 +351,8 @@ function Bomb.Start(attackers, defenders)
 					setAttr("Site", site.Letter)
 					if progress >= 1 then
 						Bomb.Planted, Bomb.Site = true, site.Letter
+						carrier = nil
+						setAttr("Carrier", nil)
 						explodeAt = os.clock() + bombTime
 						progress = 0
 						setAttr("State", "Planted")
@@ -290,7 +430,9 @@ function Bomb.Stop()
 	end
 	visuals = {}
 	sites = {}
-	for _, name in { "Attackers", "Defenders", "A_Position", "B_Position", "State", "Site", "Timer", "Action", "Progress" } do
+	carrier = nil
+	clearDropped()
+	for _, name in { "Attackers", "Defenders", "A_Position", "B_Position", "State", "Site", "Timer", "Action", "Progress", "Carrier" } do
 		setAttr(name, nil)
 	end
 end

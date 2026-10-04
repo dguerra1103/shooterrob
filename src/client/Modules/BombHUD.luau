@@ -26,7 +26,17 @@ local function update()
 		label.Text = string.format("💣 BOMBA EN %s · %d s%s", site, timer, attacking and " · ¡protégela!" or " · ¡desactívala!")
 		label.TextColor3 = Color3.fromRGB(255, 90, 70)
 	elseif attacking then
-		label.Text = "💣 ATACAS · planta la bomba en A o B"
+		-- Quién lleva la bomba (solo el portador puede plantarla)
+		local carrier = ReplicatedStorage:GetAttribute("Bomb_Carrier")
+		if carrier == player.Name then
+			label.Text = "💣 LLEVAS LA BOMBA · plántala en A o B"
+		elseif typeof(ReplicatedStorage:GetAttribute("Bomb_Dropped")) == "Vector3" then
+			label.Text = "💣 ¡LA BOMBA ESTÁ EN EL SUELO! · recógela"
+		elseif carrier then
+			label.Text = "💣 ATACAS · " .. tostring(carrier) .. " lleva la bomba: cúbrele"
+		else
+			label.Text = "💣 ATACAS · planta la bomba en A o B"
+		end
 		label.TextColor3 = Color3.fromRGB(255, 210, 90)
 	else
 		label.Text = "🛡️ DEFIENDES · protege A y B"

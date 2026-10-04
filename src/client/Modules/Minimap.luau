@@ -266,6 +266,21 @@ local function update()
 			label.Text = letter
 		end
 	end
+	-- La bomba en el suelo (solo la ven los atacantes, que son quienes la pueden recoger)
+	local dropped = ReplicatedStorage:GetAttribute("Bomb_Dropped")
+	if typeof(dropped) == "Vector3" and player.Team and player.Team.Name == ReplicatedStorage:GetAttribute("Bomb_Attackers") then
+		local p, edge = toMap(dropped, center)
+		local d = dot(p or edge, Color3.fromRGB(255, 120, 30), 6, true)
+		local label = d:FindFirstChild("Letter") or UI.label({
+			Name = "Letter",
+			Size = UDim2.fromScale(1, 1),
+			TextSize = 11,
+			TextStrokeTransparency = 1,
+			TextColor3 = Color3.new(0, 0, 0),
+			Parent = d,
+		})
+		label.Text = "💣"
+	end
 	for _, team in GameConfig.Teams do
 		local flag = ReplicatedStorage:GetAttribute("FlagPos_" .. team.Name)
 		if typeof(flag) == "Vector3" then
