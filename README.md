@@ -144,8 +144,9 @@ ROBLOX_API_KEY=... ROBLOX_UNIVERSE_ID=... ROBLOX_PLACE_ID=... scripts/publish.sh
 En el [Creator Hub](https://create.roblox.com/dashboard/creations), abre tu experiencia → **Monetización**:
 
 1. **Developer Products**: crea 4 productos (por ejemplo 500, 1200, 3000 y 8000 monedas a 49, 99, 199 y 449 Robux) y pega cada ID en `Shop.CoinPacks[i].ProductId` (`src/shared/Shop.luau`).
-2. **Pack de inicio**: crea otro Developer Product (por ejemplo 99 Robux) y pon su ID en `Shop.StarterPack.ProductId`. Da 1500 monedas, el traje Blaze Runner, la skin Sakura y el efecto Confeti, se compra una sola vez y solo se ofrece hasta el nivel 15.
-3. **Passes**: crea el pase **VIP** (299 Robux) y pon su ID en `Shop.VIPPassId`. Crea otro para el **pase de batalla premium** y pon su ID en `GameConfig.PremiumPassId`.
+2. **Revivir instantáneo**: crea 2 productos (5 revivir a 25 Robux y 15 a 59 Robux) y pega sus IDs en `Shop.RevivePacks[i].ProductId`. Cada jugador empieza con 3 gratis; al morir, "REVIVIR INSTANTÁNEO" (tecla B) le devuelve donde cayó.
+3. **Pack de inicio**: crea otro Developer Product (por ejemplo 99 Robux) y pon su ID en `Shop.StarterPack.ProductId`. Da 1500 monedas, el traje Blaze Runner, la skin Sakura y el efecto Confeti, se compra una sola vez y solo se ofrece hasta el nivel 15.
+4. **Passes**: crea el pase **VIP** (299 Robux) y pon su ID en `Shop.VIPPassId`. Crea otro para el **pase de batalla premium** y pon su ID en `GameConfig.PremiumPassId`.
 
 Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se guardan con un registro para no entregar dos veces la misma.
 
@@ -186,6 +187,7 @@ src/
 │       ├── Loadout.luau     armas y traje al aparecer
 │       ├── Combat.luau      valida disparos, daño, explosiones y bajas
 │       ├── Round.luau       equipos, votación, rondas, modos, marcador, rachas
+│       ├── Respawn.luau     reaparición, "Regenerar ahora" y "Revivir instantáneo"
 │       ├── Flags.luau       Captura la bandera
 │       ├── Hardpoint.luau   Zona de control
 │       ├── Hazards.luau     lava
@@ -207,6 +209,7 @@ src/
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
         ├── Footprints.luau        huellas en nieve, arena y barro
+        ├── DeathScreen.luau       pantalla de muerte: observar, revivir, regenerar, menú
         ├── Effects.luau           fogonazo, balas, impactos, cohetes y explosiones
         ├── Settings.luau          ajustes: calidad gráfica, FOV, sensibilidad
         ├── ClientState.luau       estado compartido

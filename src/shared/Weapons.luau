@@ -1,6 +1,7 @@
 -- Arsenal: estadísticas, paleta de fábrica, desbloqueo y posiciones (manos, mira, cañón) de cada arma.
 -- El modelo 3D de cada arma está en WeaponDesigns.
 local Designs = require(script.Parent.WeaponDesigns)
+local Classic = require(script.Parent.WeaponDesignsClassic)
 
 local Weapons = {}
 
@@ -593,6 +594,58 @@ Weapons.Airstrike = {
 	Damage = 95,
 	Explosive = { Radius = 13, Damage = 95, MinDamage = 30 },
 }
+
+-- Estilo de las armas: "Clasico" (siluetas reales, madera y metal, como los shooters más jugados de
+-- Roblox) o "SciFi" (el concept pack original con neón). Las skins de la tienda siguen poniendo neón.
+Weapons.Style = "Clasico"
+
+local MAT = Enum.Material
+local CLASSIC_PALETTES = {
+	-- Polímero negro con muebles color arena
+	Black = { Body = RGB(46, 48, 52), Panel = RGB(160, 135, 98), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- Metal pavonado y madera
+	Wood = { Body = RGB(52, 54, 58), Panel = RGB(122, 78, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
+	-- Color arena (desierto)
+	Tan = { Body = RGB(182, 156, 114), Panel = RGB(44, 44, 47), Dark = RGB(32, 32, 34), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- Verde oliva militar
+	Olive = { Body = RGB(78, 86, 60), Panel = RGB(104, 112, 80), Dark = RGB(32, 33, 30), Accent = RGB(255, 140, 40), Accent2 = RGB(128, 84, 48), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- Acero inoxidable y cachas de madera
+	Steel = { Body = RGB(178, 180, 186), Panel = RGB(118, 72, 40), Dark = RGB(60, 62, 66), Accent = RGB(255, 140, 40), Accent2 = RGB(118, 72, 40), Lens = RGB(70, 120, 175), BodyMaterial = MAT.Metal, PanelMaterial = MAT.Wood, AccentMaterial = MAT.SmoothPlastic },
+	-- Dos tonos: corredera negra y armazón arena
+	TwoTone = { Body = RGB(176, 152, 112), Panel = RGB(48, 50, 54), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.SmoothPlastic },
+	-- Cuchillo: hoja de acero, mango negro
+	Knife = { Body = RGB(40, 40, 44), Panel = RGB(150, 152, 158), Dark = RGB(170, 172, 178), Accent = RGB(120, 122, 128), Accent2 = RGB(200, 200, 205), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.Metal },
+}
+Weapons.ClassicPalettes = CLASSIC_PALETTES
+local CLASSIC_LOOK = {
+	ARX27 = "Black", HavocPump = "Wood", Specter9 = "Black", Signal7 = "Wood", VortexBR = "Tan",
+	NovaDrift = "Olive", RaptorDMR = "Wood", BreachHammer = "Black", TitanLMG = "Olive", GhostlineXR = "Tan",
+	NovaLauncher = "Olive", Viper = "Black", HandCannon = "Steel", PhantomSidewind = "TwoTone", Knife = "Knife",
+}
+if Weapons.Style == "Clasico" then
+	for name, def in Weapons.List do
+		for key, value in Classic.Points[name] or {} do
+			def[key] = value
+		end
+		local build = Classic[name]
+		if build then
+			def.Parts = build(def)
+			-- Nombres únicos (las piezas repetidas del bisel se numeran: Edge, Edge2, Edge3...)
+			local seen = {}
+			for _, part in def.Parts do
+				local count = (seen[part.Name] or 0) + 1
+				seen[part.Name] = count
+				if count > 1 then
+					part.Name ..= count
+				end
+			end
+		end
+		local look = CLASSIC_LOOK[name]
+		if look then
+			def.Palette = CLASSIC_PALETTES[look]
+		end
+	end
+end
 
 function Weapons.Get(name)
 	if name == "Grenade" then

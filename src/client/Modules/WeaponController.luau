@@ -172,7 +172,9 @@ local function createViewmodel(tool)
 	model.Name = "Viewmodel"
 	-- Brillo suave del neón del arma sobre las manos (se nota mucho en mapas oscuros)
 	local glowPalette = WeaponModels.GetPalette(weaponName, tool:GetAttribute("Skin"))
-	if model.PrimaryPart then
+	-- Solo si el neón brilla de verdad (las armas clásicas sin skin no llevan neón)
+	local neonAccent = (glowPalette.AccentMaterial or Enum.Material.Neon) == Enum.Material.Neon
+	if model.PrimaryPart and neonAccent then
 		local glow = Instance.new("PointLight")
 		glow.Name = "NeonGlow"
 		glow.Color = glowPalette.Accent

@@ -55,8 +55,12 @@ local function paint(part, role, pal)
 		part.Color = (pal.Accent2 or pal.Accent):Lerp(pal.Accent, 0.5)
 		part.Material = Enum.Material.Neon
 		part.Transparency = 0.15
+	elseif role == "Reticle" then
+		-- Punto rojo de las miras: siempre brilla
+		part.Color = Color3.fromRGB(255, 40, 40)
+		part.Material = Enum.Material.Neon
 	elseif role == "Lens" then
-		part.Color = pal.Accent:Lerp(WHITE, 0.35)
+		part.Color = pal.Lens or pal.Accent:Lerp(WHITE, 0.35)
 		part.Material = Enum.Material.Glass
 		part.Transparency = 0.45
 		part.Reflectance = 0.3
