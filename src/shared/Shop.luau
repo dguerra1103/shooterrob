@@ -181,6 +181,7 @@ Shop.OutfitPrices = {
 	Momia = 1800,
 	Vaquero = 2200,
 	Pirata = 2400,
+	Caballero = 2600,
 }
 
 -- Recompensa diaria: un día por entrada (al 7.º día se vuelve a empezar)

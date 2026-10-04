@@ -145,6 +145,19 @@ Outfits.List = {
 		Sleeves = true,
 		Pieces = { Tricorn = true, EyePatch = true, PirateBeard = true, CoatTails = true, Sash = true, Boots = true, Gloves = true },
 	},
+	-- Medieval (en la tienda con monedas, a juego con el Castillo del Rey)
+	Caballero = {
+		Name = "Caballero Real",
+		Rarity = "Legendario",
+		Class = "Medieval",
+		Body = RGB(120, 125, 135),
+		Cloth = RGB(60, 70, 160),
+		Glow = RGB(255, 205, 70),
+		Plate = RGB(200, 205, 215),
+		PlateMaterial = Enum.Material.Metal,
+		Sleeves = true,
+		Pieces = { KnightHelm = true, Tabard = true, Shoulders = true, Gauntlets = true, Belt = true, Boots = true, Cape = true },
+	},
 }
 
 function Outfits.Get(id)
@@ -484,6 +497,20 @@ function Outfits.Apply(character, id)
 		disc("HatCrown", V(0, 0.72, 0), 0.42, 1.05, o.Plate)
 		disc("HatBand", V(0, 0.58, 0), 0.1, 1.09, o.Glow)
 		newPiece(folder, head, "HatDent", V(0, 0.93, 0), Z, V(0.18, 0.05, 0.75), Z, o.Plate:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.Fabric)
+	end
+	if P.KnightHelm then
+		-- Yelmo cerrado con visera de rendija y penacho
+		newPiece(folder, head, "Helm", V(0, 0.04, 0), Z, V(1.12, 1.1, 1.12), Z, o.Plate, Enum.Material.Metal)
+		newPiece(folder, head, "HelmSlit", V(0, 0.12, -0.57), Z, V(0.75, 0.07, 0.03), Z, RGB(20, 20, 25), Enum.Material.SmoothPlastic)
+		newPiece(folder, head, "HelmRidge", V(0, 0.2, 0), Z, V(0.12, 1.2, 1.18), Z, o.Glow, Enum.Material.Metal)
+		newPiece(folder, head, "Plume", V(0, 0.75, 0.15), Z, V(0.14, 0.45, 0.8), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(-20), 0, 0))
+	end
+	if P.Tabard then
+		-- Sobreveste con el emblema dorado
+		newPiece(folder, upper, "Tabard", V(0, -0.05, -0.53), Z, V(0.8, 1.0, 0.05), Z, o.Cloth, Enum.Material.Fabric)
+		newPiece(folder, upper, "TabardBack", V(0, -0.05, 0.53), Z, V(0.8, 1.0, 0.05), Z, o.Cloth, Enum.Material.Fabric)
+		newPiece(folder, lower, "TabardSkirt", V(0, -0.9, -0.53), Z, V(0.8, 1.6, 0.05), Z, o.Cloth, Enum.Material.Fabric)
+		newPiece(folder, upper, "TabardCrest", V(0, 0.05, -0.57), Z, V(0.3, 0.3, 0.03), Z, o.Glow, Enum.Material.SmoothPlastic, CFrame.Angles(0, 0, math.rad(45)))
 	end
 	if P.Tricorn then
 		-- Sombrero de tres picos: copa, tres alas levantadas y calavera dorada delante
