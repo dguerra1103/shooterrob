@@ -105,7 +105,7 @@ function PlaytimeGifts.Init()
 	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	button = UI.button({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = compact and UDim2.fromOffset(10, 56) or UDim2.new(0, 66, 0.38, 112),
+		Position = compact and UDim2.fromOffset(10, 104) or UDim2.new(0, 66, 0.38, 112), -- (en móvil, debajo del botón de la tienda)
 		Size = compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56),
 		Text = "",
 		BackgroundColor3 = WAITING,
@@ -155,7 +155,9 @@ function PlaytimeGifts.Init()
 	task.spawn(function()
 		while true do
 			update()
-			task.wait(0.1)
+			-- Rápido solo cuando late (regalo listo y a la vista)
+			local gift, left = nextGift()
+			task.wait((gui.Enabled and gift and left <= 0) and 0.1 or 0.25)
 		end
 	end)
 end

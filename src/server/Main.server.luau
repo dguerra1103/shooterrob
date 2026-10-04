@@ -21,20 +21,29 @@ local Gifts = require(Modules.Gifts)
 local Friends = require(Modules.Friends)
 local Event = require(Modules.Event)
 
-MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
-PlayerData.Init()
-Loadout.Init()
-Combat.Init()
+
+-- Arranca cada sistema por separado: si uno falla, se avisa en Output y los demás siguen
+local function start(name, fn, ...)
+	local ok, err = xpcall(fn, debug.traceback, ...)
+	if not ok then
+		warn("[Arranque] " .. name .. " falló: " .. tostring(err))
+	end
+end
+
+start("MapBuilder", MapBuilder.Build) -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
+start("PlayerData", PlayerData.Init)
+start("Loadout", Loadout.Init)
+start("Combat", Combat.Init)
 Combat.OnKill = Round.RegisterKill
-Round.Init()
-Respawn.Init() -- reaparición propia (CharacterAutoLoads desactivado): después de Round
-Dummies.Init()
-Hazards.Init()
-Grenades.Init()
-Leaderboard.Init()
-Killstreaks.Init()
-Abilities.Init()
-Bots.Init()
-Gifts.Init()
-Friends.Init()
-Event.Init()
+start("Round", Round.Init)
+start("Respawn", Respawn.Init) -- reaparición propia (CharacterAutoLoads desactivado): después de Round
+start("Dummies", Dummies.Init)
+start("Hazards", Hazards.Init)
+start("Grenades", Grenades.Init)
+start("Leaderboard", Leaderboard.Init)
+start("Killstreaks", Killstreaks.Init)
+start("Abilities", Abilities.Init)
+start("Bots", Bots.Init)
+start("Gifts", Gifts.Init)
+start("Friends", Friends.Init)
+start("Event", Event.Init)

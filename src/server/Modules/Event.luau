@@ -82,9 +82,8 @@ local function collect(player, candy)
 	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count
-	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins)
 	PlayerData.MarkDirty(player)
-	PlayerData.SendUpdate(player)
+	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
 	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
 	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)

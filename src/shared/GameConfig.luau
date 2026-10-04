@@ -91,7 +91,7 @@ GameConfig.PlaytimeGifts = {
 	{ Minutes = 45, Coins = 300 },
 }
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
-GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
+GameConfig.TrainingDummies = false -- muñecos de práctica quietos (ya no hacen falta: los bots sirven para practicar)
 
 -- Movimiento
 GameConfig.WalkSpeed = 18

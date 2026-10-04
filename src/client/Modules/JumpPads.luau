@@ -16,6 +16,7 @@ local COOLDOWN = 0.6
 local lastLaunch = 0
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
+local filteredCharacter = nil -- el filtro se cambia solo cuando cambia el personaje
 
 function JumpPads.Init()
 	RunService.Heartbeat:Connect(function()
@@ -28,7 +29,10 @@ function JumpPads.Init()
 		if os.clock() - lastLaunch < COOLDOWN then
 			return
 		end
-		params.FilterDescendantsInstances = { character }
+		if filteredCharacter ~= character then
+			filteredCharacter = character
+			params.FilterDescendantsInstances = { character }
+		end
 		local hit = workspace:Raycast(root.Position, Vector3.new(0, -4, 0), params)
 		local power = hit and hit.Instance:GetAttribute("JumpPad")
 		if type(power) ~= "number" then

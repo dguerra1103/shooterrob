@@ -79,8 +79,9 @@ function Dummies.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "Dummies"
 	folder.Parent = workspace
+	-- (cada uno en su hilo: crear el modelo espera a la red y no debe frenar el arranque del servidor)
 	for _, position in SPOTS do
-		spawnDummy(position)
+		task.spawn(spawnDummy, position)
 	end
 end
 

@@ -198,7 +198,7 @@ GameConfig.PlaytimeGifts = {
 	{ Minutes = 45, Coins = 300 },
 }
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
-GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
+GameConfig.TrainingDummies = false -- muñecos de práctica quietos (ya no hacen falta: los bots sirven para practicar)
 
 -- Movimiento
 GameConfig.WalkSpeed = 18
@@ -4053,23 +4053,32 @@ local Gifts = require(Modules.Gifts)
 local Friends = require(Modules.Friends)
 local Event = require(Modules.Event)
 
-MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
-PlayerData.Init()
-Loadout.Init()
-Combat.Init()
+
+-- Arranca cada sistema por separado: si uno falla, se avisa en Output y los demás siguen
+local function start(name, fn, ...)
+	local ok, err = xpcall(fn, debug.traceback, ...)
+	if not ok then
+		warn("[Arranque] " .. name .. " falló: " .. tostring(err))
+	end
+end
+
+start("MapBuilder", MapBuilder.Build) -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
+start("PlayerData", PlayerData.Init)
+start("Loadout", Loadout.Init)
+start("Combat", Combat.Init)
 Combat.OnKill = Round.RegisterKill
-Round.Init()
-Respawn.Init() -- reaparición propia (CharacterAutoLoads desactivado): después de Round
-Dummies.Init()
-Hazards.Init()
-Grenades.Init()
-Leaderboard.Init()
-Killstreaks.Init()
-Abilities.Init()
-Bots.Init()
-Gifts.Init()
-Friends.Init()
-Event.Init()
+start("Round", Round.Init)
+start("Respawn", Respawn.Init) -- reaparición propia (CharacterAutoLoads desactivado): después de Round
+start("Dummies", Dummies.Init)
+start("Hazards", Hazards.Init)
+start("Grenades", Grenades.Init)
+start("Leaderboard", Leaderboard.Init)
+start("Killstreaks", Killstreaks.Init)
+start("Abilities", Abilities.Init)
+start("Bots", Bots.Init)
+start("Gifts", Gifts.Init)
+start("Friends", Friends.Init)
+start("Event", Event.Init)
 ]]></string>
         </Properties>
       </Item>
@@ -5463,8 +5472,9 @@ function Dummies.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "Dummies"
 	folder.Parent = workspace
+	-- (cada uno en su hilo: crear el modelo espera a la red y no debe frenar el arranque del servidor)
 	for _, position in SPOTS do
-		spawnDummy(position)
+		task.spawn(spawnDummy, position)
 	end
 end
 
@@ -5559,9 +5569,8 @@ local function collect(player, candy)
 	end
 	data.EventProgress.Count += 1
 	local count = data.EventProgress.Count
-	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins)
 	PlayerData.MarkDirty(player)
-	PlayerData.SendUpdate(player)
+	local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
 	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
 	if count >= CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
 		local skin = Skins.Get(CONFIG.RewardSkin)
@@ -13984,6 +13993,8 @@ end
 -- Aparición libre (FFA / Escalada): el punto más alejado de los demás
 ---------------------------------------------------------------------------
 
+local ffaCache = { Map = nil, Points = {} }
+
 local function ffaSpawnFor(player, character)
 	if isTeamMode() then
 		return
@@ -13992,20 +14003,30 @@ local function ffaSpawnFor(player, character)
 	if not map then
 		return
 	end
-	local points = {}
-	for _, d in map:GetDescendants() do
-		if d:IsA("BasePart") and d.Name == "FFASpawn" then
-			table.insert(points, d)
+	-- Puntos libres del mapa (se guardan mientras no cambie el mapa)
+	if ffaCache.Map ~= map then
+		ffaCache.Map, ffaCache.Points = map, {}
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "FFASpawn" then
+				table.insert(ffaCache.Points, d)
+			end
 		end
 	end
+	local points = ffaCache.Points
 	if #points == 0 then
 		return
 	end
+	-- Lejos de los demás jugadores y de los bots
 	local others = {}
 	for _, p in Players:GetPlayers() do
 		local root = p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			table.insert(others, root.Position)
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Root and agent.Root.Parent then
+			table.insert(others, agent.Root.Position)
 		end
 	end
 	local best, bestDistance = points[math.random(1, #points)], -1
@@ -14570,28 +14591,36 @@ task.spawn(function()
 	end
 end)
 
-Settings.Init()
-HUD.Init()
-Menu.Init()
-Movement.Init()
-WeaponController.Init()
-WorldFX.Init()
-Footprints.Init()
-DeathScreen.Init()
-QuestTracker.Init()
-Abilities.Init()
-Emotes.Init()
-Scoreboard.Init()
-PlaytimeGifts.Init()
-SkinFX.Init()
-JumpPads.Init()
-Tutorial.Init()
-EventHUD.Init()
-ChatTags.Init()
-VoteUI.Init()
-GrenadeController.Init()
-KillstreakController.Init()
-MainMenu.Init() -- la última: muestra la pantalla de inicio
+-- Arranca cada sistema por separado: si uno falla, se avisa en Output y los demás siguen
+local function start(name, fn, ...)
+	local ok, err = xpcall(fn, debug.traceback, ...)
+	if not ok then
+		warn("[Arranque] " .. name .. " falló: " .. tostring(err))
+	end
+end
+
+start("Settings", Settings.Init)
+start("HUD", HUD.Init)
+start("Menu", Menu.Init)
+start("Movement", Movement.Init)
+start("WeaponController", WeaponController.Init)
+start("WorldFX", WorldFX.Init)
+start("Footprints", Footprints.Init)
+start("DeathScreen", DeathScreen.Init)
+start("QuestTracker", QuestTracker.Init)
+start("Abilities", Abilities.Init)
+start("Emotes", Emotes.Init)
+start("Scoreboard", Scoreboard.Init)
+start("PlaytimeGifts", PlaytimeGifts.Init)
+start("SkinFX", SkinFX.Init)
+start("JumpPads", JumpPads.Init)
+start("Tutorial", Tutorial.Init)
+start("EventHUD", EventHUD.Init)
+start("ChatTags", ChatTags.Init)
+start("VoteUI", VoteUI.Init)
+start("GrenadeController", GrenadeController.Init)
+start("KillstreakController", KillstreakController.Init)
+start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
@@ -16649,16 +16678,20 @@ function EventHUD.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	local frame = UI.new("Frame", {
-		Position = compact and UDim2.fromOffset(10, 126) or UDim2.new(0, 66, 0.38, 176),
-		Size = compact and UDim2.fromOffset(110, 30) or UDim2.fromOffset(230, 34),
+		-- En móvil: estrecho, debajo del regalo (a su derecha están los retos)
+		Position = compact and UDim2.fromOffset(10, 174) or UDim2.new(0, 66, 0.38, 176),
+		Size = compact and UDim2.fromOffset(52, 40) or UDim2.fromOffset(230, 34),
 		BackgroundColor3 = Color3.fromRGB(60, 25, 80),
 		BackgroundTransparency = 0.15,
 		Parent = gui,
 	}, { UI.corner(10), UI.stroke(Color3.fromRGB(255, 140, 30), 2, 0.2) })
 	local label = UI.label({
-		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromOffset(2, 0),
+		Size = UDim2.new(1, -4, 1, -4),
 		Text = "",
-		TextSize = compact and 15 or 18,
+		TextSize = 18,
+		TextScaled = compact,
+		TextWrapped = compact,
 		Parent = frame,
 	})
 	local fill = UI.new("Frame", {
@@ -16677,9 +16710,9 @@ function EventHUD.Init()
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then
-					label.Text = compact and "🎃 ¡Hecho!" or "🎃 ¡Skin del evento conseguida!"
+					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
 				else
-					label.Text = (compact and "🍬 " or ("🎃 " .. string.upper(name) .. "  🍬 ")) .. count .. "/" .. goal
+					label.Text = compact and ("🍬\n" .. count .. "/" .. goal) or ("🎃 " .. string.upper(name) .. "  🍬 " .. count .. "/" .. goal)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 			end
@@ -18088,6 +18121,8 @@ local function getThumbnail(userId)
 	return ""
 end
 
+local lastRowSignature = ""
+
 local function updatePlayerRow()
 	local list = Players:GetPlayers()
 	local function kills(p)
@@ -18098,6 +18133,17 @@ local function updatePlayerRow()
 	table.sort(list, function(a, b)
 		return kills(a) > kills(b)
 	end)
+	-- Solo se reconstruye si algo ha cambiado (orden, bajas, equipos o fotos ya cargadas)
+	local parts = {}
+	for rank = 1, math.min(10, #list) do
+		local p = list[rank]
+		table.insert(parts, p.UserId .. ":" .. kills(p) .. ":" .. tostring(p.Team) .. ":" .. tostring(getThumbnail(p.UserId) ~= ""))
+	end
+	local signature = table.concat(parts, "|")
+	if signature == lastRowSignature then
+		return
+	end
+	lastRowSignature = signature
 	for _, child in refs.PlayerRow:GetChildren() do
 		if child:IsA("Frame") then
 			child:Destroy()
@@ -18250,6 +18296,9 @@ local lowHealthCC: ColorCorrectionEffect? = nil
 local chipRatio = 1
 local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
+	if ClientState.InMainMenu then
+		return -- en la pantalla de inicio no se dibuja el HUD
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
@@ -18438,7 +18487,9 @@ function HUD.Init()
 
 	task.spawn(function()
 		while true do
-			updatePlayerRow()
+			if not ClientState.InMainMenu then
+				updatePlayerRow()
+			end
 			task.wait(1)
 		end
 	end)
@@ -18471,6 +18522,7 @@ local COOLDOWN = 0.6
 local lastLaunch = 0
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
+local filteredCharacter = nil -- el filtro se cambia solo cuando cambia el personaje
 
 function JumpPads.Init()
 	RunService.Heartbeat:Connect(function()
@@ -18483,7 +18535,10 @@ function JumpPads.Init()
 		if os.clock() - lastLaunch < COOLDOWN then
 			return
 		end
-		params.FilterDescendantsInstances = { character }
+		if filteredCharacter ~= character then
+			filteredCharacter = character
+			params.FilterDescendantsInstances = { character }
+		end
 		local hit = workspace:Raycast(root.Position, Vector3.new(0, -4, 0), params)
 		local power = hit and hit.Instance:GetAttribute("JumpPad")
 		if type(power) ~= "number" then
@@ -19000,6 +19055,7 @@ local function openMenu()
 
 	ClientState.InMainMenu = true
 	UserInputService.MouseIconEnabled = true
+	ClientState.UpdateMouse() -- oculta los botones táctiles del juego mientras está la pantalla de inicio
 	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
 
 	-- El título "respira"
@@ -21323,7 +21379,7 @@ end
 function Movement.Init()
 	ContextActionService:BindAction("Sprint", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
-			if state == Enum.UserInputState.Begin then
+			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 				sprintHeld = not sprintHeld
 			end
 		elseif state == Enum.UserInputState.Begin then
@@ -21471,7 +21527,7 @@ function PlaytimeGifts.Init()
 	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	button = UI.button({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = compact and UDim2.fromOffset(10, 56) or UDim2.new(0, 66, 0.38, 112),
+		Position = compact and UDim2.fromOffset(10, 104) or UDim2.new(0, 66, 0.38, 112), -- (en móvil, debajo del botón de la tienda)
 		Size = compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56),
 		Text = "",
 		BackgroundColor3 = WAITING,
@@ -21521,7 +21577,9 @@ function PlaytimeGifts.Init()
 	task.spawn(function()
 		while true do
 			update()
-			task.wait(0.1)
+			-- Rápido solo cuando late (regalo listo y a la vista)
+			local gift, left = nextGift()
+			task.wait((gui.Enabled and gift and left <= 0) and 0.1 or 0.25)
 		end
 	end)
 end
@@ -21852,17 +21910,32 @@ local function buildColumn(x, width, headerText, headerColor, rows, thirdTitle, 
 	return column
 end
 
+local lastSignature = ""
+
 local function refresh()
 	if not visible then
 		return
 	end
-	columns:ClearAllChildren()
 	local mode = ReplicatedStorage:GetAttribute("Mode")
 	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
 	local modeName = ReplicatedStorage:GetAttribute("ModeName") or ""
 	title.Text = string.upper(modeName) .. "  ·  " .. mapName .. "  ·  " .. UI.formatTime(ReplicatedStorage:GetAttribute("TimeLeft") or 0)
 	local rows = collect()
+	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
+	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
+	for _, row in rows do
+		table.insert(parts, string.format("%s/%s/%d/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
+	end
+	for _, teamName in { ReplicatedStorage:GetAttribute("TeamA"), ReplicatedStorage:GetAttribute("TeamB") } do
+		table.insert(parts, tostring(teamName and ReplicatedStorage:GetAttribute("Score_" .. teamName)))
+	end
+	local signature = table.concat(parts, "|")
+	if signature == lastSignature and #columns:GetChildren() > 0 then
+		return
+	end
+	lastSignature = signature
+	columns:ClearAllChildren()
 	local thirdTitle, thirdOf = "PUNTOS", function(row)
 		return row.Score
 	end
@@ -23365,11 +23438,13 @@ local function renderStep(dt)
 			* CFrame.Angles(math.rad(12) * envelope, yaw * envelope, roll * envelope)
 	end
 
-	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
-
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
-	setViewmodelHidden((def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting)
+	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting
+	setViewmodelHidden(hide)
+	if not hide then -- oculta no hace falta moverla cada fotograma
+		viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -23522,7 +23597,11 @@ local function onCharacter(newCharacter)
 	end))
 end
 
--- Efectos de los disparos de otros jugadores
+-- Efectos de los disparos de otros jugadores (y bots). Para no dar tirones en móviles: de lejos o
+-- con calidad Baja solo la trazadora, y como mucho un sonido por arma cada 0,1 s.
+local FAR_SHOT = 120
+local lastRemoteSound = setmetatable({}, { __mode = "k" }) -- [tool] = os.clock()
+
 local function onShotFX(tool, endpoints)
 	if typeof(tool) ~= "Instance" or not tool.Parent or type(endpoints) ~= "table" then
 		return
@@ -23534,14 +23613,15 @@ local function onShotFX(tool, endpoints)
 	end
 	local color = WeaponModels.GetPalette(tool:GetAttribute("Weapon"), tool:GetAttribute("Skin")).Accent
 	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
+	local cheap = ClientState.EffectiveQuality == "Baja" or (muzzle.WorldPosition - camera.CFrame.Position).Magnitude > FAR_SHOT
 	for _, position in endpoints do
 		if typeof(position) == "Vector3" then
 			if weaponDef and weaponDef.Explosive then
 				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
 			else
 				Effects.Tracer(muzzle.WorldPosition, position, color)
-				-- Paintball: también se ven las manchas de los disparos de los demás
-				if weaponDef and weaponDef.ImpactStyle then
+				-- Paintball: también se ven las manchas de los disparos de los demás (si no es caro)
+				if weaponDef and weaponDef.ImpactStyle and not cheap then
 					local direction = position - muzzle.WorldPosition
 					if direction.Magnitude > 1 then
 						local hit = workspace:Raycast(position - direction.Unit * 1.5, direction.Unit * 3, rayParams)
@@ -23553,8 +23633,14 @@ local function onShotFX(tool, endpoints)
 			end
 		end
 	end
-	Effects.MuzzleFlash(muzzle)
-	Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle)
+	if not cheap then
+		Effects.MuzzleFlash(muzzle)
+	end
+	local now = os.clock()
+	if now - (lastRemoteSound[tool] or 0) >= 0.1 then
+		lastRemoteSound[tool] = now
+		Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle)
+	end
 end
 
 function WeaponController.Init()
@@ -23651,7 +23737,8 @@ local WorldFX = {}
 local animated = {} -- [part] = { Base = CFrame, Spin = number, Bob = number, Phase = number }
 
 local function track(inst)
-	if not inst:IsA("BasePart") then
+	-- (los efectos sueltos de ClientFX nunca se animan aquí: se descartan lo antes posible)
+	if not inst:IsA("BasePart") or (inst.Parent and inst.Parent.Name == "ClientFX") then
 		return
 	end
 	local spin = inst:GetAttribute("Spin")

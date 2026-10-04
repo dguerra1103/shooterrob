@@ -332,6 +332,8 @@ end
 -- Aparición libre (FFA / Escalada): el punto más alejado de los demás
 ---------------------------------------------------------------------------
 
+local ffaCache = { Map = nil, Points = {} }
+
 local function ffaSpawnFor(player, character)
 	if isTeamMode() then
 		return
@@ -340,20 +342,30 @@ local function ffaSpawnFor(player, character)
 	if not map then
 		return
 	end
-	local points = {}
-	for _, d in map:GetDescendants() do
-		if d:IsA("BasePart") and d.Name == "FFASpawn" then
-			table.insert(points, d)
+	-- Puntos libres del mapa (se guardan mientras no cambie el mapa)
+	if ffaCache.Map ~= map then
+		ffaCache.Map, ffaCache.Points = map, {}
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "FFASpawn" then
+				table.insert(ffaCache.Points, d)
+			end
 		end
 	end
+	local points = ffaCache.Points
 	if #points == 0 then
 		return
 	end
+	-- Lejos de los demás jugadores y de los bots
 	local others = {}
 	for _, p in Players:GetPlayers() do
 		local root = p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 		if root then
 			table.insert(others, root.Position)
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Root and agent.Root.Parent then
+			table.insert(others, agent.Root.Position)
 		end
 	end
 	local best, bestDistance = points[math.random(1, #points)], -1

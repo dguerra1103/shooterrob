@@ -21,16 +21,20 @@ function EventHUD.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	local frame = UI.new("Frame", {
-		Position = compact and UDim2.fromOffset(10, 126) or UDim2.new(0, 66, 0.38, 176),
-		Size = compact and UDim2.fromOffset(110, 30) or UDim2.fromOffset(230, 34),
+		-- En móvil: estrecho, debajo del regalo (a su derecha están los retos)
+		Position = compact and UDim2.fromOffset(10, 174) or UDim2.new(0, 66, 0.38, 176),
+		Size = compact and UDim2.fromOffset(52, 40) or UDim2.fromOffset(230, 34),
 		BackgroundColor3 = Color3.fromRGB(60, 25, 80),
 		BackgroundTransparency = 0.15,
 		Parent = gui,
 	}, { UI.corner(10), UI.stroke(Color3.fromRGB(255, 140, 30), 2, 0.2) })
 	local label = UI.label({
-		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromOffset(2, 0),
+		Size = UDim2.new(1, -4, 1, -4),
 		Text = "",
-		TextSize = compact and 15 or 18,
+		TextSize = 18,
+		TextScaled = compact,
+		TextWrapped = compact,
 		Parent = frame,
 	})
 	local fill = UI.new("Frame", {
@@ -49,9 +53,9 @@ function EventHUD.Init()
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then
-					label.Text = compact and "🎃 ¡Hecho!" or "🎃 ¡Skin del evento conseguida!"
+					label.Text = compact and "🎃\n✔" or "🎃 ¡Skin del evento conseguida!"
 				else
-					label.Text = (compact and "🍬 " or ("🎃 " .. string.upper(name) .. "  🍬 ")) .. count .. "/" .. goal
+					label.Text = compact and ("🍬\n" .. count .. "/" .. goal) or ("🎃 " .. string.upper(name) .. "  🍬 " .. count .. "/" .. goal)
 				end
 				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
 			end

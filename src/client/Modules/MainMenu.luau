@@ -253,6 +253,7 @@ local function openMenu()
 
 	ClientState.InMainMenu = true
 	UserInputService.MouseIconEnabled = true
+	ClientState.UpdateMouse() -- oculta los botones táctiles del juego mientras está la pantalla de inicio
 	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
 
 	-- El título "respira"

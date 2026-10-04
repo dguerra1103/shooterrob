@@ -668,11 +668,13 @@ local function renderStep(dt)
 			* CFrame.Angles(math.rad(12) * envelope, yaw * envelope, roll * envelope)
 	end
 
-	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
-
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
-	setViewmodelHidden((def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting)
+	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting
+	setViewmodelHidden(hide)
+	if not hide then -- oculta no hace falta moverla cada fotograma
+		viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -825,7 +827,11 @@ local function onCharacter(newCharacter)
 	end))
 end
 
--- Efectos de los disparos de otros jugadores
+-- Efectos de los disparos de otros jugadores (y bots). Para no dar tirones en móviles: de lejos o
+-- con calidad Baja solo la trazadora, y como mucho un sonido por arma cada 0,1 s.
+local FAR_SHOT = 120
+local lastRemoteSound = setmetatable({}, { __mode = "k" }) -- [tool] = os.clock()
+
 local function onShotFX(tool, endpoints)
 	if typeof(tool) ~= "Instance" or not tool.Parent or type(endpoints) ~= "table" then
 		return
@@ -837,14 +843,15 @@ local function onShotFX(tool, endpoints)
 	end
 	local color = WeaponModels.GetPalette(tool:GetAttribute("Weapon"), tool:GetAttribute("Skin")).Accent
 	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
+	local cheap = ClientState.EffectiveQuality == "Baja" or (muzzle.WorldPosition - camera.CFrame.Position).Magnitude > FAR_SHOT
 	for _, position in endpoints do
 		if typeof(position) == "Vector3" then
 			if weaponDef and weaponDef.Explosive then
 				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
 			else
 				Effects.Tracer(muzzle.WorldPosition, position, color)
-				-- Paintball: también se ven las manchas de los disparos de los demás
-				if weaponDef and weaponDef.ImpactStyle then
+				-- Paintball: también se ven las manchas de los disparos de los demás (si no es caro)
+				if weaponDef and weaponDef.ImpactStyle and not cheap then
 					local direction = position - muzzle.WorldPosition
 					if direction.Magnitude > 1 then
 						local hit = workspace:Raycast(position - direction.Unit * 1.5, direction.Unit * 3, rayParams)
@@ -856,8 +863,14 @@ local function onShotFX(tool, endpoints)
 			end
 		end
 	end
-	Effects.MuzzleFlash(muzzle)
-	Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle)
+	if not cheap then
+		Effects.MuzzleFlash(muzzle)
+	end
+	local now = os.clock()
+	if now - (lastRemoteSound[tool] or 0) >= 0.1 then
+		lastRemoteSound[tool] = now
+		Sounds.PlayShot(tool:GetAttribute("Weapon"), weaponDef, handle)
+	end
 end
 
 function WeaponController.Init()

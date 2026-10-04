@@ -17,7 +17,8 @@ local WorldFX = {}
 local animated = {} -- [part] = { Base = CFrame, Spin = number, Bob = number, Phase = number }
 
 local function track(inst)
-	if not inst:IsA("BasePart") then
+	-- (los efectos sueltos de ClientFX nunca se animan aquí: se descartan lo antes posible)
+	if not inst:IsA("BasePart") or (inst.Parent and inst.Parent.Name == "ClientFX") then
 		return
 	end
 	local spin = inst:GetAttribute("Spin")

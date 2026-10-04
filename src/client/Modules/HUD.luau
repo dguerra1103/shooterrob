@@ -1128,6 +1128,8 @@ local function getThumbnail(userId)
 	return ""
 end
 
+local lastRowSignature = ""
+
 local function updatePlayerRow()
 	local list = Players:GetPlayers()
 	local function kills(p)
@@ -1138,6 +1140,17 @@ local function updatePlayerRow()
 	table.sort(list, function(a, b)
 		return kills(a) > kills(b)
 	end)
+	-- Solo se reconstruye si algo ha cambiado (orden, bajas, equipos o fotos ya cargadas)
+	local parts = {}
+	for rank = 1, math.min(10, #list) do
+		local p = list[rank]
+		table.insert(parts, p.UserId .. ":" .. kills(p) .. ":" .. tostring(p.Team) .. ":" .. tostring(getThumbnail(p.UserId) ~= ""))
+	end
+	local signature = table.concat(parts, "|")
+	if signature == lastRowSignature then
+		return
+	end
+	lastRowSignature = signature
 	for _, child in refs.PlayerRow:GetChildren() do
 		if child:IsA("Frame") then
 			child:Destroy()
@@ -1290,6 +1303,9 @@ local lowHealthCC: ColorCorrectionEffect? = nil
 local chipRatio = 1
 local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
+	if ClientState.InMainMenu then
+		return -- en la pantalla de inicio no se dibuja el HUD
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
@@ -1478,7 +1494,9 @@ function HUD.Init()
 
 	task.spawn(function()
 		while true do
-			updatePlayerRow()
+			if not ClientState.InMainMenu then
+				updatePlayerRow()
+			end
 			task.wait(1)
 		end
 	end)

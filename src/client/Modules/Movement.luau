@@ -250,7 +250,7 @@ end
 function Movement.Init()
 	ContextActionService:BindAction("Sprint", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
-			if state == Enum.UserInputState.Begin then
+			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 				sprintHeld = not sprintHeld
 			end
 		elseif state == Enum.UserInputState.Begin then

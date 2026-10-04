@@ -147,17 +147,32 @@ local function buildColumn(x, width, headerText, headerColor, rows, thirdTitle, 
 	return column
 end
 
+local lastSignature = ""
+
 local function refresh()
 	if not visible then
 		return
 	end
-	columns:ClearAllChildren()
 	local mode = ReplicatedStorage:GetAttribute("Mode")
 	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
 	local modeName = ReplicatedStorage:GetAttribute("ModeName") or ""
 	title.Text = string.upper(modeName) .. "  ·  " .. mapName .. "  ·  " .. UI.formatTime(ReplicatedStorage:GetAttribute("TimeLeft") or 0)
 	local rows = collect()
+	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
+	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
+	for _, row in rows do
+		table.insert(parts, string.format("%s/%s/%d/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
+	end
+	for _, teamName in { ReplicatedStorage:GetAttribute("TeamA"), ReplicatedStorage:GetAttribute("TeamB") } do
+		table.insert(parts, tostring(teamName and ReplicatedStorage:GetAttribute("Score_" .. teamName)))
+	end
+	local signature = table.concat(parts, "|")
+	if signature == lastSignature and #columns:GetChildren() > 0 then
+		return
+	end
+	lastSignature = signature
+	columns:ClearAllChildren()
 	local thirdTitle, thirdOf = "PUNTOS", function(row)
 		return row.Score
 	end
