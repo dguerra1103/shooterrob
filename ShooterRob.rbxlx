@@ -8317,6 +8317,9 @@ Friends.MaxFriends = 3
 
 local friendsOf = {} -- [player] = { [otherPlayer] = true }
 
+-- Lo llama Round para juntar a los amigos en el mismo equipo (nuevo jugador, su amigo)
+Friends.OnFriendship = nil :: ((Player, Player) -> ())?
+
 local function publish(player)
 	local count = 0
 	for other in friendsOf[player] or {} do
@@ -8353,6 +8356,10 @@ local function onPlayer(player)
 					friendsOf[other][player] = true
 					publish(player)
 					publish(other)
+					-- (Round pone juntos a los amigos si el reparto lo permite)
+					if Friends.OnFriendship then
+						task.spawn(Friends.OnFriendship, player, other)
+					end
 					local bonus = math.floor(Friends.BonusPerFriend * 100)
 					Remotes.Notify:FireClient(other, "Info", "👥 Tu amigo " .. player.DisplayName .. " ha entrado: +" .. bonus .. "% XP y monedas")
 					Remotes.Notify:FireClient(player, "Info", "👥 Juegas con tu amigo " .. other.DisplayName .. ": +" .. bonus .. "% XP y monedas")
@@ -14791,7 +14798,7 @@ function Map.Build()
 		cactus(m * V(-74, 0, -56), 0.9)
 
 		-- Farol y carteles de "SE BUSCA" en los postes
-		local poster = deco("WantedPoster", V(2, 2.6, 0.1), m * CFrame.new(-36, 4, 25.8), RGB(240, 225, 180), SMOOTH)
+		local poster = deco("WantedPoster", V(1.6, 2.2, 0.1), m * CFrame.new(-39.1, 4, 22.05), RGB(240, 225, 180), SMOOTH)
 		Kit.sign(poster, Enum.NormalId.Front, "SE BUSCA", RGB(110, 40, 30))
 		Kit.banner(m * CFrame.new(-68, 12, 22) * CFrame.Angles(0, rad(90), 0), 4, 6, teamColor, RGB(255, 210, 80))
 		Kit.banner(m * CFrame.new(-68, 12, -22) * CFrame.Angles(0, rad(90), 0), 4, 6, teamColor, RGB(255, 210, 80))
@@ -14806,6 +14813,8 @@ function Map.Build()
 
 	-- Fondo: tren de vapor, mesetas y cactus
 	Kit.bounds(LENGTH, WIDTH, 60)
+	block("TrackGround", V(LENGTH + 80, 2, 16), CFrame.new(0, -1, WIDTH / 2 + 24), DIRT_DARK, SMOOTH)
+	block("BackGround", V(LENGTH + 80, 2, 20), CFrame.new(0, -1, -(WIDTH / 2 + 26)), DIRT_DARK, SMOOTH)
 	train(CFrame.new(0, 0, WIDTH / 2 + 24))
 	local rng = Random.new(41)
 	for x = -120, 120, 26 do
@@ -16052,6 +16061,7 @@ local TERRAIN_DEFAULTS = {
 	Glacier = RGB(101, 176, 234),
 	Rock = RGB(102, 108, 111),
 	Sand = RGB(143, 126, 95),
+	Sandstone = RGB(137, 90, 71),
 	Slate = RGB(63, 127, 107),
 }
 
@@ -18773,6 +18783,20 @@ local function balanceTeams()
 		end
 	end
 	local a, b = teams[1], teams[2]
+	-- Amigos separados: se intercambian con alguien del otro equipo que no tenga amigos allí (los
+	-- tamaños no cambian)
+	for _, p in Players:GetPlayers() do
+		local mine = p.Team
+		local other = mine == a and b or (mine == b and a or nil)
+		if other and friendsIn(mine, p) == 0 and friendsIn(other, p) > 0 then
+			for _, q in other:GetPlayers() do
+				if not Friends.AreFriends(q, p) and friendsIn(other, q) == 0 then
+					p.Team, q.Team = other, mine
+					break
+				end
+			end
+		end
+	end
 	while math.abs(#a:GetPlayers() - #b:GetPlayers()) > 1 do
 		local big = #a:GetPlayers() > #b:GetPlayers() and a or b
 		local small = big == a and b or a
@@ -19822,7 +19846,29 @@ local function gameLoop()
 	end
 end
 
+-- Amistad detectada (Friends tarda un poco al entrar alguien): si el que acaba de entrar sigue en
+-- la portada y su amigo está en el otro equipo, se le cambia con él si el reparto sigue igualado
+local function onFriendship(newcomer, friend)
+	if not isTeamMode() or ReplicatedStorage:GetAttribute("Infection") then
+		return
+	end
+	if not newcomer.Parent or not friend.Parent or newcomer:GetAttribute("InMenu") ~= true then
+		return
+	end
+	local target = friend.Team
+	local current = newcomer.Team
+	if not target or target == current or not table.find(teams, target) then
+		return
+	end
+	local after = #target:GetPlayers() + 1
+	local left = current and (#current:GetPlayers() - 1) or 0
+	if current == nil or math.abs(after - left) <= 1 then
+		newcomer.Team = target
+	end
+end
+
 function Round.Init()
+	Friends.OnFriendship = onFriendship
 	Players.RespawnTime = GameConfig.RespawnTime
 	setupTeams()
 	startMode("TDM")
@@ -25892,6 +25938,7 @@ local busy = false
 local refresh -- reconstruye la pestaña actual (definida más abajo)
 local scrollToCoins = false -- al abrir la Tienda, bajar hasta los packs de monedas
 local coinsSection -- título de la sección de monedas de la Tienda (para bajar hasta él)
+local panelScale -- UIScale del panel (las posiciones en pantalla vienen escaladas)
 
 local GOLD = Color3.fromRGB(255, 190, 40)
 local PANEL_BG = Color3.fromRGB(22, 24, 38)
@@ -25985,8 +26032,9 @@ local function buy(kind, id)
 			canBuyCoins = canBuyCoins or pack.ProductId ~= 0
 		end
 		if ok and canBuyCoins and type(message) == "string" and string.find(message, "^Te faltan") then
+			local fromTab = currentTab
 			task.delay(1.2, function()
-				if ClientState.MenuOpen and currentTab ~= "Tienda" then
+				if ClientState.MenuOpen and currentTab == fromTab and currentTab ~= "Tienda" then
 					currentTab = "Tienda"
 					scrollToCoins = true
 					refresh()
@@ -28174,6 +28222,7 @@ function refresh()
 		tabButtons.Perfil.Text = claimable > 0 and ("Perfil 🔴" .. claimable) or "Perfil"
 	end
 	if not data then
+		scrollToCoins = false
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })
 		return
 	end
@@ -28210,7 +28259,8 @@ function refresh()
 		if scroll and title then
 			task.delay(0.05, function() -- (cuando la lista ya ha colocado las tarjetas)
 				if title.Parent then
-					local y = title.AbsolutePosition.Y - scroll.AbsolutePosition.Y + scroll.CanvasPosition.Y - 8
+					local scale = panelScale and panelScale.Scale or 1
+					local y = (title.AbsolutePosition.Y - scroll.AbsolutePosition.Y) / math.max(scale, 0.1) + scroll.CanvasPosition.Y - 8
 					scroll.CanvasPosition = Vector2.new(0, math.max(0, y))
 				end
 			end)
@@ -28331,7 +28381,7 @@ function Menu.Init()
 	menuModal = UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Visible = false, Parent = gui })
 
 	-- En pantallas pequeñas (móviles) todo el panel se escala para que quepa entero
-	local panelScale = UI.new("UIScale", { Parent = panel })
+	panelScale = UI.new("UIScale", { Parent = panel })
 	local function rescalePanel()
 		local viewport = workspace.CurrentCamera.ViewportSize
 		local s = math.clamp(math.min(viewport.X / 1150, viewport.Y / 700), 0.5, 1)

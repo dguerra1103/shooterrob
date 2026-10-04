@@ -13,6 +13,9 @@ Friends.MaxFriends = 3
 
 local friendsOf = {} -- [player] = { [otherPlayer] = true }
 
+-- Lo llama Round para juntar a los amigos en el mismo equipo (nuevo jugador, su amigo)
+Friends.OnFriendship = nil :: ((Player, Player) -> ())?
+
 local function publish(player)
 	local count = 0
 	for other in friendsOf[player] or {} do
@@ -49,6 +52,10 @@ local function onPlayer(player)
 					friendsOf[other][player] = true
 					publish(player)
 					publish(other)
+					-- (Round pone juntos a los amigos si el reparto lo permite)
+					if Friends.OnFriendship then
+						task.spawn(Friends.OnFriendship, player, other)
+					end
 					local bonus = math.floor(Friends.BonusPerFriend * 100)
 					Remotes.Notify:FireClient(other, "Info", "👥 Tu amigo " .. player.DisplayName .. " ha entrado: +" .. bonus .. "% XP y monedas")
 					Remotes.Notify:FireClient(player, "Info", "👥 Juegas con tu amigo " .. other.DisplayName .. ": +" .. bonus .. "% XP y monedas")

@@ -37,6 +37,7 @@ local busy = false
 local refresh -- reconstruye la pestaña actual (definida más abajo)
 local scrollToCoins = false -- al abrir la Tienda, bajar hasta los packs de monedas
 local coinsSection -- título de la sección de monedas de la Tienda (para bajar hasta él)
+local panelScale -- UIScale del panel (las posiciones en pantalla vienen escaladas)
 
 local GOLD = Color3.fromRGB(255, 190, 40)
 local PANEL_BG = Color3.fromRGB(22, 24, 38)
@@ -130,8 +131,9 @@ local function buy(kind, id)
 			canBuyCoins = canBuyCoins or pack.ProductId ~= 0
 		end
 		if ok and canBuyCoins and type(message) == "string" and string.find(message, "^Te faltan") then
+			local fromTab = currentTab
 			task.delay(1.2, function()
-				if ClientState.MenuOpen and currentTab ~= "Tienda" then
+				if ClientState.MenuOpen and currentTab == fromTab and currentTab ~= "Tienda" then
 					currentTab = "Tienda"
 					scrollToCoins = true
 					refresh()
@@ -2319,6 +2321,7 @@ function refresh()
 		tabButtons.Perfil.Text = claimable > 0 and ("Perfil 🔴" .. claimable) or "Perfil"
 	end
 	if not data then
+		scrollToCoins = false
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })
 		return
 	end
@@ -2355,7 +2358,8 @@ function refresh()
 		if scroll and title then
 			task.delay(0.05, function() -- (cuando la lista ya ha colocado las tarjetas)
 				if title.Parent then
-					local y = title.AbsolutePosition.Y - scroll.AbsolutePosition.Y + scroll.CanvasPosition.Y - 8
+					local scale = panelScale and panelScale.Scale or 1
+					local y = (title.AbsolutePosition.Y - scroll.AbsolutePosition.Y) / math.max(scale, 0.1) + scroll.CanvasPosition.Y - 8
 					scroll.CanvasPosition = Vector2.new(0, math.max(0, y))
 				end
 			end)
@@ -2476,7 +2480,7 @@ function Menu.Init()
 	menuModal = UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Visible = false, Parent = gui })
 
 	-- En pantallas pequeñas (móviles) todo el panel se escala para que quepa entero
-	local panelScale = UI.new("UIScale", { Parent = panel })
+	panelScale = UI.new("UIScale", { Parent = panel })
 	local function rescalePanel()
 		local viewport = workspace.CurrentCamera.ViewportSize
 		local s = math.clamp(math.min(viewport.X / 1150, viewport.Y / 700), 0.5, 1)

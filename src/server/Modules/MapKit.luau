@@ -1203,6 +1203,7 @@ local TERRAIN_DEFAULTS = {
 	Glacier = RGB(101, 176, 234),
 	Rock = RGB(102, 108, 111),
 	Sand = RGB(143, 126, 95),
+	Sandstone = RGB(137, 90, 71),
 	Slate = RGB(63, 127, 107),
 }
 

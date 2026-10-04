@@ -210,6 +210,20 @@ local function balanceTeams()
 		end
 	end
 	local a, b = teams[1], teams[2]
+	-- Amigos separados: se intercambian con alguien del otro equipo que no tenga amigos allí (los
+	-- tamaños no cambian)
+	for _, p in Players:GetPlayers() do
+		local mine = p.Team
+		local other = mine == a and b or (mine == b and a or nil)
+		if other and friendsIn(mine, p) == 0 and friendsIn(other, p) > 0 then
+			for _, q in other:GetPlayers() do
+				if not Friends.AreFriends(q, p) and friendsIn(other, q) == 0 then
+					p.Team, q.Team = other, mine
+					break
+				end
+			end
+		end
+	end
 	while math.abs(#a:GetPlayers() - #b:GetPlayers()) > 1 do
 		local big = #a:GetPlayers() > #b:GetPlayers() and a or b
 		local small = big == a and b or a
@@ -1259,7 +1273,29 @@ local function gameLoop()
 	end
 end
 
+-- Amistad detectada (Friends tarda un poco al entrar alguien): si el que acaba de entrar sigue en
+-- la portada y su amigo está en el otro equipo, se le cambia con él si el reparto sigue igualado
+local function onFriendship(newcomer, friend)
+	if not isTeamMode() or ReplicatedStorage:GetAttribute("Infection") then
+		return
+	end
+	if not newcomer.Parent or not friend.Parent or newcomer:GetAttribute("InMenu") ~= true then
+		return
+	end
+	local target = friend.Team
+	local current = newcomer.Team
+	if not target or target == current or not table.find(teams, target) then
+		return
+	end
+	local after = #target:GetPlayers() + 1
+	local left = current and (#current:GetPlayers() - 1) or 0
+	if current == nil or math.abs(after - left) <= 1 then
+		newcomer.Team = target
+	end
+end
+
 function Round.Init()
+	Friends.OnFriendship = onFriendship
 	Players.RespawnTime = GameConfig.RespawnTime
 	setupTeams()
 	startMode("TDM")

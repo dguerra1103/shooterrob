@@ -288,7 +288,7 @@ function Map.Build()
 		cactus(m * V(-74, 0, -56), 0.9)
 
 		-- Farol y carteles de "SE BUSCA" en los postes
-		local poster = deco("WantedPoster", V(2, 2.6, 0.1), m * CFrame.new(-36, 4, 25.8), RGB(240, 225, 180), SMOOTH)
+		local poster = deco("WantedPoster", V(1.6, 2.2, 0.1), m * CFrame.new(-39.1, 4, 22.05), RGB(240, 225, 180), SMOOTH)
 		Kit.sign(poster, Enum.NormalId.Front, "SE BUSCA", RGB(110, 40, 30))
 		Kit.banner(m * CFrame.new(-68, 12, 22) * CFrame.Angles(0, rad(90), 0), 4, 6, teamColor, RGB(255, 210, 80))
 		Kit.banner(m * CFrame.new(-68, 12, -22) * CFrame.Angles(0, rad(90), 0), 4, 6, teamColor, RGB(255, 210, 80))
@@ -303,6 +303,8 @@ function Map.Build()
 
 	-- Fondo: tren de vapor, mesetas y cactus
 	Kit.bounds(LENGTH, WIDTH, 60)
+	block("TrackGround", V(LENGTH + 80, 2, 16), CFrame.new(0, -1, WIDTH / 2 + 24), DIRT_DARK, SMOOTH)
+	block("BackGround", V(LENGTH + 80, 2, 20), CFrame.new(0, -1, -(WIDTH / 2 + 26)), DIRT_DARK, SMOOTH)
 	train(CFrame.new(0, 0, WIDTH / 2 + 24))
 	local rng = Random.new(41)
 	for x = -120, 120, 26 do
