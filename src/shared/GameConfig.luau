@@ -145,6 +145,7 @@ GameConfig.News = {
 		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },
 		{ "👤", "Pestaña Perfil con tus estadísticas y 24 logros con premio" },
 		{ "🔪", "Guadaña, colgantes para tu arma y efectos de Halloween en la tienda" },
+		{ "💰", "SE BUSCA: con 5 bajas seguidas hay recompensa por tu cabeza" },
 	},
 }
 
@@ -209,6 +210,17 @@ GameConfig.Coins = {
 	Capture = 20,
 	WinStreak = 10, -- extra por cada victoria seguida (2.ª victoria +10, 3.ª +20...)
 	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
+}
+
+-- "SE BUSCA": quien llega a una racha de Streak bajas lleva una recompensa encima (todos lo ven
+-- marcado). Quien lo elimine cobra Base monedas, + PerKill por cada baja más de la racha (hasta Max).
+GameConfig.Bounty = {
+	Enabled = true,
+	Streak = 5,
+	Base = 25,
+	PerKill = 5,
+	Max = 100,
+	XP = 50,
 }
 
 -- ID del GamePass del pase premium. Créalo en el Creator Hub y pon el número aquí.

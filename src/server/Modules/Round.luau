@@ -28,6 +28,7 @@ local Grenades = require(script.Parent.Grenades)
 local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
 local Zombie = require(script.Parent.Zombie)
+local Bounty = require(script.Parent.Bounty)
 
 local Round = {}
 
@@ -203,6 +204,7 @@ local function resetStats()
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
 		player:SetAttribute("BestStreak", 0)
+		Bounty.Reset(player)
 		player:SetAttribute("Captures", 0)
 		player:SetAttribute("Score", 0)
 		player:SetAttribute("GunLevel", 1)
@@ -261,10 +263,12 @@ end
 
 -- killerBot / victimBot: el bot (ver Bots) cuando quien hace la baja o quien muere es un bot
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
+	local bounty = 0
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		PlayerData.Increment(victim, "TotalDeaths", 1)
 		victim:SetAttribute("Streak", 0)
+		bounty = Bounty.Clear(victim)
 	end
 	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
 
@@ -344,6 +348,19 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
 			Killstreaks.OnStreak(killer, streak)
+			Bounty.OnStreak(killer, streak)
+		end
+	end
+
+	-- "SE BUSCA": quien elimina al buscado cobra su recompensa (si lo mata un bot o se mata solo, se pierde)
+	if bounty > 0 and victim then
+		if killer and killer ~= victim then
+			local given = PlayerData.AddCoins(killer, bounty)
+			PlayerData.AddXP(killer, GameConfig.Bounty.XP or 0, "Recompensa cobrada")
+			Remotes.Notify:FireClient(killer, "BountyClaimed", given)
+			Bounty.Announce(victim.Name, bounty, killer.Name)
+		else
+			Bounty.Announce(victim.Name, bounty, killerBot and killerBot.Name or nil)
 		end
 	end
 

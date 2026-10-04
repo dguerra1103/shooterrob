@@ -172,7 +172,7 @@ local function candidates(agent)
 		local head = character and character:FindFirstChild("Head")
 		if humanoid and head and humanoid.Health > 0 and not player:GetAttribute("InMenu")
 			and not character:FindFirstChildOfClass("ForceField") and isEnemyOf(agent, player.Team) then
-			table.insert(list, { Model = character, Humanoid = humanoid, Head = head })
+			table.insert(list, { Model = character, Humanoid = humanoid, Head = head, Wanted = (player:GetAttribute("Bounty") or 0) > 0 })
 		end
 	end
 	for _, other in agents do
@@ -218,8 +218,9 @@ local function findTarget(agent)
 			table.insert(inRange, target)
 		end
 	end
+	-- (el buscado, "SE BUSCA", atrae a los bots: cuenta como si estuviera más cerca)
 	table.sort(inRange, function(x, y)
-		return x.Distance < y.Distance
+		return x.Distance * (x.Wanted and 0.6 or 1) < y.Distance * (y.Wanted and 0.6 or 1)
 	end)
 	for _, target in inRange do
 		if canSee(agent, target) then

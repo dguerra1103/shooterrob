@@ -38,6 +38,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Escalada de armas solo** | `Modes = { "GUN" }` | Hay bots; cada baja (también a bots) te sube de arma. |
 | **Guadaña y Calabazooka** | Menú → Armas | Guadaña (cuerpo a cuerpo, 1500 monedas). Calabazooka (lanzacohetes) sale bloqueada con "🎃 75 caramelos"; al conseguirla dispara calabazas. |
 | **Mira** | Menú → Ajustes → Mira | Cambia el color (6) y el tamaño; se nota al momento en la mira. |
+| **SE BUSCA** | Play solo, haz 5 bajas seguidas sin morir | Arriba: "💰 SE BUSCA: tú · 25 🪙 por su cabeza" y en grande "¡TE BUSCAN!". Los bots van más a por ti. Con 2 jugadores (Local Server), el otro ve un cartel rojo sobre tu cabeza; si te elimina, "¡RECOMPENSA COBRADA! +25 🪙". |
 | **Pase de 50 niveles** | Menú → Pase | Los niveles cercanos al tuyo; al final "… y N niveles más". |
 | **Pantalla de muerte** | Muere con la tienda abierta | La tienda se cierra sola y la B no gasta un revivir al cerrarla. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |

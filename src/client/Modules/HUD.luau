@@ -859,6 +859,15 @@ local function onNotify(kind, text)
 		Sounds.Play("Flag")
 	elseif kind == "Streak" then
 		timedLabel(refs.Banner, "🔥 " .. text, 3)
+	elseif kind == "Bounty" then
+		timedLabel(refs.Banner, "💰 " .. text, 3.5)
+	elseif kind == "Wanted" then
+		-- Te has convertido en el buscado: todos ven tu cartel
+		bigMessage("💰 ¡TE BUSCAN! " .. tostring(text) .. " 🪙 por tu cabeza", Color3.fromRGB(255, 120, 80))
+		Sounds.Play("Flag")
+	elseif kind == "BountyClaimed" then
+		bigMessage("💰 ¡RECOMPENSA COBRADA! +" .. tostring(text) .. " 🪙", Color3.fromRGB(255, 210, 60))
+		Sounds.Play("Kill")
 	else
 		timedLabel(refs.Toast, text, 3)
 		Sounds.Play("Click")
