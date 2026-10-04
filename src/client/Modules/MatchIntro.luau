@@ -116,7 +116,8 @@ function MatchIntro.Show()
 	-- (con la versión de luz del mapa si ha tocado una: "Atardecer", "Niebla"...)
 	local map = workspace:FindFirstChild("Map")
 	local variant = map and map:GetAttribute("Variant")
-	subtitle.Text = (ReplicatedStorage:GetAttribute("ModeName") or "") .. (variant and ("  ·  " .. tostring(variant)) or "")
+	local icons = { Atardecer = "🌅 ", Noche = "🌙 ", Niebla = "🌫 ", Tormenta = "⛈ ", ["Mediodía"] = "☀ ", Ventisca = "❄ " }
+	subtitle.Text = (ReplicatedStorage:GetAttribute("ModeName") or "") .. (variant and ("  ·  " .. (icons[variant] or "") .. tostring(variant)) or "")
 	refresh()
 	gui.Enabled = true
 	panel.GroupTransparency = 1
