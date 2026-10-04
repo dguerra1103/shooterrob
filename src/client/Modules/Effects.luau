@@ -1031,6 +1031,46 @@ KILL_FX.Arcoiris = function(position)
 	floatingText(position + Vector3.new(0, 3, 0), "🌈", 90, Vector3.new(0, 3, 0), 1.5)
 end
 
+-- Murciélagos: salen volando hacia arriba en todas direcciones, con humo morado
+KILL_FX.Murcielagos = function(position)
+	for i = 1, 9 do
+		task.delay(i * 0.04, function()
+			local angle = math.random() * math.pi * 2
+			local velocity = Vector3.new(math.cos(angle) * (4 + math.random() * 4), 6 + math.random() * 5, math.sin(angle) * (4 + math.random() * 4))
+			floatingText(position + Vector3.new(0, 1, 0), "🦇", 40 + math.random(0, 25), velocity, 1.4)
+		end)
+	end
+	local anchor = emitterAnchor(position, Vector3.yAxis, 2.5)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(140, 60, 200), Color3.fromRGB(40, 20, 60)),
+		Size = seq(1.5, 4),
+		Transparency = seq(0.3, 1),
+		Lifetime = NumberRange.new(0.8, 1.3),
+		Speed = NumberRange.new(2, 5),
+		SpreadAngle = Vector2.new(180, 180),
+		Acceleration = Vector3.new(0, 2, 0),
+	}, 12)
+	flashBall(position, Color3.fromRGB(170, 80, 255), 4, 0.25)
+end
+
+-- Calabazas: calabacitas naranjas que saltan y una gran 🎃 que sube
+KILL_FX.Calabazas = function(position)
+	debrisBurst(position, 10, function()
+		return fxPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.9, 0.75, 0.9),
+			Color = Color3.fromRGB(255, 130, 20),
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end, 18, 1.5)
+	flashBall(position, Color3.fromRGB(255, 160, 40), 5, 0.3)
+	floatingText(position + Vector3.new(0, 2, 0), "🎃", 110, Vector3.new(0, 3.5, 0), 1.6)
+	task.delay(0.25, function()
+		floatingText(position + Vector3.new(1.5, 3, 0), "😈", 60, Vector3.new(0, 2.5, 0), 1.2)
+	end)
+end
+
 function Effects.KillEffect(effectId, position, color)
 	local fn = KILL_FX[effectId]
 	if fn then

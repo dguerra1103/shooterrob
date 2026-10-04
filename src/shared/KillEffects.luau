@@ -15,6 +15,9 @@ KillEffects.List = {
 	AgujeroNegro = { Name = "Agujero negro", Rarity = "Mítico", Icon = "🌀", Price = 3000, Description = "Se lo traga un agujero negro." },
 	Pintura = { Name = "Pintura", Rarity = "Épico", Icon = "🎨", Price = 900, Description = "Revienta en bolas de pintura y lo deja todo manchado." },
 	Arcoiris = { Name = "Arcoíris", Rarity = "Legendario", Icon = "🌈", Price = 1800, Description = "Un arcoíris sale disparado de tu rival." },
+	-- Halloween
+	Murcielagos = { Name = "Murciélagos", Rarity = "Épico", Icon = "🦇", Price = 1000, Description = "Una bandada de murciélagos sale volando entre humo morado." },
+	Calabazas = { Name = "Calabazas", Rarity = "Legendario", Icon = "🎃", Price = 1600, Description = "Revienta en calabazas que saltan, con una calabaza gigante y un diablillo." },
 }
 
 function KillEffects.Get(id)
