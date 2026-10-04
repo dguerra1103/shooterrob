@@ -2,7 +2,8 @@
 -- y dan monedas + XP al momento. Completar los 3 regala una caja. Se puede cambiar 1 reto al día.
 --
 -- Stat: "Kill" (con Weapons opcional para limitar a ciertas armas), "Headshot", "Win", "Match",
--- "Capture", "ZoneTime" (segundos en la zona), "Streak" (mejor racha, no se suma).
+-- "Capture", "ZoneTime" (segundos en la zona), "Streak" (mejor racha, no se suma), "Survive" (ganar una
+-- Infección como superviviente).
 local Challenges = {}
 
 Challenges.PerDay = 3
@@ -25,6 +26,9 @@ Challenges.Pool = {
 	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife", "ToyHammer", "Katana" }, Goal = 2, Text = "2 bajas cuerpo a cuerpo", Coins = 300, XP = 400 },
 	{ Id = "Grenades", Stat = "Kill", Weapons = { "Grenade" }, Goal = 3, Text = "3 bajas con granada", Coins = 250, XP = 350 },
 	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher" }, Goal = 3, Text = "3 bajas con el Tempest Core", Coins = 250, XP = 350, MinLevel = 14 },
+	-- Modo Infección (Halloween)
+	{ Id = "Infect", Stat = "Kill", Weapons = { "Claws" }, Goal = 3, Text = "Infecta a 3 supervivientes (Infección)", Coins = 250, XP = 350 },
+	{ Id = "Survive", Stat = "Survive", Goal = 1, Text = "Sobrevive hasta el final de una Infección", Coins = 300, XP = 400 },
 }
 
 local byId = {}

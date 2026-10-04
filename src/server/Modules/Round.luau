@@ -962,6 +962,9 @@ local function endRound()
 				PlayerData.Increment(player, "Wins", 1)
 			end
 			PlayerData.Track(player, "Win", 1)
+			if currentMode == "INF" and winner == teams[1] then
+				PlayerData.Track(player, "Survive", 1)
+			end
 		else
 			player:SetAttribute("WinStreak", 0)
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
