@@ -22027,6 +22027,19 @@ function RealKit.building(cf, sx, sz, opts)
 		Kit.sign(plate, Enum.NormalId.Front, opts.Sign, RGB(235, 225, 200), RGB(20, 20, 20))
 		plate.CanCollide = false
 	end
+	-- Muebles (cobertura dentro): mesa al fondo y estantería delante, contra el muro derecho, y cajas
+	-- arriba (en el lado derecho: la escalera va por el izquierdo y la puerta lateral está en el centro)
+	if not opts.Empty then
+		local tableCf = cf * CFrame.new(sx / 2 - WALL_T - 2, 0, sz / 4 + 0.8)
+		block("Table", V(2.6, 0.3, 4.4), tableCf * CFrame.new(0, 3, 0), RGB(110, 80, 56), M.WoodPlanks)
+		block("TableBase", V(2.2, 2.85, 0.4), tableCf * CFrame.new(0, 1.45, 0), RGB(90, 64, 44), M.Wood) -- (se esconde detrás)
+		block("Shelf", V(1.2, 5, 4), cf * CFrame.new(sx / 2 - WALL_T - 0.6, 2.5, -sz / 4), RGB(96, 90, 82), M.Metal)
+		if floors >= 2 then
+			local crateCf = cf * CFrame.new(sx / 2 - WALL_T - 2, FLOOR_H, -sz / 4)
+			Kit.crate(crateCf, 2.5)
+			Kit.crate(crateCf * CFrame.new(0, 0, 2.8), 2.5)
+		end
+	end
 	-- Una luz cálida dentro (las plantas bajas se verían negras al entrar desde el sol)
 	if opts.Lamp ~= false then
 		for f = 0, floors - 1 do
