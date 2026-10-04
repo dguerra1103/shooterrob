@@ -11,6 +11,37 @@ local player = Players.LocalPlayer
 local BombHUD = {}
 
 local gui, label, barBack, bar, barText, droppedMarker
+local nextBeep = 0
+
+-- Bomba plantada: la luz parpadea y pita, cada vez más deprisa según se acaba el tiempo
+local function beep(timer)
+	local bomb = workspace:FindFirstChild("PlantedBomb")
+	local light = bomb and bomb:FindFirstChild("BombLight")
+	if not light or not light:IsA("BasePart") then
+		return
+	end
+	local now = os.clock()
+	if now < nextBeep then
+		return
+	end
+	nextBeep = now + math.clamp(timer / 30, 0.15, 1)
+	light.Transparency = 0
+	task.delay(0.08, function()
+		if light.Parent then
+			light.Transparency = 0.7
+		end
+	end)
+	local sound = Instance.new("Sound")
+	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+	sound.Volume = 0.55
+	sound.PlaybackSpeed = 1.9
+	sound.RollOffMaxDistance = 140
+	sound.Parent = light
+	sound:Play()
+	task.delay(1.5, function()
+		sound:Destroy()
+	end)
+end
 
 local function update()
 	local attackers = ReplicatedStorage:GetAttribute("Bomb_Attackers")
@@ -24,6 +55,7 @@ local function update()
 	local attacking = player.Team ~= nil and player.Team.Name == attackers
 	if state == "Planted" then
 		local timer = ReplicatedStorage:GetAttribute("Bomb_Timer") or 0
+		beep(timer)
 		label.Text = string.format("💣 BOMBA EN %s · %d s%s", site, timer, attacking and " · ¡protégela!" or " · ¡desactívala!")
 		label.TextColor3 = Color3.fromRGB(255, 90, 70)
 	elseif attacking then

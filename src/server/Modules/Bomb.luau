@@ -331,6 +331,41 @@ local function carrierIn(site)
 	return Vector3.new(offset.X, 0, offset.Z).Magnitude <= site.Radius and math.abs(offset.Y) < 8
 end
 
+-- La bomba plantada en el suelo (caja con panel y una luz roja; el cliente la hace parpadear y pitar,
+-- ver BombHUD). Va en visuals: se quita con Stop
+local plantedModel
+local function placeBomb(site)
+	local ground = groundBelow(site.Position + Vector3.new(0, 3, 0)) or site.Position
+	local model = Instance.new("Model")
+	model.Name = "PlantedBomb"
+	local function piece(name, size, offset, color, material)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Size = size
+		part.CFrame = CFrame.new(ground + offset)
+		part.Color = color
+		part.Material = material
+		part.Parent = model
+		return part
+	end
+	piece("Case", Vector3.new(1.8, 0.7, 1.2), Vector3.new(0, 0.35, 0), Color3.fromRGB(58, 60, 52), Enum.Material.Metal)
+	piece("Panel", Vector3.new(0.9, 0.08, 0.6), Vector3.new(-0.3, 0.74, 0), Color3.fromRGB(30, 34, 30), Enum.Material.SmoothPlastic)
+	piece("Wires", Vector3.new(0.15, 0.1, 0.9), Vector3.new(0.55, 0.74, 0), Color3.fromRGB(170, 40, 30), Enum.Material.SmoothPlastic)
+	local light = piece("BombLight", Vector3.new(0.22, 0.22, 0.22), Vector3.new(0.4, 0.82, 0.3), Color3.fromRGB(255, 40, 30), Enum.Material.Neon)
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(255, 50, 40)
+	glow.Range = 6
+	glow.Brightness = 2
+	glow.Parent = light
+	model.Parent = workspace
+	table.insert(visuals, model)
+	plantedModel = model
+end
+
 -- Empieza una ronda: attackers plantan en los sitios de la mitad de defenders
 function Bomb.Start(attackers, defenders)
 	Bomb.Stop()
@@ -396,6 +431,10 @@ function Bomb.Start(attackers, defenders)
 					setAttr("Site", site.Letter)
 					if progress >= 1 then
 						Bomb.Planted, Bomb.Site = true, site.Letter
+						local placed, placeError = pcall(placeBomb, site)
+						if not placed then
+							warn("[Bomba] no se pudo colocar la bomba:", placeError)
+						end
 						carrier = nil
 						setAttr("Carrier", nil)
 						explodeAt = os.clock() + bombTime
@@ -407,7 +446,7 @@ function Bomb.Start(attackers, defenders)
 							task.spawn(PlayerData.AddXP, player, 50, "💣 Bomba plantada")
 						end
 						for _, visual in visuals do
-							if visual.Name ~= "BombSite_" .. site.Letter then
+							if visual.Name ~= "BombSite_" .. site.Letter and visual.Name ~= "PlantedBomb" then
 								visual:Destroy()
 							end
 						end
@@ -450,6 +489,10 @@ function Bomb.Start(attackers, defenders)
 					setAttr("State", "Exploded")
 					setAttr("Action", "")
 					explode(site)
+					if plantedModel then
+						plantedModel:Destroy() -- (ha volado)
+						plantedModel = nil
+					end
 					Remotes.Notify:FireAllClients("Big", "💥 ¡LA BOMBA HA EXPLOTADO!")
 					active = false
 				end
@@ -475,6 +518,7 @@ function Bomb.Stop()
 	end
 	visuals = {}
 	sites = {}
+	plantedModel = nil
 	carrier = nil
 	clearDropped()
 	for _, name in { "Attackers", "Defenders", "A_Position", "B_Position", "State", "Site", "Timer", "Action", "Progress", "Carrier" } do
