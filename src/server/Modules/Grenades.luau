@@ -63,7 +63,7 @@ local function throw(player, direction)
 	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
 	end
-	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" or ReplicatedStorage:GetAttribute("Frozen") then
 		return
 	end
 	local character = player.Character

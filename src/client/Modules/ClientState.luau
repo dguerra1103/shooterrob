@@ -39,13 +39,18 @@ function ClientState.IsBlocked()
 	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen
 end
 
+-- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
+function ClientState.Frozen()
+	return game:GetService("ReplicatedStorage"):GetAttribute("Frozen") == true
+end
+
 -- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)
 function ClientState.UpdateMouse()
 	local blocked = ClientState.IsBlocked()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
-	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike" } do
+	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes" } do
 		local button = cas:GetButton(name)
 		if button then
 			button.Visible = not blocked

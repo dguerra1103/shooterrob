@@ -37,7 +37,7 @@ local function getCharacter()
 end
 
 local function canUse(name)
-	return not ClientState.IsBlocked() and os.clock() >= readyAt[name]
+	return not ClientState.IsBlocked() and not ClientState.Frozen() and os.clock() >= readyAt[name]
 end
 
 -- Estela blanca breve detrás del personaje

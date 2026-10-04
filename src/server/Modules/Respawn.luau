@@ -111,6 +111,9 @@ local function reviveCheck(player)
 	if noRespawn() then
 		return nil, "Una sola vida por ronda"
 	end
+	if ReplicatedStorage:GetAttribute("Frozen") or loading[player] then
+		return nil, "Ya estás reapareciendo"
+	end
 	local point = death.Position
 	if not point or point.Y < -20 then
 		return nil, "No se puede revivir aquí"

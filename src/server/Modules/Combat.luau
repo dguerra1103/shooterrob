@@ -216,13 +216,21 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 			local killerName = (killer and killer.Name) or (killerBot and killerBot.Name) or nil
 			Remotes.Died:FireClient(victimPlayer, killerName, weaponName, killerHealth)
 		end
-		if Combat.OnKill then
+		-- Espectador de Eliminación (entró a mitad de ronda): pantalla de muerte, pero sin baja ni muerte
+		if Combat.OnKill and not humanoid:GetAttribute("Spectator") then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
 		end
 	end)
 end
 
+local function frozen()
+	return ReplicatedStorage:GetAttribute("Frozen") == true -- cuenta atrás de Eliminación
+end
+
 local function onFire(player, tool, origin, rays)
+	if frozen() then
+		return
+	end
 	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") or typeof(origin) ~= "Vector3" or type(rays) ~= "table" then
 		return
 	end
@@ -403,6 +411,9 @@ local function findKnife(player)
 end
 
 local function onMelee(player, part)
+	if frozen() then
+		return
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")

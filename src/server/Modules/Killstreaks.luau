@@ -102,7 +102,7 @@ local function callAirstrike(player, target)
 	if not enabled() or player:GetAttribute("InMenu") or (player:GetAttribute("Airstrikes") or 0) <= 0 then
 		return
 	end
-	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" or ReplicatedStorage:GetAttribute("Frozen") then
 		return
 	end
 	local character = player.Character

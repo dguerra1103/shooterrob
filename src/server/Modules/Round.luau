@@ -92,7 +92,7 @@ local function updateLeader(leaving)
 	end
 	for _, agent in Bots.Agents do
 		if (agent.Score or 0) > bestScore then
-			best, bestScore = agent, agent.Score
+			best, bestScore = agent, agent.Score or 0
 		end
 	end
 	ReplicatedStorage:SetAttribute("LeaderName", best and best.Name or "")
@@ -462,10 +462,12 @@ end
 ---------------------------------------------------------------------------
 
 -- Vivos y participantes de un equipo (jugadores fuera del menú + bots)
+-- Vivos y participantes de un equipo. Solo cuentan los jugadores que empezaron la ronda (atributo
+-- ElimIn) y los bots; un bot que aún se está creando cuenta como vivo.
 local function aliveCount(team)
 	local alive, members = 0, 0
 	for _, player in team:GetPlayers() do
-		if not player:GetAttribute("InMenu") then
+		if player:GetAttribute("ElimIn") then
 			members += 1
 			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 			if humanoid and humanoid.Health > 0 then
@@ -476,7 +478,7 @@ local function aliveCount(team)
 	for _, agent in Bots.Agents do
 		if agent.Team == team then
 			members += 1
-			if agent.Humanoid and agent.Humanoid.Health > 0 then
+			if agent.Spawning or (agent.Humanoid and agent.Humanoid.Health > 0) then
 				alive += 1
 			end
 		end
@@ -484,20 +486,68 @@ local function aliveCount(team)
 	return alive, members
 end
 
+local function isDeadPlayer(player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return not humanoid or humanoid.Health <= 0
+end
+
+-- Limpia el estado de Eliminación (al acabar o si la ronda falla)
+local function clearElimination()
+	ReplicatedStorage:SetAttribute("NoRespawn", false)
+	ReplicatedStorage:SetAttribute("Frozen", false)
+	ReplicatedStorage:SetAttribute("AliveA", nil)
+	ReplicatedStorage:SetAttribute("AliveB", nil)
+	for _, player in Players:GetPlayers() do
+		player:SetAttribute("ElimIn", nil)
+	end
+end
+
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
+local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
 local function eliminationRounds(s)
 	local deadline = os.clock() + s.RoundTime
 	local number = 0
 	local a, b = teams[1], teams[2]
-	while not roundOver and os.clock() < deadline do
+	while not roundOver and deadline - os.clock() >= s.PrepTime + MIN_SUBROUND do
 		number += 1
-		-- Preparación: todos vuelven a su base con la vida llena
+		-- Preparación: todos vuelven a su base con la vida llena y quietos (no se puede disparar)
+		ReplicatedStorage:SetAttribute("Frozen", true)
 		ReplicatedStorage:SetAttribute("NoRespawn", false)
+		for _, player in Players:GetPlayers() do
+			player:SetAttribute("ElimIn", nil)
+		end
+		-- (sin contador de vivos durante la preparación)
+		ReplicatedStorage:SetAttribute("AliveA", nil)
+		ReplicatedStorage:SetAttribute("AliveB", nil)
 		respawnAll()
 		Bots.RespawnAll()
 		Remotes.Notify:FireAllClients("Big", "RONDA " .. number .. " · ¡Una sola vida!")
 		countdown(s.PrepTime)
+		-- Que nadie empiece muerto (p. ej. un bot que aún se estaba creando o alguien que cayó en la preparación)
+		local waitUntil = os.clock() + 5
+		while os.clock() < waitUntil do
+			local spawning = false
+			for _, agent in Bots.Agents do
+				spawning = spawning or agent.Spawning == true
+			end
+			if not spawning then
+				break
+			end
+			task.wait(0.2)
+		end
+		for _, player in Players:GetPlayers() do
+			if not player:GetAttribute("InMenu") then
+				if isDeadPlayer(player) then
+					task.spawn(Respawn.Load, player)
+				end
+				player:SetAttribute("ElimIn", true) -- participa en esta ronda
+			end
+		end
+		Bots.RespawnDead()
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
+		ReplicatedStorage:SetAttribute("Frozen", false)
+		Remotes.Notify:FireAllClients("Big", "¡YA!")
+		task.wait(0.5)
 
 		local roundEnd = math.min(os.clock() + s.SubRoundTime, deadline)
 		local winner, decided = nil, false
@@ -507,15 +557,16 @@ local function eliminationRounds(s)
 			ReplicatedStorage:SetAttribute("AliveA", aliveA)
 			ReplicatedStorage:SetAttribute("AliveB", aliveB)
 			ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
+			local contest = membersA > 0 and membersB > 0
 			-- Solo hay ronda si los dos equipos tienen a alguien
-			if membersA > 0 and membersB > 0 and (aliveA == 0 or aliveB == 0) then
+			if contest and (aliveA == 0 or aliveB == 0) then
 				winner = (aliveA > 0 and a) or (aliveB > 0 and b) or nil
 				decided = true
 				break
 			end
 			if os.clock() >= roundEnd then
-				-- Se acaba el tiempo: gana el equipo con más supervivientes
-				winner = (aliveA > aliveB and a) or (aliveB > aliveA and b) or nil
+				-- Se acaba el tiempo: gana el equipo con más supervivientes (sin rival no gana nadie)
+				winner = contest and ((aliveA > aliveB and a) or (aliveB > aliveA and b)) or nil
 				decided = true
 				break
 			end
@@ -531,14 +582,14 @@ local function eliminationRounds(s)
 			task.wait(3)
 		end
 	end
-	ReplicatedStorage:SetAttribute("NoRespawn", false)
-	ReplicatedStorage:SetAttribute("AliveA", nil)
-	ReplicatedStorage:SetAttribute("AliveB", nil)
+	clearElimination()
 	-- Nadie se queda muerto durante la pantalla final
 	respawnAll()
 end
 
 local function endRound()
+	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
+	local leader, leaderScore = updateLeader()
 	setState("Ended")
 	local teamMode = isTeamMode()
 	local a, b = teams[1], teams[2]
@@ -551,7 +602,6 @@ local function endRound()
 			winner = b
 		end
 	end
-	local leader, leaderScore = updateLeader()
 
 	-- MVP = más bajas (en CTF cada captura cuenta como 3 bajas)
 	local mvp, mvpKills, mvpScore = nil, 0, -1
@@ -567,7 +617,9 @@ local function endRound()
 	-- la clasificación global de victorias
 	local humans = 0
 	for _, player in Players:GetPlayers() do
-		if not player:GetAttribute("InMenu") then
+		local stats = PlayerData.GetLeaderstats(player)
+		-- Ha jugado: está fuera del menú o tiene alguna baja o muerte en esta partida
+		if not player:GetAttribute("InMenu") or stats.Bajas.Value + stats.Muertes.Value > 0 then
 			humans += 1
 		end
 	end
@@ -735,7 +787,8 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
-			ReplicatedStorage:SetAttribute("NoRespawn", false)
+			clearElimination()
+			pcall(respawnAll)
 			Loadout.Override = nil
 			roundOver = true
 			task.wait(3)

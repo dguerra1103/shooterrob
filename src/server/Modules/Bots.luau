@@ -34,6 +34,11 @@ local function noRespawn()
 	return ReplicatedStorage:GetAttribute("NoRespawn") == true
 end
 
+-- Cuenta atrás de Eliminación: todos quietos y sin disparar
+local function frozen()
+	return ReplicatedStorage:GetAttribute("Frozen") == true
+end
+
 local function teamMode()
 	return ReplicatedStorage:GetAttribute("TeamMode") == true
 end
@@ -243,6 +248,10 @@ end
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
+		return
+	end
+	if frozen() then
+		humanoid:MoveTo(root.Position)
 		return
 	end
 	local now = os.clock()
@@ -517,7 +526,18 @@ local function balance()
 		desired = desiredCount()
 	end
 	if #agents > desired then
-		removeAgent(botToRemove())
+		if not noRespawn() then
+			removeAgent(botToRemove())
+		else
+			-- En plena ronda de Eliminación solo se quita un bot ya eliminado (no se le quita un luchador
+			-- a un equipo a mitad de ronda); el resto se ajusta en la preparación de la siguiente
+			for i = #agents, 1, -1 do
+				if not agents[i].Humanoid and not agents[i].Spawning then
+					removeAgent(agents[i])
+					break
+				end
+			end
+		end
 	end
 end
 
@@ -527,8 +547,17 @@ function Bots.RespawnAll()
 		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
-			agent.Waypoints, agent.Target, agent.Shots = nil, nil, 0
+			agent.Waypoints, agent.Target, agent.Shots, agent.GoalDeadline = nil, nil, 0, 0
 		elseif not agent.Spawning then
+			task.spawn(safeSpawn, agent)
+		end
+	end
+end
+
+-- Fin de la preparación de Eliminación: reaparece cualquier bot que siga muerto
+function Bots.RespawnDead()
+	for _, agent in table.clone(agents) do
+		if not agent.Humanoid and not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
 	end

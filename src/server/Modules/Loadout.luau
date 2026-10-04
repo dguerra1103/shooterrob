@@ -194,6 +194,15 @@ function Loadout.Init()
 		if shield then
 			shield:Destroy()
 		end
+		-- En plena ronda de Eliminación quien no la empezó entra como espectador hasta la siguiente
+		-- (si no, podría aparecer de refresco a mitad de ronda)
+		if ReplicatedStorage:GetAttribute("NoRespawn") and not player:GetAttribute("ElimIn") then
+			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				humanoid:SetAttribute("Spectator", true) -- no cuenta como muerte
+				humanoid.Health = 0
+			end
+		end
 	end)
 	Players.PlayerAdded:Connect(onPlayer)
 	Players.PlayerRemoving:Connect(function(player)

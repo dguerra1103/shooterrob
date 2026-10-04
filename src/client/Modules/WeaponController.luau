@@ -358,7 +358,7 @@ end
 
 local function fire()
 	local now = os.clock()
-	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() then
+	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() or ClientState.Frozen() then
 		return
 	end
 	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < 0.25 then
@@ -463,7 +463,7 @@ end
 local function melee()
 	local knife = Weapons.Get(Weapons.Melee)
 	local now = os.clock()
-	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 then
+	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or ClientState.Frozen() or not humanoid or humanoid.Health <= 0 then
 		return
 	end
 	if not getTools()[knife.Slot] then

@@ -28,7 +28,7 @@ local function readyAt()
 end
 
 local function canThrow()
-	if ClientState.IsBlocked() or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+	if ClientState.IsBlocked() or ClientState.Frozen() or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
 		return false
 	end
 	local character = player.Character

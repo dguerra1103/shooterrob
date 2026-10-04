@@ -100,17 +100,28 @@ local function restoreCamera()
 	player.CameraMode = Enum.CameraMode.LockFirstPerson
 end
 
+-- En Eliminación solo se observa a compañeros (si no, se podría chivar dónde están los enemigos)
+local function canWatch(target)
+	if target:IsA("Player") and target:GetAttribute("InMenu") then
+		return false
+	end
+	if noRespawn() and player.Team then
+		return teamOf(target) == player.Team
+	end
+	return true
+end
+
 local function refreshTargets(firstChoice)
 	targets = {}
 	for _, p in Players:GetPlayers() do
-		if p ~= player and alive(p) then
+		if p ~= player and alive(p) and canWatch(p) then
 			table.insert(targets, p)
 		end
 	end
 	local bots = workspace:FindFirstChild("Bots")
 	if bots then
 		for _, model in bots:GetChildren() do
-			if model:IsA("Model") and alive(model) then
+			if model:IsA("Model") and alive(model) and canWatch(model) then
 				table.insert(targets, model)
 			end
 		end
@@ -210,7 +221,7 @@ local function open(killerName)
 	local bots = workspace:FindFirstChild("Bots")
 	local killer = killerName and (Players:FindFirstChild(killerName) or (bots and bots:FindFirstChild(killerName)))
 	refreshTargets(killer)
-	if killer and alive(killer) then
+	if killer and alive(killer) and canWatch(killer) then
 		watch(killer)
 	elseif #targets > 0 then
 		watch(targets[1])
@@ -437,6 +448,18 @@ function DeathScreen.Init()
 		end
 	end)
 	RunService.RenderStepped:Connect(update)
+	-- Muerto en Eliminación y de vuelta desde la pantalla de inicio: vuelve a la pantalla de muerte
+	-- (se observa a los compañeros hasta la siguiente ronda en vez de quedarse mirando el cuerpo)
+	RunService.Heartbeat:Connect(function()
+		if ClientState.Dead or ClientState.InMainMenu or not noRespawn() then
+			return
+		end
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health <= 0 then
+			open(nil)
+		end
+	end)
 end
 
 return DeathScreen

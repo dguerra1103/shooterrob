@@ -3864,6 +3864,11 @@ local function noRespawn()
 	return ReplicatedStorage:GetAttribute("NoRespawn") == true
 end
 
+-- Cuenta atrás de Eliminación: todos quietos y sin disparar
+local function frozen()
+	return ReplicatedStorage:GetAttribute("Frozen") == true
+end
+
 local function teamMode()
 	return ReplicatedStorage:GetAttribute("TeamMode") == true
 end
@@ -4073,6 +4078,10 @@ end
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
+		return
+	end
+	if frozen() then
+		humanoid:MoveTo(root.Position)
 		return
 	end
 	local now = os.clock()
@@ -4347,7 +4356,18 @@ local function balance()
 		desired = desiredCount()
 	end
 	if #agents > desired then
-		removeAgent(botToRemove())
+		if not noRespawn() then
+			removeAgent(botToRemove())
+		else
+			-- En plena ronda de Eliminación solo se quita un bot ya eliminado (no se le quita un luchador
+			-- a un equipo a mitad de ronda); el resto se ajusta en la preparación de la siguiente
+			for i = #agents, 1, -1 do
+				if not agents[i].Humanoid and not agents[i].Spawning then
+					removeAgent(agents[i])
+					break
+				end
+			end
+		end
 	end
 end
 
@@ -4357,8 +4377,17 @@ function Bots.RespawnAll()
 		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
-			agent.Waypoints, agent.Target, agent.Shots = nil, nil, 0
+			agent.Waypoints, agent.Target, agent.Shots, agent.GoalDeadline = nil, nil, 0, 0
 		elseif not agent.Spawning then
+			task.spawn(safeSpawn, agent)
+		end
+	end
+end
+
+-- Fin de la preparación de Eliminación: reaparece cualquier bot que siga muerto
+function Bots.RespawnDead()
+	for _, agent in table.clone(agents) do
+		if not agent.Humanoid and not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
 	end
@@ -4631,13 +4660,21 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 			local killerName = (killer and killer.Name) or (killerBot and killerBot.Name) or nil
 			Remotes.Died:FireClient(victimPlayer, killerName, weaponName, killerHealth)
 		end
-		if Combat.OnKill then
+		-- Espectador de Eliminación (entró a mitad de ronda): pantalla de muerte, pero sin baja ni muerte
+		if Combat.OnKill and not humanoid:GetAttribute("Spectator") then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
 		end
 	end)
 end
 
+local function frozen()
+	return ReplicatedStorage:GetAttribute("Frozen") == true -- cuenta atrás de Eliminación
+end
+
 local function onFire(player, tool, origin, rays)
+	if frozen() then
+		return
+	end
 	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") or typeof(origin) ~= "Vector3" or type(rays) ~= "table" then
 		return
 	end
@@ -4818,6 +4855,9 @@ local function findKnife(player)
 end
 
 local function onMelee(player, part)
+	if frozen() then
+		return
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -5449,7 +5489,7 @@ local function throw(player, direction)
 	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
 	end
-	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" or ReplicatedStorage:GetAttribute("Frozen") then
 		return
 	end
 	local character = player.Character
@@ -5951,7 +5991,7 @@ local function callAirstrike(player, target)
 	if not enabled() or player:GetAttribute("InMenu") or (player:GetAttribute("Airstrikes") or 0) <= 0 then
 		return
 	end
-	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" or ReplicatedStorage:GetAttribute("Frozen") then
 		return
 	end
 	local character = player.Character
@@ -6318,6 +6358,15 @@ function Loadout.Init()
 		local shield = player.Character and player.Character:FindFirstChild("MenuShield")
 		if shield then
 			shield:Destroy()
+		end
+		-- En plena ronda de Eliminación quien no la empezó entra como espectador hasta la siguiente
+		-- (si no, podría aparecer de refresco a mitad de ronda)
+		if ReplicatedStorage:GetAttribute("NoRespawn") and not player:GetAttribute("ElimIn") then
+			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				humanoid:SetAttribute("Spectator", true) -- no cuenta como muerte
+				humanoid.Health = 0
+			end
 		end
 	end)
 	Players.PlayerAdded:Connect(onPlayer)
@@ -12130,6 +12179,9 @@ local function reviveCheck(player)
 	if noRespawn() then
 		return nil, "Una sola vida por ronda"
 	end
+	if ReplicatedStorage:GetAttribute("Frozen") or loading[player] then
+		return nil, "Ya estás reapareciendo"
+	end
 	local point = death.Position
 	if not point or point.Y < -20 then
 		return nil, "No se puede revivir aquí"
@@ -12304,7 +12356,7 @@ local function updateLeader(leaving)
 	end
 	for _, agent in Bots.Agents do
 		if (agent.Score or 0) > bestScore then
-			best, bestScore = agent, agent.Score
+			best, bestScore = agent, agent.Score or 0
 		end
 	end
 	ReplicatedStorage:SetAttribute("LeaderName", best and best.Name or "")
@@ -12674,10 +12726,12 @@ end
 ---------------------------------------------------------------------------
 
 -- Vivos y participantes de un equipo (jugadores fuera del menú + bots)
+-- Vivos y participantes de un equipo. Solo cuentan los jugadores que empezaron la ronda (atributo
+-- ElimIn) y los bots; un bot que aún se está creando cuenta como vivo.
 local function aliveCount(team)
 	local alive, members = 0, 0
 	for _, player in team:GetPlayers() do
-		if not player:GetAttribute("InMenu") then
+		if player:GetAttribute("ElimIn") then
 			members += 1
 			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 			if humanoid and humanoid.Health > 0 then
@@ -12688,7 +12742,7 @@ local function aliveCount(team)
 	for _, agent in Bots.Agents do
 		if agent.Team == team then
 			members += 1
-			if agent.Humanoid and agent.Humanoid.Health > 0 then
+			if agent.Spawning or (agent.Humanoid and agent.Humanoid.Health > 0) then
 				alive += 1
 			end
 		end
@@ -12696,20 +12750,68 @@ local function aliveCount(team)
 	return alive, members
 end
 
+local function isDeadPlayer(player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return not humanoid or humanoid.Health <= 0
+end
+
+-- Limpia el estado de Eliminación (al acabar o si la ronda falla)
+local function clearElimination()
+	ReplicatedStorage:SetAttribute("NoRespawn", false)
+	ReplicatedStorage:SetAttribute("Frozen", false)
+	ReplicatedStorage:SetAttribute("AliveA", nil)
+	ReplicatedStorage:SetAttribute("AliveB", nil)
+	for _, player in Players:GetPlayers() do
+		player:SetAttribute("ElimIn", nil)
+	end
+end
+
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
+local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
 local function eliminationRounds(s)
 	local deadline = os.clock() + s.RoundTime
 	local number = 0
 	local a, b = teams[1], teams[2]
-	while not roundOver and os.clock() < deadline do
+	while not roundOver and deadline - os.clock() >= s.PrepTime + MIN_SUBROUND do
 		number += 1
-		-- Preparación: todos vuelven a su base con la vida llena
+		-- Preparación: todos vuelven a su base con la vida llena y quietos (no se puede disparar)
+		ReplicatedStorage:SetAttribute("Frozen", true)
 		ReplicatedStorage:SetAttribute("NoRespawn", false)
+		for _, player in Players:GetPlayers() do
+			player:SetAttribute("ElimIn", nil)
+		end
+		-- (sin contador de vivos durante la preparación)
+		ReplicatedStorage:SetAttribute("AliveA", nil)
+		ReplicatedStorage:SetAttribute("AliveB", nil)
 		respawnAll()
 		Bots.RespawnAll()
 		Remotes.Notify:FireAllClients("Big", "RONDA " .. number .. " · ¡Una sola vida!")
 		countdown(s.PrepTime)
+		-- Que nadie empiece muerto (p. ej. un bot que aún se estaba creando o alguien que cayó en la preparación)
+		local waitUntil = os.clock() + 5
+		while os.clock() < waitUntil do
+			local spawning = false
+			for _, agent in Bots.Agents do
+				spawning = spawning or agent.Spawning == true
+			end
+			if not spawning then
+				break
+			end
+			task.wait(0.2)
+		end
+		for _, player in Players:GetPlayers() do
+			if not player:GetAttribute("InMenu") then
+				if isDeadPlayer(player) then
+					task.spawn(Respawn.Load, player)
+				end
+				player:SetAttribute("ElimIn", true) -- participa en esta ronda
+			end
+		end
+		Bots.RespawnDead()
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
+		ReplicatedStorage:SetAttribute("Frozen", false)
+		Remotes.Notify:FireAllClients("Big", "¡YA!")
+		task.wait(0.5)
 
 		local roundEnd = math.min(os.clock() + s.SubRoundTime, deadline)
 		local winner, decided = nil, false
@@ -12719,15 +12821,16 @@ local function eliminationRounds(s)
 			ReplicatedStorage:SetAttribute("AliveA", aliveA)
 			ReplicatedStorage:SetAttribute("AliveB", aliveB)
 			ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
+			local contest = membersA > 0 and membersB > 0
 			-- Solo hay ronda si los dos equipos tienen a alguien
-			if membersA > 0 and membersB > 0 and (aliveA == 0 or aliveB == 0) then
+			if contest and (aliveA == 0 or aliveB == 0) then
 				winner = (aliveA > 0 and a) or (aliveB > 0 and b) or nil
 				decided = true
 				break
 			end
 			if os.clock() >= roundEnd then
-				-- Se acaba el tiempo: gana el equipo con más supervivientes
-				winner = (aliveA > aliveB and a) or (aliveB > aliveA and b) or nil
+				-- Se acaba el tiempo: gana el equipo con más supervivientes (sin rival no gana nadie)
+				winner = contest and ((aliveA > aliveB and a) or (aliveB > aliveA and b)) or nil
 				decided = true
 				break
 			end
@@ -12743,14 +12846,14 @@ local function eliminationRounds(s)
 			task.wait(3)
 		end
 	end
-	ReplicatedStorage:SetAttribute("NoRespawn", false)
-	ReplicatedStorage:SetAttribute("AliveA", nil)
-	ReplicatedStorage:SetAttribute("AliveB", nil)
+	clearElimination()
 	-- Nadie se queda muerto durante la pantalla final
 	respawnAll()
 end
 
 local function endRound()
+	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
+	local leader, leaderScore = updateLeader()
 	setState("Ended")
 	local teamMode = isTeamMode()
 	local a, b = teams[1], teams[2]
@@ -12763,7 +12866,6 @@ local function endRound()
 			winner = b
 		end
 	end
-	local leader, leaderScore = updateLeader()
 
 	-- MVP = más bajas (en CTF cada captura cuenta como 3 bajas)
 	local mvp, mvpKills, mvpScore = nil, 0, -1
@@ -12779,7 +12881,9 @@ local function endRound()
 	-- la clasificación global de victorias
 	local humans = 0
 	for _, player in Players:GetPlayers() do
-		if not player:GetAttribute("InMenu") then
+		local stats = PlayerData.GetLeaderstats(player)
+		-- Ha jugado: está fuera del menú o tiene alguna baja o muerte en esta partida
+		if not player:GetAttribute("InMenu") or stats.Bajas.Value + stats.Muertes.Value > 0 then
 			humans += 1
 		end
 	end
@@ -12947,7 +13051,8 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
-			ReplicatedStorage:SetAttribute("NoRespawn", false)
+			clearElimination()
+			pcall(respawnAll)
 			Loadout.Override = nil
 			roundOver = true
 			task.wait(3)
@@ -13127,7 +13232,7 @@ local function getCharacter()
 end
 
 local function canUse(name)
-	return not ClientState.IsBlocked() and os.clock() >= readyAt[name]
+	return not ClientState.IsBlocked() and not ClientState.Frozen() and os.clock() >= readyAt[name]
 end
 
 -- Estela blanca breve detrás del personaje
@@ -13395,13 +13500,18 @@ function ClientState.IsBlocked()
 	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead or ClientState.EmoteMenuOpen
 end
 
+-- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
+function ClientState.Frozen()
+	return game:GetService("ReplicatedStorage"):GetAttribute("Frozen") == true
+end
+
 -- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)
 function ClientState.UpdateMouse()
 	local blocked = ClientState.IsBlocked()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
 	local cas = game:GetService("ContextActionService")
-	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike" } do
+	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes" } do
 		local button = cas:GetButton(name)
 		if button then
 			button.Visible = not blocked
@@ -13526,17 +13636,28 @@ local function restoreCamera()
 	player.CameraMode = Enum.CameraMode.LockFirstPerson
 end
 
+-- En Eliminación solo se observa a compañeros (si no, se podría chivar dónde están los enemigos)
+local function canWatch(target)
+	if target:IsA("Player") and target:GetAttribute("InMenu") then
+		return false
+	end
+	if noRespawn() and player.Team then
+		return teamOf(target) == player.Team
+	end
+	return true
+end
+
 local function refreshTargets(firstChoice)
 	targets = {}
 	for _, p in Players:GetPlayers() do
-		if p ~= player and alive(p) then
+		if p ~= player and alive(p) and canWatch(p) then
 			table.insert(targets, p)
 		end
 	end
 	local bots = workspace:FindFirstChild("Bots")
 	if bots then
 		for _, model in bots:GetChildren() do
-			if model:IsA("Model") and alive(model) then
+			if model:IsA("Model") and alive(model) and canWatch(model) then
 				table.insert(targets, model)
 			end
 		end
@@ -13636,7 +13757,7 @@ local function open(killerName)
 	local bots = workspace:FindFirstChild("Bots")
 	local killer = killerName and (Players:FindFirstChild(killerName) or (bots and bots:FindFirstChild(killerName)))
 	refreshTargets(killer)
-	if killer and alive(killer) then
+	if killer and alive(killer) and canWatch(killer) then
 		watch(killer)
 	elseif #targets > 0 then
 		watch(targets[1])
@@ -13863,6 +13984,18 @@ function DeathScreen.Init()
 		end
 	end)
 	RunService.RenderStepped:Connect(update)
+	-- Muerto en Eliminación y de vuelta desde la pantalla de inicio: vuelve a la pantalla de muerte
+	-- (se observa a los compañeros hasta la siguiente ronda en vez de quedarse mirando el cuerpo)
+	RunService.Heartbeat:Connect(function()
+		if ClientState.Dead or ClientState.InMainMenu or not noRespawn() then
+			return
+		end
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health <= 0 then
+			open(nil)
+		end
+	end)
 end
 
 return DeathScreen
@@ -15078,7 +15211,7 @@ local function readyAt()
 end
 
 local function canThrow()
-	if ClientState.IsBlocked() or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+	if ClientState.IsBlocked() or ClientState.Frozen() or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
 		return false
 	end
 	local character = player.Character
@@ -15805,7 +15938,7 @@ local function buildFeedsAndOverlays()
 	-- Fin de ronda
 	refs.RoundEnd = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.42),
+		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(560, 220),
 		BackgroundColor3 = Color3.fromRGB(20, 22, 35),
 		BackgroundTransparency = 0.15,
@@ -15835,6 +15968,16 @@ local function buildFeedsAndOverlays()
 		TextColor3 = Color3.fromRGB(255, 210, 80),
 		Parent = refs.RoundEnd,
 	})
+
+	-- En pantallas bajas (móvil en horizontal) el panel se encoge para caber entero
+	local roundScale = UI.new("UIScale", { Parent = refs.RoundEnd })
+	local function fitRoundEnd()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		roundScale.Scale = math.clamp(math.min((viewport.Y - 40) / refs.RoundEnd.Size.Y.Offset, (viewport.X - 20) / 560), 0.45, 1)
+	end
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitRoundEnd)
+	refs.RoundEnd:GetPropertyChangedSignal("Size"):Connect(fitRoundEnd)
+	fitRoundEnd()
 
 	-- Resumen de tu partida (llega con MatchSummary): estadísticas, barra de nivel y monedas
 	refs.Summary = UI.new("Frame", {
@@ -19251,8 +19394,10 @@ local function slideDust(floorMaterial)
 	return feet
 end
 
+local wasFrozen = false
+
 local function slide()
-	if ClientState.Sliding or ClientState.Dashing or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
+	if ClientState.Sliding or ClientState.Dashing or ClientState.IsBlocked() or ClientState.Frozen() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
 	end
 	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
@@ -19405,6 +19550,15 @@ local function update(dt)
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier
 	end
+	-- Cuenta atrás de Eliminación: quieto y sin saltar
+	local frozen = ClientState.Frozen()
+	if frozen then
+		speed = 0
+	end
+	if frozen ~= wasFrozen then
+		wasFrozen = frozen
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, not frozen)
+	end
 	humanoid.WalkSpeed = speed
 end
 
@@ -19415,6 +19569,7 @@ local function onCharacter(newCharacter)
 	end
 	ClientState.Sliding = false
 	iceMover = nil -- era del personaje anterior
+	wasFrozen = false -- el humanoide nuevo empieza con el salto activado
 	humanoid = newCharacter:WaitForChild("Humanoid")
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
@@ -20438,7 +20593,7 @@ end
 
 local function fire()
 	local now = os.clock()
-	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() then
+	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() or ClientState.Frozen() then
 		return
 	end
 	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < 0.25 then
@@ -20543,7 +20698,7 @@ end
 local function melee()
 	local knife = Weapons.Get(Weapons.Melee)
 	local now = os.clock()
-	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 then
+	if now - meleeTime < knife.Cooldown or ClientState.IsBlocked() or ClientState.Frozen() or not humanoid or humanoid.Health <= 0 then
 		return
 	end
 	if not getTools()[knife.Slot] then

@@ -633,7 +633,7 @@ local function buildFeedsAndOverlays()
 	-- Fin de ronda
 	refs.RoundEnd = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.42),
+		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(560, 220),
 		BackgroundColor3 = Color3.fromRGB(20, 22, 35),
 		BackgroundTransparency = 0.15,
@@ -663,6 +663,16 @@ local function buildFeedsAndOverlays()
 		TextColor3 = Color3.fromRGB(255, 210, 80),
 		Parent = refs.RoundEnd,
 	})
+
+	-- En pantallas bajas (móvil en horizontal) el panel se encoge para caber entero
+	local roundScale = UI.new("UIScale", { Parent = refs.RoundEnd })
+	local function fitRoundEnd()
+		local viewport = workspace.CurrentCamera.ViewportSize
+		roundScale.Scale = math.clamp(math.min((viewport.Y - 40) / refs.RoundEnd.Size.Y.Offset, (viewport.X - 20) / 560), 0.45, 1)
+	end
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitRoundEnd)
+	refs.RoundEnd:GetPropertyChangedSignal("Size"):Connect(fitRoundEnd)
+	fitRoundEnd()
 
 	-- Resumen de tu partida (llega con MatchSummary): estadísticas, barra de nivel y monedas
 	refs.Summary = UI.new("Frame", {

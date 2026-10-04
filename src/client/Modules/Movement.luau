@@ -66,8 +66,10 @@ local function slideDust(floorMaterial)
 	return feet
 end
 
+local wasFrozen = false
+
 local function slide()
-	if ClientState.Sliding or ClientState.Dashing or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
+	if ClientState.Sliding or ClientState.Dashing or ClientState.IsBlocked() or ClientState.Frozen() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
 	end
 	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
@@ -220,6 +222,15 @@ local function update(dt)
 	if player:GetAttribute("CarryingFlag") then
 		speed *= GameConfig.Flag.CarrierSpeedMultiplier
 	end
+	-- Cuenta atrás de Eliminación: quieto y sin saltar
+	local frozen = ClientState.Frozen()
+	if frozen then
+		speed = 0
+	end
+	if frozen ~= wasFrozen then
+		wasFrozen = frozen
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, not frozen)
+	end
 	humanoid.WalkSpeed = speed
 end
 
@@ -230,6 +241,7 @@ local function onCharacter(newCharacter)
 	end
 	ClientState.Sliding = false
 	iceMover = nil -- era del personaje anterior
+	wasFrozen = false -- el humanoide nuevo empieza con el salto activado
 	humanoid = newCharacter:WaitForChild("Humanoid")
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
 	humanoid.CameraOffset = Vector3.zero
