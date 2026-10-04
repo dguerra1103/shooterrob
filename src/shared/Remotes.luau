@@ -46,6 +46,7 @@ local FUNCTIONS = {
 	"ClaimGift", -- recoger el siguiente regalo por tiempo jugado
 	"SpinWheel", -- girar la ruleta diaria (gratis o gastando un giro comprado)
 	"ClaimAchievement", -- reclamar el premio de un logro (GameConfig.Achievements)
+	"ClaimGroup", -- reclamar el premio por unirse al grupo (GameConfig.Group)
 }
 
 local Remotes = {}

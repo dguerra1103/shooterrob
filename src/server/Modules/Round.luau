@@ -203,6 +203,7 @@ local function resetStats()
 		stats.Bajas.Value = 0
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
+		player:SetAttribute("StreakPlayers", 0)
 		player:SetAttribute("BestStreak", 0)
 		Bounty.Reset(player)
 		player:SetAttribute("Captures", 0)
@@ -267,8 +268,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		PlayerData.Increment(victim, "TotalDeaths", 1)
-		victim:SetAttribute("Streak", 0)
 		bounty = Bounty.Clear(victim)
+		-- (si casi toda la racha fue contra bots, la recompensa vale menos: no se puede inflar
+		-- matando bots para que un amigo la cobre)
+		if bounty > 0 and (victim:GetAttribute("StreakPlayers") or 0) < 3 then
+			bounty = math.max(1, math.floor(bounty * GameConfig.Bots.RewardScale))
+		end
+		victim:SetAttribute("Streak", 0)
+		victim:SetAttribute("StreakPlayers", 0)
 	end
 	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
 
@@ -311,6 +318,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			PlayerData.GetLeaderstats(killer).Bajas.Value += 1
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
+			if victim then
+				killer:SetAttribute("StreakPlayers", (killer:GetAttribute("StreakPlayers") or 0) + 1)
+			end
 			if streak > (killer:GetAttribute("BestStreak") or 0) then
 				killer:SetAttribute("BestStreak", streak)
 			end
@@ -352,7 +362,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		end
 	end
 
-	-- "SE BUSCA": quien elimina al buscado cobra su recompensa (si lo mata un bot o se mata solo, se pierde)
+	-- "SE BUSCA": quien elimina al buscado cobra su recompensa (si lo mata un bot o muere solo, se pierde)
 	if bounty > 0 and victim then
 		if killer and killer ~= victim then
 			local given = PlayerData.AddCoins(killer, bounty)
@@ -360,7 +370,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			Remotes.Notify:FireClient(killer, "BountyClaimed", given)
 			Bounty.Announce(victim.Name, bounty, killer.Name)
 		else
-			Bounty.Announce(victim.Name, bounty, killerBot and killerBot.Name or nil)
+			Bounty.Announce(victim.Name, bounty, nil)
 		end
 	end
 

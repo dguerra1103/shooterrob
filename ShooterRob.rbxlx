@@ -611,6 +611,13 @@ GameConfig.Coins = {
 	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
 }
 
+-- Grupo de Roblox: quien se une al grupo del juego puede reclamar Coins una vez (botón en la
+-- pantalla de inicio). Crea el grupo en roblox.com/communities/create y pega aquí su ID (con 0 no sale).
+GameConfig.Group = {
+	Id = 0,
+	Coins = 500,
+}
+
 -- "SE BUSCA": quien llega a una racha de Streak bajas lleva una recompensa encima (todos lo ven
 -- marcado). Quien lo elimine cobra Base monedas, + PerKill por cada baja más de la racha (hasta Max).
 GameConfig.Bounty = {
@@ -1190,6 +1197,7 @@ local FUNCTIONS = {
 	"ClaimGift", -- recoger el siguiente regalo por tiempo jugado
 	"SpinWheel", -- girar la ruleta diaria (gratis o gastando un giro comprado)
 	"ClaimAchievement", -- reclamar el premio de un logro (GameConfig.Achievements)
+	"ClaimGroup", -- reclamar el premio por unirse al grupo (GameConfig.Group)
 }
 
 local Remotes = {}
@@ -5849,7 +5857,7 @@ return Bots
             <string name="Name">Bounty</string>
             <string name="Source"><![CDATA[-- "SE BUSCA" (GameConfig.Bounty): el jugador en racha lleva una recompensa por su cabeza. Se marca
 -- con un cartel sobre la cabeza (los demás lo ven; él no) y quien lo elimine cobra las monedas.
--- El valor queda en el atributo "Bounty" del jugador (lo usa también el marcador).
+-- El valor queda en el atributo "Bounty" del jugador (los bots lo usan para ir a por él).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -5859,6 +5867,7 @@ local Remotes = require(Shared.Remotes)
 local Bounty = {}
 
 local TAG = "BountyTag"
+local watched = {} -- jugadores a los que se les vuelve a poner el cartel al cambiar de personaje
 
 local function config()
 	return GameConfig.Bounty or {}
@@ -5933,12 +5942,34 @@ local function showTag(player, value)
 	end
 end
 
+-- Si recibe un personaje nuevo sin haber muerto (rondas de Eliminación, paciente cero de la
+-- Infección), sigue buscado: el cartel pasa al personaje nuevo
+local function watch(player)
+	if watched[player] then
+		return
+	end
+	watched[player] = player.CharacterAdded:Connect(function(character)
+		local head = character:WaitForChild("Head", 5)
+		local value = player:GetAttribute("Bounty") or 0
+		if head and value > 0 and player.Character == character then
+			showTag(player, value)
+		end
+	end)
+	player.AncestryChanged:Connect(function()
+		if not player.Parent and watched[player] then
+			watched[player]:Disconnect()
+			watched[player] = nil
+		end
+	end)
+end
+
 -- Tras una baja de `player` con racha `streak`: sube (o pone) su recompensa
 function Bounty.OnStreak(player, streak)
 	local value = Bounty.Value(streak)
 	if value <= 0 then
 		return
 	end
+	watch(player)
 	local before = player:GetAttribute("Bounty") or 0
 	player:SetAttribute("Bounty", value)
 	showTag(player, value)
@@ -13996,6 +14027,7 @@ local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local PolicyService = game:GetService("PolicyService")
+local GroupService = game:GetService("GroupService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -14087,6 +14119,7 @@ local function defaults()
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		Achievements = {}, -- logros reclamados ([Id] = true)
+		GroupReward = false, -- ya reclamó el premio del grupo (GameConfig.Group)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
@@ -14198,6 +14231,7 @@ local function publicView(player, data)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		NewsSeen = data.NewsSeen,
 		Achievements = data.Achievements,
+		GroupReward = data.GroupReward == true,
 		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
@@ -14397,6 +14431,7 @@ local function load(player)
 	if type(merged.Achievements) ~= "table" then
 		merged.Achievements = {}
 	end
+	merged.GroupReward = merged.GroupReward == true
 	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
 		merged.WheelSpins = 0
 	end
@@ -15395,6 +15430,47 @@ function PlayerData.Init()
 		end
 		return false, "No existe"
 	end
+	-- Premio por unirse al grupo (una vez). IsInGroup se guarda en caché en el servidor, así que si
+	-- dice que no se pregunta también a GroupService (por si se acaba de unir sin salir del juego)
+	local groupChecked = {}
+	Remotes.ClaimGroup.OnServerInvoke = function(player)
+		local data = profiles[player]
+		local group = GameConfig.Group
+		if not data or not group or group.Id == 0 then
+			return false, "No disponible"
+		end
+		if data.GroupReward then
+			return false, "Ya lo tienes"
+		end
+		local now = os.clock()
+		if groupChecked[player] and now - groupChecked[player] < 3 then
+			return false, "Espera un momento"
+		end
+		groupChecked[player] = now
+		local ok, member = pcall(player.IsInGroup, player, group.Id)
+		if not (ok and member) then
+			local found, groups = pcall(GroupService.GetGroupsAsync, GroupService, player.UserId)
+			member = false
+			if found and type(groups) == "table" then
+				for _, info in groups do
+					if info.Id == group.Id then
+						member = true
+					end
+				end
+			end
+		end
+		if not member or profiles[player] ~= data or data.GroupReward then
+			return false, "NotMember"
+		end
+		data.GroupReward = true
+		data.Coins += group.Coins
+		dirty[player] = true
+		sendUpdate(player)
+		return true, group.Coins
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		groupChecked[player] = nil
+	end)
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 
@@ -15836,6 +15912,7 @@ local function resetStats()
 		stats.Bajas.Value = 0
 		stats.Muertes.Value = 0
 		player:SetAttribute("Streak", 0)
+		player:SetAttribute("StreakPlayers", 0)
 		player:SetAttribute("BestStreak", 0)
 		Bounty.Reset(player)
 		player:SetAttribute("Captures", 0)
@@ -15900,8 +15977,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		PlayerData.Increment(victim, "TotalDeaths", 1)
-		victim:SetAttribute("Streak", 0)
 		bounty = Bounty.Clear(victim)
+		-- (si casi toda la racha fue contra bots, la recompensa vale menos: no se puede inflar
+		-- matando bots para que un amigo la cobre)
+		if bounty > 0 and (victim:GetAttribute("StreakPlayers") or 0) < 3 then
+			bounty = math.max(1, math.floor(bounty * GameConfig.Bots.RewardScale))
+		end
+		victim:SetAttribute("Streak", 0)
+		victim:SetAttribute("StreakPlayers", 0)
 	end
 	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
 
@@ -15944,6 +16027,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			PlayerData.GetLeaderstats(killer).Bajas.Value += 1
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
+			if victim then
+				killer:SetAttribute("StreakPlayers", (killer:GetAttribute("StreakPlayers") or 0) + 1)
+			end
 			if streak > (killer:GetAttribute("BestStreak") or 0) then
 				killer:SetAttribute("BestStreak", streak)
 			end
@@ -15985,7 +16071,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		end
 	end
 
-	-- "SE BUSCA": quien elimina al buscado cobra su recompensa (si lo mata un bot o se mata solo, se pierde)
+	-- "SE BUSCA": quien elimina al buscado cobra su recompensa (si lo mata un bot o muere solo, se pierde)
 	if bounty > 0 and victim then
 		if killer and killer ~= victim then
 			local given = PlayerData.AddCoins(killer, bounty)
@@ -15993,7 +16079,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			Remotes.Notify:FireClient(killer, "BountyClaimed", given)
 			Bounty.Announce(victim.Name, bounty, killer.Name)
 		else
-			Bounty.Announce(victim.Name, bounty, killerBot and killerBot.Name or nil)
+			Bounty.Announce(victim.Name, bounty, nil)
 		end
 	end
 
@@ -21607,6 +21693,7 @@ local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local SocialService = game:GetService("SocialService")
+local GroupService = game:GetService("GroupService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 
@@ -21628,7 +21715,7 @@ local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase, dailyButton, starterButton, wheelButton
+local gui, root, infoLabel, showcase, dailyButton, starterButton, wheelButton, groupButton
 local rankCard -- { Title, Fill, Next }: progreso hacia el siguiente rango
 local blur
 local titleScale
@@ -21716,6 +21803,9 @@ local function refreshInfo()
 	if starterButton then
 		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
 	end
+	if groupButton then
+		groupButton.Visible = data ~= nil and GameConfig.Group.Id ~= 0 and not data.GroupReward
+	end
 	if infoLabel then
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
 			or "Cargando..."
@@ -21785,6 +21875,56 @@ local function buildLeaderboard(parent)
 				invite.Text = "👥  INVITAR AMIGOS  +10%"
 			end)
 		end
+	end)
+	-- Unirse al grupo del juego: premio de monedas una vez (GameConfig.Group)
+	local groupText = "⭐  ÚNETE AL GRUPO  +" .. GameConfig.Group.Coins .. " 🪙"
+	groupButton = bigButton(groupText, Color3.fromRGB(230, 140, 30), 0, panel)
+	groupButton.Position = UDim2.new(0, 0, 1, 62)
+	groupButton.Size = UDim2.new(1, 0, 0, 44)
+	groupButton.TextSize = 22
+	groupButton.Visible = false
+	local claiming = false
+	local function flash(text)
+		groupButton.Text = text
+		task.delay(3, function()
+			if groupButton then
+				groupButton.Text = groupText
+			end
+		end)
+	end
+	groupButton.Activated:Connect(function()
+		if claiming then
+			return
+		end
+		claiming = true
+		Sounds.Play("Click")
+		local function claim()
+			local ok, success, result = pcall(function()
+				return Remotes.ClaimGroup:InvokeServer()
+			end)
+			return ok and success, result
+		end
+		local done, result = claim()
+		if not done and result == "NotMember" then
+			-- Ventana de Roblox para unirse sin salir del juego (si no está disponible, se explica)
+			local prompted = pcall(function()
+				(GroupService :: any):PromptJoinAsync(GameConfig.Group.Id)
+			end)
+			if prompted then
+				task.wait(3.2)
+				done, result = claim()
+			end
+			if not done and result == "NotMember" then
+				result = "Únete al grupo (página del juego) y pulsa otra vez"
+			end
+		end
+		if done then
+			Sounds.Play("Kill")
+			flash("✅ ¡+" .. tostring(result) .. " 🪙! Gracias")
+		else
+			flash(tostring(result or "No se pudo"))
+		end
+		claiming = false
 	end)
 	fitToScreen(panel)
 	UI.label({

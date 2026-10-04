@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local PolicyService = game:GetService("PolicyService")
+local GroupService = game:GetService("GroupService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -97,6 +98,7 @@ local function defaults()
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		Achievements = {}, -- logros reclamados ([Id] = true)
+		GroupReward = false, -- ya reclamó el premio del grupo (GameConfig.Group)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
@@ -208,6 +210,7 @@ local function publicView(player, data)
 		TutorialDone = data.TutorialDone == true or noSave[player] == true,
 		NewsSeen = data.NewsSeen,
 		Achievements = data.Achievements,
+		GroupReward = data.GroupReward == true,
 		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
@@ -407,6 +410,7 @@ local function load(player)
 	if type(merged.Achievements) ~= "table" then
 		merged.Achievements = {}
 	end
+	merged.GroupReward = merged.GroupReward == true
 	if type(merged.WheelSpins) ~= "number" or merged.WheelSpins < 0 then
 		merged.WheelSpins = 0
 	end
@@ -1405,6 +1409,47 @@ function PlayerData.Init()
 		end
 		return false, "No existe"
 	end
+	-- Premio por unirse al grupo (una vez). IsInGroup se guarda en caché en el servidor, así que si
+	-- dice que no se pregunta también a GroupService (por si se acaba de unir sin salir del juego)
+	local groupChecked = {}
+	Remotes.ClaimGroup.OnServerInvoke = function(player)
+		local data = profiles[player]
+		local group = GameConfig.Group
+		if not data or not group or group.Id == 0 then
+			return false, "No disponible"
+		end
+		if data.GroupReward then
+			return false, "Ya lo tienes"
+		end
+		local now = os.clock()
+		if groupChecked[player] and now - groupChecked[player] < 3 then
+			return false, "Espera un momento"
+		end
+		groupChecked[player] = now
+		local ok, member = pcall(player.IsInGroup, player, group.Id)
+		if not (ok and member) then
+			local found, groups = pcall(GroupService.GetGroupsAsync, GroupService, player.UserId)
+			member = false
+			if found and type(groups) == "table" then
+				for _, info in groups do
+					if info.Id == group.Id then
+						member = true
+					end
+				end
+			end
+		end
+		if not member or profiles[player] ~= data or data.GroupReward then
+			return false, "NotMember"
+		end
+		data.GroupReward = true
+		data.Coins += group.Coins
+		dirty[player] = true
+		sendUpdate(player)
+		return true, group.Coins
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		groupChecked[player] = nil
+	end)
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 

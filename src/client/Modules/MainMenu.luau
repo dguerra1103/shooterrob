@@ -6,6 +6,7 @@ local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local SocialService = game:GetService("SocialService")
+local GroupService = game:GetService("GroupService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 
@@ -27,7 +28,7 @@ local camera = workspace.CurrentCamera
 
 local MainMenu = {}
 
-local gui, root, infoLabel, showcase, dailyButton, starterButton, wheelButton
+local gui, root, infoLabel, showcase, dailyButton, starterButton, wheelButton, groupButton
 local rankCard -- { Title, Fill, Next }: progreso hacia el siguiente rango
 local blur
 local titleScale
@@ -115,6 +116,9 @@ local function refreshInfo()
 	if starterButton then
 		starterButton.Visible = data ~= nil and data.StarterPackAvailable == true
 	end
+	if groupButton then
+		groupButton.Visible = data ~= nil and GameConfig.Group.Id ~= 0 and not data.GroupReward
+	end
 	if infoLabel then
 		infoLabel.Text = data and string.format("Nivel %d   ·   🪙 %d   ·   %d bajas", data.Level, data.Coins, data.TotalKills or 0)
 			or "Cargando..."
@@ -184,6 +188,56 @@ local function buildLeaderboard(parent)
 				invite.Text = "👥  INVITAR AMIGOS  +10%"
 			end)
 		end
+	end)
+	-- Unirse al grupo del juego: premio de monedas una vez (GameConfig.Group)
+	local groupText = "⭐  ÚNETE AL GRUPO  +" .. GameConfig.Group.Coins .. " 🪙"
+	groupButton = bigButton(groupText, Color3.fromRGB(230, 140, 30), 0, panel)
+	groupButton.Position = UDim2.new(0, 0, 1, 62)
+	groupButton.Size = UDim2.new(1, 0, 0, 44)
+	groupButton.TextSize = 22
+	groupButton.Visible = false
+	local claiming = false
+	local function flash(text)
+		groupButton.Text = text
+		task.delay(3, function()
+			if groupButton then
+				groupButton.Text = groupText
+			end
+		end)
+	end
+	groupButton.Activated:Connect(function()
+		if claiming then
+			return
+		end
+		claiming = true
+		Sounds.Play("Click")
+		local function claim()
+			local ok, success, result = pcall(function()
+				return Remotes.ClaimGroup:InvokeServer()
+			end)
+			return ok and success, result
+		end
+		local done, result = claim()
+		if not done and result == "NotMember" then
+			-- Ventana de Roblox para unirse sin salir del juego (si no está disponible, se explica)
+			local prompted = pcall(function()
+				(GroupService :: any):PromptJoinAsync(GameConfig.Group.Id)
+			end)
+			if prompted then
+				task.wait(3.2)
+				done, result = claim()
+			end
+			if not done and result == "NotMember" then
+				result = "Únete al grupo (página del juego) y pulsa otra vez"
+			end
+		end
+		if done then
+			Sounds.Play("Kill")
+			flash("✅ ¡+" .. tostring(result) .. " 🪙! Gracias")
+		else
+			flash(tostring(result or "No se pudo"))
+		end
+		claiming = false
 	end)
 	fitToScreen(panel)
 	UI.label({

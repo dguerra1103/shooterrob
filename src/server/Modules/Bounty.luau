@@ -1,6 +1,6 @@
 -- "SE BUSCA" (GameConfig.Bounty): el jugador en racha lleva una recompensa por su cabeza. Se marca
 -- con un cartel sobre la cabeza (los demás lo ven; él no) y quien lo elimine cobra las monedas.
--- El valor queda en el atributo "Bounty" del jugador (lo usa también el marcador).
+-- El valor queda en el atributo "Bounty" del jugador (los bots lo usan para ir a por él).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -10,6 +10,7 @@ local Remotes = require(Shared.Remotes)
 local Bounty = {}
 
 local TAG = "BountyTag"
+local watched = {} -- jugadores a los que se les vuelve a poner el cartel al cambiar de personaje
 
 local function config()
 	return GameConfig.Bounty or {}
@@ -84,12 +85,34 @@ local function showTag(player, value)
 	end
 end
 
+-- Si recibe un personaje nuevo sin haber muerto (rondas de Eliminación, paciente cero de la
+-- Infección), sigue buscado: el cartel pasa al personaje nuevo
+local function watch(player)
+	if watched[player] then
+		return
+	end
+	watched[player] = player.CharacterAdded:Connect(function(character)
+		local head = character:WaitForChild("Head", 5)
+		local value = player:GetAttribute("Bounty") or 0
+		if head and value > 0 and player.Character == character then
+			showTag(player, value)
+		end
+	end)
+	player.AncestryChanged:Connect(function()
+		if not player.Parent and watched[player] then
+			watched[player]:Disconnect()
+			watched[player] = nil
+		end
+	end)
+end
+
 -- Tras una baja de `player` con racha `streak`: sube (o pone) su recompensa
 function Bounty.OnStreak(player, streak)
 	local value = Bounty.Value(streak)
 	if value <= 0 then
 		return
 	end
+	watch(player)
 	local before = player:GetAttribute("Bounty") or 0
 	player:SetAttribute("Bounty", value)
 	showTag(player, value)

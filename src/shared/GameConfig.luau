@@ -212,6 +212,13 @@ GameConfig.Coins = {
 	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
 }
 
+-- Grupo de Roblox: quien se une al grupo del juego puede reclamar Coins una vez (botón en la
+-- pantalla de inicio). Crea el grupo en roblox.com/communities/create y pega aquí su ID (con 0 no sale).
+GameConfig.Group = {
+	Id = 0,
+	Coins = 500,
+}
+
 -- "SE BUSCA": quien llega a una racha de Streak bajas lleva una recompensa encima (todos lo ven
 -- marcado). Quien lo elimine cobra Base monedas, + PerKill por cada baja más de la racha (hasta Max).
 GameConfig.Bounty = {
