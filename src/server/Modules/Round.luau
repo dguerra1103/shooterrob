@@ -1030,6 +1030,8 @@ local function eliminationRounds(s)
 					result = defenders
 				elseif not Bomb.Planted and os.clock() >= roundEnd then
 					result = defenders
+				elseif Bomb.Planted and os.clock() >= roundEnd + (s.BombTime or 35) + 5 then
+					result = defenders -- (por si la bomba dejara de contar: la ronda nunca se queda colgada)
 				end
 				if result or (not contest and os.clock() >= roundEnd) then
 					winner = contest and result or nil

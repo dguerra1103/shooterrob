@@ -958,6 +958,25 @@ local function checkStuck(agent, humanoid, root, now)
 	end
 end
 
+-- Buscar y destruir: ¿está dentro de un sitio en el que tiene que plantar o desactivar? (entonces no
+-- sale corriendo detrás de un ruido ni de alguien que ha perdido de vista)
+local function sndBusy(agent, root)
+	if ReplicatedStorage:GetAttribute("Mode") ~= "SND" or not agent.Team then
+		return false
+	end
+	local attacking = ReplicatedStorage:GetAttribute("Bomb_Attackers") == agent.Team.Name
+	local planted = ReplicatedStorage:GetAttribute("Bomb_State") == "Planted"
+	for _, site in Bomb.Sites() do
+		local offset = site.Position - root.Position
+		if Vector3.new(offset.X, 0, offset.Z).Magnitude <= site.Radius then
+			if (attacking and not planted) or (not attacking and planted and ReplicatedStorage:GetAttribute("Bomb_Site") == site.Letter) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
@@ -1014,8 +1033,12 @@ local function think(agent)
 
 	-- Acaba de perder de vista al enemigo: granada si se ha escondido cerca; si no, mira hacia allí
 	-- un momento (pre-apuntar) antes de ir a buscarle
+	local busy = sndBusy(agent, root)
+	if busy and (agent.HoldUntil or 0) <= now then
+		agent.HoldUntil = now + 1 -- (sigue plantando o desactivando)
+	end
 	local lostFor = agent.LastSeenTime and now - agent.LastSeenTime or math.huge
-	if lostFor < 3 and agent.LastSeenPosition then
+	if lostFor < 3 and agent.LastSeenPosition and not busy then
 		local away = (agent.LastSeenPosition - root.Position).Magnitude
 		if lostFor > 0.6 and away > 14 and away < 48 and now >= (agent.NextGrenade or 0) and math.random() < 0.3 then
 			agent.NextGrenade = now + (CONFIG.GrenadeCooldown or 18) * (0.8 + math.random() * 0.4)
@@ -1037,7 +1060,7 @@ local function think(agent)
 		agent.ChasedSeen = false
 	end
 	-- Ha oído disparos cerca: deja lo que esté haciendo y va (el tirador solo se gira)
-	if heard and not agent.CarryingFlag and now > (agent.NextHeard or 0) then
+	if heard and not agent.CarryingFlag and not busy and now > (agent.NextHeard or 0) then
 		agent.NextHeard = now + 4
 		if agent.Role == "Tirador" and (agent.HoldUntil or 0) > now then
 			agent.HoldLook = heard

@@ -185,20 +185,30 @@ function Bomb.Start(attackers, defenders)
 	thread = task.spawn(function()
 		local progress, site, explodeAt = 0, nil, nil
 		while active do
-			task.wait(STEP)
+			-- (el progreso con el tiempo de verdad: con el servidor cargado la espera dura más)
+			local dt = task.wait(STEP)
 			if not Bomb.Planted then
-				-- Plantar: algún atacante vivo dentro de un sitio, sin moverse de él
+				-- Plantar: algún atacante vivo dentro de un sitio, sin moverse de él. Primero el sitio en
+				-- el que ya se está plantando (que otro entre en el otro sitio no lo reinicia)
 				local here, players = nil, {}
+				if site then
+					local list, count = inside(attackers, site.Position, site.Radius)
+					if count > 0 then
+						here, players = site, list
+					end
+				end
 				for _, candidate in sites do
+					if here then
+						break
+					end
 					local list, count = inside(attackers, candidate.Position, candidate.Radius)
 					if count > 0 then
 						here, players = candidate, list
-						break
 					end
 				end
 				if here and (site == nil or site == here) then
 					site = here
-					progress += STEP / plantTime
+					progress += dt / plantTime
 					setAttr("Action", "Planting")
 					setAttr("Site", site.Letter)
 					if progress >= 1 then
@@ -209,7 +219,7 @@ function Bomb.Start(attackers, defenders)
 						setAttr("Action", "")
 						Remotes.Notify:FireAllClients("Big", "💣 ¡BOMBA PLANTADA EN " .. site.Letter .. "!")
 						for _, player in players do
-							PlayerData.AddXP(player, 50, "💣 Bomba plantada")
+							task.spawn(PlayerData.AddXP, player, 50, "💣 Bomba plantada")
 						end
 						for _, visual in visuals do
 							if visual.Name ~= "BombSite_" .. site.Letter then
@@ -233,7 +243,7 @@ function Bomb.Start(attackers, defenders)
 				-- Desactivar: algún defensor vivo junto a la bomba
 				local players, count = inside(defenders, site.Position, site.Radius)
 				if count > 0 then
-					progress += STEP / defuseTime
+					progress += dt / defuseTime
 					setAttr("Action", "Defusing")
 					if progress >= 1 then
 						Bomb.Result = "Defused"
@@ -241,7 +251,7 @@ function Bomb.Start(attackers, defenders)
 						setAttr("Action", "")
 						Remotes.Notify:FireAllClients("Big", "✅ ¡BOMBA DESACTIVADA!")
 						for _, player in players do
-							PlayerData.AddXP(player, 60, "✅ Bomba desactivada")
+							task.spawn(PlayerData.AddXP, player, 60, "✅ Bomba desactivada")
 						end
 						active = false
 					end

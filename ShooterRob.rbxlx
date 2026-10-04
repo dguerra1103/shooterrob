@@ -6357,20 +6357,30 @@ function Bomb.Start(attackers, defenders)
 	thread = task.spawn(function()
 		local progress, site, explodeAt = 0, nil, nil
 		while active do
-			task.wait(STEP)
+			-- (el progreso con el tiempo de verdad: con el servidor cargado la espera dura más)
+			local dt = task.wait(STEP)
 			if not Bomb.Planted then
-				-- Plantar: algún atacante vivo dentro de un sitio, sin moverse de él
+				-- Plantar: algún atacante vivo dentro de un sitio, sin moverse de él. Primero el sitio en
+				-- el que ya se está plantando (que otro entre en el otro sitio no lo reinicia)
 				local here, players = nil, {}
+				if site then
+					local list, count = inside(attackers, site.Position, site.Radius)
+					if count > 0 then
+						here, players = site, list
+					end
+				end
 				for _, candidate in sites do
+					if here then
+						break
+					end
 					local list, count = inside(attackers, candidate.Position, candidate.Radius)
 					if count > 0 then
 						here, players = candidate, list
-						break
 					end
 				end
 				if here and (site == nil or site == here) then
 					site = here
-					progress += STEP / plantTime
+					progress += dt / plantTime
 					setAttr("Action", "Planting")
 					setAttr("Site", site.Letter)
 					if progress >= 1 then
@@ -6381,7 +6391,7 @@ function Bomb.Start(attackers, defenders)
 						setAttr("Action", "")
 						Remotes.Notify:FireAllClients("Big", "💣 ¡BOMBA PLANTADA EN " .. site.Letter .. "!")
 						for _, player in players do
-							PlayerData.AddXP(player, 50, "💣 Bomba plantada")
+							task.spawn(PlayerData.AddXP, player, 50, "💣 Bomba plantada")
 						end
 						for _, visual in visuals do
 							if visual.Name ~= "BombSite_" .. site.Letter then
@@ -6405,7 +6415,7 @@ function Bomb.Start(attackers, defenders)
 				-- Desactivar: algún defensor vivo junto a la bomba
 				local players, count = inside(defenders, site.Position, site.Radius)
 				if count > 0 then
-					progress += STEP / defuseTime
+					progress += dt / defuseTime
 					setAttr("Action", "Defusing")
 					if progress >= 1 then
 						Bomb.Result = "Defused"
@@ -6413,7 +6423,7 @@ function Bomb.Start(attackers, defenders)
 						setAttr("Action", "")
 						Remotes.Notify:FireAllClients("Big", "✅ ¡BOMBA DESACTIVADA!")
 						for _, player in players do
-							PlayerData.AddXP(player, 60, "✅ Bomba desactivada")
+							task.spawn(PlayerData.AddXP, player, 60, "✅ Bomba desactivada")
 						end
 						active = false
 					end
@@ -7424,6 +7434,25 @@ local function checkStuck(agent, humanoid, root, now)
 	end
 end
 
+-- Buscar y destruir: ¿está dentro de un sitio en el que tiene que plantar o desactivar? (entonces no
+-- sale corriendo detrás de un ruido ni de alguien que ha perdido de vista)
+local function sndBusy(agent, root)
+	if ReplicatedStorage:GetAttribute("Mode") ~= "SND" or not agent.Team then
+		return false
+	end
+	local attacking = ReplicatedStorage:GetAttribute("Bomb_Attackers") == agent.Team.Name
+	local planted = ReplicatedStorage:GetAttribute("Bomb_State") == "Planted"
+	for _, site in Bomb.Sites() do
+		local offset = site.Position - root.Position
+		if Vector3.new(offset.X, 0, offset.Z).Magnitude <= site.Radius then
+			if (attacking and not planted) or (not attacking and planted and ReplicatedStorage:GetAttribute("Bomb_Site") == site.Letter) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
@@ -7480,8 +7509,12 @@ local function think(agent)
 
 	-- Acaba de perder de vista al enemigo: granada si se ha escondido cerca; si no, mira hacia allí
 	-- un momento (pre-apuntar) antes de ir a buscarle
+	local busy = sndBusy(agent, root)
+	if busy and (agent.HoldUntil or 0) <= now then
+		agent.HoldUntil = now + 1 -- (sigue plantando o desactivando)
+	end
 	local lostFor = agent.LastSeenTime and now - agent.LastSeenTime or math.huge
-	if lostFor < 3 and agent.LastSeenPosition then
+	if lostFor < 3 and agent.LastSeenPosition and not busy then
 		local away = (agent.LastSeenPosition - root.Position).Magnitude
 		if lostFor > 0.6 and away > 14 and away < 48 and now >= (agent.NextGrenade or 0) and math.random() < 0.3 then
 			agent.NextGrenade = now + (CONFIG.GrenadeCooldown or 18) * (0.8 + math.random() * 0.4)
@@ -7503,7 +7536,7 @@ local function think(agent)
 		agent.ChasedSeen = false
 	end
 	-- Ha oído disparos cerca: deja lo que esté haciendo y va (el tirador solo se gira)
-	if heard and not agent.CarryingFlag and now > (agent.NextHeard or 0) then
+	if heard and not agent.CarryingFlag and not busy and now > (agent.NextHeard or 0) then
 		agent.NextHeard = now + 4
 		if agent.Role == "Tirador" and (agent.HoldUntil or 0) > now then
 			agent.HoldLook = heard
@@ -21697,7 +21730,12 @@ local function groundBelow(position)
 end
 
 -- Fuera de Halloween el modo es "Baja confirmada": en vez de calabazas, placas de identificación
+-- (se decide al empezar la partida: si Halloween empieza o acaba a mitad, no cambia)
+local tagsThisMatch = nil
 function Pumpkins.Tags()
+	if tagsThisMatch ~= nil then
+		return tagsThisMatch
+	end
 	return ReplicatedStorage:GetAttribute("EventName") ~= "Halloween"
 end
 
@@ -21819,6 +21857,7 @@ end
 
 function Pumpkins.Start()
 	Pumpkins.Stop()
+	tagsThisMatch = ReplicatedStorage:GetAttribute("EventName") ~= "Halloween"
 	running = true
 	generation += 1
 	local mine = generation
@@ -21834,6 +21873,7 @@ function Pumpkins.Start()
 end
 
 function Pumpkins.Stop()
+	tagsThisMatch = nil
 	running = false
 	for _, pumpkin in active do
 		pumpkin.Model:Destroy()
@@ -22030,10 +22070,24 @@ function RealKit.building(cf, sx, sz, opts)
 	-- Muebles (cobertura dentro): mesa al fondo y estantería delante, contra el muro derecho, y cajas
 	-- arriba (en el lado derecho: la escalera va por el izquierdo y la puerta lateral está en el centro)
 	if not opts.Empty then
-		local tableCf = cf * CFrame.new(sx / 2 - WALL_T - 2, 0, sz / 4 + 0.8)
-		block("Table", V(2.6, 0.3, 4.4), tableCf * CFrame.new(0, 3, 0), RGB(110, 80, 56), M.WoodPlanks)
-		block("TableBase", V(2.2, 2.85, 0.4), tableCf * CFrame.new(0, 1.45, 0), RGB(90, 64, 44), M.Wood) -- (se esconde detrás)
-		block("Shelf", V(1.2, 5, 4), cf * CFrame.new(sx / 2 - WALL_T - 0.6, 2.5, -sz / 4), RGB(96, 90, 82), M.Metal)
+		-- (nada delante de una puerta del muro derecho: su hueco va en z = -offset, 6 de ancho)
+		local function clearOfDoors(z, halfDepth)
+			for _, d in doors.Right or {} do
+				if math.abs(-d - z) < 3 + halfDepth + 0.5 then
+					return false
+				end
+			end
+			return true
+		end
+		local tableZ = sz / 4 + 0.8
+		if clearOfDoors(tableZ, 2.2) then
+			local tableCf = cf * CFrame.new(sx / 2 - WALL_T - 2, 0, tableZ)
+			block("Table", V(2.6, 0.3, 4.4), tableCf * CFrame.new(0, 3, 0), RGB(110, 80, 56), M.WoodPlanks)
+			block("TableBase", V(2.2, 2.85, 0.4), tableCf * CFrame.new(0, 1.45, 0), RGB(90, 64, 44), M.Wood) -- (se esconde detrás)
+		end
+		if clearOfDoors(-sz / 4, 2) then
+			block("Shelf", V(1.2, 5, 4), cf * CFrame.new(sx / 2 - WALL_T - 0.6, 2.5, -sz / 4), RGB(96, 90, 82), M.Metal)
+		end
 		if floors >= 2 then
 			local crateCf = cf * CFrame.new(sx / 2 - WALL_T - 2, FLOOR_H, -sz / 4)
 			Kit.crate(crateCf, 2.5)
@@ -23417,6 +23471,8 @@ local function eliminationRounds(s)
 					result = defenders
 				elseif not Bomb.Planted and os.clock() >= roundEnd then
 					result = defenders
+				elseif Bomb.Planted and os.clock() >= roundEnd + (s.BombTime or 35) + 5 then
+					result = defenders -- (por si la bomba dejara de contar: la ronda nunca se queda colgada)
 				end
 				if result or (not contest and os.clock() >= roundEnd) then
 					winner = contest and result or nil

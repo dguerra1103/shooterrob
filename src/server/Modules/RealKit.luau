@@ -176,10 +176,24 @@ function RealKit.building(cf, sx, sz, opts)
 	-- Muebles (cobertura dentro): mesa al fondo y estantería delante, contra el muro derecho, y cajas
 	-- arriba (en el lado derecho: la escalera va por el izquierdo y la puerta lateral está en el centro)
 	if not opts.Empty then
-		local tableCf = cf * CFrame.new(sx / 2 - WALL_T - 2, 0, sz / 4 + 0.8)
-		block("Table", V(2.6, 0.3, 4.4), tableCf * CFrame.new(0, 3, 0), RGB(110, 80, 56), M.WoodPlanks)
-		block("TableBase", V(2.2, 2.85, 0.4), tableCf * CFrame.new(0, 1.45, 0), RGB(90, 64, 44), M.Wood) -- (se esconde detrás)
-		block("Shelf", V(1.2, 5, 4), cf * CFrame.new(sx / 2 - WALL_T - 0.6, 2.5, -sz / 4), RGB(96, 90, 82), M.Metal)
+		-- (nada delante de una puerta del muro derecho: su hueco va en z = -offset, 6 de ancho)
+		local function clearOfDoors(z, halfDepth)
+			for _, d in doors.Right or {} do
+				if math.abs(-d - z) < 3 + halfDepth + 0.5 then
+					return false
+				end
+			end
+			return true
+		end
+		local tableZ = sz / 4 + 0.8
+		if clearOfDoors(tableZ, 2.2) then
+			local tableCf = cf * CFrame.new(sx / 2 - WALL_T - 2, 0, tableZ)
+			block("Table", V(2.6, 0.3, 4.4), tableCf * CFrame.new(0, 3, 0), RGB(110, 80, 56), M.WoodPlanks)
+			block("TableBase", V(2.2, 2.85, 0.4), tableCf * CFrame.new(0, 1.45, 0), RGB(90, 64, 44), M.Wood) -- (se esconde detrás)
+		end
+		if clearOfDoors(-sz / 4, 2) then
+			block("Shelf", V(1.2, 5, 4), cf * CFrame.new(sx / 2 - WALL_T - 0.6, 2.5, -sz / 4), RGB(96, 90, 82), M.Metal)
+		end
 		if floors >= 2 then
 			local crateCf = cf * CFrame.new(sx / 2 - WALL_T - 2, FLOOR_H, -sz / 4)
 			Kit.crate(crateCf, 2.5)

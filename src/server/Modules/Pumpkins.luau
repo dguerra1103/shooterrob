@@ -39,7 +39,12 @@ local function groundBelow(position)
 end
 
 -- Fuera de Halloween el modo es "Baja confirmada": en vez de calabazas, placas de identificación
+-- (se decide al empezar la partida: si Halloween empieza o acaba a mitad, no cambia)
+local tagsThisMatch = nil
 function Pumpkins.Tags()
+	if tagsThisMatch ~= nil then
+		return tagsThisMatch
+	end
 	return ReplicatedStorage:GetAttribute("EventName") ~= "Halloween"
 end
 
@@ -161,6 +166,7 @@ end
 
 function Pumpkins.Start()
 	Pumpkins.Stop()
+	tagsThisMatch = ReplicatedStorage:GetAttribute("EventName") ~= "Halloween"
 	running = true
 	generation += 1
 	local mine = generation
@@ -176,6 +182,7 @@ function Pumpkins.Start()
 end
 
 function Pumpkins.Stop()
+	tagsThisMatch = nil
 	running = false
 	for _, pumpkin in active do
 		pumpkin.Model:Destroy()
