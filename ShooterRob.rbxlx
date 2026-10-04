@@ -1076,6 +1076,18 @@ Outfits.List = {
 		Sleeves = true,
 		Pieces = { Bandages = true, MummyHead = true },
 	},
+	-- Oeste (en la tienda con monedas, a juego con el mapa Pueblo Vaquero)
+	Vaquero = {
+		Name = "Sheriff Vaquero",
+		Rarity = "Legendario",
+		Class = "Oeste",
+		Body = RGB(95, 62, 38),
+		Cloth = RGB(200, 70, 55),
+		Glow = RGB(255, 205, 70),
+		Plate = RGB(170, 115, 60),
+		Sleeves = true,
+		Pieces = { CowboyHat = true, Bandana = true, LeatherVest = true, SheriffStar = true, Belt = true, Holster = true, Boots = true, Gloves = true },
+	},
 }
 
 function Outfits.Get(id)
@@ -1398,6 +1410,47 @@ function Outfits.Apply(character, id)
 		end
 		for _, sx in { -1, 1 } do
 			newPiece(folder, head, "MummyEye", V(0.18 * sx, 0.18, -0.56), Z, V(0.14, 0.07, 0.03), Z, o.Glow, glow)
+		end
+	end
+	if P.CowboyHat then
+		-- Ala ancha (cilindro aplanado), copa y cinta dorada
+		local function disc(name, offset, height, width, color)
+			local part = newPiece(folder, head, name, offset, Z, V(height, width, width), Z, color, Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(90)))
+			part.Shape = Enum.PartType.Cylinder
+			return part
+		end
+		disc("HatBrim", V(0, 0.5, 0), 0.07, 2.1, o.Plate)
+		-- (los lados del ala, un poco levantados)
+		for _, sx in { -1, 1 } do
+			newPiece(folder, head, "HatBrimCurl", V(0.86 * sx, 0.54, 0), Z, V(0.34, 0.06, 1.5), Z, o.Plate, Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(16 * sx)))
+		end
+		disc("HatCrown", V(0, 0.72, 0), 0.42, 1.05, o.Plate)
+		disc("HatBand", V(0, 0.58, 0), 0.1, 1.09, o.Glow)
+		newPiece(folder, head, "HatDent", V(0, 0.93, 0), Z, V(0.18, 0.05, 0.75), Z, o.Plate:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.Fabric)
+	end
+	if P.Bandana then
+		-- Pañuelo al cuello con el pico hacia abajo
+		newPiece(folder, upper, "Bandana", V(0, 0.45, -0.05), Z, V(0.85, 0.15, 1.1), Z, o.Cloth:Lerp(Color3.new(1, 1, 1), 0.15), Enum.Material.Fabric)
+		newPiece(folder, upper, "BandanaTip", V(0, 0.3, -0.55), Z, V(0.3, 0.3, 0.05), Z, o.Cloth:Lerp(Color3.new(1, 1, 1), 0.15), Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(45)))
+	end
+	if P.LeatherVest then
+		-- Chaleco abierto: dos paneles delante y uno detrás
+		for _, sx in { -1, 1 } do
+			newPiece(folder, upper, "VestPanel", V(0.3 * sx, -0.05, -0.52), Z, V(0.36, 0.88, 0.06), Z, o.Plate, Enum.Material.Leather)
+			newPiece(folder, upper, "VestSide", V(0.52 * sx, -0.05, 0), Z, V(0.05, 0.88, 1.02), Z, o.Plate, Enum.Material.Leather)
+		end
+		newPiece(folder, upper, "VestBack", V(0, -0.05, 0.52), Z, V(1.02, 0.88, 0.06), Z, o.Plate, Enum.Material.Leather)
+	end
+	if P.SheriffStar then
+		for i = 0, 1 do
+			newPiece(folder, upper, "SheriffStar", V(-0.3, 0.12, -0.57), Z, V(0.17, 0.17, 0.03), Z, o.Glow, Enum.Material.SmoothPlastic, CFrame.Angles(0, 0, math.rad(i * 36 + 9)))
+		end
+	end
+	if P.Holster then
+		local leg = get("RightUpperLeg")
+		if leg then
+			newPiece(folder, leg, "Holster", V(0.55, 0.1, 0), Z, V(0.25, 0.6, 0.55), Z, o.Body:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.Leather)
+			newPiece(folder, leg, "HolsterGrip", V(0.58, 0.45, 0.05), Z, V(0.18, 0.3, 0.3), Z, RGB(60, 40, 30), Enum.Material.Wood)
 		end
 	end
 	if P.Scarf then
@@ -1792,6 +1845,7 @@ Shop.OutfitPrices = {
 	GoldenAce = 4000,
 	Vampiro = 2500,
 	Momia = 1800,
+	Vaquero = 2200,
 }
 
 -- Recompensa diaria: un día por entrada (al 7.º día se vuelve a empezar)

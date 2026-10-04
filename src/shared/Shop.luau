@@ -162,6 +162,7 @@ Shop.OutfitPrices = {
 	GoldenAce = 4000,
 	Vampiro = 2500,
 	Momia = 1800,
+	Vaquero = 2200,
 }
 
 -- Recompensa diaria: un día por entrada (al 7.º día se vuelve a empezar)
