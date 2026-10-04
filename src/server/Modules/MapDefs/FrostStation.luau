@@ -45,18 +45,22 @@ local DARK = RGB(60, 66, 78)
 
 -- Pino nevado: tronco y siete pisos redondos de ramas, cada vez más estrechos y muy juntos para
 -- que la silueta sea un cono; nieve sobre pisos alternos y verdes algo distintos
-local function pine(position, scale)
+-- `far` = pino de fondo: cuatro pisos más altos en vez de siete (la silueta lejana es la misma)
+local function pine(position, scale, far)
 	scale = scale or 1
 	local cylinder = Kit.cylinder
 	cylinder("PineTrunk", 5 * scale, 1.1 * scale, CFrame.new(position + V(0, 2.5 * scale, 0)), RGB(88, 62, 44), Enum.Material.Wood)
-	for i = 1, 7 do
-		local d = (10 - (i - 1) * 1.35) * scale
-		local y = (3 + (i - 1) * 1.65) * scale
+	local tiers = far and 4 or 7
+	local step = 6 / (tiers - 1)
+	for i = 1, tiers do
+		local d = (10 - (i - 1) * 8.1 / (tiers - 1)) * scale
+		local y = (3 + (i - 1) * 1.65 * step) * scale
 		local green = RGB(34, 74, 52):Lerp(RGB(50, 98, 66), (i % 2) * 0.6)
-		local branches = cylinder("PineTier", 2.2 * scale, d, CFrame.new(position + V(0, y, 0)), green, Enum.Material.LeafyGrass, nil, true)
-		branches.CastShadow = true
-		if i % 2 == 1 then
-			cylinder("PineSnow", 0.4 * scale, d * 0.78, CFrame.new(position + V(0, y + 1.1 * scale, 0)), SNOW, Enum.Material.Snow, nil, true)
+		local height = (1.65 * step + 0.55) * scale -- los pisos se solapan un poco, sin huecos
+		local branches = cylinder("PineTier", height, d, CFrame.new(position + V(0, y, 0)), green, Enum.Material.LeafyGrass, nil, true)
+		branches.CastShadow = not far
+		if far or i % 2 == 1 then
+			cylinder("PineSnow", 0.4 * scale, d * 0.78, CFrame.new(position + V(0, y + height / 2, 0)), SNOW, Enum.Material.Snow, nil, true)
 		end
 	end
 	cylinder("PineTip", 1.8 * scale, 0.9 * scale, CFrame.new(position + V(0, 14.2 * scale, 0)), RGB(40, 84, 58), Enum.Material.LeafyGrass, nil, true)
@@ -286,7 +290,7 @@ function Map.Build()
 	-- Pinos fuera del mapa (bosque de fondo)
 	for x = -150, 150, 22 do
 		for _, z in { -1, 1 } do
-			pine(V(x + (z * 7), 0, z * (122 + (math.abs(x) % 13))), 1.3)
+			pine(V(x + (z * 7), 0, z * (122 + (math.abs(x) % 13))), 1.3, true)
 		end
 	end
 
@@ -309,9 +313,8 @@ function Map.Build()
 		for i = 0, count do
 			local p = a:Lerp(b, i / count) + Vector3.new(rng:NextNumber(-0.3, 0.3), 0, rng:NextNumber(-0.2, 0.2))
 			local length = rng:NextNumber(0.8, 2.6)
-			local ice = Kit.deco("Icicle", Vector3.new(0.35, length, 0.35), CFrame.new(p.X, top - length / 2, p.Z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), Color3.fromRGB(205, 235, 255), Enum.Material.Ice)
-			ice.Transparency = 0.15
-			Kit.deco("IcicleTip", Vector3.new(0.18, length * 0.5, 0.18), CFrame.new(p.X, top - length - length * 0.2, p.Z), Color3.fromRGB(220, 242, 255), Enum.Material.Ice).Transparency = 0.2
+			Kit.deco("Icicle", Vector3.new(0.35, length, 0.35), CFrame.new(p.X, top - length / 2, p.Z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), Color3.fromRGB(205, 235, 255), Enum.Material.Ice)
+			Kit.deco("IcicleTip", Vector3.new(0.18, length * 0.5, 0.18), CFrame.new(p.X, top - length - length * 0.2, p.Z), Color3.fromRGB(220, 242, 255), Enum.Material.Ice)
 		end
 	end
 	Kit.symmetric(function(m, side)

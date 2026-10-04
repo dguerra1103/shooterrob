@@ -105,8 +105,7 @@ function Footprints.Init()
 			return
 		end
 		elapsed = 0
-		local settings = ClientState.Settings
-		if settings and settings.Quality == "Baja" then
+		if ClientState.EffectiveQuality == "Baja" then
 			return
 		end
 		local camera = workspace.CurrentCamera

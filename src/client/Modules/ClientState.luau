@@ -2,6 +2,7 @@
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
+	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre

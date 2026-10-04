@@ -3,6 +3,9 @@ local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
 GameConfig.GameTitle = "SHOOTER NEW"
+-- Estilo de los mapas: "Cartoon" (colores vivos, plástico liso, sombras suaves, como los shooters más
+-- jugados de Roblox) o "Realista" (piedra, yeso, ladrillo y luz más dura)
+GameConfig.VisualStyle = "Cartoon"
 
 -- Equipos
 GameConfig.Teams = {
@@ -48,8 +51,9 @@ GameConfig.SlideCooldown = 1.1
 GameConfig.FieldOfView = 80
 
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
-GameConfig.QualityLevels = { "Baja", "Media", "Alta", "Ultra" }
-GameConfig.DefaultSettings = { Quality = "Alta", FOV = 80, Sensitivity = 1, AimSensitivity = 0.8 }
+-- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
+GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },

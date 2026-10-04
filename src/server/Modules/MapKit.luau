@@ -55,6 +55,52 @@ function Kit.realisticMaterial(size, color, material)
 	return Enum.Material.Plaster
 end
 
+-- Estilo Cartoon: los materiales "realistas" pasan a plástico liso y los colores ganan viveza; los
+-- grises claros tiran a lavanda (paredes tipo shooter de Roblox). Los detalles de suelo no cambian.
+Kit.Cartoon = GameConfig.VisualStyle ~= "Realista"
+local CARTOON_FLAT = {}
+for _, name in {
+	"Plaster", "Concrete", "Brick", "Limestone", "Cobblestone", "Slate", "Pavement", "Asphalt", "Granite", "Marble",
+	"Sandstone", "Pebble", "CorrodedMetal", "DiamondPlate", "Rock", "Basalt", "Plastic", "Grass", "LeafyGrass",
+	"Ground", "Mud", "ClayRoofTiles", "CeramicTiles", "Fabric",
+} do
+	local ok, material = pcall(function()
+		return (Enum.Material :: any)[name]
+	end)
+	if ok and material then
+		CARTOON_FLAT[material] = true
+	end
+end
+local KEEP_LOOK = { ContactShadow = true, OilStain = true, Crack = true, Joint = true, TireMark = true, Puddle = true }
+
+function Kit.vivid(color)
+	local h, s, v = color:ToHSV()
+	if s < 0.22 then
+		if v >= 0.45 then
+			return Color3.fromHSV(0.68, 0.16, math.min(1, v * 1.02 + 0.05)) -- piedra, yeso, gris claro → lavanda
+		elseif v >= 0.2 then
+			return Color3.fromHSV(0.66, 0.2, math.min(1, v * 1.08)) -- asfalto, hormigón oscuro → gris azulado
+		end
+		return color -- negros
+	end
+	return Color3.fromHSV(h, math.clamp(s * 1.45, 0, 0.95), math.clamp(v * 1.1 + 0.04, 0, 1))
+end
+
+function Kit.applyStyle(part)
+	if not Kit.Cartoon or KEEP_LOOK[part.Name] or part.Material == Enum.Material.Neon then
+		return
+	end
+	if CARTOON_FLAT[part.Material] then
+		part.Material = Enum.Material.SmoothPlastic
+	end
+	-- Textura de cuadrícula (MaterialVariant "Grid" en MaterialService, ver assets/textures/LEEME.md).
+	-- Si la variante no existe todavía, Roblox usa el plástico liso normal: no rompe nada.
+	if part.Material == Enum.Material.SmoothPlastic then
+		part.MaterialVariant = "Grid"
+	end
+	part.Color = Kit.vivid(part.Color)
+end
+
 function Kit.block(name, size, cf, color, material, parent)
 	local part = Instance.new("Part")
 	part.Name = name
@@ -66,6 +112,7 @@ function Kit.block(name, size, cf, color, material, parent)
 	if part.Material == Enum.Material.Glass then
 		part.Reflectance = 0.15 -- los cristales reflejan un poco el cielo
 	end
+	Kit.applyStyle(part)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or Kit.folder
@@ -235,7 +282,7 @@ function Kit.container(cf, color, labelText)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	for i = -4, 4 do
+	for i = -4, 4, 2 do
 		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
 	end
 	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
@@ -777,6 +824,7 @@ function Kit.car(cf, color, options)
 	model.Parent = Kit.folder
 	local function paint(part)
 		part.Material = Enum.Material.SmoothPlastic -- pintura lisa con brillo (no yeso)
+		part.MaterialVariant = "" -- sin cuadrícula: es pintura de coche
 		part.Reflectance = 0.12
 		return part
 	end
@@ -1027,6 +1075,13 @@ local TERRAIN_DEFAULTS = {
 	Slate = RGB(63, 127, 107),
 }
 
+-- Hierba y hojas más vivas en estilo Cartoon
+local CARTOON_TERRAIN = {
+	Grass = RGB(80, 175, 70),
+	LeafyGrass = RGB(66, 150, 58),
+	Ground = RGB(150, 120, 80),
+}
+
 local function ensure(className, parent)
 	parent = parent or Lighting
 	local inst = parent:FindFirstChildOfClass(className)
@@ -1037,8 +1092,46 @@ local function ensure(className, parent)
 	return inst
 end
 
+-- Estilo Cartoon: luz más suave y clara (sombras rellenas), menos neblina, sin deslumbramiento y
+-- más saturación; el ambiente de cada mapa (hora, color del cielo) se mantiene
+local function cartoonize(preset)
+	local p = table.clone(preset)
+	local clock = p.ClockTime or 14
+	local night = clock < 6 or clock > 18.6
+	p.Ambient = (p.Ambient or RGB(60, 62, 72)):Lerp(night and RGB(70, 70, 105) or RGB(125, 125, 145), 0.55)
+	p.OutdoorAmbient = (p.OutdoorAmbient or RGB(125, 128, 140)):Lerp(night and RGB(90, 90, 135) or RGB(170, 170, 190), 0.55)
+	p.ShadowSoftness = 0.3
+	if not night then
+		p.Brightness = math.max(p.Brightness or 3, 3)
+	end
+	local a = table.clone(p.Atmosphere or {})
+	a.Density = math.min(a.Density or 0.3, 0.26)
+	a.Haze = math.min(a.Haze or 1.4, 0.6)
+	a.Glare = 0
+	p.Atmosphere = a
+	local c = table.clone(p.Color or {})
+	c.Saturation = (c.Saturation or 0.1) + 0.12
+	c.Contrast = 0.06
+	c.Brightness = (c.Brightness or 0.02) + 0.02
+	p.Color = c
+	local b = table.clone(p.Bloom or {})
+	b.Intensity = math.min(b.Intensity or 0.8, 0.45)
+	p.Bloom = b
+	p.Clouds = math.max(p.Clouds or 0.55, 0.6)
+	p.SunRays = math.min(p.SunRays or 0.06, 0.05)
+	local terrain = {}
+	for name, color in TERRAIN_DEFAULTS do
+		terrain[name] = Kit.vivid((p.TerrainColors and p.TerrainColors[name]) or CARTOON_TERRAIN[name] or color)
+	end
+	p.TerrainColors = terrain
+	return p
+end
+
 -- preset: tabla con ClockTime, Brightness, Ambient, OutdoorAmbient, Atmosphere{...}, Color{...}, Bloom{...}, Clouds
 function Kit.applyLighting(preset)
+	if Kit.Cartoon then
+		preset = cartoonize(preset)
+	end
 	Lighting.ClockTime = preset.ClockTime or 14
 	Lighting.GeographicLatitude = preset.Latitude or 35
 	Lighting.Brightness = preset.Brightness or 3
@@ -1048,7 +1141,7 @@ function Kit.applyLighting(preset)
 	Lighting.GlobalShadows = true
 	Lighting.ShadowSoftness = preset.ShadowSoftness or 0.12 -- sombras de sol nítidas pero no duras
 	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 1
+	Lighting.EnvironmentSpecularScale = Kit.Cartoon and 0.5 or 1 -- en Cartoon, menos brillo de plástico
 	-- Viento: mueve la hierba del terreno, las nubes y las partículas con WindAffectsDrag
 	workspace.GlobalWind = preset.Wind or V(4, 0, 2)
 
@@ -1086,7 +1179,7 @@ function Kit.applyLighting(preset)
 
 	local clouds = ensure("Clouds", workspace.Terrain)
 	clouds.Cover = preset.Clouds or 0.55
-	clouds.Density = 0.6
+	clouds.Density = Kit.Cartoon and 0.72 or 0.6 -- nubes más esponjosas en Cartoon
 	clouds.Color = preset.CloudColor or RGB(255, 255, 255)
 
 	-- Agua del terreno: color, reflejo, transparencia y olas de cada mapa

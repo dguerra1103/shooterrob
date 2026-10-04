@@ -732,6 +732,7 @@ end
 ---------------------------------------------------------------------------
 
 local QUALITY_INFO = {
+	Auto = "Se elige sola: Baja en móviles, Media en PC",
 	Baja = "Máximo rendimiento (móviles): sin sombras ni efectos",
 	Media = "Sombras y brillo, menos partículas",
 	Alta = "Todo como está diseñado",
@@ -765,8 +766,8 @@ local function buildSettingsPage()
 	for i, level in GameConfig.QualityLevels do
 		local selected = current.Quality == level
 		local button = UI.button({
-			Position = UDim2.fromOffset(16 + (i - 1) * 132, 42),
-			Size = UDim2.fromOffset(122, 36),
+			Position = UDim2.fromOffset(16 + (i - 1) * 118, 42),
+			Size = UDim2.fromOffset(110, 36),
 			Text = level,
 			TextSize = 18,
 			BackgroundColor3 = selected and BLUE or GREY,

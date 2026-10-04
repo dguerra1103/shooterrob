@@ -312,6 +312,11 @@ local function load(player)
 	if type(merged.Settings) ~= "table" then
 		merged.Settings = table.clone(GameConfig.DefaultSettings)
 	end
+	-- Antes la calidad por defecto era "Alta" (daba lag en equipos modestos): pasa a "Auto" una vez
+	if merged.Settings.QualityVersion ~= GameConfig.DefaultSettings.QualityVersion then
+		merged.Settings.Quality = "Auto"
+		merged.Settings.QualityVersion = GameConfig.DefaultSettings.QualityVersion
+	end
 	if type(merged.KillEffects) ~= "table" then
 		merged.KillEffects = { Default = true }
 	end

@@ -41,8 +41,7 @@ local SLIDE_DUST = {
 }
 
 local function slideDust(floorMaterial)
-	local settings = ClientState.Settings
-	if not rootPart or not humanoid or (settings and settings.Quality == "Baja") then
+	if not rootPart or not humanoid or ClientState.EffectiveQuality == "Baja" then
 		return nil
 	end
 	local feet = Instance.new("Attachment")

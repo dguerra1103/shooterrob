@@ -109,6 +109,9 @@ local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
 GameConfig.GameTitle = "SHOOTER NEW"
+-- Estilo de los mapas: "Cartoon" (colores vivos, plástico liso, sombras suaves, como los shooters más
+-- jugados de Roblox) o "Realista" (piedra, yeso, ladrillo y luz más dura)
+GameConfig.VisualStyle = "Cartoon"
 
 -- Equipos
 GameConfig.Teams = {
@@ -154,8 +157,9 @@ GameConfig.SlideCooldown = 1.1
 GameConfig.FieldOfView = 80
 
 -- Ajustes del jugador (menú Ajustes). Se guardan con su progreso.
-GameConfig.QualityLevels = { "Baja", "Media", "Alta", "Ultra" }
-GameConfig.DefaultSettings = { Quality = "Alta", FOV = 80, Sensitivity = 1, AimSensitivity = 0.8 }
+-- "Auto": Baja en móviles y Media en PC (lo decide el cliente)
+GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -4852,7 +4856,8 @@ local function lite(cf, color, decorative)
 	local fn = decorative and Kit.deco or Kit.block
 	fn("Container", V(20, 8.5, 8), cf * CFrame.new(0, 4.25, 0), color, Enum.Material.CorrodedMetal)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	for i = -1, 1 do
+	-- Los decorativos (fondo y fila de arriba) sin nervios: casi no se ven y ahorran piezas
+	for i = -1, decorative and -2 or 1 do
 		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal)
 	end
 	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal)
@@ -5094,6 +5099,7 @@ local function block(name, size, cf, color, material, parent)
 	if part.Material == Enum.Material.Glass then
 		part.Reflectance = 0.15
 	end
+	Kit.applyStyle(part)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or mapFolder
@@ -5188,7 +5194,7 @@ local function container(cf, color)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	for i = -4, 4 do
+	for i = -4, 4, 2 do
 		deco("Rib", Vector3.new(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
 	end
 	block("Roof", Vector3.new(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
@@ -5712,15 +5718,9 @@ function Map.Build()
 		local glassy = rng:NextNumber() < 0.6
 		local body = deco("Tower", Vector3.new(w, h, d), CFrame.new(position + Vector3.new(0, h / 2, 0)), color, glassy and Enum.Material.Glass or Enum.Material.Concrete, skyline)
 		body.Reflectance = glassy and 0.15 or 0
-		-- Franjas horizontales (pisos)
-		for y = 8, h - 6, 7 do
+		-- Franjas horizontales (cada dos pisos: es fondo lejano y así pesa la mitad)
+		for y = 10, h - 6, 14 do
 			deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
-		end
-		-- Columnas verticales
-		for _, sx in { -1, 1 } do
-			for _, sz in { -1, 1 } do
-				deco("Column", Vector3.new(1.2, h, 1.2), CFrame.new(position + Vector3.new(sx * w / 2, h / 2, sz * d / 2)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
-			end
 		end
 		-- Remate superior
 		local capH = rng:NextNumber(2, 6)
@@ -5858,18 +5858,22 @@ local DARK = RGB(60, 66, 78)
 
 -- Pino nevado: tronco y siete pisos redondos de ramas, cada vez más estrechos y muy juntos para
 -- que la silueta sea un cono; nieve sobre pisos alternos y verdes algo distintos
-local function pine(position, scale)
+-- `far` = pino de fondo: cuatro pisos más altos en vez de siete (la silueta lejana es la misma)
+local function pine(position, scale, far)
 	scale = scale or 1
 	local cylinder = Kit.cylinder
 	cylinder("PineTrunk", 5 * scale, 1.1 * scale, CFrame.new(position + V(0, 2.5 * scale, 0)), RGB(88, 62, 44), Enum.Material.Wood)
-	for i = 1, 7 do
-		local d = (10 - (i - 1) * 1.35) * scale
-		local y = (3 + (i - 1) * 1.65) * scale
+	local tiers = far and 4 or 7
+	local step = 6 / (tiers - 1)
+	for i = 1, tiers do
+		local d = (10 - (i - 1) * 8.1 / (tiers - 1)) * scale
+		local y = (3 + (i - 1) * 1.65 * step) * scale
 		local green = RGB(34, 74, 52):Lerp(RGB(50, 98, 66), (i % 2) * 0.6)
-		local branches = cylinder("PineTier", 2.2 * scale, d, CFrame.new(position + V(0, y, 0)), green, Enum.Material.LeafyGrass, nil, true)
-		branches.CastShadow = true
-		if i % 2 == 1 then
-			cylinder("PineSnow", 0.4 * scale, d * 0.78, CFrame.new(position + V(0, y + 1.1 * scale, 0)), SNOW, Enum.Material.Snow, nil, true)
+		local height = (1.65 * step + 0.55) * scale -- los pisos se solapan un poco, sin huecos
+		local branches = cylinder("PineTier", height, d, CFrame.new(position + V(0, y, 0)), green, Enum.Material.LeafyGrass, nil, true)
+		branches.CastShadow = not far
+		if far or i % 2 == 1 then
+			cylinder("PineSnow", 0.4 * scale, d * 0.78, CFrame.new(position + V(0, y + height / 2, 0)), SNOW, Enum.Material.Snow, nil, true)
 		end
 	end
 	cylinder("PineTip", 1.8 * scale, 0.9 * scale, CFrame.new(position + V(0, 14.2 * scale, 0)), RGB(40, 84, 58), Enum.Material.LeafyGrass, nil, true)
@@ -6099,7 +6103,7 @@ function Map.Build()
 	-- Pinos fuera del mapa (bosque de fondo)
 	for x = -150, 150, 22 do
 		for _, z in { -1, 1 } do
-			pine(V(x + (z * 7), 0, z * (122 + (math.abs(x) % 13))), 1.3)
+			pine(V(x + (z * 7), 0, z * (122 + (math.abs(x) % 13))), 1.3, true)
 		end
 	end
 
@@ -6122,9 +6126,8 @@ function Map.Build()
 		for i = 0, count do
 			local p = a:Lerp(b, i / count) + Vector3.new(rng:NextNumber(-0.3, 0.3), 0, rng:NextNumber(-0.2, 0.2))
 			local length = rng:NextNumber(0.8, 2.6)
-			local ice = Kit.deco("Icicle", Vector3.new(0.35, length, 0.35), CFrame.new(p.X, top - length / 2, p.Z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), Color3.fromRGB(205, 235, 255), Enum.Material.Ice)
-			ice.Transparency = 0.15
-			Kit.deco("IcicleTip", Vector3.new(0.18, length * 0.5, 0.18), CFrame.new(p.X, top - length - length * 0.2, p.Z), Color3.fromRGB(220, 242, 255), Enum.Material.Ice).Transparency = 0.2
+			Kit.deco("Icicle", Vector3.new(0.35, length, 0.35), CFrame.new(p.X, top - length / 2, p.Z) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0), Color3.fromRGB(205, 235, 255), Enum.Material.Ice)
+			Kit.deco("IcicleTip", Vector3.new(0.18, length * 0.5, 0.18), CFrame.new(p.X, top - length - length * 0.2, p.Z), Color3.fromRGB(220, 242, 255), Enum.Material.Ice)
 		end
 	end
 	Kit.symmetric(function(m, side)
@@ -7048,6 +7051,52 @@ function Kit.realisticMaterial(size, color, material)
 	return Enum.Material.Plaster
 end
 
+-- Estilo Cartoon: los materiales "realistas" pasan a plástico liso y los colores ganan viveza; los
+-- grises claros tiran a lavanda (paredes tipo shooter de Roblox). Los detalles de suelo no cambian.
+Kit.Cartoon = GameConfig.VisualStyle ~= "Realista"
+local CARTOON_FLAT = {}
+for _, name in {
+	"Plaster", "Concrete", "Brick", "Limestone", "Cobblestone", "Slate", "Pavement", "Asphalt", "Granite", "Marble",
+	"Sandstone", "Pebble", "CorrodedMetal", "DiamondPlate", "Rock", "Basalt", "Plastic", "Grass", "LeafyGrass",
+	"Ground", "Mud", "ClayRoofTiles", "CeramicTiles", "Fabric",
+} do
+	local ok, material = pcall(function()
+		return (Enum.Material :: any)[name]
+	end)
+	if ok and material then
+		CARTOON_FLAT[material] = true
+	end
+end
+local KEEP_LOOK = { ContactShadow = true, OilStain = true, Crack = true, Joint = true, TireMark = true, Puddle = true }
+
+function Kit.vivid(color)
+	local h, s, v = color:ToHSV()
+	if s < 0.22 then
+		if v >= 0.45 then
+			return Color3.fromHSV(0.68, 0.16, math.min(1, v * 1.02 + 0.05)) -- piedra, yeso, gris claro → lavanda
+		elseif v >= 0.2 then
+			return Color3.fromHSV(0.66, 0.2, math.min(1, v * 1.08)) -- asfalto, hormigón oscuro → gris azulado
+		end
+		return color -- negros
+	end
+	return Color3.fromHSV(h, math.clamp(s * 1.45, 0, 0.95), math.clamp(v * 1.1 + 0.04, 0, 1))
+end
+
+function Kit.applyStyle(part)
+	if not Kit.Cartoon or KEEP_LOOK[part.Name] or part.Material == Enum.Material.Neon then
+		return
+	end
+	if CARTOON_FLAT[part.Material] then
+		part.Material = Enum.Material.SmoothPlastic
+	end
+	-- Textura de cuadrícula (MaterialVariant "Grid" en MaterialService, ver assets/textures/LEEME.md).
+	-- Si la variante no existe todavía, Roblox usa el plástico liso normal: no rompe nada.
+	if part.Material == Enum.Material.SmoothPlastic then
+		part.MaterialVariant = "Grid"
+	end
+	part.Color = Kit.vivid(part.Color)
+end
+
 function Kit.block(name, size, cf, color, material, parent)
 	local part = Instance.new("Part")
 	part.Name = name
@@ -7059,6 +7108,7 @@ function Kit.block(name, size, cf, color, material, parent)
 	if part.Material == Enum.Material.Glass then
 		part.Reflectance = 0.15 -- los cristales reflejan un poco el cielo
 	end
+	Kit.applyStyle(part)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or Kit.folder
@@ -7228,7 +7278,7 @@ function Kit.container(cf, color, labelText)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	for i = -4, 4 do
+	for i = -4, 4, 2 do
 		deco("Rib", V(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
 	end
 	block("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
@@ -7770,6 +7820,7 @@ function Kit.car(cf, color, options)
 	model.Parent = Kit.folder
 	local function paint(part)
 		part.Material = Enum.Material.SmoothPlastic -- pintura lisa con brillo (no yeso)
+		part.MaterialVariant = "" -- sin cuadrícula: es pintura de coche
 		part.Reflectance = 0.12
 		return part
 	end
@@ -8020,6 +8071,13 @@ local TERRAIN_DEFAULTS = {
 	Slate = RGB(63, 127, 107),
 }
 
+-- Hierba y hojas más vivas en estilo Cartoon
+local CARTOON_TERRAIN = {
+	Grass = RGB(80, 175, 70),
+	LeafyGrass = RGB(66, 150, 58),
+	Ground = RGB(150, 120, 80),
+}
+
 local function ensure(className, parent)
 	parent = parent or Lighting
 	local inst = parent:FindFirstChildOfClass(className)
@@ -8030,8 +8088,46 @@ local function ensure(className, parent)
 	return inst
 end
 
+-- Estilo Cartoon: luz más suave y clara (sombras rellenas), menos neblina, sin deslumbramiento y
+-- más saturación; el ambiente de cada mapa (hora, color del cielo) se mantiene
+local function cartoonize(preset)
+	local p = table.clone(preset)
+	local clock = p.ClockTime or 14
+	local night = clock < 6 or clock > 18.6
+	p.Ambient = (p.Ambient or RGB(60, 62, 72)):Lerp(night and RGB(70, 70, 105) or RGB(125, 125, 145), 0.55)
+	p.OutdoorAmbient = (p.OutdoorAmbient or RGB(125, 128, 140)):Lerp(night and RGB(90, 90, 135) or RGB(170, 170, 190), 0.55)
+	p.ShadowSoftness = 0.3
+	if not night then
+		p.Brightness = math.max(p.Brightness or 3, 3)
+	end
+	local a = table.clone(p.Atmosphere or {})
+	a.Density = math.min(a.Density or 0.3, 0.26)
+	a.Haze = math.min(a.Haze or 1.4, 0.6)
+	a.Glare = 0
+	p.Atmosphere = a
+	local c = table.clone(p.Color or {})
+	c.Saturation = (c.Saturation or 0.1) + 0.12
+	c.Contrast = 0.06
+	c.Brightness = (c.Brightness or 0.02) + 0.02
+	p.Color = c
+	local b = table.clone(p.Bloom or {})
+	b.Intensity = math.min(b.Intensity or 0.8, 0.45)
+	p.Bloom = b
+	p.Clouds = math.max(p.Clouds or 0.55, 0.6)
+	p.SunRays = math.min(p.SunRays or 0.06, 0.05)
+	local terrain = {}
+	for name, color in TERRAIN_DEFAULTS do
+		terrain[name] = Kit.vivid((p.TerrainColors and p.TerrainColors[name]) or CARTOON_TERRAIN[name] or color)
+	end
+	p.TerrainColors = terrain
+	return p
+end
+
 -- preset: tabla con ClockTime, Brightness, Ambient, OutdoorAmbient, Atmosphere{...}, Color{...}, Bloom{...}, Clouds
 function Kit.applyLighting(preset)
+	if Kit.Cartoon then
+		preset = cartoonize(preset)
+	end
 	Lighting.ClockTime = preset.ClockTime or 14
 	Lighting.GeographicLatitude = preset.Latitude or 35
 	Lighting.Brightness = preset.Brightness or 3
@@ -8041,7 +8137,7 @@ function Kit.applyLighting(preset)
 	Lighting.GlobalShadows = true
 	Lighting.ShadowSoftness = preset.ShadowSoftness or 0.12 -- sombras de sol nítidas pero no duras
 	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 1
+	Lighting.EnvironmentSpecularScale = Kit.Cartoon and 0.5 or 1 -- en Cartoon, menos brillo de plástico
 	-- Viento: mueve la hierba del terreno, las nubes y las partículas con WindAffectsDrag
 	workspace.GlobalWind = preset.Wind or V(4, 0, 2)
 
@@ -8079,7 +8175,7 @@ function Kit.applyLighting(preset)
 
 	local clouds = ensure("Clouds", workspace.Terrain)
 	clouds.Cover = preset.Clouds or 0.55
-	clouds.Density = 0.6
+	clouds.Density = Kit.Cartoon and 0.72 or 0.6 -- nubes más esponjosas en Cartoon
 	clouds.Color = preset.CloudColor or RGB(255, 255, 255)
 
 	-- Agua del terreno: color, reflejo, transparencia y olas de cada mapa
@@ -8447,6 +8543,11 @@ local function load(player)
 	end
 	if type(merged.Settings) ~= "table" then
 		merged.Settings = table.clone(GameConfig.DefaultSettings)
+	end
+	-- Antes la calidad por defecto era "Alta" (daba lag en equipos modestos): pasa a "Auto" una vez
+	if merged.Settings.QualityVersion ~= GameConfig.DefaultSettings.QualityVersion then
+		merged.Settings.Quality = "Auto"
+		merged.Settings.QualityVersion = GameConfig.DefaultSettings.QualityVersion
 	end
 	if type(merged.KillEffects) ~= "table" then
 		merged.KillEffects = { Default = true }
@@ -9850,6 +9951,7 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
+	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
@@ -10872,8 +10974,7 @@ function Footprints.Init()
 			return
 		end
 		elapsed = 0
-		local settings = ClientState.Settings
-		if settings and settings.Quality == "Baja" then
+		if ClientState.EffectiveQuality == "Baja" then
 			return
 		end
 		local camera = workspace.CurrentCamera
@@ -13789,6 +13890,7 @@ end
 ---------------------------------------------------------------------------
 
 local QUALITY_INFO = {
+	Auto = "Se elige sola: Baja en móviles, Media en PC",
 	Baja = "Máximo rendimiento (móviles): sin sombras ni efectos",
 	Media = "Sombras y brillo, menos partículas",
 	Alta = "Todo como está diseñado",
@@ -13822,8 +13924,8 @@ local function buildSettingsPage()
 	for i, level in GameConfig.QualityLevels do
 		local selected = current.Quality == level
 		local button = UI.button({
-			Position = UDim2.fromOffset(16 + (i - 1) * 132, 42),
-			Size = UDim2.fromOffset(122, 36),
+			Position = UDim2.fromOffset(16 + (i - 1) * 118, 42),
+			Size = UDim2.fromOffset(110, 36),
 			Text = level,
 			TextSize = 18,
 			BackgroundColor3 = selected and BLUE or GREY,
@@ -14839,8 +14941,7 @@ local SLIDE_DUST = {
 }
 
 local function slideDust(floorMaterial)
-	local settings = ClientState.Settings
-	if not rootPart or not humanoid or (settings and settings.Quality == "Baja") then
+	if not rootPart or not humanoid or ClientState.EffectiveQuality == "Baja" then
 		return nil
 	end
 	local feet = Instance.new("Attachment")
@@ -15081,11 +15182,13 @@ return Movement
 -- Los cambios de Lighting hechos en el cliente solo afectan a este jugador.
 --
 -- Calidad:
+--   Auto  : Baja en móviles (solo táctil) y Media en PC
 --   Baja  : sin sombras, sin bloom, sin rayos de sol, sin nubes ni partículas del mapa (móviles)
---   Media : sombras y bloom, sin rayos de sol, la mitad de partículas del mapa
+--   Media : sombras y bloom, sin rayos de sol ni conos de luz, menos partículas del mapa
 --   Alta  : todo como lo diseñó el mapa
 --   Ultra : además, desenfoque de profundidad lejano y más partículas
 local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -15096,10 +15199,20 @@ local ClientState = require(script.Parent.ClientState)
 
 local Settings = {}
 
-local PARTICLE_FACTOR = { Baja = 0, Media = 0.5, Alta = 1, Ultra = 1.3 }
+local PARTICLE_FACTOR = { Baja = 0, Media = 0.4, Alta = 1, Ultra = 1.3 }
 
 local current = table.clone(GameConfig.DefaultSettings)
 ClientState.Settings = current
+
+-- Calidad que se aplica de verdad ("Auto" según el dispositivo)
+local function effectiveQuality()
+	local q = current.Quality
+	if q == "Auto" or not PARTICLE_FACTOR[q] then
+		local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		return touchOnly and "Baja" or "Media"
+	end
+	return q
+end
 
 -- Partículas ambientales del mapa (nieve, hojas, chispas, humo): se escalan según la calidad
 local function scaleEmitter(emitter)
@@ -15115,7 +15228,7 @@ local function scaleEmitter(emitter)
 		base = emitter.Rate
 		emitter:SetAttribute("BaseRate", base)
 	end
-	local factor = PARTICLE_FACTOR[current.Quality] or 1
+	local factor = PARTICLE_FACTOR[effectiveQuality()] or 1
 	emitter.Rate = base * factor
 	emitter.Enabled = factor > 0
 end
@@ -15123,12 +15236,24 @@ end
 -- Focos con sombras reales: solo en calidad Alta y Ultra
 local function applyLightShadow(inst)
 	if inst:IsA("Light") and inst:GetAttribute("QualityShadow") then
-		inst.Shadows = current.Quality == "Alta" or current.Quality == "Ultra"
+		local q = effectiveQuality()
+		inst.Shadows = q == "Alta" or q == "Ultra"
+	end
+end
+
+-- Detalles caros que se ocultan en calidades bajas (solo en este cliente)
+local HIDE_BELOW = { LightCone = "Alta", ContactShadow = "Media", Puddle = "Media" }
+local RANK = { Baja = 1, Media = 2, Alta = 3, Ultra = 4 }
+local function applyDetail(inst)
+	local minimum = HIDE_BELOW[inst.Name]
+	if minimum and inst:IsA("BasePart") then
+		inst.LocalTransparencyModifier = (RANK[effectiveQuality()] or 2) < RANK[minimum] and 1 or 0
 	end
 end
 
 local function applyQuality()
-	local q = current.Quality
+	local q = effectiveQuality()
+	ClientState.EffectiveQuality = q
 	local low = q == "Baja"
 	Lighting.GlobalShadows = not low
 	local bloom = Lighting:FindFirstChildOfClass("BloomEffect")
@@ -15164,6 +15289,7 @@ local function applyQuality()
 		for _, d in map:GetDescendants() do
 			scaleEmitter(d)
 			applyLightShadow(d)
+			applyDetail(d)
 		end
 	end
 end
@@ -15227,6 +15353,8 @@ function Settings.Init()
 			task.defer(scaleEmitter, inst)
 		elseif inst:IsA("Light") then
 			task.defer(applyLightShadow, inst)
+		elseif HIDE_BELOW[inst.Name] then
+			task.defer(applyDetail, inst)
 		end
 	end)
 	applyQuality()

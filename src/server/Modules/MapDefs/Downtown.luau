@@ -45,6 +45,7 @@ local function block(name, size, cf, color, material, parent)
 	if part.Material == Enum.Material.Glass then
 		part.Reflectance = 0.15
 	end
+	Kit.applyStyle(part)
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.Parent = parent or mapFolder
@@ -139,7 +140,7 @@ local function container(cf, color)
 	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	for i = -4, 4 do
+	for i = -4, 4, 2 do
 		deco("Rib", Vector3.new(0.4, 8.2, 8.3), cf * CFrame.new(i * 2.2, 4.25, 0), dark, Enum.Material.Metal, model)
 	end
 	block("Roof", Vector3.new(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal, model)
@@ -663,15 +664,9 @@ function Map.Build()
 		local glassy = rng:NextNumber() < 0.6
 		local body = deco("Tower", Vector3.new(w, h, d), CFrame.new(position + Vector3.new(0, h / 2, 0)), color, glassy and Enum.Material.Glass or Enum.Material.Concrete, skyline)
 		body.Reflectance = glassy and 0.15 or 0
-		-- Franjas horizontales (pisos)
-		for y = 8, h - 6, 7 do
+		-- Franjas horizontales (cada dos pisos: es fondo lejano y así pesa la mitad)
+		for y = 10, h - 6, 14 do
 			deco("Floor", Vector3.new(w + 0.3, 0.8, d + 0.3), CFrame.new(position + Vector3.new(0, y, 0)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
-		end
-		-- Columnas verticales
-		for _, sx in { -1, 1 } do
-			for _, sz in { -1, 1 } do
-				deco("Column", Vector3.new(1.2, h, 1.2), CFrame.new(position + Vector3.new(sx * w / 2, h / 2, sz * d / 2)), C.WallTrim, Enum.Material.SmoothPlastic, skyline)
-			end
 		end
 		-- Remate superior
 		local capH = rng:NextNumber(2, 6)

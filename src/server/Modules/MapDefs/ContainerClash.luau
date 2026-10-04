@@ -36,7 +36,8 @@ local function lite(cf, color, decorative)
 	local fn = decorative and Kit.deco or Kit.block
 	fn("Container", V(20, 8.5, 8), cf * CFrame.new(0, 4.25, 0), color, Enum.Material.CorrodedMetal)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	for i = -1, 1 do
+	-- Los decorativos (fondo y fila de arriba) sin nervios: casi no se ven y ahorran piezas
+	for i = -1, decorative and -2 or 1 do
 		Kit.deco("Rib", V(0.5, 8.3, 8.2), cf * CFrame.new(i * 7, 4.25, 0), dark, Enum.Material.Metal)
 	end
 	Kit.deco("Roof", V(20.2, 0.3, 8.2), cf * CFrame.new(0, 8.6, 0), dark, Enum.Material.Metal)
