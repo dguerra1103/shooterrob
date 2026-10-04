@@ -460,7 +460,9 @@ local function load(player)
 	if type(merged.Sprays) ~= "table" then
 		merged.Sprays = { Default = true }
 	end
-	if not Sprays.List[merged.EquippedSpray] or not merged.Sprays[merged.EquippedSpray] then
+	-- (el de VIP se comprueba al pintar: el atributo VIP aún no está puesto al cargar)
+	local equippedSpray = Sprays.List[merged.EquippedSpray]
+	if not equippedSpray or not (merged.Sprays[merged.EquippedSpray] or equippedSpray.VIPOnly) then
 		merged.EquippedSpray = "Default"
 	end
 	merged.GroupReward = merged.GroupReward == true
@@ -1427,7 +1429,7 @@ function PlayerData.Init()
 
 	Remotes.EquipSpray.OnServerEvent:Connect(function(player, sprayId)
 		local data = profiles[player]
-		if not data or type(sprayId) ~= "string" or not Sprays.List[sprayId] or not data.Sprays[sprayId] then
+		if not data or type(sprayId) ~= "string" or not Sprays.Owns(data.Sprays, sprayId, player:GetAttribute("VIP") == true) then
 			return
 		end
 		data.EquippedSpray = sprayId

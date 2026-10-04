@@ -23,7 +23,7 @@ local PC_TIPS = {
 	{ "⚡", "E impulso · Z supersalto · X poción" },
 	{ "🔪", "F golpe rápido · G granada · R recargar" },
 	{ "🛒", "B abre la tienda, el pase y los retos" },
-	{ "📋", "Tab: marcador · H: recoger regalo 🎁" },
+	{ "📋", "Tab marcador · H regalo 🎁 · J grafiti 🎨" },
 }
 local TOUCH_TIPS = {
 	{ "🕹", "Joystick a la izquierda para moverte" },

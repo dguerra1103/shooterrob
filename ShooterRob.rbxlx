@@ -1978,6 +1978,8 @@ Sprays.List = {
 	Gato = { Name = "Gato chulo", Rarity = "Épico", Icon = "😼", Caption = "MIAU", Color = RGB(255, 255, 255), Bg = RGB(140, 80, 220), Price = 500 },
 	Corona = { Name = "Corona", Rarity = "Legendario", Icon = "👑", Caption = "REY", Color = RGB(255, 215, 60), Bg = RGB(120, 20, 40), Price = 800 },
 	Diamante = { Name = "Diamante", Rarity = "Legendario", Icon = "💎", Caption = "PRO", Color = RGB(150, 235, 255), Bg = RGB(20, 40, 90), Price = 1000 },
+	-- Solo para quien tiene el pase VIP (no se vende con monedas)
+	VIP = { Name = "VIP", Rarity = "Legendario", Icon = "👑", Caption = "VIP", Color = RGB(255, 215, 60), Bg = RGB(90, 30, 140), VIPOnly = true },
 }
 
 Sprays.Cooldown = 6 -- segundos entre grafitis
@@ -1986,6 +1988,18 @@ Sprays.Size = 4.5 -- tamaño del grafiti (studs)
 
 function Sprays.Get(id)
 	return Sprays.List[id] or Sprays.List.Default
+end
+
+-- ¿Puede usarlo? (los comprados, más el de VIP si es VIP)
+function Sprays.Owns(owned, id, isVIP)
+	local spray = Sprays.List[id]
+	if not spray then
+		return false
+	end
+	if spray.VIPOnly then
+		return isVIP == true
+	end
+	return owned ~= nil and owned[id] == true
 end
 
 -- Dibuja el grafiti dentro de `parent` (un SurfaceGui o un marco del menú)
@@ -7786,7 +7800,11 @@ function Graffiti.Paint(player, position)
 	gui.MaxDistance = 200
 	gui.Parent = part
 	local data = PlayerData.Get(player)
-	Sprays.Draw(data and data.EquippedSpray or "Default", gui)
+	local sprayId = data and data.EquippedSpray or "Default"
+	if not Sprays.Owns(data and data.Sprays, sprayId, player:GetAttribute("VIP") == true) then
+		sprayId = "Default" -- (p. ej. el de VIP si ya no lo es)
+	end
+	Sprays.Draw(sprayId, gui)
 
 	if current[player] then
 		current[player]:Destroy()
@@ -15117,7 +15135,9 @@ local function load(player)
 	if type(merged.Sprays) ~= "table" then
 		merged.Sprays = { Default = true }
 	end
-	if not Sprays.List[merged.EquippedSpray] or not merged.Sprays[merged.EquippedSpray] then
+	-- (el de VIP se comprueba al pintar: el atributo VIP aún no está puesto al cargar)
+	local equippedSpray = Sprays.List[merged.EquippedSpray]
+	if not equippedSpray or not (merged.Sprays[merged.EquippedSpray] or equippedSpray.VIPOnly) then
 		merged.EquippedSpray = "Default"
 	end
 	merged.GroupReward = merged.GroupReward == true
@@ -16084,7 +16104,7 @@ function PlayerData.Init()
 
 	Remotes.EquipSpray.OnServerEvent:Connect(function(player, sprayId)
 		local data = profiles[player]
-		if not data or type(sprayId) ~= "string" or not Sprays.List[sprayId] or not data.Sprays[sprayId] then
+		if not data or type(sprayId) ~= "string" or not Sprays.Owns(data.Sprays, sprayId, player:GetAttribute("VIP") == true) then
 			return
 		end
 		data.EquippedSpray = sprayId
@@ -20819,7 +20839,7 @@ local function buildWeaponPanel()
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -20, 0.14, 0),
-			Size = UDim2.fromOffset(220, 209),
+			Size = UDim2.fromOffset(220, 228),
 			BackgroundTransparency = 1,
 			Parent = gui,
 		}, {
@@ -20839,6 +20859,7 @@ local function buildWeaponPanel()
 			{ "Inspeccionar", "V" },
 			{ "Habilidades", "E Z X" },
 			{ "Emotes", "N" },
+			{ "Grafiti", "J" },
 			{ "Marcador", "Tab" },
 			{ "Regalo", "H" },
 		} do
@@ -23921,7 +23942,8 @@ local function buildChallengesPage(data)
 		UI.label({
 			LayoutOrder = 11,
 			Size = UDim2.new(1, -12, 0, 34),
-			Text = string.format("📅 RETOS DE LA SEMANA  ·  nuevos en %dd %dh", left // 86400, (left % 86400) // 3600),
+			Text = "📅 RETOS DE LA SEMANA  ·  nuevos en " .. (left >= 86400 and string.format("%dd %dh", left // 86400, (left % 86400) // 3600)
+				or string.format("%dh %02dm", left // 3600, (left % 3600) // 60)),
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(120, 200, 255),
@@ -24634,10 +24656,10 @@ local function buildKillEffectsPage(data)
 			TextColor3 = rarityColor(sprayDef.Rarity),
 			Parent = card,
 		})
-		priceButton(card, "Spray", id, spraysOwned[id] == true, equipped, function()
+		priceButton(card, "Spray", id, Sprays.Owns(spraysOwned, id, data.VIP == true), equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipSpray:FireServer(id)
-		end)
+		end, sprayDef.VIPOnly and "👑 Solo VIP" or nil)
 	end
 end
 
@@ -25181,7 +25203,7 @@ local function buildShopPage(data)
 	UI.label({
 		Position = UDim2.fromOffset(16, 42),
 		Size = UDim2.new(1, -280, 0, 40),
-		Text = "x2 XP · x2 monedas · caja gratis cada día",
+		Text = "x2 XP · x2 monedas · caja gratis cada día · grafiti 👑 exclusivo",
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = vip,
@@ -26861,7 +26883,7 @@ local PC_TIPS = {
 	{ "⚡", "E impulso · Z supersalto · X poción" },
 	{ "🔪", "F golpe rápido · G granada · R recargar" },
 	{ "🛒", "B abre la tienda, el pase y los retos" },
-	{ "📋", "Tab: marcador · H: recoger regalo 🎁" },
+	{ "📋", "Tab marcador · H regalo 🎁 · J grafiti 🎨" },
 }
 local TOUCH_TIPS = {
 	{ "🕹", "Joystick a la izquierda para moverte" },

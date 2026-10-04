@@ -93,7 +93,11 @@ function Graffiti.Paint(player, position)
 	gui.MaxDistance = 200
 	gui.Parent = part
 	local data = PlayerData.Get(player)
-	Sprays.Draw(data and data.EquippedSpray or "Default", gui)
+	local sprayId = data and data.EquippedSpray or "Default"
+	if not Sprays.Owns(data and data.Sprays, sprayId, player:GetAttribute("VIP") == true) then
+		sprayId = "Default" -- (p. ej. el de VIP si ya no lo es)
+	end
+	Sprays.Draw(sprayId, gui)
 
 	if current[player] then
 		current[player]:Destroy()

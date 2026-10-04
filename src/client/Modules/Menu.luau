@@ -725,7 +725,8 @@ local function buildChallengesPage(data)
 		UI.label({
 			LayoutOrder = 11,
 			Size = UDim2.new(1, -12, 0, 34),
-			Text = string.format("📅 RETOS DE LA SEMANA  ·  nuevos en %dd %dh", left // 86400, (left % 86400) // 3600),
+			Text = "📅 RETOS DE LA SEMANA  ·  nuevos en " .. (left >= 86400 and string.format("%dd %dh", left // 86400, (left % 86400) // 3600)
+				or string.format("%dh %02dm", left // 3600, (left % 3600) // 60)),
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(120, 200, 255),
@@ -1438,10 +1439,10 @@ local function buildKillEffectsPage(data)
 			TextColor3 = rarityColor(sprayDef.Rarity),
 			Parent = card,
 		})
-		priceButton(card, "Spray", id, spraysOwned[id] == true, equipped, function()
+		priceButton(card, "Spray", id, Sprays.Owns(spraysOwned, id, data.VIP == true), equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipSpray:FireServer(id)
-		end)
+		end, sprayDef.VIPOnly and "👑 Solo VIP" or nil)
 	end
 end
 
@@ -1985,7 +1986,7 @@ local function buildShopPage(data)
 	UI.label({
 		Position = UDim2.fromOffset(16, 42),
 		Size = UDim2.new(1, -280, 0, 40),
-		Text = "x2 XP · x2 monedas · caja gratis cada día",
+		Text = "x2 XP · x2 monedas · caja gratis cada día · grafiti 👑 exclusivo",
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = vip,
