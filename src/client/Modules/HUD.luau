@@ -342,15 +342,16 @@ local function buildWeaponPanel()
 
 	-- Controles (estilo de la captura)
 	if not UserInputService.TouchEnabled or UserInputService.KeyboardEnabled then
+		-- (compacta para no pisar las ranuras de armas; solo para jugadores nuevos, ver updateData)
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -20, 0.18, 0),
-			Size = UDim2.fromOffset(220, 253),
+			Position = UDim2.new(1, -20, 0.14, 0),
+			Size = UDim2.fromOffset(220, 209),
 			BackgroundTransparency = 1,
 			Parent = gui,
 		}, {
 			UI.new("UIListLayout", {
-				Padding = UDim.new(0, 3),
+				Padding = UDim.new(0, 1),
 				HorizontalAlignment = Enum.HorizontalAlignment.Right,
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			}),
@@ -370,7 +371,7 @@ local function buildWeaponPanel()
 		} do
 			local row = UI.new("Frame", {
 				LayoutOrder = i,
-				Size = UDim2.fromOffset(220, 20),
+				Size = UDim2.fromOffset(220, 18),
 				BackgroundTransparency = 1,
 				Parent = hints,
 			})
@@ -384,12 +385,13 @@ local function buildWeaponPanel()
 			local key = UI.new("Frame", {
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, 0, 0.5, 0),
-				Size = UDim2.fromOffset(46, 19),
+				Size = UDim2.fromOffset(46, 17),
 				BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 				Parent = row,
 			}, { UI.corner(5) })
 			UI.label({ Size = UDim2.fromScale(1, 1), Text = pair[2], TextSize = 14, Parent = key })
 		end
+		refs.KeyHints = hints
 	end
 end
 
@@ -1381,6 +1383,10 @@ local function updateData(data)
 	local per = data.XPPerLevel or 1000
 	refs.LevelText.Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. "/" .. per .. " XP"
 	tween(refs.XPFill, 0.3, { Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1) })
+	-- La chuleta de teclas solo para los que empiezan (luego estorba al killfeed y a las armas)
+	if refs.KeyHints then
+		refs.KeyHints.Visible = (data.Level or 1) < 5
+	end
 end
 
 local lastHealth = 100
