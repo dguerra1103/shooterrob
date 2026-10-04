@@ -113,11 +113,12 @@ local function shipHalf(m, teamColor)
 		Kit.ramp(m * V(-CHANNEL - 1, 0, z), m * V(-7, DECK, z), 4, WOOD, PLANKS)
 	end
 	-- Cañones mirando hacia la borda y un mástil
-	cannon(m * CFrame.new(-4.4, DECK, 8) * CFrame.Angles(0, rad(90), 0))
-	cannon(m * CFrame.new(-4.4, DECK, -8) * CFrame.Angles(0, rad(90), 0))
+	-- (los cañones lejos del pie de las escaleras de los castillos)
+	cannon(m * CFrame.new(-4.4, DECK, 5.5) * CFrame.Angles(0, rad(90), 0))
+	cannon(m * CFrame.new(-4.4, DECK, -5.5) * CFrame.Angles(0, rad(90), 0))
 	mast(m * CFrame.new(0, DECK, 12), 22)
-	Kit.barrel(m * CFrame.new(3.5, DECK, -4), RGB(140, 90, 50))
-	Kit.crate(m * CFrame.new(4, DECK, 4), 3, WOOD)
+	Kit.barrel(m * CFrame.new(2, DECK, -2), RGB(140, 90, 50))
+	Kit.crate(m * CFrame.new(2.5, DECK, 1.5), 3, WOOD)
 	-- Escudos del equipo en el casco
 	for _, z in { -10, 10 } do
 		Kit.cylinder("HullShield", 0.3, 2.4, m * CFrame.new(-7.1, DECK - 1.2, z) * CFrame.Angles(0, 0, rad(90)), teamColor, SMOOTH, nil, true)
@@ -150,7 +151,8 @@ function Map.Build()
 	workspace.Terrain:FillBlock(CFrame.new(0, -12, 0), V(900, 2, 700), Enum.Material.Sand)
 	for _, sx in { -1, 1 } do
 		local width = LENGTH / 2 + 20 - CHANNEL
-		block("Sand", V(width, 2, WIDTH + 20), CFrame.new(sx * (CHANNEL + width / 2), -1, 0), SAND, Enum.Material.Sand)
+		-- (macizas hasta el fondo: no se puede bucear por debajo y salir del mapa)
+		block("Sand", V(width, 12, WIDTH + 20), CFrame.new(sx * (CHANNEL + width / 2), -6, 0), SAND, Enum.Material.Sand)
 		-- Muelle de tablones a lo largo del canal
 		deco("Dock", V(5, 0.3, WIDTH + 10), CFrame.new(sx * (CHANNEL + 2.5), 0.12, 0), WOOD, PLANKS)
 		for z = -60, 60, 10 do
@@ -211,6 +213,13 @@ function Map.Build()
 
 	-- Fondo: barcos y un faro en el mar
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Los extremos del canal se cierran también por debajo del agua (los muros empiezan en y = 0)
+	local boundary = folder:FindFirstChild("Boundary")
+	for _, sz in { -1, 1 } do
+		local wall = block("Boundary", V(CHANNEL * 2 + 4, 16, 4), CFrame.new(0, -6, sz * (WIDTH / 2 + 2)), Color3.new(1, 1, 1), nil, boundary)
+		wall.Transparency = 1
+		wall.CastShadow = false
+	end
 	Kit.lighthouse(V(-60, 0, -(WIDTH / 2 + 70)))
 	for _, p in { { V(80, -1, WIDTH / 2 + 80), 0 }, { V(-150, -1, 30), 90 } } do
 		local cf = CFrame.new(p[1]) * CFrame.Angles(0, rad(p[2]), 0)
