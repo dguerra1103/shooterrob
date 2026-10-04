@@ -623,13 +623,16 @@ function PlayerData.AddRankPoints(player, delta)
 	return data.RankPoints - before
 end
 
-function PlayerData.AddXP(player, amount, reason)
+-- fixed = true: premio fijo (no lo multiplican VIP ni amigos y no cuenta en el resumen de la partida)
+function PlayerData.AddXP(player, amount, reason, fixed)
 	local data = profiles[player]
 	if not data or amount <= 0 then
 		return
 	end
-	amount = math.floor(amount * multiplier(player))
-	matchOf(player, data).XP += amount
+	if not fixed then
+		amount = math.floor(amount * multiplier(player))
+		matchOf(player, data).XP += amount
+	end
 	data.XP += amount
 	Remotes.Notify:FireClient(player, "XP", "+" .. amount .. " XP  " .. (reason or ""))
 	local leveled = false
@@ -845,6 +848,8 @@ local function claimDaily(player)
 	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
 end
 
+local pendingReceipt = {} -- [player] = true mientras se guarda una compra con Robux
+
 -- Ruleta: gasta el giro gratis de hoy (o uno comprado) y da un premio al azar según su peso.
 -- Devuelve el índice del premio para que el cliente pare la ruleta en él.
 local lastSpin = {} -- [player] = os.clock() (no más de un giro cada 3 s: dura la animación)
@@ -859,7 +864,9 @@ local function spinWheel(player)
 	local today = Shop.DayNumber()
 	if data.WheelDay ~= today then
 		data.WheelDay = today
-	elseif data.WheelSpins > 0 then
+	elseif data.WheelSpins > 0 and not cratesRestricted[player] and not pendingReceipt[player] then
+		-- (los giros comprados son premios al azar de pago: no donde no se permiten; y no mientras se
+		-- guarda una compra, por si hay que deshacerla)
 		data.WheelSpins -= 1
 	else
 		return false, "Vuelve mañana para otro giro gratis"
@@ -888,7 +895,7 @@ local function spinWheel(player)
 	elseif prize.Kind == "Crate" then
 		data.FreeCrates += prize.Amount
 	elseif prize.Kind == "XP" then
-		PlayerData.AddXP(player, prize.Amount, "Ruleta")
+		PlayerData.AddXP(player, prize.Amount, "Ruleta", true)
 	end
 	sendUpdate(player)
 	requestSave(player)
@@ -1071,12 +1078,15 @@ local function processReceipt(receipt)
 		end
 		message = "+" .. pack.Coins .. " MONEDAS"
 	end
+	pendingReceipt[player] = true
 	grant()
 	table.insert(data.Purchases, receipt.PurchaseId)
 	while #data.Purchases > MAX_PURCHASE_LOG do
 		table.remove(data.Purchases, 1)
 	end
-	if not store or noSave[player] or not save(player) then
+	local saved = store and not noSave[player] and save(player)
+	pendingReceipt[player] = nil
+	if not saved then
 		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
 		undo()
 		local index = table.find(data.Purchases, receipt.PurchaseId)

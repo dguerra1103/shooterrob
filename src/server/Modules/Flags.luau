@@ -187,6 +187,10 @@ local function setCarrying(entity, value)
 		entity:SetAttribute("CarryingFlag", value)
 	elseif entity then
 		entity.CarryingFlag = value
+		-- Los bots con la bandera van algo más lentos, como los jugadores
+		if entity.Humanoid then
+			entity.Humanoid.WalkSpeed = GameConfig.Bots.WalkSpeed * (value and SETTINGS.CarrierSpeedMultiplier or 1)
+		end
 	end
 end
 

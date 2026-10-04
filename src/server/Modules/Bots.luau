@@ -414,7 +414,10 @@ local function think(agent)
 		end
 		return
 	end
-	agent.Target = nil
+	-- (el portador de la bandera conserva su objetivo: si no, el retraso de reacción no acabaría nunca)
+	if not agent.CarryingFlag then
+		agent.Target = nil
+	end
 	humanoid.AutoRotate = true
 	-- Sin enemigos a la vista: seguir el camino o buscar uno nuevo
 	local waypoints = agent.Waypoints

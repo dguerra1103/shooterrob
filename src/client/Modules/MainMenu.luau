@@ -595,7 +595,7 @@ function MainMenu.Init()
 
 	-- También se puede empezar con Enter / botón A del mando
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or not ClientState.InMainMenu or Menu.IsOpen() then
+		if processed or not ClientState.InMainMenu or Menu.IsOpen() or ClientState.WheelOpen then
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.ButtonA then
