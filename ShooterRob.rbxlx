@@ -37467,6 +37467,14 @@ local function addArm(model, handPos, shoulderCam, weaponDef, side)
 	if outfitColors then
 		sleeveColor = outfitColors.Sleeve
 	end
+	-- Mapas realistas sin traje: uniforme de manga larga (verde oliva con un toque del color del
+	-- equipo) hasta la muñeca y guantes tácticos, como en los shooters militares
+	local map = workspace:FindFirstChild("Map")
+	local uniform = not outfitColors and map ~= nil and map:GetAttribute("Realistic") == true
+	if uniform then
+		sleeveColor = Color3.fromRGB(92, 96, 72):Lerp(player.Team and player.TeamColor.Color or Color3.fromRGB(92, 96, 72), 0.12)
+		outfitColors = { Sleeve = sleeveColor, Glove = Color3.fromRGB(38, 38, 36), Cuff = sleeveColor:Lerp(Color3.new(0, 0, 0), 0.3) }
+	end
 	-- Zombi (garras): brazos verdes y manga rota oscura
 	local zombieSkin = weaponDef.ZombieArms
 	if zombieSkin then
@@ -37485,8 +37493,9 @@ local function addArm(model, handPos, shoulderCam, weaponDef, side)
 
 	local sleeve = Instance.new("Part")
 	sleeve.Name = "Sleeve"
-	sleeve.Size = Vector3.new(0.46, 0.46, length * 0.55)
-	sleeve.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.27), handPos)
+	local sleeveLength = uniform and 0.86 or 0.55 -- (el uniforme cubre también el antebrazo)
+	sleeve.Size = Vector3.new(0.46, 0.46, length * sleeveLength)
+	sleeve.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, sleeveLength / 2), handPos)
 	sleeve.Color = sleeveColor
 	sleeve.Material = Enum.Material.Fabric
 	sleeve:SetAttribute("Side", side)
@@ -37505,9 +37514,9 @@ local function addArm(model, handPos, shoulderCam, weaponDef, side)
 	local cuff = Instance.new("Part")
 	cuff.Name = "Cuff"
 	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
-	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
+	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, uniform and 0.86 or 0.545), handPos)
 	cuff.Color = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250)
-	cuff.Material = (outfitColors and not zombieSkin) and Enum.Material.Neon or Enum.Material.Fabric
+	cuff.Material = (outfitColors and not zombieSkin and not uniform) and Enum.Material.Neon or Enum.Material.Fabric
 	cuff:SetAttribute("Side", side)
 	cuff.Parent = model
 end
