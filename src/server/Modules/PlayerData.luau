@@ -82,6 +82,7 @@ local function defaults()
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
+		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		Settings = table.clone(GameConfig.DefaultSettings),
@@ -177,6 +178,7 @@ local function publicView(player, data)
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
 		Revives = data.Revives,
+		TutorialDone = data.TutorialDone == true,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
@@ -352,6 +354,10 @@ local function load(player)
 	end
 	if not table.find(Weapons.Melees, merged.Melee) or not Weapons.IsUnlocked(merged.Melee, merged) then
 		merged.Melee = Weapons.Melee
+	end
+	-- Quien ya jugaba antes de existir el tutorial no lo ve
+	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
+		merged.TutorialDone = true
 	end
 	merged.Premium = merged.Premium or ownsPass(player, GameConfig.PremiumPassId)
 	player:SetAttribute("VIP", ownsPass(player, Shop.VIPPassId))
@@ -1003,6 +1009,14 @@ function PlayerData.Init()
 	end)
 	Remotes.SetSecondary.OnServerEvent:Connect(function(player, weaponName)
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
+	end)
+	Remotes.TutorialDone.OnServerEvent:Connect(function(player)
+		local data = profiles[player]
+		if data and not data.TutorialDone then
+			data.TutorialDone = true
+			dirty[player] = true
+			sendUpdate(player)
+		end
 	end)
 	Remotes.SetMelee.OnServerEvent:Connect(function(player, weaponName)
 		setWeapon(player, weaponName, "Melee", Weapons.Melees)
