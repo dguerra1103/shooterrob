@@ -70,6 +70,10 @@ local function bigButton(text, color, order, parent)
 		Parent = parent,
 	}, { UI.stroke(Color3.new(0, 0, 0), 3, 0), UI.gloss() })
 	button.TextStrokeTransparency = 0.5
+	-- Textos largos ("RECOMPENSA DIARIA") se encogen para caber en el botón
+	button.TextScaled = true
+	UI.new("UITextSizeConstraint", { MaxTextSize = text and #text > 18 and 24 or 28, Parent = button })
+	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
 	local scale = UI.new("UIScale", { Parent = button })
 	button.MouseEnter:Connect(function()
 		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
