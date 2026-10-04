@@ -1404,11 +1404,18 @@ local function playRound()
 		local mode = choice.Mode
 		-- Comprueba que el mapa soporta el modo
 		if choice.Map ~= "Custom" and choice.Map ~= MapBuilder.Current then
-			Remotes.Notify:FireAllClients("Big", "Cargando " .. MapBuilder.Get(choice.Map).Name .. "...")
+			-- Pantalla de carga en los clientes (ver LoadingScreen): se tapa la construcción del mapa
+			ReplicatedStorage:SetAttribute("LoadingMap", MapBuilder.Get(choice.Map).Name)
+			task.wait(0.6)
 			Flags.Stop()
 			Hardpoint.Stop()
 			Domination.Stop()
-			MapBuilder.Build(choice.Map)
+			local built, buildError = pcall(MapBuilder.Build, choice.Map)
+			task.wait(0.3)
+			ReplicatedStorage:SetAttribute("LoadingMap", nil)
+			if not built then
+				error(buildError, 0)
+			end
 		end
 		if mode == "CTF" and not Flags.IsAvailable() then
 			mode = "TDM"

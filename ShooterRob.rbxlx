@@ -24912,11 +24912,18 @@ local function playRound()
 		local mode = choice.Mode
 		-- Comprueba que el mapa soporta el modo
 		if choice.Map ~= "Custom" and choice.Map ~= MapBuilder.Current then
-			Remotes.Notify:FireAllClients("Big", "Cargando " .. MapBuilder.Get(choice.Map).Name .. "...")
+			-- Pantalla de carga en los clientes (ver LoadingScreen): se tapa la construcción del mapa
+			ReplicatedStorage:SetAttribute("LoadingMap", MapBuilder.Get(choice.Map).Name)
+			task.wait(0.6)
 			Flags.Stop()
 			Hardpoint.Stop()
 			Domination.Stop()
-			MapBuilder.Build(choice.Map)
+			local built, buildError = pcall(MapBuilder.Build, choice.Map)
+			task.wait(0.3)
+			ReplicatedStorage:SetAttribute("LoadingMap", nil)
+			if not built then
+				error(buildError, 0)
+			end
 		end
 		if mode == "CTF" and not Flags.IsAvailable() then
 			mode = "TDM"
@@ -25376,6 +25383,7 @@ local BotFootsteps = require(Modules.BotFootsteps)
 local ScopeGlint = require(Modules.ScopeGlint)
 local GrenadeWarning = require(Modules.GrenadeWarning)
 local Ambience = require(Modules.Ambience)
+local LoadingScreen = require(Modules.LoadingScreen)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -25405,6 +25413,7 @@ start("BotFootsteps", BotFootsteps.Init)
 start("ScopeGlint", ScopeGlint.Init)
 start("GrenadeWarning", GrenadeWarning.Init)
 start("Ambience", Ambience.Init)
+start("LoadingScreen", LoadingScreen.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -31397,6 +31406,122 @@ return KillstreakController
           </Item>
           <Item class="ModuleScript" referent="106">
             <Properties>
+              <string name="Name">LoadingScreen</string>
+              <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
+-- nuevo (atributo LoadingMap de ReplicatedStorage) se tapa todo con el nombre del mapa y un consejo
+-- de juego, y luego se va con un fundido.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local UI = require(script.Parent.UI)
+
+local LoadingScreen = {}
+
+local TIPS = {
+	"Agáchate (C o el botón Agachar): apuntas más estable y eres más difícil de acertar.",
+	"Si una granada enemiga cae cerca, verás un 💣 rojo alrededor de la mira: ¡aléjate!",
+	"Con 3 bajas seguidas consigues el Radar; con 5, el Ataque aéreo.",
+	"En Buscar y destruir solo el portador puede plantar: si cae, recoge la bomba.",
+	"Un destello en una ventana es un tirador enemigo apuntándote.",
+	"Los pasos del enemigo se oyen: escucha antes de girar la esquina.",
+	"La vida se recupera sola si dejas de recibir daño unos segundos.",
+	"Disparar sin silenciador te marca en rojo en el minimapa del rival.",
+	"Las vallas y barandillas se pueden atravesar a tiros.",
+	"Elige tu ventaja en Ajustes: Ligero, Persistente o Fantasma.",
+}
+
+local player = Players.LocalPlayer
+local gui, panel, title, tip
+local shown = false
+
+local function show(mapName)
+	title.Text = string.upper(tostring(mapName))
+	tip.Text = "💡 " .. TIPS[math.random(1, #TIPS)]
+	gui.Enabled = true
+	if not shown then
+		shown = true
+		panel.GroupTransparency = 1
+		TweenService:Create(panel, TweenInfo.new(0.25), { GroupTransparency = 0 }):Play()
+	end
+end
+
+local function hide()
+	if not shown then
+		return
+	end
+	shown = false
+	local fade = TweenService:Create(panel, TweenInfo.new(0.6), { GroupTransparency = 1 })
+	fade.Completed:Once(function()
+		if not shown then
+			gui.Enabled = false
+		end
+	end)
+	fade:Play()
+end
+
+local function refresh()
+	local mapName = ReplicatedStorage:GetAttribute("LoadingMap")
+	if mapName then
+		show(mapName)
+	else
+		hide()
+	end
+end
+
+function LoadingScreen.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "LoadingScreen",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 30,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	panel = UI.new("CanvasGroup", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(10, 12, 16),
+		GroupTransparency = 1,
+		Parent = gui,
+	})
+	UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.38),
+		Size = UDim2.new(0.9, 0, 0, 26),
+		Text = "CARGANDO MAPA…",
+		TextSize = 22,
+		TextColor3 = Color3.fromRGB(255, 210, 90),
+		Parent = panel,
+	})
+	title = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(0.9, 0, 0, 56),
+		Text = "",
+		TextSize = 48,
+		Parent = panel,
+	})
+	tip = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.66, 0),
+		Size = UDim2.new(0.8, 0, 0, 48),
+		Text = "",
+		TextSize = 18,
+		TextWrapped = true,
+		TextColor3 = Color3.fromRGB(200, 205, 220),
+		Parent = panel,
+	})
+	ReplicatedStorage:GetAttributeChangedSignal("LoadingMap"):Connect(refresh)
+	refresh()
+end
+
+LoadingScreen.Refresh = refresh
+return LoadingScreen
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="107">
+            <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
 -- Mientras está abierta el personaje no se mueve y es invulnerable (escudo del servidor).
@@ -32142,7 +32267,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -32382,7 +32507,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -35099,7 +35224,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -35485,7 +35610,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -35942,7 +36067,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -36069,7 +36194,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -36240,7 +36365,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -36410,7 +36535,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -36543,7 +36668,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -36870,7 +36995,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -37076,7 +37201,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -37162,7 +37287,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -37214,7 +37339,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -37371,7 +37496,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -37473,7 +37598,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -37667,7 +37792,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -39105,7 +39230,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -39162,7 +39287,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -39456,7 +39581,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -39675,19 +39800,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="126">
+  <Item class="Teams" referent="127">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="127">
+  <Item class="Workspace" referent="128">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="128">
+    <Item class="Terrain" referent="129">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

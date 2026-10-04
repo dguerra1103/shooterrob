@@ -52,6 +52,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Sonido ambiente** | En los mapas realistas: en **Encrucijada** explosiones y ráfagas lejanas (una guerra en otros barrios) y viento; en **Base Militar**, disparos sueltos de la galería de tiro a lo lejos; en **Cumbre**, viento fuerte de montaña que sube y baja. Sonidos que vienen con Roblox, filtrados para que suenen lejos. Cada mapa lo elige con el atributo `Ambience`. `src/client/Modules/Ambience.luau`. |
 | **Registro de bajas con silueta** | Como en los shooters de móvil, cada baja del registro se ve como «Asesino [silueta 3D del arma] Víctima» (🎯 si fue a la cabeza); con granadas, ataque aéreo y demás sin modelo, o en calidad Baja, sale el nombre como antes. |
 | **Caída como muñeco de trapo** | Al morir, jugadores y bots ya no se rompen en piezas: las articulaciones pasan a ser rótulas con límites y el cuerpo cae de forma natural, con un pequeño empujón alejándose de quien le dio (mucho mayor con explosivos). Los cuerpos de los bots quedan unos segundos en el suelo; al caer se quedan quietos y sin colisión (no estorban en puertas ni escaleras). `src/server/Modules/Ragdoll.luau`. |
+| **Pantalla de carga** | Al cambiar de mapa, en vez de ver cómo se construye, sale una pantalla oscura con el nombre del mapa, «CARGANDO MAPA…» y un consejo de juego al azar; se va con un fundido y empieza la presentación 5 VS 5. `src/client/Modules/LoadingScreen.luau`. |
 | **Medallas** | Al hacer una baja pueden salir placas doradas bajo el aviso de baja, con XP extra: **🩸 Primera sangre** (la primera baja de la partida), **😤 Venganza** (eliminas a quien te eliminó), **🛑 Cazarrachas** (el caído llevaba 3 o más bajas seguidas), **🔭 Larga distancia** (a 90 studs o más, sin explosivos ni cuerpo a cuerpo) y **👻 Desde la tumba** (la baja llega estando ya muerto, p. ej. con una granada). Se configuran en `GameConfig.Medals`. |
 | **Rachas** | 3 bajas seguidas: **Radar** (tu equipo ve a los enemigos a través de las paredes 12 s). 5 bajas seguidas: **Ataque aéreo** (tecla T: marcas rojas y 5 bombas en línea donde apuntas). No hay en Escalada de armas. |
 | **Asistencias** | Si le quitas al menos 20 de vida a alguien y otro lo remata en menos de 10 s: "🤝 ASISTENCIA" con +40 XP y +2 monedas (la mitad si era un bot). Se cuentan en tus estadísticas. Se ajusta en `GameConfig.XP.Assist` y `GameConfig.Coins.Assist`. |
@@ -308,6 +309,7 @@ src/
         ├── ScopeGlint.luau    destello de la mira de los bots tiradores
         ├── GrenadeWarning.luau aviso de granada enemiga cerca
         ├── Ambience.luau      sonido ambiente de los mapas realistas
+        ├── LoadingScreen.luau pantalla de carga entre mapas
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
         ├── Footprints.luau        huellas en nieve, arena y barro
