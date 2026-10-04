@@ -6070,6 +6070,20 @@ end
 local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
+-- ¿Se puede pisar ahí? (no agua ni lava). Sin nada debajo cuenta como sí (como antes): solo evita
+-- que se tiren al agua del canal o a la lava persiguiendo o esquivando.
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Include
+local function safeGround(position)
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return true
+	end
+	groundParams.FilterDescendantsInstances = { map, workspace.Terrain }
+	local hit = workspace:Raycast(position + Vector3.new(0, 3, 0), Vector3.new(0, -9, 0), groundParams)
+	return not hit or (hit.Material ~= Enum.Material.Water and hit.Material ~= Enum.Material.CrackedLava)
+end
+
 local function canSee(agent, target)
 	local head = agent.Model:FindFirstChild("Head")
 	if not head then
@@ -6240,7 +6254,7 @@ local function computePath(agent, goal)
 		AgentHeight = 5,
 		AgentCanJump = true,
 		WaypointSpacing = 6,
-		Costs = { CrackedLava = math.huge }, -- nunca por la lava
+		Costs = { CrackedLava = math.huge, Water = math.huge }, -- nunca por la lava ni por el agua
 	})
 	local ok = pcall(function()
 		path:ComputeAsync(agent.Root.Position, goal)
@@ -6314,9 +6328,13 @@ local function zombieThink(agent, humanoid, root, now)
 	end
 	-- Cerca y a la vista: directo; si no, por el camino (se recalcula cada poco)
 	if bestDistance < 30 and canSee(agent, best) then
-		agent.Waypoints = nil
-		humanoid:MoveTo(targetRoot.Position)
-		return
+		local flat = Vector3.new(targetRoot.Position.X - root.Position.X, 0, targetRoot.Position.Z - root.Position.Z)
+		if flat.Magnitude < 0.1 or safeGround(root.Position + flat.Unit * 4) then
+			agent.Waypoints = nil
+			humanoid:MoveTo(targetRoot.Position)
+			return
+		end
+		-- (hay agua o lava en medio: por el camino)
 	end
 	if not agent.Computing and (not agent.Waypoints or now > agent.GoalDeadline or agent.WaypointIndex > #agent.Waypoints) then
 		agent.Computing = true
@@ -6389,7 +6407,14 @@ local function think(agent)
 		end
 		if now >= agent.NextStrafe then
 			agent.NextStrafe = now + 1.2 + math.random()
-			humanoid:MoveTo(root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -6 or 6))
+			local side = math.random() < 0.5 and -6 or 6
+			local dest = root.Position + root.CFrame.RightVector * side
+			if not safeGround(dest) then
+				dest = root.Position - root.CFrame.RightVector * side -- (al otro lado, si no hay agua)
+			end
+			if safeGround(dest) then
+				humanoid:MoveTo(dest)
+			end
 			-- De vez en cuando salta mientras pelea (como un jugador)
 			if math.random() < CONFIG.JumpChance then
 				humanoid.Jump = true
