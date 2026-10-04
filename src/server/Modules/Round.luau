@@ -524,6 +524,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Victim = victimName,
 		VictimColor = victimColor,
 		Weapon = weapon and weapon.DisplayName or "",
+		WeaponId = weapon and weaponName or nil, -- (el cliente dibuja la silueta del arma)
 		Headshot = headshot,
 	})
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo

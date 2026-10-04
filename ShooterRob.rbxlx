@@ -23829,6 +23829,7 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Victim = victimName,
 		VictimColor = victimColor,
 		Weapon = weapon and weapon.DisplayName or "",
+		WeaponId = weapon and weaponName or nil, -- (el cliente dibuja la silueta del arma)
 		Headshot = headshot,
 	})
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo
@@ -29967,15 +29968,55 @@ local function onKillFeed(info)
 	if killer == player.Name or info.Victim == player.Name then
 		UI.stroke(Color3.fromRGB(255, 210, 80), 2, 0.2).Parent = entry
 	end
-	UI.label({
-		Size = UDim2.new(1, -12, 1, 0),
-		Position = UDim2.fromOffset(6, 0),
-		Text = text,
-		RichText = true,
-		TextSize = 17,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Parent = entry,
-	})
+	-- Como en los shooters: "Asesino [silueta del arma] Víctima" (si el arma tiene modelo; si no, texto)
+	local weaponDef = killer and type(info.WeaponId) == "string" and Weapons.Get(info.WeaponId)
+	local iconHolder
+	if weaponDef and (weaponDef.Type == "Gun" or weaponDef.Type == "Melee") then
+		iconHolder = UI.new("Frame", { Size = UDim2.fromOffset(62, 22), BackgroundTransparency = 1, LayoutOrder = 2 })
+		local ok = pcall(WeaponIcon.Create, info.WeaponId, "Default", { Size = UDim2.fromScale(1, 1), Parent = iconHolder }, "side", 62 / 22)
+		if not ok then
+			iconHolder:Destroy()
+			iconHolder = nil
+		end
+	end
+	if iconHolder then
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Parent = entry,
+		})
+		UI.new("UIPadding", { PaddingRight = UDim.new(0, 6), Parent = entry })
+		local function name(order, value, color)
+			UI.label({
+				LayoutOrder = order,
+				Size = UDim2.new(0, 0, 1, 0),
+				AutomaticSize = Enum.AutomaticSize.X,
+				Text = string.format('<font color="%s">%s</font>', UI.hex(color), tostring(value)),
+				RichText = true,
+				TextSize = 17,
+				Parent = entry,
+			})
+		end
+		name(1, killer, info.KillerColor)
+		iconHolder.Parent = entry
+		if info.Headshot then
+			UI.label({ LayoutOrder = 3, Size = UDim2.fromOffset(18, 22), Text = "🎯", TextSize = 15, Parent = entry })
+		end
+		name(4, info.Victim or "?", info.VictimColor)
+	else
+		UI.label({
+			Size = UDim2.new(1, -12, 1, 0),
+			Position = UDim2.fromOffset(6, 0),
+			Text = text,
+			RichText = true,
+			TextSize = 17,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = entry,
+		})
+	end
 	local entries = {}
 	for _, child in refs.KillFeed:GetChildren() do
 		if child:IsA("Frame") then
