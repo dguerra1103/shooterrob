@@ -1138,9 +1138,49 @@ local function eliminationRounds(s)
 	respawnAll()
 end
 
+-- Los 3 mejores de la partida (jugadores y bots, por bajas y luego menos muertes), para el podio
+-- de la pantalla final. Hay que calcularlo antes de cambiar de estado: al cambiar, los bots se quitan
+local function topPlayers()
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		local stats = PlayerData.GetLeaderstats(player)
+		local kills, deaths = stats.Bajas.Value, stats.Muertes.Value
+		if not player:GetAttribute("InMenu") or kills + deaths > 0 then
+			table.insert(list, { Name = player.DisplayName, Kills = kills, Deaths = deaths, Team = player.Team and player.Team.Name or nil })
+		end
+	end
+	local botStats = ReplicatedStorage:FindFirstChild("BotStats")
+	if botStats then
+		for _, entry in botStats:GetChildren() do
+			table.insert(list, {
+				Name = entry.Name,
+				Kills = entry:GetAttribute("Kills") or 0,
+				Deaths = entry:GetAttribute("Deaths") or 0,
+				Team = entry:GetAttribute("Team"),
+				Bot = true,
+			})
+		end
+	end
+	table.sort(list, function(x, y)
+		if x.Kills ~= y.Kills then
+			return x.Kills > y.Kills
+		end
+		if x.Deaths ~= y.Deaths then
+			return x.Deaths < y.Deaths
+		end
+		return x.Name < y.Name
+	end)
+	local top = {}
+	for i = 1, math.min(3, #list) do
+		top[i] = list[i]
+	end
+	return top
+end
+
 local function endRound()
 	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
 	local leader, leaderScore = updateLeader()
+	local top = topPlayers()
 	setState("Ended")
 	local teamMode = isTeamMode()
 	local a, b = teams[1], teams[2]
@@ -1285,6 +1325,7 @@ local function endRound()
 		MVP = mvp and mvp.Name or nil,
 		MVPKills = mvpKills,
 		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
+		Top = top,
 	})
 	-- Resumen personal: lo ganado en esta partida (el cliente lo anima: barra de nivel, monedas...)
 	for _, player in Players:GetPlayers() do

@@ -23744,9 +23744,49 @@ local function eliminationRounds(s)
 	respawnAll()
 end
 
+-- Los 3 mejores de la partida (jugadores y bots, por bajas y luego menos muertes), para el podio
+-- de la pantalla final. Hay que calcularlo antes de cambiar de estado: al cambiar, los bots se quitan
+local function topPlayers()
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		local stats = PlayerData.GetLeaderstats(player)
+		local kills, deaths = stats.Bajas.Value, stats.Muertes.Value
+		if not player:GetAttribute("InMenu") or kills + deaths > 0 then
+			table.insert(list, { Name = player.DisplayName, Kills = kills, Deaths = deaths, Team = player.Team and player.Team.Name or nil })
+		end
+	end
+	local botStats = ReplicatedStorage:FindFirstChild("BotStats")
+	if botStats then
+		for _, entry in botStats:GetChildren() do
+			table.insert(list, {
+				Name = entry.Name,
+				Kills = entry:GetAttribute("Kills") or 0,
+				Deaths = entry:GetAttribute("Deaths") or 0,
+				Team = entry:GetAttribute("Team"),
+				Bot = true,
+			})
+		end
+	end
+	table.sort(list, function(x, y)
+		if x.Kills ~= y.Kills then
+			return x.Kills > y.Kills
+		end
+		if x.Deaths ~= y.Deaths then
+			return x.Deaths < y.Deaths
+		end
+		return x.Name < y.Name
+	end)
+	local top = {}
+	for i = 1, math.min(3, #list) do
+		top[i] = list[i]
+	end
+	return top
+end
+
 local function endRound()
 	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
 	local leader, leaderScore = updateLeader()
+	local top = topPlayers()
 	setState("Ended")
 	local teamMode = isTeamMode()
 	local a, b = teams[1], teams[2]
@@ -23891,6 +23931,7 @@ local function endRound()
 		MVP = mvp and mvp.Name or nil,
 		MVPKills = mvpKills,
 		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
+		Top = top,
 	})
 	-- Resumen personal: lo ganado en esta partida (el cliente lo anima: barra de nivel, monedas...)
 	for _, player in Players:GetPlayers() do
@@ -28600,11 +28641,21 @@ local function buildFeedsAndOverlays()
 		Parent = refs.RoundEnd,
 	})
 	refs.RoundMVP = UI.label({
-		Position = UDim2.fromOffset(0, 150),
-		Size = UDim2.new(1, 0, 0, 40),
+		Position = UDim2.fromOffset(0, 140),
+		Size = UDim2.new(1, 0, 0, 34),
 		Text = "",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
+		Parent = refs.RoundEnd,
+	})
+	-- Podio: los 3 mejores de la partida (bots incluidos), con bajas/muertes
+	refs.RoundTop = UI.label({
+		Position = UDim2.fromOffset(10, 174),
+		Size = UDim2.new(1, -20, 0, 22),
+		Text = "",
+		TextSize = 17,
+		RichText = true,
+		TextColor3 = Color3.fromRGB(225, 228, 240),
 		Parent = refs.RoundEnd,
 	})
 
@@ -29103,10 +29154,32 @@ local function onMatchSummary(summary)
 	end)
 end
 
+-- "🥇 Nombre 25/8   🥈 ...": tú en amarillo
+local function podiumText(top)
+	if type(top) ~= "table" then
+		return ""
+	end
+	local medals = { "🥇", "🥈", "🥉" }
+	local parts = {}
+	for i, entry in top do
+		if type(entry) == "table" and medals[i] then
+			local name = tostring(entry.Name or "?")
+			local me = not entry.Bot and name == player.DisplayName
+			local text = string.format("%s %s %d/%d", medals[i], name, tonumber(entry.Kills) or 0, tonumber(entry.Deaths) or 0)
+			if me then
+				text = '<font color="#FFE150">' .. text .. "</font>"
+			end
+			table.insert(parts, text)
+		end
+	end
+	return table.concat(parts, "    ")
+end
+
 local function onRoundEnd(info)
 	if type(info) ~= "table" then
 		return
 	end
+	refs.RoundTop.Text = podiumText(info.Top)
 	summaryToken += 1
 	refs.RoundEnd.Size = UDim2.fromOffset(560, 220)
 	refs.Summary.Visible = false

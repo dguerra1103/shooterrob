@@ -685,11 +685,21 @@ local function buildFeedsAndOverlays()
 		Parent = refs.RoundEnd,
 	})
 	refs.RoundMVP = UI.label({
-		Position = UDim2.fromOffset(0, 150),
-		Size = UDim2.new(1, 0, 0, 40),
+		Position = UDim2.fromOffset(0, 140),
+		Size = UDim2.new(1, 0, 0, 34),
 		Text = "",
 		TextSize = 24,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
+		Parent = refs.RoundEnd,
+	})
+	-- Podio: los 3 mejores de la partida (bots incluidos), con bajas/muertes
+	refs.RoundTop = UI.label({
+		Position = UDim2.fromOffset(10, 174),
+		Size = UDim2.new(1, -20, 0, 22),
+		Text = "",
+		TextSize = 17,
+		RichText = true,
+		TextColor3 = Color3.fromRGB(225, 228, 240),
 		Parent = refs.RoundEnd,
 	})
 
@@ -1188,10 +1198,32 @@ local function onMatchSummary(summary)
 	end)
 end
 
+-- "🥇 Nombre 25/8   🥈 ...": tú en amarillo
+local function podiumText(top)
+	if type(top) ~= "table" then
+		return ""
+	end
+	local medals = { "🥇", "🥈", "🥉" }
+	local parts = {}
+	for i, entry in top do
+		if type(entry) == "table" and medals[i] then
+			local name = tostring(entry.Name or "?")
+			local me = not entry.Bot and name == player.DisplayName
+			local text = string.format("%s %s %d/%d", medals[i], name, tonumber(entry.Kills) or 0, tonumber(entry.Deaths) or 0)
+			if me then
+				text = '<font color="#FFE150">' .. text .. "</font>"
+			end
+			table.insert(parts, text)
+		end
+	end
+	return table.concat(parts, "    ")
+end
+
 local function onRoundEnd(info)
 	if type(info) ~= "table" then
 		return
 	end
+	refs.RoundTop.Text = podiumText(info.Top)
 	summaryToken += 1
 	refs.RoundEnd.Size = UDim2.fromOffset(560, 220)
 	refs.Summary.Visible = false
