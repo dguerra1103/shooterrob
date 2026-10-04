@@ -81,13 +81,18 @@ local function addScore(team, amount)
 	end
 end
 
--- Líder individual (modos sin equipos)
+-- Líder individual (modos sin equipos). Puede ser un bot (tabla de Bots, con Name y Score).
 local function updateLeader(leaving)
 	local best, bestScore = nil, -1
 	for _, player in Players:GetPlayers() do
 		local score = player:GetAttribute("Score") or 0
 		if player ~= leaving and score > bestScore then
 			best, bestScore = player, score
+		end
+	end
+	for _, agent in Bots.Agents do
+		if (agent.Score or 0) > bestScore then
+			best, bestScore = agent, agent.Score
 		end
 	end
 	ReplicatedStorage:SetAttribute("LeaderName", best and best.Name or "")
@@ -229,12 +234,18 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		victimColor = victimBot.Team.TeamColor.Color
 	end
 
-	-- Un bot hace una baja: punto para su equipo (en equipos); en todos contra todos no puntúa
+	-- Un bot hace una baja: punto para su equipo (en equipos) o para él (todos contra todos)
 	if killerBot then
 		if killerBot.Team then
 			killerColor = killerBot.Team.TeamColor.Color
 			if playing and currentMode == "TDM" then
 				addScore(killerBot.Team, 1)
+			end
+		elseif playing and currentMode == "FFA" then
+			killerBot.Score = (killerBot.Score or 0) + 1
+			updateLeader()
+			if killerBot.Score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
+				roundOver = true
 			end
 		end
 	end
@@ -547,6 +558,17 @@ local function endRound()
 		end
 	end
 
+	-- Contra bots (menos de 2 jugadores de verdad) la victoria da menos premio y no cuenta para
+	-- la clasificación global de victorias
+	local humans = 0
+	for _, player in Players:GetPlayers() do
+		if not player:GetAttribute("InMenu") then
+			humans += 1
+		end
+	end
+	local soloMatch = humans < 2
+	local winScale = soloMatch and GameConfig.Bots.RewardScale or 1
+
 	-- Premios solo para quien ha jugado (no para quien sigue en la pantalla de inicio)
 	for _, player in Players:GetPlayers() do
 		if player:GetAttribute("InMenu") then
@@ -559,9 +581,11 @@ local function endRound()
 			won = leader == player and leaderScore > 0
 		end
 		if won then
-			PlayerData.AddXP(player, GameConfig.XP.Win, "Victoria")
-			PlayerData.AddCoins(player, GameConfig.Coins.Win)
-			PlayerData.Increment(player, "Wins", 1)
+			PlayerData.AddXP(player, math.floor(GameConfig.XP.Win * winScale), "Victoria")
+			PlayerData.AddCoins(player, math.floor(GameConfig.Coins.Win * winScale))
+			if not soloMatch then
+				PlayerData.Increment(player, "Wins", 1)
+			end
 			PlayerData.Track(player, "Win", 1)
 		else
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")

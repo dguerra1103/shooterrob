@@ -44,12 +44,26 @@ function Hazards.Init()
 		while true do
 			task.wait(0.25)
 			refreshLava()
+			-- Jugadores y bots
+			local characters = {}
 			for _, player in Players:GetPlayers() do
-				local character = player.Character
-				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-				local root = character and character:FindFirstChild("HumanoidRootPart")
+				if player.Character then
+					table.insert(characters, player.Character)
+				end
+			end
+			local bots = workspace:FindFirstChild("Bots")
+			if bots then
+				for _, model in bots:GetChildren() do
+					table.insert(characters, model)
+				end
+			end
+			for _, character in characters do
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				local root = character:FindFirstChild("HumanoidRootPart")
 				if humanoid and root and humanoid.Health > 0 and onLava(humanoid, root) then
+					-- La lava no es una baja de nadie
 					humanoid:SetAttribute("LastAttacker", nil)
+					humanoid:SetAttribute("LastBot", nil)
 					humanoid:SetAttribute("LastWeapon", nil)
 					humanoid:TakeDamage(LAVA_DAMAGE)
 				end

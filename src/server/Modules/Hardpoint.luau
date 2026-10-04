@@ -6,6 +6,7 @@
 --   ZonePosition = Vector3
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Teams = game:GetService("Teams")
 
 local Shared = ReplicatedStorage.Shared
 local Remotes = require(Shared.Remotes)
@@ -129,6 +130,21 @@ local function playersInZone(zone)
 			if Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -3 and offset.Y < 10 then
 				byTeam[player.Team] = byTeam[player.Team] or {}
 				table.insert(byTeam[player.Team], player)
+			end
+		end
+	end
+	-- Los bots también ocupan y disputan la zona (sin XP: su lista queda vacía)
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local root = model:FindFirstChild("HumanoidRootPart")
+			local team = Teams:FindFirstChild(model:GetAttribute("Team") or "")
+			if team and team:IsA("Team") and humanoid and humanoid.Health > 0 and root then
+				local offset = root.Position - center
+				if Vector3.new(offset.X, 0, offset.Z).Magnitude <= radius and offset.Y > -3 and offset.Y < 10 then
+					byTeam[team] = byTeam[team] or {}
+				end
 			end
 		end
 	end

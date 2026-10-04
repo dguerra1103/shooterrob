@@ -46,24 +46,41 @@ local function updateRadar()
 			teamHighlight.Enabled = not active
 		end
 	end
+	-- Jugadores y bots (los bots llevan el nombre de su equipo en el atributo Team)
+	local marks = {}
 	for _, other in Players:GetPlayers() do
-		local character = other.Character
-		if character then
-			local highlight = character:FindFirstChild("RadarHighlight")
-			if active and isEnemy(other) then
-				if not highlight then
-					highlight = Instance.new("Highlight")
-					highlight.Name = "RadarHighlight"
-					highlight.FillColor = Color3.fromRGB(255, 40, 40)
-					highlight.FillTransparency = 0.55
-					highlight.OutlineColor = Color3.fromRGB(255, 120, 120)
-					highlight.OutlineTransparency = 0
-					highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-					highlight.Parent = character
-				end
-			elseif highlight then
-				highlight:Destroy()
+		if other.Character then
+			table.insert(marks, { other.Character, isEnemy(other) })
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			local teamName = model:GetAttribute("Team")
+			local sameTeam = ReplicatedStorage:GetAttribute("TeamMode") ~= false and player.Team ~= nil and teamName == player.Team.Name
+			local teamHighlight = model:FindFirstChild("TeamHighlight")
+			if teamHighlight and teamHighlight:IsA("Highlight") then
+				teamHighlight.Enabled = not active
 			end
+			table.insert(marks, { model, not sameTeam })
+		end
+	end
+	for _, mark in marks do
+		local character, enemy = mark[1], mark[2]
+		local highlight = character:FindFirstChild("RadarHighlight")
+		if active and enemy then
+			if not highlight then
+				highlight = Instance.new("Highlight")
+				highlight.Name = "RadarHighlight"
+				highlight.FillColor = Color3.fromRGB(255, 40, 40)
+				highlight.FillTransparency = 0.55
+				highlight.OutlineColor = Color3.fromRGB(255, 120, 120)
+				highlight.OutlineTransparency = 0
+				highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				highlight.Parent = character
+			end
+		elseif highlight then
+			highlight:Destroy()
 		end
 	end
 	local left = (player:GetAttribute("RadarUntil") or 0) - workspace:GetServerTimeNow()

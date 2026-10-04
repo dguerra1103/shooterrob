@@ -66,30 +66,33 @@ local function pickTeam()
 	return best
 end
 
-local function mapPoints(predicate)
-	local points = {}
+-- Puntos del mapa (se guardan hasta que cambia el mapa: recorrer todas las piezas es caro)
+local cachedMap, spawnsByColor, ffaPoints = nil, {}, {}
+local function refreshPoints()
 	local map = workspace:FindFirstChild("Map")
-	if map then
-		for _, d in map:GetDescendants() do
-			if d:IsA("BasePart") and predicate(d) then
-				table.insert(points, d.Position)
-			end
+	if map == cachedMap and map ~= nil and map.Parent ~= nil then
+		return
+	end
+	cachedMap, spawnsByColor, ffaPoints = map, {}, {}
+	if not map then
+		return
+	end
+	for _, d in map:GetDescendants() do
+		if d:IsA("SpawnLocation") then
+			local key = d.TeamColor.Name
+			spawnsByColor[key] = spawnsByColor[key] or {}
+			table.insert(spawnsByColor[key], d.Position)
+		elseif d:IsA("BasePart") and d.Name == "FFASpawn" then
+			table.insert(ffaPoints, d.Position)
 		end
 	end
-	return points
 end
 
 local function spawnPoint(team)
-	local points = {}
-	if team then
-		points = mapPoints(function(d)
-			return d:IsA("SpawnLocation") and d.TeamColor == team.TeamColor
-		end)
-	end
+	refreshPoints()
+	local points = team and spawnsByColor[team.TeamColor.Name] or {}
 	if #points == 0 then
-		points = mapPoints(function(d)
-			return d.Name == "FFASpawn"
-		end)
+		points = ffaPoints
 	end
 	if #points == 0 then
 		return Vector3.new(0, 10, 0)
@@ -177,22 +180,26 @@ end
 local function pickGoal(agent)
 	-- En Zona de control, la mitad de las veces van a la zona activa
 	local zone = ReplicatedStorage:GetAttribute("ZonePosition")
-	if typeof(zone) == "Vector3" and math.random() < 0.5 then
+	if typeof(zone) == "Vector3" and math.random() < 0.75 then
 		return zone + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
 	end
-	local points = mapPoints(function(d)
-		return d.Name == "FFASpawn"
-	end)
-	if #points == 0 then
+	refreshPoints()
+	if #ffaPoints == 0 then
 		return nil
 	end
-	return points[math.random(1, #points)]
+	return ffaPoints[math.random(1, #ffaPoints)]
 end
 
 local function computePath(agent, goal)
 	agent.Waypoints = nil
 	agent.WaypointIndex = 0
-	local path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
+	local path = PathfindingService:CreatePath({
+		AgentRadius = 2,
+		AgentHeight = 5,
+		AgentCanJump = true,
+		WaypointSpacing = 6,
+		Costs = { CrackedLava = math.huge }, -- nunca por la lava
+	})
 	local ok = pcall(function()
 		path:ComputeAsync(agent.Root.Position, goal)
 	end)
@@ -245,7 +252,8 @@ local function think(agent)
 			agent.Target = target.Model
 			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
 		end
-		-- Mira al objetivo y se mueve un poco de lado mientras dispara
+		-- Mira al objetivo y se mueve un poco de lado mientras dispara (sin girar hacia donde camina)
+		humanoid.AutoRotate = false
 		local look = Vector3.new(target.Head.Position.X, root.Position.Y, target.Head.Position.Z)
 		if (look - root.Position).Magnitude > 0.5 then
 			root.CFrame = CFrame.lookAt(root.Position, look)
@@ -262,20 +270,30 @@ local function think(agent)
 		return
 	end
 	agent.Target = nil
+	humanoid.AutoRotate = true
 	-- Sin enemigos a la vista: seguir el camino o buscar uno nuevo
 	local waypoints = agent.Waypoints
+	if agent.Computing then
+		return
+	end
 	if not waypoints or agent.WaypointIndex > #waypoints or now > agent.GoalDeadline then
+		if now < agent.GoalDeadline and not waypoints then
+			return -- sin camino: va en línea recta un rato antes de volver a intentarlo
+		end
 		local goal = pickGoal(agent)
 		agent.GoalDeadline = now + 12
-		if goal and not agent.Computing then
+		if goal then
 			agent.Computing = true
 			task.spawn(function()
 				computePath(agent, goal)
 				agent.Computing = false
 				if not agent.Waypoints and agent.Humanoid then
 					agent.Humanoid:MoveTo(goal)
+					agent.GoalDeadline = os.clock() + 3
 				end
 			end)
+		else
+			agent.GoalDeadline = now + 3
 		end
 		return
 	end
@@ -290,7 +308,7 @@ local function think(agent)
 	humanoid:MoveTo(waypoint.Position)
 end
 
-local spawnAgent
+local spawnAgent, safeSpawn
 
 -- Nombre que no lleve ya otro bot activo
 local function nextName()
@@ -426,7 +444,7 @@ spawnAgent = function(agent)
 		end)
 		task.delay(GameConfig.RespawnTime + 1, function()
 			if table.find(agents, agent) and not agent.Humanoid and desiredCount() >= #agents and not noRespawn() then
-				spawnAgent(agent)
+				safeSpawn(agent)
 			end
 		end)
 	end)
@@ -444,6 +462,48 @@ local function removeAgent(agent)
 	end
 end
 
+-- Crea el bot sin que un error deje un hueco fantasma: si falla, el bot se quita de la lista
+safeSpawn = function(agent)
+	if agent.Spawning then
+		return true -- ya se está creando
+	end
+	local ok, spawned = pcall(spawnAgent, agent)
+	if not ok then
+		warn("[Bots] spawn:", spawned)
+		agent.Spawning = false
+	end
+	if not (ok and spawned) then
+		if agent.Model and agent.Model.Parent and not agent.Humanoid then
+			agent.Model:Destroy()
+		end
+		removeAgent(agent)
+		return false
+	end
+	return true
+end
+
+-- Bot a quitar: del equipo con más miembros (jugadores + bots) para no desequilibrar
+local function botToRemove()
+	if not teamMode() then
+		return agents[#agents]
+	end
+	local best, bestCount = nil, -1
+	for _, team in Teams:GetTeams() do
+		local count = #team:GetPlayers()
+		local candidate
+		for _, agent in agents do
+			if agent.Team == team then
+				count += 1
+				candidate = agent
+			end
+		end
+		if candidate and count > bestCount then
+			best, bestCount = candidate, count
+		end
+	end
+	return best or agents[#agents]
+end
+
 -- Ajusta el número de bots. En plena ronda de Eliminación no entran bots nuevos.
 local function balance()
 	local desired = desiredCount()
@@ -451,14 +511,13 @@ local function balance()
 		local agent = { Name = nextName() }
 		table.insert(agents, agent)
 		Combat.BotsByName[agent.Name] = agent
-		if not spawnAgent(agent) then
-			removeAgent(agent)
+		if not safeSpawn(agent) then
 			break
 		end
 		desired = desiredCount()
 	end
 	if #agents > desired then
-		removeAgent(agents[#agents])
+		removeAgent(botToRemove())
 	end
 end
 
@@ -470,7 +529,7 @@ function Bots.RespawnAll()
 			agent.Model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 			agent.Waypoints, agent.Target, agent.Shots = nil, nil, 0
 		elseif not agent.Spawning then
-			task.spawn(spawnAgent, agent)
+			task.spawn(safeSpawn, agent)
 		end
 	end
 end
