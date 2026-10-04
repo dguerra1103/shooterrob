@@ -65,6 +65,22 @@ Map.LightingVariants = {
 		SunRays = 0,
 		Wind = Vector3.new(14, 0, -6),
 	},
+	{
+		-- Noche: las torres de focos encendidas iluminan la base
+		Name = "Noche",
+		Chance = 0.25,
+		ClockTime = 22,
+		Brightness = 1,
+		Exposure = 0.35,
+		Ambient = Color3.fromRGB(50, 56, 70),
+		OutdoorAmbient = Color3.fromRGB(68, 78, 100),
+		Atmosphere = { Density = 0.33, Offset = 0.1, Color = Color3.fromRGB(56, 64, 86), Decay = Color3.fromRGB(28, 32, 46), Glare = 0, Haze = 1.2 },
+		Color = { Saturation = -0.1, Contrast = 0.2, Brightness = 0.02, Tint = Color3.fromRGB(210, 222, 255) },
+		Bloom = { Intensity = 0.7, Size = 24, Threshold = 1.6 },
+		Clouds = 0.35,
+		CloudColor = Color3.fromRGB(58, 62, 78),
+		SunRays = 0,
+	},
 }
 
 local V = Vector3.new
@@ -242,9 +258,15 @@ local function floodlight(cf)
 	local metal = RGB(96, 98, 100)
 	Kit.cylinder("FloodPole", 18, 0.6, cf * CFrame.new(0, 9, 0), metal, M.Metal, nil, true)
 	deco("FloodBar", V(5, 0.4, 0.4), cf * CFrame.new(0, 17.6, 0), metal, M.Metal)
+	local lit = Kit.Variant == "Noche"
 	for _, x in { -1.8, 0, 1.8 } do
 		deco("FloodLamp", V(1.3, 1.1, 0.8), cf * CFrame.new(x, 18.4, 0.3) * CFrame.Angles(rad(-20), 0, 0), RGB(60, 62, 64), M.Metal)
-		deco("FloodGlass", V(1, 0.8, 0.1), cf * CFrame.new(x, 18.4, 0.75) * CFrame.Angles(rad(-20), 0, 0), RGB(230, 230, 210), M.Glass)
+		local glass = deco("FloodGlass", V(1, 0.8, 0.1), cf * CFrame.new(x, 18.4, 0.75) * CFrame.Angles(rad(-20), 0, 0), lit and RGB(255, 245, 220) or RGB(230, 230, 210), lit and M.Neon or M.Glass)
+		-- De noche, el foco del centro alumbra la zona (uno por torre: las luces cuestan en móvil)
+		if lit and x == 0 then
+			local beam = Kit.light(glass, "SpotLight", RGB(255, 244, 220), 60, 3, Enum.NormalId.Bottom)
+			beam.Angle = 120
+		end
 	end
 end
 
