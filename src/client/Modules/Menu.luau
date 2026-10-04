@@ -1917,7 +1917,8 @@ local function buildShopPage(data)
 				for _, outfitId in bundle.Outfits or {} do
 					table.insert(names, Outfits.Get(outfitId).Name)
 				end
-				return #names > 0 and ("👕 Trajes " .. table.concat(names, " y ") .. "  ·  ") or ""
+				local last = table.remove(names)
+				return last and ("👕 Trajes " .. (#names > 0 and (table.concat(names, ", ") .. " y ") or "") .. last .. "  ·  ") or ""
 			end)() .. string.format(
 				"🪙 %d monedas  ·  %s Efecto %s  ·  %s Colgante %s  ·  🎨 Grafiti %s\n¡Todo vale %d monedas! Solo se puede comprar una vez.",
 				bundle.Coins,

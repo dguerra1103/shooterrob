@@ -65,7 +65,7 @@ Shop.Bundles = {
 		Value = 5000,
 		Colors = { RGB(210, 30, 40), RGB(30, 120, 60) },
 	},
-	-- Pack permanente (sin fechas): los dos trajes de aventura y sus extras
+	-- Pack permanente (sin fechas): los tres trajes de aventura y sus extras
 	{
 		Id = "Aventurero",
 		Name = "PACK AVENTURERO",
@@ -73,11 +73,11 @@ Shop.Bundles = {
 		ProductId = 0, -- pega aquí el ID del Developer Product
 		Robux = 299,
 		Coins = 1500,
-		Outfits = { "Vaquero", "Pirata" },
+		Outfits = { "Vaquero", "Pirata", "Caballero" },
 		KillEffect = "Rodadora",
 		Charm = "Calavera",
 		Spray = "Pirata",
-		Value = 8000,
+		Value = 10500,
 		Colors = { RGB(170, 100, 50), RGB(25, 60, 110) },
 	},
 }
