@@ -20,6 +20,7 @@ local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
 local Grenades = require(script.Parent.Grenades)
 local SpawnPicker = require(script.Parent.SpawnPicker)
+local Domination = require(script.Parent.Domination)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 
@@ -356,6 +357,33 @@ local function pickGoal(agent)
 		local pumpkin = Pumpkins.Nearest(agent.Root.Position)
 		if pumpkin then
 			return pumpkin, true
+		end
+	end
+	-- Dominio: defienden su bandera si se la están quitando; si no, a por las que no son suyas (casi
+	-- siempre la más cercana; los agresivos, a veces la del fondo). El tirador a veces guarda su línea.
+	if ReplicatedStorage:GetAttribute("Mode") == "DOM" and agent.Root and agent.Team then
+		local flags = Domination.Points()
+		local defend, targets = nil, {}
+		for _, flag in flags do
+			if flag.Owner == agent.Team and flag.Capturing and flag.Capturing ~= agent.Team then
+				defend = flag
+			elseif flag.Owner ~= agent.Team then
+				table.insert(targets, flag)
+			end
+		end
+		local chosen
+		if defend and math.random() < 0.7 then
+			chosen = defend
+		elseif #targets > 0 and not (agent.Role == "Tirador" and math.random() < 0.5) then
+			table.sort(targets, function(x, y)
+				return (x.Position - agent.Root.Position).Magnitude < (y.Position - agent.Root.Position).Magnitude
+			end)
+			local aggressive = agent.Role == "Subfusil" or agent.Role == "Escopeta"
+			chosen = (aggressive and math.random() < 0.35) and targets[#targets] or targets[1]
+		end
+		if chosen then
+			local spread = chosen.Radius * 0.5
+			return chosen.Position + Vector3.new((math.random() - 0.5) * spread, 0, (math.random() - 0.5) * spread), true
 		end
 	end
 	-- En Zona de control, la mitad de las veces van a la zona activa
@@ -995,6 +1023,15 @@ local function think(agent)
 			agent.Arrived = true
 			agent.HoldLook = nil
 			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
+			-- (en una bandera de Dominio que no es suya, se queda a capturarla)
+			if ReplicatedStorage:GetAttribute("Mode") == "DOM" then
+				for _, flag in Domination.Points() do
+					local offset = flag.Position - root.Position
+					if flag.Owner ~= agent.Team and Vector3.new(offset.X, 0, offset.Z).Magnitude <= flag.Radius then
+						agent.HoldUntil = now + 3
+					end
+				end
+			end
 			return
 		end
 		agent.Arrived = false

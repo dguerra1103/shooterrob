@@ -466,10 +466,12 @@ GameConfig.IntermissionTime = 20
 
 -- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
 -- Quita alguno de la lista si no lo quieres.
-GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
+GameConfig.Modes = { "TDM", "DOM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
 	TDM = { Name = "Duelo por equipos", ScoreToWin = 50, RoundTime = 10 * 60, Teams = true }, -- puntos = bajas (50 en 10 min, como en los shooters de móvil)
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
+	-- Dominio: tres banderas (A, B, C); cada una tuya suma 1 punto cada 3 s
+	DOM = { Name = "Dominio", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true },
 	KOTH = { Name = "Zona de control", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true }, -- 1 punto/seg en la zona
 	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
 	GUN = { Name = "Escalada de armas", ScoreToWin = 0, RoundTime = 10 * 60, Teams = false }, -- 0 = una baja por arma
@@ -6152,6 +6154,7 @@ local Loadout = require(script.Parent.Loadout)
 local Zombie = require(script.Parent.Zombie)
 local Grenades = require(script.Parent.Grenades)
 local SpawnPicker = require(script.Parent.SpawnPicker)
+local Domination = require(script.Parent.Domination)
 local Outfits = require(Shared.Outfits)
 local Shop = require(Shared.Shop)
 
@@ -6488,6 +6491,33 @@ local function pickGoal(agent)
 		local pumpkin = Pumpkins.Nearest(agent.Root.Position)
 		if pumpkin then
 			return pumpkin, true
+		end
+	end
+	-- Dominio: defienden su bandera si se la están quitando; si no, a por las que no son suyas (casi
+	-- siempre la más cercana; los agresivos, a veces la del fondo). El tirador a veces guarda su línea.
+	if ReplicatedStorage:GetAttribute("Mode") == "DOM" and agent.Root and agent.Team then
+		local flags = Domination.Points()
+		local defend, targets = nil, {}
+		for _, flag in flags do
+			if flag.Owner == agent.Team and flag.Capturing and flag.Capturing ~= agent.Team then
+				defend = flag
+			elseif flag.Owner ~= agent.Team then
+				table.insert(targets, flag)
+			end
+		end
+		local chosen
+		if defend and math.random() < 0.7 then
+			chosen = defend
+		elseif #targets > 0 and not (agent.Role == "Tirador" and math.random() < 0.5) then
+			table.sort(targets, function(x, y)
+				return (x.Position - agent.Root.Position).Magnitude < (y.Position - agent.Root.Position).Magnitude
+			end)
+			local aggressive = agent.Role == "Subfusil" or agent.Role == "Escopeta"
+			chosen = (aggressive and math.random() < 0.35) and targets[#targets] or targets[1]
+		end
+		if chosen then
+			local spread = chosen.Radius * 0.5
+			return chosen.Position + Vector3.new((math.random() - 0.5) * spread, 0, (math.random() - 0.5) * spread), true
 		end
 	end
 	-- En Zona de control, la mitad de las veces van a la zona activa
@@ -7127,6 +7157,15 @@ local function think(agent)
 			agent.Arrived = true
 			agent.HoldLook = nil
 			agent.HoldUntil = now + (agent.Role == "Tirador" and (12 + math.random() * 14) or (0.6 + math.random() * 1.6))
+			-- (en una bandera de Dominio que no es suya, se queda a capturarla)
+			if ReplicatedStorage:GetAttribute("Mode") == "DOM" then
+				for _, flag in Domination.Points() do
+					local offset = flag.Position - root.Position
+					if flag.Owner ~= agent.Team and Vector3.new(offset.X, 0, offset.Z).Magnitude <= flag.Radius then
+						agent.HoldUntil = now + 3
+					end
+				end
+			end
 			return
 		end
 		agent.Arrived = false
@@ -8315,6 +8354,333 @@ return Combat
         </Item>
         <Item class="ModuleScript" referent="33">
           <Properties>
+            <string name="Name">Domination</string>
+            <string name="Source"><![CDATA[-- Modo "Dominio" (el clásico de los shooters de móvil): tres banderas A, B y C. A queda cerca de la
+-- base del primer equipo, B en el centro y C cerca de la base del segundo. Se captura quedándose
+-- dentro (~5 s; más rápido con más compañeros) sin enemigos; si hay de los dos equipos, la captura
+-- se para. Cada bandera tuya suma 1 punto cada SCORE_EVERY segundos.
+--
+-- Estado para la interfaz (atributos de ReplicatedStorage), para cada letra L en A, B, C:
+--   Dom_L_Position (Vector3), Dom_L_Owner ("" o equipo), Dom_L_Capturing ("" o equipo),
+--   Dom_L_Progress (0..1, de la captura en curso), Dom_L_Contested (bool)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Teams = game:GetService("Teams")
+
+local Shared = ReplicatedStorage.Shared
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Domination = {}
+
+Domination.OnScore = nil -- function(team, amount)
+
+local LETTERS = { "A", "B", "C" }
+local CAPTURE_TIME = 5 -- segundos con una persona
+local SCORE_EVERY = 3 -- segundos entre puntos de cada bandera
+local STEP = 0.25
+
+local active = false
+local points = {} -- { Letter, Position, Radius, Owner (Team?), Capturing (Team?), Progress, Visual }
+local thread
+
+local function findZones()
+	local list = {}
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "HardpointZone" then
+				table.insert(list, d)
+			end
+		end
+	end
+	return list
+end
+
+local function teamSpawnCenter(team)
+	local map = workspace:FindFirstChild("Map")
+	local sum, count = Vector3.zero, 0
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("SpawnLocation") and d.TeamColor == team.TeamColor then
+				sum += d.Position
+				count += 1
+			end
+		end
+	end
+	return count > 0 and sum / count or nil
+end
+
+function Domination.IsAvailable()
+	return #findZones() >= 3
+end
+
+-- A: la zona más cerca de la base del primer equipo; C: la más cerca de la del segundo; B: la más
+-- centrada entre las dos (de las que quedan)
+local function choosePoints()
+	local zones = findZones()
+	local teams = Teams:GetTeams()
+	if #zones < 3 or #teams < 2 then
+		return nil
+	end
+	local baseA, baseB = teamSpawnCenter(teams[1]), teamSpawnCenter(teams[2])
+	if not baseA or not baseB then
+		return { zones[1], zones[2], zones[3] }
+	end
+	local function closest(list, target, exclude)
+		local best, bestDistance = nil, math.huge
+		for _, zone in list do
+			if not exclude[zone] then
+				local distance = (zone.Position - target).Magnitude
+				if distance < bestDistance then
+					best, bestDistance = zone, distance
+				end
+			end
+		end
+		return best
+	end
+	local used = {}
+	local middle = (baseA + baseB) / 2
+	local b = closest(zones, middle, used)
+	used[b] = true
+	local a = closest(zones, baseA, used)
+	used[a] = true
+	local c = closest(zones, baseB, used)
+	return { a, b, c }
+end
+
+local function makeVisual(point)
+	local radius = point.Radius
+	local model = Instance.new("Model")
+	model.Name = "DomFlag_" .. point.Letter
+	local function part(name, size, cf, material, transparency)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Size = size
+		p.CFrame = cf
+		p.Material = material
+		p.Transparency = transparency or 0
+		p.Color = Color3.new(1, 1, 1)
+		p.Parent = model
+		return p
+	end
+	local base = point.Position
+	local ring = part("Ring", Vector3.new(0.3, radius * 2 + 1, radius * 2 + 1), CFrame.new(base + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.Neon)
+	ring.Shape = Enum.PartType.Cylinder
+	local fill = part("Fill", Vector3.new(0.32, radius * 2 - 1, radius * 2 - 1), CFrame.new(base + Vector3.new(0, 0.21, 0)) * CFrame.Angles(0, 0, math.pi / 2), Enum.Material.ForceField, 0.35)
+	fill.Shape = Enum.PartType.Cylinder
+	local pole = part("Pole", Vector3.new(0.4, 9, 0.4), CFrame.new(base + Vector3.new(0, 4.5, 0)), Enum.Material.Metal)
+	pole.Color = Color3.fromRGB(60, 60, 64)
+	part("Flag", Vector3.new(0.15, 2.4, 3.6), CFrame.new(base + Vector3.new(0, 7.6, 1.8)), Enum.Material.Fabric)
+	local light = Instance.new("PointLight")
+	light.Range = radius * 2
+	light.Brightness = 1.5
+	light.Parent = ring
+	-- Letra visible a través de las paredes
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(60, 60)
+	billboard.StudsOffset = Vector3.new(0, 11, 0)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.MaxDistance = 1500
+	billboard.Parent = pole
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextStrokeTransparency = 0.2
+	label.Text = point.Letter
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Parent = billboard
+	model.Parent = workspace
+	point.Visual = model
+end
+
+local function paint(point)
+	local color = point.Owner and point.Owner.TeamColor.Color or Color3.new(1, 1, 1)
+	if point.Contested then
+		color = Color3.fromRGB(255, 200, 40)
+	end
+	if point.Painted == color or not point.Visual then
+		return
+	end
+	point.Painted = color
+	for _, p in point.Visual:GetDescendants() do
+		if p:IsA("BasePart") and p.Name ~= "Pole" then
+			p.Color = color
+		elseif p:IsA("PointLight") then
+			p.Color = color
+		elseif p:IsA("TextLabel") then
+			p.TextColor3 = color
+		end
+	end
+end
+
+-- Quién está dentro: { [Team] = { jugadores } } (los bots cuentan, sin lista de jugadores)
+local function occupants(point)
+	local byTeam, counts = {}, {}
+	local function add(team, player, root)
+		local offset = root.Position - point.Position
+		if Vector3.new(offset.X, 0, offset.Z).Magnitude <= point.Radius and offset.Y > -3 and offset.Y < 10 then
+			byTeam[team] = byTeam[team] or {}
+			counts[team] = (counts[team] or 0) + 1
+			if player then
+				table.insert(byTeam[team], player)
+			end
+		end
+	end
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if player.Team and humanoid and humanoid.Health > 0 and root and not player:GetAttribute("InMenu") then
+			add(player.Team, player, root)
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local root = model:FindFirstChild("HumanoidRootPart")
+			local team = Teams:FindFirstChild(model:GetAttribute("Team") or "")
+			if team and team:IsA("Team") and humanoid and humanoid.Health > 0 and root then
+				add(team, nil, root)
+			end
+		end
+	end
+	return byTeam, counts
+end
+
+local function publish(point)
+	local prefix = "Dom_" .. point.Letter .. "_"
+	ReplicatedStorage:SetAttribute(prefix .. "Owner", point.Owner and point.Owner.Name or "")
+	ReplicatedStorage:SetAttribute(prefix .. "Capturing", point.Capturing and point.Capturing.Name or "")
+	ReplicatedStorage:SetAttribute(prefix .. "Progress", math.floor(point.Progress * 100 + 0.5) / 100)
+	ReplicatedStorage:SetAttribute(prefix .. "Contested", point.Contested == true)
+end
+
+local function update(point, dt)
+	local byTeam, counts = occupants(point)
+	local present = {}
+	for team in byTeam do
+		table.insert(present, team)
+	end
+	point.Contested = #present > 1
+	if #present == 1 and present[1] ~= point.Owner then
+		-- Capturando (si había otro equipo a medias, empieza de cero)
+		local team = present[1]
+		if point.Capturing ~= team then
+			point.Capturing, point.Progress = team, 0
+		end
+		local speed = math.min(2, 1 + (counts[team] - 1) * 0.5) -- (más gente, más rápido)
+		point.Progress = math.min(1, point.Progress + dt * speed / CAPTURE_TIME)
+		if point.Progress >= 1 then
+			local previous = point.Owner
+			point.Owner, point.Capturing, point.Progress = team, nil, 0
+			Remotes.Notify:FireAllClients("Flag", "🚩 " .. team.Name .. " captura " .. point.Letter .. (previous and " (era de " .. previous.Name .. ")" or ""))
+			for _, player in byTeam[team] do
+				PlayerData.AddXP(player, 50, "Captura " .. point.Letter)
+				PlayerData.Track(player, "ZoneTime", 5)
+			end
+		end
+	elseif #present == 1 and present[1] == point.Owner and point.Capturing then
+		-- Los dueños vuelven a su bandera: deshacen la captura enemiga a medias
+		point.Progress = math.max(0, point.Progress - dt * 2 / CAPTURE_TIME)
+		if point.Progress <= 0 then
+			point.Capturing = nil
+		end
+	elseif #present == 0 and point.Capturing then
+		-- Nadie dentro: la captura a medias se va perdiendo
+		point.Progress = math.max(0, point.Progress - dt / CAPTURE_TIME)
+		if point.Progress <= 0 then
+			point.Capturing = nil
+		end
+	end
+	paint(point)
+	publish(point)
+end
+
+function Domination.Start()
+	Domination.Stop()
+	local zones = choosePoints()
+	if not zones then
+		return false
+	end
+	points = {}
+	for i, zone in zones do
+		local point = {
+			Letter = LETTERS[i],
+			Position = zone.Position,
+			Radius = math.max(8, zone:GetAttribute("Radius") or 10),
+			Owner = nil,
+			Capturing = nil,
+			Progress = 0,
+		}
+		ReplicatedStorage:SetAttribute("Dom_" .. point.Letter .. "_Position", point.Position)
+		makeVisual(point)
+		publish(point)
+		table.insert(points, point)
+	end
+	active = true
+	thread = task.spawn(function()
+		local scoreClock = 0
+		while active do
+			task.wait(STEP)
+			scoreClock += STEP
+			for _, point in points do
+				update(point, STEP)
+			end
+			if scoreClock >= SCORE_EVERY then
+				scoreClock = 0
+				for _, point in points do
+					if point.Owner and Domination.OnScore then
+						Domination.OnScore(point.Owner, 1)
+					end
+				end
+			end
+		end
+	end)
+	return true
+end
+
+-- Para los bots: las banderas con su estado
+function Domination.Points()
+	return points
+end
+
+function Domination.Stop()
+	active = false
+	if thread then
+		pcall(task.cancel, thread)
+		thread = nil
+	end
+	for _, point in points do
+		if point.Visual then
+			point.Visual:Destroy()
+		end
+	end
+	points = {}
+	for _, letter in LETTERS do
+		for _, field in { "Position", "Owner", "Capturing", "Progress", "Contested" } do
+			ReplicatedStorage:SetAttribute("Dom_" .. letter .. "_" .. field, nil)
+		end
+	end
+end
+
+return Domination
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="34">
+          <Properties>
             <string name="Name">Dummies</string>
             <string name="Source"><![CDATA[-- Muñecos de práctica para probar las armas en Studio (desactívalos en GameConfig.TrainingDummies).
 local Players = game:GetService("Players")
@@ -8407,7 +8773,7 @@ return Dummies
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="35">
           <Properties>
             <string name="Name">Event</string>
             <string name="Source"><![CDATA[-- Evento de temporada (GameConfig.Event: el de las fechas de hoy, ver GameConfig.Events): durante
@@ -8758,7 +9124,7 @@ return Event
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="35">
+        <Item class="ModuleScript" referent="36">
           <Properties>
             <string name="Name">Flags</string>
             <string name="Source"><![CDATA[-- Modo Captura la bandera.
@@ -9208,7 +9574,7 @@ return Flags
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="36">
+        <Item class="ModuleScript" referent="37">
           <Properties>
             <string name="Name">Friends</string>
             <string name="Source"><![CDATA[-- Bonus de amigos: +10% de XP y monedas por cada amigo de Roblox que esté en el mismo servidor
@@ -9300,7 +9666,7 @@ return Friends
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="37">
+        <Item class="ModuleScript" referent="38">
           <Properties>
             <string name="Name">Gifts</string>
             <string name="Source"><![CDATA[-- Regalos por tiempo jugado (GameConfig.PlaytimeGifts): cada pocos minutos de sesión hay un regalo
@@ -9457,7 +9823,7 @@ return Gifts
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="38">
+        <Item class="ModuleScript" referent="39">
           <Properties>
             <string name="Name">Graffiti</string>
             <string name="Source"><![CDATA[-- Grafitis (Sprays): el cliente dice dónde quiere pintar y el servidor lo comprueba (que esté vivo y
@@ -9585,7 +9951,7 @@ return Graffiti
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="39">
+        <Item class="ModuleScript" referent="40">
           <Properties>
             <string name="Name">Grenades</string>
             <string name="Source"><![CDATA[-- Granadas: el servidor crea la granada con física, la deja rebotar y la hace explotar.
@@ -9773,7 +10139,7 @@ return Grenades
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="40">
+        <Item class="ModuleScript" referent="41">
           <Properties>
             <string name="Name">Hardpoint</string>
             <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
@@ -10010,7 +10376,7 @@ return Hardpoint
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="41">
+        <Item class="ModuleScript" referent="42">
           <Properties>
             <string name="Name">Hazards</string>
             <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava quita vida cada cuarto de segundo.
@@ -10091,7 +10457,7 @@ return Hazards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="42">
+        <Item class="ModuleScript" referent="43">
           <Properties>
             <string name="Name">HealthRegen</string>
             <string name="Source"><![CDATA[-- Vida que se recupera sola, como en los shooters de móvil: tras GameConfig.HealthRegen.Delay
@@ -10148,7 +10514,7 @@ return HealthRegen
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="44">
           <Properties>
             <string name="Name">Killstreaks</string>
             <string name="Source"><![CDATA[-- Recompensas por racha de bajas (sin morir):
@@ -10307,7 +10673,7 @@ return Killstreaks
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="44">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">Leaderboard</string>
             <string name="Source"><![CDATA[-- Clasificación global (todos los servidores): top 10 de bajas, de victorias y de rango (mejor RP).
@@ -10454,7 +10820,7 @@ return Leaderboard
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="45">
+        <Item class="ModuleScript" referent="46">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -10697,7 +11063,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="46">
+        <Item class="ModuleScript" referent="47">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -10799,11 +11165,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="47">
+        <Item class="Folder" referent="48">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">CandyArena</string>
               <string name="Source"><![CDATA[-- ARENA CARAMELO: arena pequeña y simétrica para duelos rápidos (pensada para Eliminación, pero vale
@@ -11079,7 +11445,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">Carnival</string>
               <string name="Source"><![CDATA[-- FERIA: parque de atracciones al atardecer. En el centro, un tiovivo con caballitos (se puede subir
@@ -11484,7 +11850,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="50">
+          <Item class="ModuleScript" referent="51">
             <Properties>
               <string name="Name">Castle</string>
               <string name="Source"><![CDATA[-- CASTILLO DEL REY: patio medieval de mañana. En el centro, la torre del homenaje con un túnel que
@@ -11727,7 +12093,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="51">
+          <Item class="ModuleScript" referent="52">
             <Properties>
               <string name="Name">ChristmasVillage</string>
               <string name="Source"><![CDATA[-- VILLA NAVIDEÑA (solo sale en la votación durante el evento de Navidad, ver Season): pueblo nevado
@@ -12015,7 +12381,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="52">
+          <Item class="ModuleScript" referent="53">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -12251,7 +12617,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="53">
+          <Item class="ModuleScript" referent="54">
             <Properties>
               <string name="Name">Crossroads</string>
               <string name="Source"><![CDATA[-- ENCRUCIJADA: ciudad en guerra al estilo de los mapas 5 contra 5 de los shooters de móvil.
@@ -12851,7 +13217,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="54">
+          <Item class="ModuleScript" referent="55">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -13617,7 +13983,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="55">
+          <Item class="ModuleScript" referent="56">
             <Properties>
               <string name="Name">FrostStation</string>
               <string name="Source"><![CDATA[-- FROST STATION: base de investigación polar. Lago helado resbaladizo en el centro bajo la torre
@@ -13972,7 +14338,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -14251,7 +14617,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">HauntedManor</string>
               <string name="Source"><![CDATA[-- MANSIÓN ENCANTADA (mapa de Halloween): de noche, con luna grande y niebla violeta. Mansión en el
@@ -14497,7 +14863,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
@@ -14831,7 +15197,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">MoonBase</string>
               <string name="Source"><![CDATA[-- BASE LUNAR: base espacial de dibujos animados en la Luna, de noche con la Tierra enorme en el
@@ -15091,7 +15457,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -15327,7 +15693,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -15556,7 +15922,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">PirateCove</string>
               <string name="Source"><![CDATA[-- BAHÍA PIRATA: dos orillas de arena separadas por un canal de agua. En el centro, un galeón
@@ -15809,7 +16175,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -16133,7 +16499,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -16375,7 +16741,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">ToyBox</string>
               <string name="Source"><![CDATA[-- CAJA DE JUGUETES: eres del tamaño de un juguete dentro del cuarto de un niño. Castillo de bloques
@@ -16634,7 +17000,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">WildWest</string>
               <string name="Source"><![CDATA[-- PUEBLO VAQUERO: calle mayor del Oeste a pleno sol. En el centro, el depósito de agua sobre patas
@@ -16982,7 +17348,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="67">
+        <Item class="ModuleScript" referent="68">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -18358,7 +18724,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="68">
+        <Item class="ModuleScript" referent="69">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -20363,7 +20729,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="69">
+        <Item class="ModuleScript" referent="70">
           <Properties>
             <string name="Name">Pumpkins</string>
             <string name="Source"><![CDATA[-- Modo Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza con el color de su equipo.
@@ -20545,7 +20911,7 @@ return Pumpkins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="70">
+        <Item class="ModuleScript" referent="71">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -20752,7 +21118,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="72">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -20778,6 +21144,7 @@ local Ranks = require(Shared.Ranks)
 local PlayerData = require(script.Parent.PlayerData)
 local Flags = require(script.Parent.Flags)
 local Hardpoint = require(script.Parent.Hardpoint)
+local Domination = require(script.Parent.Domination)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
@@ -21963,11 +22330,14 @@ local function playRound()
 			Remotes.Notify:FireAllClients("Big", "Cargando " .. MapBuilder.Get(choice.Map).Name .. "...")
 			Flags.Stop()
 			Hardpoint.Stop()
+			Domination.Stop()
 			MapBuilder.Build(choice.Map)
 		end
 		if mode == "CTF" and not Flags.IsAvailable() then
 			mode = "TDM"
 		elseif mode == "KOTH" and not Hardpoint.IsAvailable() then
+			mode = "TDM"
+		elseif mode == "DOM" and not Domination.IsAvailable() then
 			mode = "TDM"
 		end
 		startMode(mode)
@@ -21986,6 +22356,8 @@ local function playRound()
 			Flags.Start()
 		elseif mode == "KOTH" then
 			Hardpoint.Start()
+		elseif mode == "DOM" then
+			Domination.Start()
 		elseif mode == "CAL" then
 			Pumpkins.Start()
 		end
@@ -21998,6 +22370,7 @@ local function playRound()
 			TDM = "¡A LUCHAR! Primero a " .. goal .. " bajas",
 			CTF = "¡CAPTURA LA BANDERA! Primero a " .. goal,
 			KOTH = "¡ZONA DE CONTROL! Primero a " .. goal .. " puntos",
+			DOM = "🚩 ¡DOMINIO! Captura A, B y C · primero a " .. goal .. " puntos",
 			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
@@ -22017,6 +22390,7 @@ local function playRound()
 		end
 		Flags.Stop()
 		Hardpoint.Stop()
+		Domination.Stop()
 		Pumpkins.Stop()
 		Loadout.Override = nil
 		if mode == "INF" then
@@ -22042,6 +22416,7 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
+			pcall(Domination.Stop)
 			pcall(Pumpkins.Stop)
 			clearElimination()
 			clearInfection()
@@ -22089,6 +22464,9 @@ function Round.Init()
 		addScore(team, 1)
 	end
 	Hardpoint.OnScore = function(team, amount)
+		addScore(team, amount)
+	end
+	Domination.OnScore = function(team, amount)
 		addScore(team, amount)
 	end
 	-- Calabazas: quién puede recogerlas (jugadores vivos en partida y bots) y qué pasa al recogerlas
@@ -22173,7 +22551,7 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="72">
+        <Item class="ModuleScript" referent="73">
           <Properties>
             <string name="Name">SpawnPicker</string>
             <string name="Source"><![CDATA[-- Apariciones dinámicas en los modos por equipos (como en los shooters de móvil): al reaparecer
@@ -22187,7 +22565,7 @@ local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 
 local SpawnPicker = {}
 
-local MODES = { TDM = true, KOTH = true, CAL = true } -- (en bandera y eliminación, siempre en la base)
+local MODES = { TDM = true, KOTH = true, CAL = true, DOM = true } -- (en bandera y eliminación, siempre en la base)
 local SAFE_DISTANCE = 40 -- un enemigo más cerca que esto descarta el punto
 
 local cache = { Map = nil, Free = {}, ByColor = {} }
@@ -22275,7 +22653,7 @@ return SpawnPicker
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="73">
+        <Item class="ModuleScript" referent="74">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -22349,22 +22727,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="74">
+  <Item class="StarterPlayer" referent="75">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="75">
+    <Item class="StarterPlayerScripts" referent="76">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="76">
+      <Item class="Folder" referent="77">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="77">
+        <Item class="LocalScript" referent="78">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -22402,6 +22780,7 @@ local Graffiti = require(Modules.Graffiti)
 local DamageIndicator = require(Modules.DamageIndicator)
 local BoostHUD = require(Modules.BoostHUD)
 local Minimap = require(Modules.Minimap)
+local DominationHUD = require(Modules.DominationHUD)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -22424,6 +22803,7 @@ end
 start("Settings", Settings.Init)
 start("HUD", HUD.Init)
 start("Minimap", Minimap.Init)
+start("DominationHUD", DominationHUD.Init)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -22452,11 +22832,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="78">
+        <Item class="Folder" referent="79">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -22750,7 +23130,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">BoostHUD</string>
               <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
@@ -22838,7 +23218,7 @@ return BoostHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -22907,7 +23287,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -22997,7 +23377,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -23174,7 +23554,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -23645,7 +24025,118 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
+            <Properties>
+              <string name="Name">DominationHUD</string>
+              <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
+-- dueño, una barra con la captura en curso (del color de quien la captura) y "!" si está disputada.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Teams = game:GetService("Teams")
+
+local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
+
+local player = Players.LocalPlayer
+
+local DominationHUD = {}
+
+local LETTERS = { "A", "B", "C" }
+local NEUTRAL = Color3.fromRGB(70, 72, 80)
+
+local gui
+local badges = {}
+
+local function teamColor(name)
+	local team = name ~= "" and Teams:FindFirstChild(name or "")
+	return team and team:IsA("Team") and team.TeamColor.Color or nil
+end
+
+local function update()
+	local active = ReplicatedStorage:GetAttribute("Dom_A_Position") ~= nil
+	gui.Enabled = active and not ClientState.InMainMenu
+	if not gui.Enabled then
+		return
+	end
+	for _, letter in LETTERS do
+		local badge = badges[letter]
+		local prefix = "Dom_" .. letter .. "_"
+		local owner = ReplicatedStorage:GetAttribute(prefix .. "Owner") or ""
+		local capturing = ReplicatedStorage:GetAttribute(prefix .. "Capturing") or ""
+		local progress = ReplicatedStorage:GetAttribute(prefix .. "Progress") or 0
+		local contested = ReplicatedStorage:GetAttribute(prefix .. "Contested") == true
+		badge.Box.BackgroundColor3 = teamColor(owner) or NEUTRAL
+		local mine = player.Team and owner == player.Team.Name
+		badge.Stroke.Color = mine and Color3.fromRGB(255, 255, 255) or Color3.new(0, 0, 0)
+		badge.Bar.Visible = capturing ~= "" and progress > 0
+		badge.Bar.Size = UDim2.new(progress, 0, 0, 5)
+		badge.Bar.BackgroundColor3 = teamColor(capturing) or Color3.new(1, 1, 1)
+		badge.Label.Text = contested and (letter .. "!") or letter
+		badge.Label.TextColor3 = contested and Color3.fromRGB(255, 210, 60) or Color3.new(1, 1, 1)
+	end
+end
+
+function DominationHUD.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "DominationHUD",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 2,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	local row = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 118),
+		Size = UDim2.fromOffset(3 * 46 + 2 * 8, 46),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 8),
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		}),
+	})
+	for i, letter in LETTERS do
+		local stroke = UI.stroke(Color3.new(0, 0, 0), 2, 0)
+		local box = UI.new("Frame", {
+			Name = letter,
+			LayoutOrder = i,
+			Size = UDim2.fromOffset(46, 46),
+			BackgroundColor3 = NEUTRAL,
+			Parent = row,
+		}, { UI.corner(10), stroke })
+		local label = UI.label({
+			Size = UDim2.new(1, 0, 1, -4),
+			Text = letter,
+			TextSize = 28,
+			Parent = box,
+		})
+		local bar = UI.new("Frame", {
+			Position = UDim2.new(0, 0, 1, -5),
+			Size = UDim2.new(0, 0, 0, 5),
+			BorderSizePixel = 0,
+			Visible = false,
+			Parent = box,
+		})
+		badges[letter] = { Box = box, Label = label, Bar = bar, Stroke = stroke }
+	end
+	task.spawn(function()
+		while gui.Parent do
+			update()
+			task.wait(0.15)
+		end
+	end)
+end
+
+DominationHUD.Update = update
+
+return DominationHUD
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -24801,7 +25292,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -24978,7 +25469,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -25102,7 +25593,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -25243,7 +25734,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -25316,7 +25807,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -25446,7 +25937,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -27139,7 +27630,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -27211,7 +27702,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -27276,7 +27767,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -27510,7 +28001,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -28257,7 +28748,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -30917,7 +31408,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -30927,6 +31418,7 @@ return Menu
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Teams = game:GetService("Teams")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -31037,6 +31529,10 @@ local function dot(position, color, radius, square)
 	end
 	d.Visible = true
 	d.BackgroundTransparency = 0
+	local letter = d:FindFirstChild("Letter")
+	if letter then
+		letter.Text = ""
+	end
 	d.BackgroundColor3 = color
 	d.Size = UDim2.fromOffset(radius * 2, radius * 2)
 	d.Position = UDim2.new(0.5, position.X, 0.5, position.Y)
@@ -31122,6 +31618,24 @@ local function update()
 		local p, edge = toMap(zone, center)
 		dot(p or edge, Color3.fromRGB(255, 210, 40), 6, true)
 	end
+	-- Dominio: las tres banderas con su letra y el color de su dueño
+	for _, letter in { "A", "B", "C" } do
+		local position = ReplicatedStorage:GetAttribute("Dom_" .. letter .. "_Position")
+		if typeof(position) == "Vector3" then
+			local p, edge = toMap(position, center)
+			local owner = Teams:FindFirstChild(ReplicatedStorage:GetAttribute("Dom_" .. letter .. "_Owner") or "")
+			local d = dot(p or edge, owner and owner:IsA("Team") and owner.TeamColor.Color or Color3.fromRGB(230, 230, 235), 7, true)
+			local label = d:FindFirstChild("Letter") or UI.label({
+				Name = "Letter",
+				Size = UDim2.fromScale(1, 1),
+				TextSize = 11,
+				TextStrokeTransparency = 1,
+				TextColor3 = Color3.new(0, 0, 0),
+				Parent = d,
+			})
+			label.Text = letter
+		end
+	end
 	for _, team in GameConfig.Teams do
 		local flag = ReplicatedStorage:GetAttribute("FlagPos_" .. team.Name)
 		if typeof(flag) == "Vector3" then
@@ -31205,7 +31719,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C), con sensación realista (GameConfig.Movement):
@@ -31633,7 +32147,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -31760,7 +32274,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -31931,7 +32445,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -32101,7 +32615,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -32428,7 +32942,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -32617,7 +33131,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -32703,7 +33217,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -32755,7 +33269,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -32912,7 +33426,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -33014,7 +33528,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -33041,6 +33555,7 @@ local open = false
 local MODE_ICONS = {
 	["Duelo por equipos"] = "⚔",
 	["Captura la bandera"] = "🚩",
+	["Dominio"] = "🏴",
 	["Zona de control"] = "◆",
 	["Todos contra todos"] = "💀",
 	["Escalada de armas"] = "🔫",
@@ -33052,6 +33567,7 @@ local MODE_ICONS = {
 local MODE_HINTS = {
 	["Duelo por equipos"] = "Gana el equipo con más bajas",
 	["Captura la bandera"] = "Roba la bandera enemiga",
+	["Dominio"] = "Captura y defiende A, B y C",
 	["Zona de control"] = "Quédate dentro de la zona",
 	["Todos contra todos"] = "Cada uno por su cuenta",
 	["Escalada de armas"] = "Cada baja te da otra arma",
@@ -33202,7 +33718,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -34565,7 +35081,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -34622,7 +35138,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -34916,7 +35432,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -35135,19 +35651,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="113">
+  <Item class="Teams" referent="115">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="114">
+  <Item class="Workspace" referent="116">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="115">
+    <Item class="Terrain" referent="117">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

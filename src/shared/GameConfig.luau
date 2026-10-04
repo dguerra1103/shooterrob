@@ -19,10 +19,12 @@ GameConfig.IntermissionTime = 20
 
 -- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
 -- Quita alguno de la lista si no lo quieres.
-GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
+GameConfig.Modes = { "TDM", "DOM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF", "CAL" }
 GameConfig.ModeSettings = {
 	TDM = { Name = "Duelo por equipos", ScoreToWin = 50, RoundTime = 10 * 60, Teams = true }, -- puntos = bajas (50 en 10 min, como en los shooters de móvil)
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
+	-- Dominio: tres banderas (A, B, C); cada una tuya suma 1 punto cada 3 s
+	DOM = { Name = "Dominio", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true },
 	KOTH = { Name = "Zona de control", ScoreToWin = 150, RoundTime = 10 * 60, Teams = true }, -- 1 punto/seg en la zona
 	FFA = { Name = "Todos contra todos", ScoreToWin = 25, RoundTime = 8 * 60, Teams = false }, -- bajas individuales
 	GUN = { Name = "Escalada de armas", ScoreToWin = 0, RoundTime = 10 * 60, Teams = false }, -- 0 = una baja por arma

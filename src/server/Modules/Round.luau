@@ -21,6 +21,7 @@ local Ranks = require(Shared.Ranks)
 local PlayerData = require(script.Parent.PlayerData)
 local Flags = require(script.Parent.Flags)
 local Hardpoint = require(script.Parent.Hardpoint)
+local Domination = require(script.Parent.Domination)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
@@ -1206,11 +1207,14 @@ local function playRound()
 			Remotes.Notify:FireAllClients("Big", "Cargando " .. MapBuilder.Get(choice.Map).Name .. "...")
 			Flags.Stop()
 			Hardpoint.Stop()
+			Domination.Stop()
 			MapBuilder.Build(choice.Map)
 		end
 		if mode == "CTF" and not Flags.IsAvailable() then
 			mode = "TDM"
 		elseif mode == "KOTH" and not Hardpoint.IsAvailable() then
+			mode = "TDM"
+		elseif mode == "DOM" and not Domination.IsAvailable() then
 			mode = "TDM"
 		end
 		startMode(mode)
@@ -1229,6 +1233,8 @@ local function playRound()
 			Flags.Start()
 		elseif mode == "KOTH" then
 			Hardpoint.Start()
+		elseif mode == "DOM" then
+			Domination.Start()
 		elseif mode == "CAL" then
 			Pumpkins.Start()
 		end
@@ -1241,6 +1247,7 @@ local function playRound()
 			TDM = "¡A LUCHAR! Primero a " .. goal .. " bajas",
 			CTF = "¡CAPTURA LA BANDERA! Primero a " .. goal,
 			KOTH = "¡ZONA DE CONTROL! Primero a " .. goal .. " puntos",
+			DOM = "🚩 ¡DOMINIO! Captura A, B y C · primero a " .. goal .. " puntos",
 			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
@@ -1260,6 +1267,7 @@ local function playRound()
 		end
 		Flags.Stop()
 		Hardpoint.Stop()
+		Domination.Stop()
 		Pumpkins.Stop()
 		Loadout.Override = nil
 		if mode == "INF" then
@@ -1285,6 +1293,7 @@ local function gameLoop()
 			warn("[Round] Error en la ronda, se reinicia:", err)
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
+			pcall(Domination.Stop)
 			pcall(Pumpkins.Stop)
 			clearElimination()
 			clearInfection()
@@ -1332,6 +1341,9 @@ function Round.Init()
 		addScore(team, 1)
 	end
 	Hardpoint.OnScore = function(team, amount)
+		addScore(team, amount)
+	end
+	Domination.OnScore = function(team, amount)
 		addScore(team, amount)
 	end
 	-- Calabazas: quién puede recogerlas (jugadores vivos en partida y bots) y qué pasa al recogerlas

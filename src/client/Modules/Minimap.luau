@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Teams = game:GetService("Teams")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -115,6 +116,10 @@ local function dot(position, color, radius, square)
 	end
 	d.Visible = true
 	d.BackgroundTransparency = 0
+	local letter = d:FindFirstChild("Letter")
+	if letter then
+		letter.Text = ""
+	end
 	d.BackgroundColor3 = color
 	d.Size = UDim2.fromOffset(radius * 2, radius * 2)
 	d.Position = UDim2.new(0.5, position.X, 0.5, position.Y)
@@ -199,6 +204,24 @@ local function update()
 	if typeof(zone) == "Vector3" then
 		local p, edge = toMap(zone, center)
 		dot(p or edge, Color3.fromRGB(255, 210, 40), 6, true)
+	end
+	-- Dominio: las tres banderas con su letra y el color de su dueño
+	for _, letter in { "A", "B", "C" } do
+		local position = ReplicatedStorage:GetAttribute("Dom_" .. letter .. "_Position")
+		if typeof(position) == "Vector3" then
+			local p, edge = toMap(position, center)
+			local owner = Teams:FindFirstChild(ReplicatedStorage:GetAttribute("Dom_" .. letter .. "_Owner") or "")
+			local d = dot(p or edge, owner and owner:IsA("Team") and owner.TeamColor.Color or Color3.fromRGB(230, 230, 235), 7, true)
+			local label = d:FindFirstChild("Letter") or UI.label({
+				Name = "Letter",
+				Size = UDim2.fromScale(1, 1),
+				TextSize = 11,
+				TextStrokeTransparency = 1,
+				TextColor3 = Color3.new(0, 0, 0),
+				Parent = d,
+			})
+			label.Text = letter
+		end
 	end
 	for _, team in GameConfig.Teams do
 		local flag = ReplicatedStorage:GetAttribute("FlagPos_" .. team.Name)

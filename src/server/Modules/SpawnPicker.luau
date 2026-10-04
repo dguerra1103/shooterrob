@@ -9,7 +9,7 @@ local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 
 local SpawnPicker = {}
 
-local MODES = { TDM = true, KOTH = true, CAL = true } -- (en bandera y eliminación, siempre en la base)
+local MODES = { TDM = true, KOTH = true, CAL = true, DOM = true } -- (en bandera y eliminación, siempre en la base)
 local SAFE_DISTANCE = 40 -- un enemigo más cerca que esto descarta el punto
 
 local cache = { Map = nil, Free = {}, ByColor = {} }
