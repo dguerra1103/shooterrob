@@ -423,6 +423,24 @@ function Map.Build()
 		end
 	end)
 
+	-- Pájaros dando vueltas sobre el valle (los mueve el cliente: atributos Orbit de WorldFX);
+	-- con tormenta no vuelan
+	if Kit.Weather ~= "Rain" then
+		for i, spec in { { 70, 48, 14 }, { 110, 58, -11 }, { 90, 52, 9 }, { 140, 64, -7 } } do
+			local radius, height, speed = spec[1], spec[2], spec[3]
+			local angle = i * 1.7
+			local body = CFrame.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+				* CFrame.Angles(0, -angle + (speed > 0 and 0 or math.pi), 0)
+			for _, side in { -1, 1 } do
+				local wing = deco("BirdWing", V(1.6, 0.08, 0.45), body * CFrame.new(side * 0.75, 0, 0) * CFrame.Angles(0, 0, rad(side * 22)), RGB(40, 38, 36), M.SmoothPlastic)
+				wing.CastShadow = false
+				wing:SetAttribute("Orbit", speed)
+				wing:SetAttribute("OrbitCenter", V(0, height, 0))
+				wing:SetAttribute("OrbitAxis", V(0, 1, 0))
+			end
+		end
+	end
+
 	-- Con tormenta: hormigón mojado (brilla un poco) y charcos por los caminos
 	if Kit.Weather == "Rain" then
 		for _, part in folder:GetDescendants() do
