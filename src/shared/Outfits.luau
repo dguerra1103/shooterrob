@@ -133,6 +133,18 @@ Outfits.List = {
 		Sleeves = true,
 		Pieces = { CowboyHat = true, Bandana = true, LeatherVest = true, SheriffStar = true, Belt = true, Holster = true, Boots = true, Gloves = true },
 	},
+	-- Piratas (en la tienda con monedas, a juego con el mapa Bahía Pirata)
+	Pirata = {
+		Name = "Capitán Pirata",
+		Rarity = "Legendario",
+		Class = "Piratas",
+		Body = RGB(35, 30, 30),
+		Cloth = RGB(150, 30, 40),
+		Glow = RGB(255, 205, 70),
+		Plate = RGB(30, 28, 32),
+		Sleeves = true,
+		Pieces = { Tricorn = true, EyePatch = true, PirateBeard = true, CoatTails = true, Sash = true, Boots = true, Gloves = true },
+	},
 }
 
 function Outfits.Get(id)
@@ -472,6 +484,39 @@ function Outfits.Apply(character, id)
 		disc("HatCrown", V(0, 0.72, 0), 0.42, 1.05, o.Plate)
 		disc("HatBand", V(0, 0.58, 0), 0.1, 1.09, o.Glow)
 		newPiece(folder, head, "HatDent", V(0, 0.93, 0), Z, V(0.18, 0.05, 0.75), Z, o.Plate:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.Fabric)
+	end
+	if P.Tricorn then
+		-- Sombrero de tres picos: copa, tres alas levantadas y calavera dorada delante
+		newPiece(folder, head, "TricornCrown", V(0, 0.68, 0), Z, V(1.05, 0.4, 1.05), Z, o.Plate, Enum.Material.Fabric)
+		for i = 0, 2 do
+			local angle = math.rad(i * 120)
+			newPiece(folder, head, "TricornBrim", V(math.sin(angle) * 0.45, 0.6, -math.cos(angle) * 0.45), Z, V(1.2, 0.35, 0.1), Z, o.Plate, Enum.Material.Fabric, CFrame.Angles(0, -angle, 0) * CFrame.Angles(math.rad(-25), 0, 0))
+		end
+		newPiece(folder, head, "TricornTrim", V(0, 0.52, 0), Z, V(1.12, 0.06, 1.12), Z, o.Glow, Enum.Material.Fabric)
+		newPiece(folder, head, "TricornSkull", V(0, 0.7, -0.58), Z, V(0.22, 0.22, 0.04), Z, Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+	end
+	if P.EyePatch then
+		newPiece(folder, head, "EyePatch", V(0.17, 0.12, -0.52), Z, V(0.24, 0.2, 0.04), Z, RGB(15, 15, 18), Enum.Material.Fabric)
+		newPiece(folder, head, "PatchStrap", V(0, 0.2, 0), Z, V(1.04, 0.05, 1.04), Z, RGB(15, 15, 18), Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(-12)))
+	end
+	if P.PirateBeard then
+		newPiece(folder, head, "Beard", V(0, -0.36, -0.42), Z, V(0.85, 0.45, 0.28), Z, RGB(40, 25, 20), Enum.Material.Fabric)
+		newPiece(folder, head, "Moustache", V(0, -0.12, -0.54), Z, V(0.55, 0.1, 0.06), Z, RGB(40, 25, 20), Enum.Material.Fabric)
+	end
+	if P.CoatTails then
+		-- Casaca larga: faldones detrás y a los lados, con botones dorados delante
+		newPiece(folder, lower, "CoatTail", V(0, -0.9, 0.42), Z, V(1.05, 1.6, 0.12), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(8), 0, 0))
+		for _, sx in { -1, 1 } do
+			newPiece(folder, lower, "CoatSide", V(0.5 * sx, -0.75, 0.1), Z, V(0.08, 1.3, 0.8), Z, o.Cloth, Enum.Material.Fabric)
+			newPiece(folder, upper, "CoatLapel", V(0.28 * sx, 0.05, -0.52), Z, V(0.2, 0.85, 0.05), Z, o.Cloth:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.Fabric)
+		end
+		for i = 0, 2 do
+			newPiece(folder, upper, "CoatButton", V(-0.12, 0.25 - i * 0.25, -0.56), Z, V(0.07, 0.07, 0.03), Z, o.Glow, Enum.Material.SmoothPlastic)
+		end
+	end
+	if P.Sash then
+		newPiece(folder, lower, "Sash", V(0, 0.3, 0), Z, V(1.1, 0.35, 1.14), Z, o.Glow:Lerp(Color3.fromRGB(200, 40, 40), 0.7), Enum.Material.Fabric)
+		newPiece(folder, lower, "SashKnot", V(0.42, 0.05, -0.5), Z, V(0.15, 0.5, 0.06), Z, o.Glow:Lerp(Color3.fromRGB(200, 40, 40), 0.7), Enum.Material.Fabric, CFrame.Angles(0, 0, math.rad(15)))
 	end
 	if P.Bandana then
 		-- Pañuelo al cuello con el pico hacia abajo

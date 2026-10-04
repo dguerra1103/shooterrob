@@ -18,6 +18,7 @@ Sprays.List = {
 	Diamante = { Name = "Diamante", Rarity = "Legendario", Icon = "💎", Caption = "PRO", Color = RGB(150, 235, 255), Bg = RGB(20, 40, 90), Price = 1000 },
 	Vaquero = { Name = "Sheriff", Rarity = "Épico", Icon = "🤠", Caption = "YEEHAW", Color = RGB(255, 215, 90), Bg = RGB(150, 80, 40), Price = 450 },
 	Cactus = { Name = "Cactus", Rarity = "Raro", Icon = "🌵", Caption = "PINCHA", Color = RGB(255, 245, 210), Bg = RGB(60, 140, 70), Price = 250 },
+	Pirata = { Name = "Pirata", Rarity = "Épico", Icon = "🏴‍☠️", Caption = "ARRR", Color = RGB(255, 255, 255), Bg = RGB(25, 25, 35), Price = 450 },
 	Navidad = { Name = "Navidad", Rarity = "Épico", Icon = "🎄", Caption = "HO HO HO", Color = RGB(255, 255, 255), Bg = RGB(25, 110, 55), Price = 400 },
 	-- Solo para quien tiene el pase VIP (no se vende con monedas)
 	VIP = { Name = "VIP", Rarity = "Legendario", Icon = "👑", Caption = "VIP", Color = RGB(255, 215, 60), Bg = RGB(90, 30, 140), VIPOnly = true },
