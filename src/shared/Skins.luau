@@ -336,6 +336,23 @@ Skins.List.Pintura = {
 	Effect = "Sparkle",
 }
 
+-- Skin del evento de Halloween (no se vende ni sale en cajas: se gana con caramelos, ver Event)
+Skins.List.Embrujada = {
+	Name = "Embrujada",
+	Rarity = "Mítico",
+	Event = true,
+	Body = Color3.fromRGB(40, 20, 60),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(255, 120, 20),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(120, 255, 80),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(15, 10, 20),
+	Accent2 = Color3.fromRGB(190, 90, 255),
+	Effect = "Flame",
+	Pulse = true,
+}
+
 -- Skins arcoíris (las anima el cliente, ver SkinFX)
 Skins.List.Arcoiris = {
 	Name = "Arcoíris",

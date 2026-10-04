@@ -172,6 +172,21 @@ GameConfig.Bots = {
 	JumpChance = 0.2, -- probabilidad de saltar en cada cambio de dirección mientras pelea
 	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
 }
+-- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
+-- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
+-- Pon Enabled = false cuando acabe el evento (el progreso queda guardado por si vuelve).
+GameConfig.Event = {
+	Enabled = true,
+	Id = "Halloween2026", -- cambia el Id para empezar de cero en otro evento
+	Name = "Halloween",
+	CandyCoins = 5, -- monedas por caramelo
+	Goal = 100, -- caramelos para la skin
+	RewardSkin = "Embrujada",
+	SpawnEvery = 12, -- segundos entre caramelos
+	MaxCandies = 6, -- a la vez en el mapa
+	Pumpkins = true, -- calabazas de decoración en los mapas
+}
+
 -- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)
 GameConfig.PlaytimeGifts = {
 	{ Minutes = 2, Coins = 40 },
@@ -1178,6 +1193,23 @@ Skins.List.Pintura = {
 	Dark = Color3.fromRGB(255, 200, 40),
 	Accent2 = Color3.fromRGB(120, 230, 60),
 	Effect = "Sparkle",
+}
+
+-- Skin del evento de Halloween (no se vende ni sale en cajas: se gana con caramelos, ver Event)
+Skins.List.Embrujada = {
+	Name = "Embrujada",
+	Rarity = "Mítico",
+	Event = true,
+	Body = Color3.fromRGB(40, 20, 60),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = Color3.fromRGB(255, 120, 20),
+	PanelMaterial = Enum.Material.SmoothPlastic,
+	Accent = Color3.fromRGB(120, 255, 80),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = Color3.fromRGB(15, 10, 20),
+	Accent2 = Color3.fromRGB(190, 90, 255),
+	Effect = "Flame",
+	Pulse = true,
 }
 
 -- Skins arcoíris (las anima el cliente, ver SkinFX)
@@ -4019,6 +4051,7 @@ local Abilities = require(Modules.Abilities)
 local Bots = require(Modules.Bots)
 local Gifts = require(Modules.Gifts)
 local Friends = require(Modules.Friends)
+local Event = require(Modules.Event)
 
 MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
@@ -4036,6 +4069,7 @@ Abilities.Init()
 Bots.Init()
 Gifts.Init()
 Friends.Init()
+Event.Init()
 ]]></string>
         </Properties>
       </Item>
@@ -5435,6 +5469,194 @@ return Dummies
         </Item>
         <Item class="ModuleScript" referent="27">
           <Properties>
+            <string name="Name">Event</string>
+            <string name="Source"><![CDATA[-- Evento de temporada (GameConfig.Event, ahora Halloween): durante las rondas van apareciendo
+-- caramelos por el mapa (en los puntos de aparición libres). Al tocar uno: monedas y +1 al contador
+-- del evento (se guarda); al llegar a Goal se gana la skin exclusiva. También pone calabazas en los
+-- mapas (Event.Decorate lo llama MapBuilder). Los bots no recogen caramelos.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+local Skins = require(Shared.Skins)
+
+local PlayerData = require(script.Parent.PlayerData)
+local Kit = require(script.Parent.MapKit)
+
+local Event = {}
+
+local CONFIG = GameConfig.Event
+local CANDY_COLORS = {
+	Color3.fromRGB(255, 130, 20),
+	Color3.fromRGB(170, 80, 255),
+	Color3.fromRGB(120, 230, 60),
+	Color3.fromRGB(255, 70, 120),
+}
+
+local folder
+local candies = {}
+
+local function enabled()
+	return CONFIG and CONFIG.Enabled
+end
+
+-- Puntos libres del mapa actual (FFASpawn)
+local function spawnPoints()
+	local points = {}
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "FFASpawn" then
+				table.insert(points, d.Position)
+			end
+		end
+	end
+	return points
+end
+
+local function clear()
+	for _, candy in candies do
+		candy:Destroy()
+	end
+	table.clear(candies)
+end
+
+local function collect(player, candy)
+	if not candy.Parent or candy:GetAttribute("Taken") then
+		return
+	end
+	candy:SetAttribute("Taken", true)
+	local index = table.find(candies, candy)
+	if index then
+		table.remove(candies, index)
+	end
+	candy:Destroy()
+	local data = PlayerData.Get(player)
+	if not data then
+		return
+	end
+	if type(data.EventProgress) ~= "table" or data.EventProgress.Id ~= CONFIG.Id then
+		data.EventProgress = { Id = CONFIG.Id, Count = 0 }
+	end
+	data.EventProgress.Count += 1
+	local count = data.EventProgress.Count
+	PlayerData.AddCoins(player, CONFIG.CandyCoins)
+	PlayerData.MarkDirty(player)
+	PlayerData.SendUpdate(player)
+	Remotes.Notify:FireClient(player, "XP", "🍬 Caramelo  +" .. CONFIG.CandyCoins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+	if count == CONFIG.Goal and PlayerData.GiveSkin(player, CONFIG.RewardSkin) then
+		local skin = Skins.Get(CONFIG.RewardSkin)
+		Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡Skin " .. skin.Name .. " desbloqueada!")
+	end
+end
+
+local function spawnCandy()
+	local points = spawnPoints()
+	if #points == 0 then
+		return
+	end
+	local base = points[math.random(1, #points)]
+	local position = base + Vector3.new(math.random(-40, 40) / 10, 2.2, math.random(-40, 40) / 10)
+	local candy = Instance.new("Part")
+	candy.Name = "Candy"
+	candy.Shape = Enum.PartType.Ball
+	candy.Size = Vector3.new(1.6, 1.6, 1.6)
+	candy.Color = CANDY_COLORS[math.random(1, #CANDY_COLORS)]
+	candy.Material = Enum.Material.SmoothPlastic
+	candy.Anchored = true
+	candy.CanCollide = false
+	candy.CanQuery = false
+	candy.CanTouch = true
+	candy.CastShadow = false
+	candy.CFrame = CFrame.new(position)
+	candy:SetAttribute("Bob", 0.5) -- flota (lo anima WorldFX en el cliente)
+	local light = Instance.new("PointLight")
+	light.Color = candy.Color
+	light.Range = 8
+	light.Brightness = 1
+	light.Parent = candy
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkle.Color = ColorSequence.new(candy.Color)
+	sparkle.LightEmission = 1
+	sparkle.Size = NumberSequence.new(0.4, 0)
+	sparkle.Lifetime = NumberRange.new(0.5, 0.8)
+	sparkle.Rate = 5
+	sparkle.Speed = NumberRange.new(1, 2)
+	sparkle.SpreadAngle = Vector2.new(180, 180)
+	sparkle.Parent = candy
+	candy.Touched:Connect(function(hit)
+		local character = hit.Parent
+		local player = character and Players:GetPlayerFromCharacter(character)
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if player and humanoid and humanoid.Health > 0 and not player:GetAttribute("InMenu") then
+			collect(player, candy)
+		end
+	end)
+	candy.Parent = folder
+	table.insert(candies, candy)
+end
+
+-- Calabazas junto a algunos puntos libres del mapa (determinista: siempre en los mismos sitios)
+function Event.Decorate()
+	if not enabled() or not CONFIG.Pumpkins then
+		return
+	end
+	local points = spawnPoints()
+	local rng = Random.new(#points * 7 + 3)
+	for i, point in points do
+		if i % 3 == 1 then
+			local offset = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1))
+			if offset.Magnitude < 0.1 then
+				offset = Vector3.xAxis
+			end
+			-- Sobre el suelo que haya debajo (si el punto está en una plataforma, que no flote en el aire)
+			local probe = point + offset.Unit * 5 + Vector3.new(0, 3, 0)
+			local hit = workspace:Raycast(probe, Vector3.new(0, -7, 0))
+			if hit and hit.Instance.CanCollide then
+				Kit.pumpkin(CFrame.new(hit.Position) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), rng:NextNumber(0.8, 1.3))
+			end
+		end
+	end
+end
+
+function Event.Init()
+	if not enabled() then
+		return
+	end
+	folder = Instance.new("Folder")
+	folder.Name = "EventCandies"
+	folder.Parent = workspace
+	ReplicatedStorage:SetAttribute("EventName", CONFIG.Name)
+	ReplicatedStorage:SetAttribute("EventGoal", CONFIG.Goal)
+	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
+		if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+			clear()
+		end
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(CONFIG.SpawnEvery)
+			local playing = ReplicatedStorage:GetAttribute("State") == "Playing" and not ReplicatedStorage:GetAttribute("Frozen")
+			if playing and #candies < CONFIG.MaxCandies then
+				local ok, err = pcall(spawnCandy)
+				if not ok then
+					warn("[Event] caramelo:", err)
+				end
+			end
+		end
+	end)
+end
+
+Event.Collect = collect -- (para las pruebas)
+return Event
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="28">
+          <Properties>
             <string name="Name">Flags</string>
             <string name="Source"><![CDATA[-- Modo Captura la bandera.
 -- Cada equipo tiene una bandera en su base. Coge la enemiga (acércate a ella) y llévala a tu base
@@ -5837,7 +6059,7 @@ return Flags
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">Friends</string>
             <string name="Source"><![CDATA[-- Bonus de amigos: +10% de XP y monedas por cada amigo de Roblox que esté en el mismo servidor
@@ -5914,7 +6136,7 @@ return Friends
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">Gifts</string>
             <string name="Source"><![CDATA[-- Regalos por tiempo jugado (GameConfig.PlaytimeGifts): cada pocos minutos de sesión hay un regalo
@@ -6071,7 +6293,7 @@ return Gifts
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">Grenades</string>
             <string name="Source"><![CDATA[-- Granadas: el servidor crea la granada con física, la deja rebotar y la hace explotar.
@@ -6218,7 +6440,7 @@ return Grenades
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">Hardpoint</string>
             <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
@@ -6453,7 +6675,7 @@ return Hardpoint
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">Hazards</string>
             <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava quita vida cada cuarto de segundo.
@@ -6534,7 +6756,7 @@ return Hazards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">Killstreaks</string>
             <string name="Source"><![CDATA[-- Recompensas por racha de bajas (sin morir):
@@ -6689,7 +6911,7 @@ return Killstreaks
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="35">
           <Properties>
             <string name="Name">Leaderboard</string>
             <string name="Source"><![CDATA[-- Clasificación global (todos los servidores): top 10 de bajas y de victorias.
@@ -6810,7 +7032,7 @@ return Leaderboard
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="35">
+        <Item class="ModuleScript" referent="36">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -7045,7 +7267,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="36">
+        <Item class="ModuleScript" referent="37">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -7087,6 +7309,13 @@ function MapBuilder.Build(id)
 	end
 	local def = MapBuilder.Defs[id or MapBuilder.Order[1]] or MapBuilder.Defs[MapBuilder.Order[1]]
 	def.Build()
+	-- Decoración del evento de temporada (calabazas en Halloween)
+	local ok, err = pcall(function()
+		require(script.Parent.Event).Decorate()
+	end)
+	if not ok then
+		warn("[MapBuilder] decoración del evento:", err)
+	end
 	MapBuilder.Current = def.Id
 	ReplicatedStorage:SetAttribute("MapName", def.Name)
 	ReplicatedStorage:SetAttribute("MapId", def.Id)
@@ -7097,11 +7326,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="37">
+        <Item class="Folder" referent="38">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="38">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">CandyArena</string>
               <string name="Source"><![CDATA[-- ARENA CARAMELO: arena pequeña y simétrica para duelos rápidos (pensada para Eliminación, pero vale
@@ -7377,7 +7606,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="39">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -7613,7 +7842,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -8378,7 +8607,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">FrostStation</string>
               <string name="Source"><![CDATA[-- FROST STATION: base de investigación polar. Lago helado resbaladizo en el centro bajo la torre
@@ -8733,7 +8962,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -9012,7 +9241,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="43">
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
@@ -9346,7 +9575,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="44">
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -9582,7 +9811,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="45">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -9811,7 +10040,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -10135,7 +10364,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -10377,7 +10606,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">ToyBox</string>
               <string name="Source"><![CDATA[-- CAJA DE JUGUETES: eres del tamaño de un juguete dentro del cuarto de un niño. Castillo de bloques
@@ -10637,7 +10866,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="50">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -11724,6 +11953,25 @@ function Kit.flagBase(team, cf)
 	return pad
 end
 
+-- Calabaza de Halloween con cara iluminada (decoración del evento; se atraviesa)
+function Kit.pumpkin(cf, scale)
+	scale = scale or 1
+	local body = deco("Pumpkin", V(3 * scale, 2.4 * scale, 3 * scale), cf * CFrame.new(0, 1.2 * scale, 0), RGB(255, 130, 20), Enum.Material.SmoothPlastic)
+	body.Shape = Enum.PartType.Ball
+	for _, a in { 0, 60, 120 } do
+		local rib = deco("PumpkinRib", V(0.5 * scale, 2.3 * scale, 3.05 * scale), cf * CFrame.new(0, 1.2 * scale, 0) * CFrame.Angles(0, rad(a), 0), RGB(230, 100, 10), Enum.Material.SmoothPlastic)
+		rib.Shape = Enum.PartType.Ball
+	end
+	Kit.cylinder("PumpkinStem", 0.6 * scale, 0.35 * scale, cf * CFrame.new(0, 2.5 * scale, 0), RGB(80, 120, 40), Enum.Material.SmoothPlastic, nil, true)
+	-- Ojos y boca brillantes (hacia -Z del cf)
+	for _, s in { -1, 1 } do
+		deco("PumpkinEye", V(0.45 * scale, 0.4 * scale, 0.2 * scale), cf * CFrame.new(s * 0.5 * scale, 1.5 * scale, -1.42 * scale) * CFrame.Angles(0, 0, rad(s * 20)), RGB(255, 220, 90), Enum.Material.Neon)
+	end
+	local mouth = deco("PumpkinMouth", V(1.1 * scale, 0.25 * scale, 0.2 * scale), cf * CFrame.new(0, 0.85 * scale, -1.45 * scale), RGB(255, 220, 90), Enum.Material.Neon)
+	Kit.light(mouth, "PointLight", RGB(255, 160, 60), 8 * scale, 0.8)
+	return body
+end
+
 -- Plataforma de salto: al pisarla te lanza hacia arriba (el cliente lo hace, ver JumpPads).
 -- power = velocidad vertical (75 ≈ 14 studs de altura). Para subir a cornisas y a lo alto.
 function Kit.jumpPad(position, power, color)
@@ -11959,7 +12207,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -12049,6 +12297,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
+		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		Settings = table.clone(GameConfig.DefaultSettings),
@@ -12145,6 +12394,7 @@ local function publicView(player, data)
 		Settings = data.Settings,
 		Revives = data.Revives,
 		TutorialDone = data.TutorialDone == true,
+		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
@@ -12321,6 +12571,9 @@ local function load(player)
 	if not table.find(Weapons.Melees, merged.Melee) or not Weapons.IsUnlocked(merged.Melee, merged) then
 		merged.Melee = Weapons.Melee
 	end
+	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
+		merged.EventProgress = { Id = "", Count = 0 }
+	end
 	-- Quien ya jugaba antes de existir el tutorial no lo ve
 	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
 		merged.TutorialDone = true
@@ -12411,6 +12664,23 @@ end
 local function multiplier(player)
 	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
 	return vip * Friends.Multiplier(player)
+end
+
+-- Envía los datos al cliente (cambios hechos desde fuera, p. ej. el evento)
+function PlayerData.SendUpdate(player)
+	sendUpdate(player)
+end
+
+-- Da una skin (premios de evento); devuelve true si es nueva
+function PlayerData.GiveSkin(player, skinId)
+	local data = profiles[player]
+	if not data or not Skins.List[skinId] or data.Skins[skinId] then
+		return false
+	end
+	data.Skins[skinId] = true
+	dirty[player] = true
+	sendUpdate(player)
+	return true
 end
 
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
@@ -12732,7 +13002,7 @@ local function openCrate(player, crateId, useFree)
 	-- Objeto aleatorio de esa rareza (skins y trajes)
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and not skin.Mastery and skin.Rarity == rarity then
+		if id ~= "Default" and not skin.Mastery and not skin.Event and skin.Rarity == rarity then
 			table.insert(pool, { Kind = "Skin", Id = id })
 		end
 	end
@@ -12743,7 +13013,7 @@ local function openCrate(player, crateId, useFree)
 	end
 	if #pool == 0 then
 		for id, skin in Skins.List do
-			if id ~= "Default" and not skin.Mastery then
+			if id ~= "Default" and not skin.Mastery and not skin.Event then
 				table.insert(pool, { Kind = "Skin", Id = id })
 			end
 		end
@@ -13099,7 +13369,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="51">
+        <Item class="ModuleScript" referent="52">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -13300,7 +13570,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="53">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -14165,22 +14435,22 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="53">
+  <Item class="StarterPlayer" referent="54">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="54">
+    <Item class="StarterPlayerScripts" referent="55">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="55">
+      <Item class="Folder" referent="56">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="56">
+        <Item class="LocalScript" referent="57">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -14210,6 +14480,7 @@ local PlaytimeGifts = require(Modules.PlaytimeGifts)
 local SkinFX = require(Modules.SkinFX)
 local JumpPads = require(Modules.JumpPads)
 local Tutorial = require(Modules.Tutorial)
+local EventHUD = require(Modules.EventHUD)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -14237,6 +14508,7 @@ PlaytimeGifts.Init()
 SkinFX.Init()
 JumpPads.Init()
 Tutorial.Init()
+EventHUD.Init()
 VoteUI.Init()
 GrenadeController.Init()
 KillstreakController.Init()
@@ -14244,11 +14516,11 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="57">
+        <Item class="Folder" referent="58">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -14523,7 +14795,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -14598,7 +14870,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -15069,7 +15341,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -16039,7 +16311,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -16215,7 +16487,76 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
+            <Properties>
+              <string name="Name">EventHUD</string>
+              <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos / objetivo.
+-- Solo aparece si el servidor tiene un evento activo (atributo EventName).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+
+local EventHUD = {}
+
+function EventHUD.Init()
+	local compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local gui = UI.new("ScreenGui", {
+		Name = "EventHUD",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	local frame = UI.new("Frame", {
+		Position = compact and UDim2.fromOffset(10, 126) or UDim2.new(0, 66, 0.38, 176),
+		Size = compact and UDim2.fromOffset(110, 30) or UDim2.fromOffset(230, 34),
+		BackgroundColor3 = Color3.fromRGB(60, 25, 80),
+		BackgroundTransparency = 0.15,
+		Parent = gui,
+	}, { UI.corner(10), UI.stroke(Color3.fromRGB(255, 140, 30), 2, 0.2) })
+	local label = UI.label({
+		Size = UDim2.fromScale(1, 1),
+		Text = "",
+		TextSize = compact and 15 or 18,
+		Parent = frame,
+	})
+	local fill = UI.new("Frame", {
+		Position = UDim2.new(0, 4, 1, -5),
+		Size = UDim2.new(0, 0, 0, 3),
+		BackgroundColor3 = Color3.fromRGB(255, 140, 30),
+		BorderSizePixel = 0,
+		Parent = frame,
+	})
+	task.spawn(function()
+		while true do
+			local name = ReplicatedStorage:GetAttribute("EventName")
+			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
+			local data = ClientState.Data
+			gui.Enabled = name ~= nil and data ~= nil and not ClientState.InMainMenu
+			if gui.Enabled then
+				local count = data.EventCandy or 0
+				if count >= goal then
+					label.Text = compact and "🎃 ¡Hecho!" or "🎃 ¡Skin del evento conseguida!"
+				else
+					label.Text = (compact and "🍬 " or ("🎃 " .. string.upper(name) .. "  🍬 ")) .. count .. "/" .. goal
+				end
+				fill.Size = UDim2.new(math.clamp(count / goal, 0, 1), -8, 0, 3)
+			end
+			task.wait(0.5)
+		end
+	end)
+end
+
+return EventHUD
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -16356,7 +16697,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -16478,7 +16819,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -17973,7 +18314,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -18034,7 +18375,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -18265,7 +18606,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -18658,7 +18999,7 @@ function MainMenu.Init()
 	local news = UI.label({
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "🆕 NUEVO: Eliminación · Arena Caramelo · Caja de Juguetes · Splat-X",
+		Text = "🎃 EVENTO DE HALLOWEEN · 🆕 Eliminación · 2 mapas · Splat-X · Katana",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -18796,7 +19137,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -19450,7 +19791,7 @@ local function sortedIds(list)
 	return ids
 end
 
-local function priceButton(card, kind, id, owned, equipped, onEquip)
+local function priceButton(card, kind, id, owned, equipped, onEquip, lockedText)
 	local price, onSale = Shop.GetPrice(kind, id)
 	local button = UI.button({
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -19474,7 +19815,7 @@ local function priceButton(card, kind, id, owned, equipped, onEquip)
 			buy(kind, id)
 		end)
 	else
-		button.Text = "🔒 Pase de batalla"
+		button.Text = lockedText or "🔒 Pase de batalla"
 		button.BackgroundColor3 = GREY
 		button.AutoButtonColor = false
 	end
@@ -19531,7 +19872,7 @@ local function buildSkinsPage(data)
 		priceButton(card, "Skin", id, owned, equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipSkin:FireServer(id)
-		end)
+		end, skin.Event and "🎃 Evento: caramelos" or nil)
 	end
 end
 
@@ -20585,7 +20926,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -20878,7 +21219,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -21047,7 +21388,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -21217,7 +21558,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -21518,7 +21859,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -21707,7 +22048,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -21793,7 +22134,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -21936,7 +22277,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -22038,7 +22379,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -22195,7 +22536,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -23075,7 +23416,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -23132,7 +23473,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -23326,19 +23667,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="82">
+  <Item class="Teams" referent="84">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="83">
+  <Item class="Workspace" referent="85">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="84">
+    <Item class="Terrain" referent="86">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

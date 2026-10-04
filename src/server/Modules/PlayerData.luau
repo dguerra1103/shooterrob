@@ -85,6 +85,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
+		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		Settings = table.clone(GameConfig.DefaultSettings),
@@ -181,6 +182,7 @@ local function publicView(player, data)
 		Settings = data.Settings,
 		Revives = data.Revives,
 		TutorialDone = data.TutorialDone == true,
+		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
@@ -357,6 +359,9 @@ local function load(player)
 	if not table.find(Weapons.Melees, merged.Melee) or not Weapons.IsUnlocked(merged.Melee, merged) then
 		merged.Melee = Weapons.Melee
 	end
+	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
+		merged.EventProgress = { Id = "", Count = 0 }
+	end
 	-- Quien ya jugaba antes de existir el tutorial no lo ve
 	if not isNew and data.TutorialDone == nil and ((merged.Level or 1) > 1 or (merged.TotalKills or 0) > 0) then
 		merged.TutorialDone = true
@@ -447,6 +452,23 @@ end
 local function multiplier(player)
 	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
 	return vip * Friends.Multiplier(player)
+end
+
+-- Envía los datos al cliente (cambios hechos desde fuera, p. ej. el evento)
+function PlayerData.SendUpdate(player)
+	sendUpdate(player)
+end
+
+-- Da una skin (premios de evento); devuelve true si es nueva
+function PlayerData.GiveSkin(player, skinId)
+	local data = profiles[player]
+	if not data or not Skins.List[skinId] or data.Skins[skinId] then
+		return false
+	end
+	data.Skins[skinId] = true
+	dirty[player] = true
+	sendUpdate(player)
+	return true
 end
 
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
@@ -768,7 +790,7 @@ local function openCrate(player, crateId, useFree)
 	-- Objeto aleatorio de esa rareza (skins y trajes)
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and not skin.Mastery and skin.Rarity == rarity then
+		if id ~= "Default" and not skin.Mastery and not skin.Event and skin.Rarity == rarity then
 			table.insert(pool, { Kind = "Skin", Id = id })
 		end
 	end
@@ -779,7 +801,7 @@ local function openCrate(player, crateId, useFree)
 	end
 	if #pool == 0 then
 		for id, skin in Skins.List do
-			if id ~= "Default" and not skin.Mastery then
+			if id ~= "Default" and not skin.Mastery and not skin.Event then
 				table.insert(pool, { Kind = "Skin", Id = id })
 			end
 		end

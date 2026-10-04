@@ -37,6 +37,13 @@ function MapBuilder.Build(id)
 	end
 	local def = MapBuilder.Defs[id or MapBuilder.Order[1]] or MapBuilder.Defs[MapBuilder.Order[1]]
 	def.Build()
+	-- Decoración del evento de temporada (calabazas en Halloween)
+	local ok, err = pcall(function()
+		require(script.Parent.Event).Decorate()
+	end)
+	if not ok then
+		warn("[MapBuilder] decoración del evento:", err)
+	end
 	MapBuilder.Current = def.Id
 	ReplicatedStorage:SetAttribute("MapName", def.Name)
 	ReplicatedStorage:SetAttribute("MapId", def.Id)

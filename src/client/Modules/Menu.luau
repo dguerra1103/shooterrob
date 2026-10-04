@@ -649,7 +649,7 @@ local function sortedIds(list)
 	return ids
 end
 
-local function priceButton(card, kind, id, owned, equipped, onEquip)
+local function priceButton(card, kind, id, owned, equipped, onEquip, lockedText)
 	local price, onSale = Shop.GetPrice(kind, id)
 	local button = UI.button({
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -673,7 +673,7 @@ local function priceButton(card, kind, id, owned, equipped, onEquip)
 			buy(kind, id)
 		end)
 	else
-		button.Text = "🔒 Pase de batalla"
+		button.Text = lockedText or "🔒 Pase de batalla"
 		button.BackgroundColor3 = GREY
 		button.AutoButtonColor = false
 	end
@@ -730,7 +730,7 @@ local function buildSkinsPage(data)
 		priceButton(card, "Skin", id, owned, equipped, function()
 			Sounds.Play("Click")
 			Remotes.EquipSkin:FireServer(id)
-		end)
+		end, skin.Event and "🎃 Evento: caramelos" or nil)
 	end
 end
 

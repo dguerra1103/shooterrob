@@ -65,6 +65,21 @@ GameConfig.Bots = {
 	JumpChance = 0.2, -- probabilidad de saltar en cada cambio de dirección mientras pelea
 	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
 }
+-- Evento de temporada (Halloween): durante las rondas aparecen caramelos por el mapa; cada uno da
+-- monedas y suma al contador del evento; al llegar a Goal se gana la skin exclusiva RewardSkin.
+-- Pon Enabled = false cuando acabe el evento (el progreso queda guardado por si vuelve).
+GameConfig.Event = {
+	Enabled = true,
+	Id = "Halloween2026", -- cambia el Id para empezar de cero en otro evento
+	Name = "Halloween",
+	CandyCoins = 5, -- monedas por caramelo
+	Goal = 100, -- caramelos para la skin
+	RewardSkin = "Embrujada",
+	SpawnEvery = 12, -- segundos entre caramelos
+	MaxCandies = 6, -- a la vez en el mapa
+	Pumpkins = true, -- calabazas de decoración en los mapas
+}
+
 -- Regalos por tiempo jugado en la sesión (minutos desde que entras; se recogen en orden, botón 🎁)
 GameConfig.PlaytimeGifts = {
 	{ Minutes = 2, Coins = 40 },
