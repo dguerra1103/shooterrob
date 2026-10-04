@@ -187,6 +187,23 @@ ROBLOX_API_KEY=... ROBLOX_UNIVERSE_ID=... ROBLOX_PLACE_ID=... scripts/publish.sh
 
 En el [Creator Hub](https://create.roblox.com/dashboard/creations), abre tu experiencia → **Monetización**:
 
+**Lista rápida de todo lo que hay que crear** (todo en `src/shared/Shop.luau` salvo donde se indica):
+
+| Qué | Tipo | Precio sugerido | Dónde pegar el ID |
+|---|---|---|---|
+| 4 packs de monedas (500 / 1200 / 3000 / 8000) | Developer Product | 49 / 99 / 199 / 449 R$ | `Shop.CoinPacks[1..4].ProductId` |
+| 2 packs de revivir (5 / 15) | Developer Product | 25 / 59 R$ | `Shop.RevivePacks[1..2].ProductId` |
+| 2 potenciadores (XP doble / monedas dobles, 30 min) | Developer Product | 49 / 69 R$ | `Shop.Boosters[1..2].ProductId` |
+| 3 giros de ruleta | Developer Product | 25 R$ | `Shop.Wheel.SpinProductId` |
+| Pack de inicio | Developer Product | 99 R$ | `Shop.StarterPack.ProductId` |
+| Pack de Halloween / Navidad / Aventurero | Developer Product (uno cada uno) | 199 / 199 / 299 R$ | `Shop.Bundles[1..3].ProductId` |
+| VIP | Game Pass | 299 R$ | `Shop.VIPPassId` |
+| Pase de batalla premium | Game Pass | a tu gusto | `GameConfig.PremiumPassId` (`GameConfig.luau`) |
+| Grupo del juego | Grupo | — | `GameConfig.Group.Id` (`GameConfig.luau`) |
+| 8 insignias (opcional) | Badge | — | `GameConfig.Badges` (`GameConfig.luau`) |
+
+Detalle de cada uno:
+
 1. **Developer Products**: crea 4 productos (por ejemplo 500, 1200, 3000 y 8000 monedas a 49, 99, 199 y 449 Robux) y pega cada ID en `Shop.CoinPacks[i].ProductId` (`src/shared/Shop.luau`).
 2. **Revivir instantáneo**: crea 2 productos (5 revivir a 25 Robux y 15 a 59 Robux) y pega sus IDs en `Shop.RevivePacks[i].ProductId`. Cada jugador empieza con 3 gratis; al morir, "REVIVIR INSTANTÁNEO" (tecla B) le devuelve donde cayó.
    - **Potenciadores**: crea 2 productos más (XP doble 30 min a 49 Robux y monedas dobles 30 min a 69) y pega sus IDs en `Shop.Boosters[i].ProductId`.
@@ -209,7 +226,7 @@ Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se
 3. En el Creator Hub, rellena el **cuestionario de madurez** y, como hay cajas, marca que tiene artículos aleatorios de pago (aunque solo se compren con monedas, las monedas se venden por Robux).
 4. En **Game Settings → Places**, pon el máximo de jugadores por servidor en **20** (10 contra 10) o menos de 30: Roblox solo dibuja 31 contornos a la vez (compañeros y radar).
 5. Cambia la experiencia a **Public** y ponle un icono y miniaturas llamativas (puedes usar las imágenes del concept pack).
-6. Temporadas: los eventos se encienden y apagan solos por fecha (`GameConfig.Events`): Halloween hasta el 4 de noviembre y Navidad del 1 de diciembre al 7 de enero. Para el año que viene, copia uno, cambia su `Id` (empieza de cero) y sus fechas. Las novedades de Navidad ya están escritas (`News` dentro del evento) y salen solas el 1 de diciembre a quien ya había jugado. Para anunciar otra actualización, cambia `GameConfig.News` y sube su `Version` por encima de la última usada (ahora 2).
+6. Temporadas: los eventos se encienden y apagan solos por fecha (`GameConfig.Events`): Halloween hasta el 4 de noviembre y Navidad del 1 de diciembre al 7 de enero. Para el año que viene, copia uno, cambia su `Id` (empieza de cero) y sus fechas. Las novedades de Navidad ya están escritas (`News` dentro del evento) y salen solas el 1 de diciembre a quien ya había jugado. Para anunciar otra actualización, cambia `GameConfig.News` y sube su `Version` por encima de la última usada: ahora la general es la 2 y la de Navidad la 3, así que la próxima general sería la 4 (y entonces sube la de Navidad a 5 para que siga saliendo en diciembre).
 
 ## Estructura del proyecto
 
