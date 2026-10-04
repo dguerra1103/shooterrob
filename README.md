@@ -48,6 +48,7 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Aviso de granada** | Si una granada enemiga cae cerca (dentro de su radio de explosión), sale un icono 💣 rojo alrededor de la mira en la dirección en la que está (arriba = delante), más grande cuanto más cerca. No avisa de las tuyas ni de las de tu equipo. `src/client/Modules/GrenadeWarning.luau`. |
 | **Bots que se agachan** | En pleno tiroteo, el bot tirador quieto suele agacharse para apuntar, y los de fusil o ametralladora a veces se agachan y aguantan la posición cuando estás lejos (se les ve más bajos y son más difíciles de acertar). Se levantan al moverse o al perderte de vista. |
 | **Podio final** | En la pantalla de fin de partida, bajo el MVP, salen los **3 mejores** de la partida con sus bajas/muertes (🥇🥈🥉), contando también a los bots; tú en amarillo. |
+| **Sonido ambiente** | En los mapas realistas: en **Encrucijada** explosiones y ráfagas lejanas (una guerra en otros barrios) y viento; en **Base Militar**, disparos sueltos de la galería de tiro a lo lejos; en **Cumbre**, viento fuerte de montaña que sube y baja. Sonidos que vienen con Roblox, filtrados para que suenen lejos. Cada mapa lo elige con el atributo `Ambience`. `src/client/Modules/Ambience.luau`. |
 | **Medallas** | Al hacer una baja pueden salir placas doradas bajo el aviso de baja, con XP extra: **🩸 Primera sangre** (la primera baja de la partida), **😤 Venganza** (eliminas a quien te eliminó), **🛑 Cazarrachas** (el caído llevaba 3 o más bajas seguidas), **🔭 Larga distancia** (a 90 studs o más, sin explosivos ni cuerpo a cuerpo) y **👻 Desde la tumba** (la baja llega estando ya muerto, p. ej. con una granada). Se configuran en `GameConfig.Medals`. |
 | **Rachas** | 3 bajas seguidas: **Radar** (tu equipo ve a los enemigos a través de las paredes 12 s). 5 bajas seguidas: **Ataque aéreo** (tecla T: marcas rojas y 5 bombas en línea donde apuntas). No hay en Escalada de armas. |
 | **Asistencias** | Si le quitas al menos 20 de vida a alguien y otro lo remata en menos de 10 s: "🤝 ASISTENCIA" con +40 XP y +2 monedas (la mitad si era un bot). Se cuentan en tus estadísticas. Se ajusta en `GameConfig.XP.Assist` y `GameConfig.Coins.Assist`. |
@@ -302,6 +303,7 @@ src/
         ├── BotFootsteps.luau  pasos de los bots que se oyen al correr
         ├── ScopeGlint.luau    destello de la mira de los bots tiradores
         ├── GrenadeWarning.luau aviso de granada enemiga cerca
+        ├── Ambience.luau      sonido ambiente de los mapas realistas
         ├── WeaponIcon.luau        iconos 3D de las armas
         ├── WorldFX.luau           animaciones del mapa y efectos de baja
         ├── Footprints.luau        huellas en nieve, arena y barro

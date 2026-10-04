@@ -232,6 +232,7 @@ end
 
 function Map.Build()
 	local folder = Kit.Begin(Map.Name, { Realistic = true })
+	folder:SetAttribute("Ambience", "Base") -- (sonido ambiente: ver Ambience en el cliente)
 	Kit.applyLighting(Map.Lighting)
 	local teams = GameConfig.Teams
 
