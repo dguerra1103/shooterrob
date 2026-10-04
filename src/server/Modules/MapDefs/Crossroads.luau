@@ -49,6 +49,22 @@ Map.LightingVariants = {
 		CloudColor = Color3.fromRGB(255, 190, 150),
 		SunRays = 0.14,
 	},
+	{
+		-- Noche: farolas encendidas y bidones ardiendo (oscuro, pero se ve)
+		Name = "Noche",
+		Chance = 0.25,
+		ClockTime = 21.5,
+		Brightness = 1,
+		Exposure = 0.35,
+		Ambient = Color3.fromRGB(52, 56, 72),
+		OutdoorAmbient = Color3.fromRGB(70, 78, 104),
+		Atmosphere = { Density = 0.35, Offset = 0.1, Color = Color3.fromRGB(60, 66, 90), Decay = Color3.fromRGB(30, 32, 48), Glare = 0, Haze = 1.2 },
+		Color = { Saturation = -0.1, Contrast = 0.2, Brightness = 0.02, Tint = Color3.fromRGB(210, 220, 255) },
+		Bloom = { Intensity = 0.7, Size = 24, Threshold = 1.6 },
+		Clouds = 0.4,
+		CloudColor = Color3.fromRGB(60, 64, 80),
+		SunRays = 0,
+	},
 }
 
 local V = Vector3.new
@@ -65,6 +81,19 @@ local building, solidBlock, sandbags, ruinWall = RealKit.building, RealKit.solid
 local burntCar, bus, tankWreck, stall = RealKit.burntCar, RealKit.bus, RealKit.tankWreck, RealKit.stall
 
 local block, deco = Kit.block, Kit.deco
+
+-- Fuego encima de un bidón o de un coche quemado (solo de noche): llamas y luz naranja
+local function fire(cf, size)
+	local core = deco("FireCore", V(1, 1, 1), cf, RGB(255, 140, 40), M.Neon)
+	core.Transparency = 1
+	local flames = Instance.new("Fire")
+	flames.Size = size or 4
+	flames.Heat = 6
+	flames.Color = RGB(255, 140, 40)
+	flames.SecondaryColor = RGB(255, 60, 20)
+	flames.Parent = core
+	Kit.light(core, "PointLight", RGB(255, 150, 70), 20, 1.6)
+end
 
 ---------------------------------------------------------------------------
 -- Mapa
@@ -157,6 +186,13 @@ function Map.Build()
 		Kit.barrier(V(1.6, 3.6, 8), m * CFrame.new(-24, 0, -11))
 		for _, p in { V(-120, 0, 14), V(-82, 0, -14), V(-58, 0, 13) } do
 			Kit.barrel(m * CFrame.new(p), RGB(80, 84, 70))
+			if Kit.Variant == "Noche" then
+				fire(m * CFrame.new(p + V(0, 3.4, 0)), 3.5)
+			end
+		end
+		if Kit.Variant == "Noche" then
+			fire(m * CFrame.new(-138, 2.6, -9), 6) -- (el coche quemado de la avenida)
+			fire(m * CFrame.new(-62, 2.6, 104), 6) -- (el del callejón)
 		end
 		for _, x in { -150, -100, -50 } do
 			Kit.streetLamp(m * CFrame.new(x, 0, 19.5) * CFrame.Angles(0, math.pi, 0), RGB(255, 225, 180))
