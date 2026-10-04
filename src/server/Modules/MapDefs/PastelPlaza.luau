@@ -147,7 +147,7 @@ function Map.Build()
 		-- Muro en L y coberturas bajas
 		wall("LWall", m * CFrame.new(-62, 0, -25), V(2, 8, 16))
 		wall("LWall", m * CFrame.new(-55, 0, -32), V(12, 8, 2))
-		cover(m * CFrame.new(-30, 0, -8), V(10, 3.5, 2))
+		cover(m * CFrame.new(-30, 0, -13), V(10, 3.5, 2))
 		cover(m * CFrame.new(-48, 0, 8), V(2, 3.5, 10))
 		cover(m * CFrame.new(-75, 0, 20), V(8, 3.5, 2))
 		cover(m * CFrame.new(-22, 0, -38), V(2, 3.5, 8))

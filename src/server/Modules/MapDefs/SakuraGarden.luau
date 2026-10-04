@@ -205,7 +205,7 @@ function Map.Build()
 		Kit.railing((m * CFrame.new(-11.5, 11.4, -11.5)).Position, (m * CFrame.new(-11.5, 11.4, 1.5)).Position, 2.6, RED)
 		Kit.railing((m * CFrame.new(-11.5, 11.4, 7.5)).Position, (m * CFrame.new(-11.5, 11.4, 11.5)).Position, 2.6, RED)
 		Kit.stairs((m * CFrame.new(-28, 0, 4.5)).Position, (m * CFrame.new(-12.5, 11.4, 4.5)).Position, 5, WOOD, Enum.Material.WoodPlanks)
-		lantern(m * CFrame.new(-15, 1.4, -15))
+		lantern(m * CFrame.new(-15, 0, -15))
 	end)
 
 	Kit.symmetric(function(m, side)

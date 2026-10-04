@@ -92,7 +92,9 @@ local function dash()
 	velocity.MaxForce = 120000
 	velocity.PlaneVelocity = Vector2.new(direction.X, direction.Z) * config.Speed
 	velocity.Parent = root
+	ClientState.Dashing = true
 	task.delay(config.Duration, function()
+		ClientState.Dashing = false
 		velocity:Destroy()
 		attachment:Destroy()
 	end)
@@ -217,7 +219,7 @@ local function build()
 end
 
 local function update()
-	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
+	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen and not ClientState.VotePanelVisible
 	local now = os.clock()
 	for _, action in ACTIONS do
 		local slot = slots[action.Name]

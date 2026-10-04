@@ -155,9 +155,12 @@ local function addMenuShield(player, character)
 	end
 end
 
+local spawnedAt = {} -- [player] = os.clock() de su última aparición
+
 local function onPlayer(player)
 	player:SetAttribute("InMenu", true)
 	player.CharacterAdded:Connect(function(character)
+		spawnedAt[player] = os.clock()
 		addMenuShield(player, character)
 		giveLoadout(player, character)
 	end)
@@ -173,8 +176,11 @@ function Loadout.Init()
 	-- "Volver al menú": vuelve a ser invulnerable y queda fuera de los objetivos
 	Remotes.EnterMenu.OnServerEvent:Connect(function(player)
 		-- Solo desde la pantalla de muerte: si no, cualquiera podría volverse invulnerable en plena pelea
+		-- (o justo al reaparecer: el clic pudo llegar después de la reaparición automática, y ese
+		-- personaje aún tiene la protección de aparición, así que no se gana nada haciendo trampa)
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		if humanoid and humanoid.Health > 0 then
+		local justSpawned = os.clock() - (spawnedAt[player] or -math.huge) < 1.5
+		if humanoid and humanoid.Health > 0 and not justSpawned then
 			return
 		end
 		player:SetAttribute("InMenu", true)
@@ -190,6 +196,9 @@ function Loadout.Init()
 		end
 	end)
 	Players.PlayerAdded:Connect(onPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		spawnedAt[player] = nil
+	end)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
 	end

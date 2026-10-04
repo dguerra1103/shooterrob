@@ -31,7 +31,10 @@ local zoom = { 0.5, 400 }
 
 local function setThirdPerson(on)
 	if on then
-		zoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+		-- Solo se guarda el zoom de primera persona (no el de un emote anterior)
+		if not ClientState.Emoting then
+			zoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+		end
 		player.CameraMode = Enum.CameraMode.Classic
 		player.CameraMinZoomDistance = 9
 		player.CameraMaxZoomDistance = 12
@@ -64,10 +67,11 @@ local function play(id)
 	local ok, played = pcall(function()
 		return playEmote:Invoke(id)
 	end)
-	if ok and played ~= false then
+	-- PlayEmote devuelve true solo si de verdad empieza (nil si estás saltando, sentado, etc.)
+	if ok and played == true then
+		setThirdPerson(true)
 		ClientState.Emoting = true
 		emoteUntil = os.clock() + EMOTE_TIME
-		setThirdPerson(true)
 	end
 end
 

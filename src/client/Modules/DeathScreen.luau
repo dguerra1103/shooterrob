@@ -18,6 +18,7 @@ local Sounds = require(Shared.Sounds)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local MainMenu = require(script.Parent.MainMenu)
+local Menu = require(script.Parent.Menu)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -164,6 +165,8 @@ end
 
 local function open(killerName)
 	ClientState.Dead = true
+	-- La tienda se cierra al morir (si no, la B que iba a cerrarla gastaría un revivir)
+	Menu.Close()
 	deathTime = os.clock()
 	gui.Enabled = true
 	refs.Toast.Visible = false
@@ -368,7 +371,10 @@ function DeathScreen.Init()
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then
-			tryRevive()
+			-- No gasta un revivir si la B era para cerrar la tienda
+			if not ClientState.MenuOpen and os.clock() - ClientState.MenuClosedAt > 1 then
+				tryRevive()
+			end
 		elseif input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonA then
 			respawnNow()
 		elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR1 then

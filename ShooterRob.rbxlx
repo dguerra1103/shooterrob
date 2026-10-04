@@ -155,6 +155,20 @@ GameConfig.Abilities = {
 	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
 	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },
 }
+-- Bots: rellenan la partida cuando hay pocos jugadores (se quitan solos al entrar gente)
+GameConfig.Bots = {
+	Enabled = true,
+	FillTo = 6, -- jugadores + bots hasta este número
+	Weapons = { "ARX27", "Specter9", "VortexBR", "NovaDrift" },
+	Range = 140,
+	Accuracy = 0.55, -- probabilidad de acertar a corta distancia
+	AccuracyFalloff = 0.004, -- se resta por cada stud de distancia
+	DamageScale = 0.55, -- los bots hacen menos daño que un jugador
+	Reaction = 0.5, -- segundos antes de empezar a disparar a un objetivo nuevo
+	MaxFireRate = 6, -- disparos por segundo como máximo
+	WalkSpeed = 16,
+	RewardScale = 0.5, -- XP y monedas por matar un bot (respecto a un jugador)
+}
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
 
@@ -3704,6 +3718,7 @@ local Leaderboard = require(Modules.Leaderboard)
 local Killstreaks = require(Modules.Killstreaks)
 local Respawn = require(Modules.Respawn)
 local Abilities = require(Modules.Abilities)
+local Bots = require(Modules.Bots)
 
 MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
@@ -3718,6 +3733,7 @@ Grenades.Init()
 Leaderboard.Init()
 Killstreaks.Init()
 Abilities.Init()
+Bots.Init()
 ]]></string>
         </Properties>
       </Item>
@@ -3808,6 +3824,506 @@ return Abilities
         </Item>
         <Item class="ModuleScript" referent="23">
           <Properties>
+            <string name="Name">Bots</string>
+            <string name="Source"><![CDATA[-- Bots: rellenan la partida cuando hay pocos jugadores (GameConfig.Bots). Llevan un arma de verdad
+-- (los demás ven trazadoras, fogonazo y sonido como con un jugador), recorren el mapa con
+-- PathfindingService, buscan enemigos con línea de visión y fallan más cuanto más lejos disparan.
+-- Cuentan para el marcador por equipos y dan algo de XP y monedas, pero no para la clasificación global.
+-- Solo durante la ronda; en "Escalada de armas" no hay bots.
+local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
+local PathfindingService = game:GetService("PathfindingService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Weapons = require(Shared.Weapons)
+local Remotes = require(Shared.Remotes)
+
+local Combat = require(script.Parent.Combat)
+local Loadout = require(script.Parent.Loadout)
+
+local Bots = {}
+
+local CONFIG = GameConfig.Bots
+local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega" }
+
+local folder
+local agents = {} -- lista de bots activos
+local nameIndex = 0
+
+local function state()
+	return ReplicatedStorage:GetAttribute("State")
+end
+
+local function teamMode()
+	return ReplicatedStorage:GetAttribute("TeamMode") == true
+end
+
+-- ¿Cuántos bots hacen falta ahora mismo?
+local function desiredCount()
+	if not CONFIG.Enabled or state() ~= "Playing" or ReplicatedStorage:GetAttribute("Mode") == "GUN" then
+		return 0
+	end
+	return math.max(0, CONFIG.FillTo - #Players:GetPlayers())
+end
+
+-- Equipo con menos miembros (jugadores + bots)
+local function pickTeam()
+	if not teamMode() then
+		return nil
+	end
+	local best, bestCount = nil, math.huge
+	for _, team in Teams:GetTeams() do
+		local count = #team:GetPlayers()
+		for _, agent in agents do
+			if agent.Team == team then
+				count += 1
+			end
+		end
+		if count < bestCount then
+			best, bestCount = team, count
+		end
+	end
+	return best
+end
+
+local function mapPoints(predicate)
+	local points = {}
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		for _, d in map:GetDescendants() do
+			if d:IsA("BasePart") and predicate(d) then
+				table.insert(points, d.Position)
+			end
+		end
+	end
+	return points
+end
+
+local function spawnPoint(team)
+	local points = {}
+	if team then
+		points = mapPoints(function(d)
+			return d:IsA("SpawnLocation") and d.TeamColor == team.TeamColor
+		end)
+	end
+	if #points == 0 then
+		points = mapPoints(function(d)
+			return d.Name == "FFASpawn"
+		end)
+	end
+	if #points == 0 then
+		return Vector3.new(0, 10, 0)
+	end
+	return points[math.random(1, #points)] + Vector3.new(0, 4, 0)
+end
+
+-- Pinta al bot con los colores de su equipo (o de color aleatorio en todos contra todos)
+local function makeDescription(team)
+	local description = Instance.new("HumanoidDescription")
+	local shirt = team and team.TeamColor.Color or Color3.fromHSV(math.random(), 0.6, 0.85)
+	local skin = ({ Color3.fromRGB(255, 205, 160), Color3.fromRGB(200, 150, 110), Color3.fromRGB(140, 95, 65), Color3.fromRGB(255, 220, 190) })[math.random(1, 4)]
+	description.HeadColor = skin
+	description.LeftArmColor = skin
+	description.RightArmColor = skin
+	description.TorsoColor = shirt
+	description.LeftLegColor = Color3.fromRGB(45, 48, 60)
+	description.RightLegColor = Color3.fromRGB(45, 48, 60)
+	return description
+end
+
+local function isEnemyOf(agent, otherTeam)
+	if not teamMode() then
+		return true
+	end
+	return agent.Team ~= otherTeam
+end
+
+-- Objetivos posibles: jugadores vivos fuera del menú y sin escudo, y bots enemigos
+local function candidates(agent)
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local head = character and character:FindFirstChild("Head")
+		if humanoid and head and humanoid.Health > 0 and not player:GetAttribute("InMenu")
+			and not character:FindFirstChildOfClass("ForceField") and isEnemyOf(agent, player.Team) then
+			table.insert(list, { Model = character, Humanoid = humanoid, Head = head })
+		end
+	end
+	for _, other in agents do
+		if other ~= agent and other.Humanoid and other.Humanoid.Health > 0 and isEnemyOf(agent, other.Team) then
+			local head = other.Model:FindFirstChild("Head")
+			if head then
+				table.insert(list, { Model = other.Model, Humanoid = other.Humanoid, Head = head })
+			end
+		end
+	end
+	return list
+end
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function canSee(agent, target)
+	local head = agent.Model:FindFirstChild("Head")
+	if not head then
+		return false
+	end
+	local ignore = { agent.Model }
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	rayParams.FilterDescendantsInstances = ignore
+	local direction = target.Head.Position - head.Position
+	local hit = workspace:Raycast(head.Position, direction, rayParams)
+	return hit == nil or hit.Instance:IsDescendantOf(target.Model)
+end
+
+local function findTarget(agent)
+	local root = agent.Root
+	local best, bestDistance = nil, CONFIG.Range
+	for _, target in candidates(agent) do
+		local distance = (target.Head.Position - root.Position).Magnitude
+		if distance < bestDistance and canSee(agent, target) then
+			best, bestDistance = target, distance
+		end
+	end
+	return best, bestDistance
+end
+
+-- Camino hasta un punto al azar del mapa (o la zona activa en Zona de control)
+local function pickGoal(agent)
+	-- En Zona de control, la mitad de las veces van a la zona activa
+	local zone = ReplicatedStorage:GetAttribute("ZonePosition")
+	if typeof(zone) == "Vector3" and math.random() < 0.5 then
+		return zone + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
+	end
+	local points = mapPoints(function(d)
+		return d.Name == "FFASpawn"
+	end)
+	if #points == 0 then
+		return nil
+	end
+	return points[math.random(1, #points)]
+end
+
+local function computePath(agent, goal)
+	agent.Waypoints = nil
+	agent.WaypointIndex = 0
+	local path = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
+	local ok = pcall(function()
+		path:ComputeAsync(agent.Root.Position, goal)
+	end)
+	if ok and path.Status == Enum.PathStatus.Success then
+		agent.Waypoints = path:GetWaypoints()
+		agent.WaypointIndex = 1
+	end
+end
+
+local function shoot(agent, target, distance)
+	local tool = agent.Tool
+	local def = Weapons.Get(agent.Weapon)
+	if not tool or not tool.Parent or not def then
+		return
+	end
+	-- Recarga de vez en cuando (pausa breve)
+	agent.Shots += 1
+	if agent.Shots >= def.MagSize then
+		agent.Shots = 0
+		agent.NextShot = os.clock() + def.ReloadTime
+		return
+	end
+	local chance = math.clamp(CONFIG.Accuracy - distance * CONFIG.AccuracyFalloff, 0.06, CONFIG.Accuracy)
+	local targetRoot = target.Model:FindFirstChild("HumanoidRootPart")
+	if targetRoot and targetRoot.AssemblyLinearVelocity.Magnitude > 12 then
+		chance *= 0.7 -- cuesta más acertar a quien se mueve rápido
+	end
+	local hit = math.random() < chance
+	local endpoint
+	if hit then
+		endpoint = target.Head.Position + Vector3.new(math.random() - 0.5, -math.random() * 1.5, math.random() - 0.5)
+		local damage = (distance > (def.FalloffStart or 100) and def.MinDamage or def.Damage) * CONFIG.DamageScale
+		Combat.BotDamage(agent, target.Humanoid, damage, agent.Weapon)
+	else
+		local miss = Vector3.new(math.random() - 0.5, math.random() - 0.3, math.random() - 0.5).Unit * (2 + math.random() * 3)
+		endpoint = target.Head.Position + miss
+	end
+	Remotes.ShotFX:FireAllClients(tool, { endpoint })
+end
+
+local function think(agent)
+	local humanoid, root = agent.Humanoid, agent.Root
+	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
+		return
+	end
+	local now = os.clock()
+	local target, distance = findTarget(agent)
+	if target then
+		if agent.Target ~= target.Model then
+			agent.Target = target.Model
+			agent.NextShot = math.max(agent.NextShot, now + CONFIG.Reaction)
+		end
+		-- Mira al objetivo y se mueve un poco de lado mientras dispara
+		local look = Vector3.new(target.Head.Position.X, root.Position.Y, target.Head.Position.Z)
+		if (look - root.Position).Magnitude > 0.5 then
+			root.CFrame = CFrame.lookAt(root.Position, look)
+		end
+		if now >= agent.NextStrafe then
+			agent.NextStrafe = now + 1.2 + math.random()
+			humanoid:MoveTo(root.Position + root.CFrame.RightVector * (math.random() < 0.5 and -6 or 6))
+		end
+		if now >= agent.NextShot then
+			local def = Weapons.Get(agent.Weapon)
+			agent.NextShot = now + 1 / math.min(def and def.FireRate or 6, CONFIG.MaxFireRate) + math.random() * 0.12
+			shoot(agent, target, distance)
+		end
+		return
+	end
+	agent.Target = nil
+	-- Sin enemigos a la vista: seguir el camino o buscar uno nuevo
+	local waypoints = agent.Waypoints
+	if not waypoints or agent.WaypointIndex > #waypoints or now > agent.GoalDeadline then
+		local goal = pickGoal(agent)
+		agent.GoalDeadline = now + 12
+		if goal and not agent.Computing then
+			agent.Computing = true
+			task.spawn(function()
+				computePath(agent, goal)
+				agent.Computing = false
+				if not agent.Waypoints and agent.Humanoid then
+					agent.Humanoid:MoveTo(goal)
+				end
+			end)
+		end
+		return
+	end
+	local waypoint = waypoints[agent.WaypointIndex]
+	if (Vector3.new(waypoint.Position.X, root.Position.Y, waypoint.Position.Z) - root.Position).Magnitude < 3 then
+		agent.WaypointIndex += 1
+		return
+	end
+	if waypoint.Action == Enum.PathWaypointAction.Jump then
+		humanoid.Jump = true
+	end
+	humanoid:MoveTo(waypoint.Position)
+end
+
+local spawnAgent
+
+-- Nombre que no lleve ya otro bot activo
+local function nextName()
+	for _ = 1, #NAMES do
+		nameIndex = nameIndex % #NAMES + 1
+		local name = "Bot " .. NAMES[nameIndex]
+		if not Combat.BotsByName[name] then
+			return name
+		end
+	end
+	return "Bot " .. math.random(100, 999)
+end
+
+-- Animaciones R15 estándar de Roblox. El script Animate de los personajes es local y no corre en un
+-- NPC, así que el servidor las reproduce (se replican a todos).
+local ANIMS = {
+	Idle = "rbxassetid://507766388",
+	Run = "rbxassetid://507767714",
+	Jump = "rbxassetid://507765000",
+	Fall = "rbxassetid://507767968",
+	Hold = "rbxassetid://507768375", -- brazo estirado sujetando el arma
+}
+
+local function animate(humanoid)
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+	local tracks = {}
+	for key, id in ANIMS do
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		local ok, track = pcall(function()
+			return animator:LoadAnimation(animation)
+		end)
+		if ok and track then
+			tracks[key] = track
+		end
+	end
+	local current
+	local function play(key, fade)
+		local track = tracks[key]
+		if track and current ~= track then
+			if current then
+				current:Stop(fade or 0.2)
+			end
+			current = track
+			track.Looped = key ~= "Jump"
+			track:Play(fade or 0.2)
+		end
+	end
+	if tracks.Hold then
+		tracks.Hold.Priority = Enum.AnimationPriority.Action
+		tracks.Hold.Looped = true
+		tracks.Hold:Play()
+	end
+	play("Idle")
+	humanoid.Running:Connect(function(speed)
+		play(speed > 0.5 and "Run" or "Idle")
+		if tracks.Run then
+			tracks.Run:AdjustSpeed(math.max(speed / 16, 0.5))
+		end
+	end)
+	humanoid.StateChanged:Connect(function(_, new)
+		if new == Enum.HumanoidStateType.Jumping then
+			play("Jump", 0.1)
+		elseif new == Enum.HumanoidStateType.Freefall then
+			play("Fall", 0.2)
+		elseif new == Enum.HumanoidStateType.Landed then
+			play("Idle", 0.1)
+		end
+	end)
+end
+
+spawnAgent = function(agent)
+	agent.Team = agent.Team or pickTeam()
+	local ok, model = pcall(function()
+		return Players:CreateHumanoidModelFromDescriptionAsync(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
+	end)
+	if not ok then
+		ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromDescription(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
+		end)
+	end
+	if not ok or not model then
+		warn("[Bots] No se pudo crear el bot:", model)
+		return false
+	end
+	-- Lo quitaron (fin de ronda) mientras se creaba
+	if not table.find(agents, agent) or not folder then
+		model:Destroy()
+		return false
+	end
+	local localAnimate = model:FindFirstChild("Animate")
+	if localAnimate then
+		localAnimate:Destroy()
+	end
+	model.Name = agent.Name
+	model:SetAttribute("Bot", true)
+	model:SetAttribute("Team", agent.Team and agent.Team.Name or "")
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local root = model:FindFirstChild("HumanoidRootPart")
+	humanoid.DisplayName = agent.Name
+	humanoid.MaxHealth = 100
+	humanoid.Health = 100
+	humanoid.WalkSpeed = CONFIG.WalkSpeed
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+	model:PivotTo(CFrame.new(spawnPoint(agent.Team)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	model.Parent = folder
+	pcall(function()
+		root:SetNetworkOwner(nil)
+	end)
+	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
+	animate(humanoid)
+	agent.Weapon = CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	agent.Tool = Loadout.MakeTool(agent.Weapon, "Default")
+	agent.Tool.Parent = model
+	humanoid:EquipTool(agent.Tool)
+	agent.Shots, agent.NextShot, agent.NextStrafe, agent.GoalDeadline = 0, 0, 0, 0
+	agent.Waypoints, agent.Target = nil, nil
+
+	Combat.WatchHumanoid(humanoid, nil, agent.Name, agent)
+	humanoid.Died:Connect(function()
+		agent.Humanoid = nil
+		task.delay(3, function()
+			model:Destroy()
+		end)
+		task.delay(GameConfig.RespawnTime + 1, function()
+			if table.find(agents, agent) and desiredCount() >= #agents then
+				spawnAgent(agent)
+			end
+		end)
+	end)
+	return true
+end
+
+local function removeAgent(agent)
+	local index = table.find(agents, agent)
+	if index then
+		table.remove(agents, index)
+	end
+	Combat.BotsByName[agent.Name] = nil
+	if agent.Model then
+		agent.Model:Destroy()
+	end
+end
+
+-- Ajusta el número de bots (de uno en uno para no crear muchos de golpe)
+local function balance()
+	local desired = desiredCount()
+	if #agents < desired then
+		local agent = { Name = nextName() }
+		table.insert(agents, agent)
+		Combat.BotsByName[agent.Name] = agent
+		if not spawnAgent(agent) then
+			removeAgent(agent)
+		end
+	elseif #agents > desired then
+		removeAgent(agents[#agents])
+	end
+end
+
+-- Al cambiar de modo o de equipos, los bots vuelven a elegir equipo
+function Bots.Reset()
+	for i = #agents, 1, -1 do
+		removeAgent(agents[i])
+	end
+end
+
+function Bots.Init()
+	if not CONFIG.Enabled then
+		return
+	end
+	folder = Instance.new("Folder")
+	folder.Name = "Bots"
+	folder.Parent = workspace
+	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
+		if state() ~= "Playing" then
+			Bots.Reset()
+		end
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local ok, err = pcall(balance)
+			if not ok then
+				warn("[Bots] balance:", err)
+			end
+		end
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(0.15)
+			for _, agent in table.clone(agents) do
+				local ok, err = pcall(think, agent)
+				if not ok then
+					warn("[Bots] think:", err)
+				end
+			end
+		end
+	end)
+end
+
+Bots.Agents = agents
+return Bots
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="24">
+          <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Validación de disparos y daño en el servidor (anti-trampas básico).
 -- El cliente calcula el impacto; el servidor comprueba cadencia, munición, distancia y línea de visión.
@@ -3842,9 +4358,16 @@ local function getCharacterFromPart(part)
 	return nil, nil
 end
 
-local function isEnemy(attacker, targetPlayer)
+-- Bots activos por nombre (los registra Bots): para saber quién hizo una baja
+Combat.BotsByName = {}
+
+local function isEnemy(attacker, targetPlayer, targetChar)
 	if not targetPlayer then
-		return true -- muñecos de práctica / NPCs
+		-- Bots del mismo equipo no se dañan; muñecos de práctica y bots enemigos sí
+		if targetChar and targetChar:GetAttribute("Bot") and ReplicatedStorage:GetAttribute("TeamMode") and attacker.Team then
+			return targetChar:GetAttribute("Team") ~= attacker.Team.Name
+		end
+		return true
 	end
 	if attacker == targetPlayer then
 		return false
@@ -3923,6 +4446,7 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 		return 0, false
 	end
 	humanoid:SetAttribute("LastAttacker", attacker.UserId)
+	humanoid:SetAttribute("LastBot", nil)
 	humanoid:SetAttribute("LastWeapon", weaponName)
 	humanoid:SetAttribute("LastHeadshot", headshot)
 	humanoid:SetAttribute("LastHitTime", os.clock())
@@ -3930,6 +4454,21 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 	humanoid:TakeDamage(damage) -- respeta el ForceField de spawn
 	local dealt = before - humanoid.Health
 	return dealt, humanoid.Health <= 0
+end
+
+-- Daño de un bot (ver Bots): deja su nombre como atacante
+function Combat.BotDamage(bot, humanoid, damage, weaponName)
+	if humanoid.Health <= 0 then
+		return 0, false
+	end
+	humanoid:SetAttribute("LastAttacker", nil)
+	humanoid:SetAttribute("LastBot", bot.Name)
+	humanoid:SetAttribute("LastWeapon", weaponName)
+	humanoid:SetAttribute("LastHeadshot", false)
+	humanoid:SetAttribute("LastHitTime", os.clock())
+	local before = humanoid.Health
+	humanoid:TakeDamage(damage)
+	return before - humanoid.Health, humanoid.Health <= 0
 end
 
 -- Daño en área (cohetes). Afecta a enemigos y muñecos con línea de visión desde la explosión.
@@ -3941,13 +4480,15 @@ function Combat.Explode(attacker, position, def, weaponName)
 			table.insert(candidates, p.Character)
 		end
 	end
-	local dummies = workspace:FindFirstChild("Dummies")
-	if dummies then
-		for _, d in dummies:GetChildren() do
-			table.insert(candidates, d)
+	for _, folderName in { "Dummies", "Bots" } do
+		local npcs = workspace:FindFirstChild(folderName)
+		if npcs then
+			for _, d in npcs:GetChildren() do
+				table.insert(candidates, d)
+			end
 		end
 	end
-	local totalDealt, anyKill = 0, false
+	local totalDealt, anyKill, hitPosition, best = 0, false, nil, 0
 	local attackerChar = attacker.Character
 	for _, targetChar in candidates do
 		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
@@ -3955,30 +4496,39 @@ function Combat.Explode(attacker, position, def, weaponName)
 		if humanoid and root and humanoid.Health > 0 and targetChar ~= attackerChar then
 			local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
 			local distance = (root.Position - position).Magnitude
-			if distance <= info.Radius and isEnemy(attacker, targetPlayer) then
+			if distance <= info.Radius and isEnemy(attacker, targetPlayer, targetChar) then
 				if hasLineOfSight(position, root.Position, { targetChar, attackerChar }) then
 					local alpha = distance / info.Radius
 					local damage = info.Damage + (info.MinDamage - info.Damage) * alpha
 					local dealt, killed = applyDamage(attacker, humanoid, damage, weaponName, false)
 					totalDealt += dealt
 					anyKill = anyKill or killed
+					if dealt > best then
+						best, hitPosition = dealt, root.Position
+					end
 				end
 			end
 		end
 	end
 	if totalDealt > 0 then
-		Remotes.HitConfirm:FireClient(attacker, math.floor(totalDealt + 0.5), false, anyKill)
+		Remotes.HitConfirm:FireClient(attacker, math.floor(totalDealt + 0.5), false, anyKill, hitPosition)
 	end
 end
 
 -- Detecta la muerte de un Humanoid y avisa a quien corresponda
-function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
+-- victimBot: el bot (ver Bots) si el que muere es un bot
+function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 	humanoid.Died:Connect(function()
-		local killer
-		local attackerId = humanoid:GetAttribute("LastAttacker")
+		local killer, killerBot
 		local hitTime = humanoid:GetAttribute("LastHitTime")
-		if attackerId and hitTime and os.clock() - hitTime < 10 then
+		local recent = hitTime and os.clock() - hitTime < 10
+		local attackerId = humanoid:GetAttribute("LastAttacker")
+		if attackerId and recent then
 			killer = Players:GetPlayerByUserId(attackerId)
+		end
+		local botName = humanoid:GetAttribute("LastBot")
+		if botName and recent and not killer then
+			killerBot = Combat.BotsByName[botName]
 		end
 		local weaponName = humanoid:GetAttribute("LastWeapon")
 		local headshot = humanoid:GetAttribute("LastHeadshot") == true
@@ -3988,11 +4538,13 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 		if victimPlayer then
 			-- Vida que le quedaba al que te eliminó (se enseña en la pantalla de muerte)
 			local killerHumanoid = killer and killer.Character and killer.Character:FindFirstChildOfClass("Humanoid")
+				or (killerBot and killerBot.Humanoid)
 			local killerHealth = killerHumanoid and math.ceil(math.max(0, killerHumanoid.Health)) or nil
-			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName, killerHealth)
+			local killerName = (killer and killer.Name) or (killerBot and killerBot.Name) or nil
+			Remotes.Died:FireClient(victimPlayer, killerName, weaponName, killerHealth)
 		end
 		if Combat.OnKill then
-			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position)
+			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
 		end
 	end)
 end
@@ -4079,7 +4631,7 @@ local function onFire(player, tool, origin, rays)
 						local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
 						local closeEnough = (part.Position - position).Magnitude <= part.Size.Magnitude / 2 + 8
 						if
-							isEnemy(player, targetPlayer)
+							isEnemy(player, targetPlayer, targetChar)
 							and closeEnough
 							and hasLineOfSight(origin, position, { character, targetChar })
 						then
@@ -4092,6 +4644,7 @@ local function onFire(player, tool, origin, rays)
 								perTarget[targetHum] = entry
 							end
 							entry.Damage += damage
+							entry.Position = position
 							entry.Headshot = entry.Headshot or headshot
 						end
 					end
@@ -4100,17 +4653,21 @@ local function onFire(player, tool, origin, rays)
 		end
 	end
 
-	local totalDealt, anyHeadshot, anyKill = 0, false, false
+	-- hitPosition: dónde se hizo más daño (el cliente pone ahí el número de daño)
+	local totalDealt, anyHeadshot, anyKill, hitPosition, best = 0, false, false, nil, 0
 	for targetHum, entry in perTarget do
 		local dealt, killed = applyDamage(player, targetHum, entry.Damage, weaponName, entry.Headshot)
 		if dealt > 0 then
 			totalDealt += dealt
 			anyHeadshot = anyHeadshot or entry.Headshot
 			anyKill = anyKill or killed
+			if dealt > best then
+				best, hitPosition = dealt, entry.Position
+			end
 		end
 	end
 	if totalDealt > 0 then
-		Remotes.HitConfirm:FireClient(player, math.floor(totalDealt + 0.5), anyHeadshot, anyKill)
+		Remotes.HitConfirm:FireClient(player, math.floor(totalDealt + 0.5), anyHeadshot, anyKill, hitPosition)
 	end
 
 	for _, other in Players:GetPlayers() do
@@ -4196,7 +4753,7 @@ local function onMelee(player, part)
 	if (targetRoot.Position - root.Position).Magnitude > def.Range + 4 then
 		return
 	end
-	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar)) then
+	if not isEnemy(player, Players:GetPlayerFromCharacter(targetChar), targetChar) then
 		return
 	end
 	-- Nada de cuchillazos a través de paredes
@@ -4206,7 +4763,7 @@ local function onMelee(player, part)
 	removeSpawnShield(character)
 	local dealt, killed = applyDamage(player, targetHum, def.Damage, Weapons.Melee, false)
 	if dealt > 0 then
-		Remotes.HitConfirm:FireClient(player, math.floor(dealt + 0.5), false, killed)
+		Remotes.HitConfirm:FireClient(player, math.floor(dealt + 0.5), false, killed, targetRoot.Position)
 	end
 end
 
@@ -4239,7 +4796,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="24">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">Dummies</string>
             <string name="Source"><![CDATA[-- Muñecos de práctica para probar las armas en Studio (desactívalos en GameConfig.TrainingDummies).
@@ -4332,7 +4889,7 @@ return Dummies
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">Flags</string>
             <string name="Source"><![CDATA[-- Modo Captura la bandera.
@@ -4736,7 +5293,7 @@ return Flags
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">Grenades</string>
             <string name="Source"><![CDATA[-- Granadas: el servidor crea la granada con física, la deja rebotar y la hace explotar.
@@ -4883,7 +5440,7 @@ return Grenades
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="27">
+        <Item class="ModuleScript" referent="28">
           <Properties>
             <string name="Name">Hardpoint</string>
             <string name="Source"><![CDATA[-- Modo "Zona de control": una zona activa que cambia de sitio cada minuto. El equipo que la ocupa
@@ -5102,7 +5659,7 @@ return Hardpoint
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">Hazards</string>
             <string name="Source"><![CDATA[-- Peligros del mapa: pisar lava quita vida cada cuarto de segundo.
@@ -5169,7 +5726,7 @@ return Hazards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">Killstreaks</string>
             <string name="Source"><![CDATA[-- Recompensas por racha de bajas (sin morir):
@@ -5250,7 +5807,7 @@ local function ground(position)
 			table.insert(ignore, p.Character)
 		end
 	end
-	for _, name in { "Dummies", "Grenades", "ClientFX" } do
+	for _, name in { "Dummies", "Bots", "Grenades", "ClientFX" } do
 		local f = workspace:FindFirstChild(name)
 		if f then
 			table.insert(ignore, f)
@@ -5324,7 +5881,7 @@ return Killstreaks
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">Leaderboard</string>
             <string name="Source"><![CDATA[-- Clasificación global (todos los servidores): top 10 de bajas y de victorias.
@@ -5445,7 +6002,7 @@ return Leaderboard
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">Loadout</string>
             <string name="Source"><![CDATA[-- Entrega las armas (Tools) a cada jugador cuando aparece.
@@ -5605,9 +6162,12 @@ local function addMenuShield(player, character)
 	end
 end
 
+local spawnedAt = {} -- [player] = os.clock() de su última aparición
+
 local function onPlayer(player)
 	player:SetAttribute("InMenu", true)
 	player.CharacterAdded:Connect(function(character)
+		spawnedAt[player] = os.clock()
 		addMenuShield(player, character)
 		giveLoadout(player, character)
 	end)
@@ -5623,8 +6183,11 @@ function Loadout.Init()
 	-- "Volver al menú": vuelve a ser invulnerable y queda fuera de los objetivos
 	Remotes.EnterMenu.OnServerEvent:Connect(function(player)
 		-- Solo desde la pantalla de muerte: si no, cualquiera podría volverse invulnerable en plena pelea
+		-- (o justo al reaparecer: el clic pudo llegar después de la reaparición automática, y ese
+		-- personaje aún tiene la protección de aparición, así que no se gana nada haciendo trampa)
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		if humanoid and humanoid.Health > 0 then
+		local justSpawned = os.clock() - (spawnedAt[player] or -math.huge) < 1.5
+		if humanoid and humanoid.Health > 0 and not justSpawned then
 			return
 		end
 		player:SetAttribute("InMenu", true)
@@ -5640,6 +6203,9 @@ function Loadout.Init()
 		end
 	end)
 	Players.PlayerAdded:Connect(onPlayer)
+	Players.PlayerRemoving:Connect(function(player)
+		spawnedAt[player] = nil
+	end)
 	for _, player in Players:GetPlayers() do
 		onPlayer(player)
 	end
@@ -5649,7 +6215,7 @@ return Loadout
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
@@ -5701,11 +6267,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="33">
+        <Item class="Folder" referent="34">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="34">
+          <Item class="ModuleScript" referent="35">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -5939,7 +6505,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="35">
+          <Item class="ModuleScript" referent="36">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -6698,7 +7264,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="36">
+          <Item class="ModuleScript" referent="37">
             <Properties>
               <string name="Name">FrostStation</string>
               <string name="Source"><![CDATA[-- FROST STATION: base de investigación polar. Lago helado resbaladizo en el centro bajo la torre
@@ -7051,7 +7617,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="37">
+          <Item class="ModuleScript" referent="38">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -7328,7 +7894,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="38">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
@@ -7660,7 +8226,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="39">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -7894,7 +8460,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -8046,7 +8612,7 @@ function Map.Build()
 		-- Muro en L y coberturas bajas
 		wall("LWall", m * CFrame.new(-62, 0, -25), V(2, 8, 16))
 		wall("LWall", m * CFrame.new(-55, 0, -32), V(12, 8, 2))
-		cover(m * CFrame.new(-30, 0, -8), V(10, 3.5, 2))
+		cover(m * CFrame.new(-30, 0, -13), V(10, 3.5, 2))
 		cover(m * CFrame.new(-48, 0, 8), V(2, 3.5, 10))
 		cover(m * CFrame.new(-75, 0, 20), V(8, 3.5, 2))
 		cover(m * CFrame.new(-22, 0, -38), V(2, 3.5, 8))
@@ -8122,7 +8688,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -8332,7 +8898,7 @@ function Map.Build()
 		Kit.railing((m * CFrame.new(-11.5, 11.4, -11.5)).Position, (m * CFrame.new(-11.5, 11.4, 1.5)).Position, 2.6, RED)
 		Kit.railing((m * CFrame.new(-11.5, 11.4, 7.5)).Position, (m * CFrame.new(-11.5, 11.4, 11.5)).Position, 2.6, RED)
 		Kit.stairs((m * CFrame.new(-28, 0, 4.5)).Position, (m * CFrame.new(-12.5, 11.4, 4.5)).Position, 5, WOOD, Enum.Material.WoodPlanks)
-		lantern(m * CFrame.new(-15, 1.4, -15))
+		lantern(m * CFrame.new(-15, 0, -15))
 	end)
 
 	Kit.symmetric(function(m, side)
@@ -8445,7 +9011,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -8687,7 +9253,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="44">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -9970,7 +10536,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="44">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -11006,7 +11572,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="45">
+        <Item class="ModuleScript" referent="46">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -11029,32 +11595,34 @@ local deaths = {} -- [player] = { Time = os.clock(), Position = Vector3?, Charac
 local revivePoints = {} -- [player] = Vector3 donde debe aparecer tras revivir
 local loading = {} -- [player] = true mientras se carga un personaje (evita cargas dobles)
 
+local function isDead(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return character == nil or humanoid == nil or humanoid.Health <= 0
+end
+
 local function load(player)
 	if loading[player] or not player.Parent then
 		return
 	end
 	loading[player] = true
-	deaths[player] = nil
 	local ok, err = pcall(player.LoadCharacter, player)
 	loading[player] = nil
-	if not ok then
+	if ok then
+		deaths[player] = nil
+	else
 		-- Sin CharacterAutoLoads nadie más lo reintentaría: se queda muerto. Reintento en un segundo.
+		-- (deaths se conserva para que "Regenerar ahora" siga funcionando mientras tanto)
 		warn("[Respawn] No se pudo cargar el personaje:", err)
 		revivePoints[player] = nil
 		task.delay(1, function()
-			if player.Parent and (not player.Character or not player.Character:FindFirstChildOfClass("Humanoid")) then
+			if player.Parent and isDead(player) then
 				load(player)
 			end
 		end)
 	end
 end
 Respawn.Load = load
-
-local function isDead(player)
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	return character == nil or humanoid == nil or humanoid.Health <= 0
-end
 
 local function watch(player, character)
 	local humanoid = character:WaitForChild("Humanoid", 10)
@@ -11189,7 +11757,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="46">
+        <Item class="ModuleScript" referent="47">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -11406,32 +11974,49 @@ end
 -- Bajas
 ---------------------------------------------------------------------------
 
-function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position)
+-- killerBot / victimBot: el bot (ver Bots) cuando quien hace la baja o quien muere es un bot
+function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		victim:SetAttribute("Streak", 0)
 	end
+	local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
 
 	local killerColor, victimColor = Color3.new(1, 1, 1), Color3.new(1, 1, 1)
 	if victim and victim.Team then
 		victimColor = victim.TeamColor.Color
+	elseif victimBot and victimBot.Team then
+		victimColor = victimBot.Team.TeamColor.Color
+	end
+
+	-- Un bot hace una baja: punto para su equipo (en equipos); en todos contra todos no puntúa
+	if killerBot then
+		if killerBot.Team then
+			killerColor = killerBot.Team.TeamColor.Color
+			if playing and currentMode == "TDM" then
+				addScore(killerBot.Team, 1)
+			end
+		end
 	end
 
 	if killer and killer ~= victim then
 		if killer.Team then
 			killerColor = killer.TeamColor.Color
 		end
-		if victim then
+		if victim or victimBot then
+			-- Contra bots: misma emoción (marcador, racha, retos, maestría) pero menos XP y monedas,
+			-- y no cuentan para la clasificación global
+			local botScale = victimBot and GameConfig.Bots.RewardScale or 1
 			PlayerData.GetLeaderstats(killer).Bajas.Value += 1
 			local streak = (killer:GetAttribute("Streak") or 0) + 1
 			killer:SetAttribute("Streak", streak)
 
-			if ReplicatedStorage:GetAttribute("State") == "Playing" then
+			if playing then
 				if currentMode == "TDM" then
 					addScore(killer.Team, 1)
 				elseif currentMode == "FFA" then
 					addPlayerScore(killer, 1)
-				elseif currentMode == "GUN" then
+				elseif currentMode == "GUN" and victim then
 					gunGameKill(killer, victim, weaponName)
 				end
 			end
@@ -11440,9 +12025,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 			if headshot then
 				xp += GameConfig.XP.Headshot
 			end
-			PlayerData.AddXP(killer, xp, headshot and "Disparo a la cabeza" or "Eliminación")
-			PlayerData.AddCoins(killer, GameConfig.Coins.Kill)
-			PlayerData.Increment(killer, "TotalKills", 1)
+			PlayerData.AddXP(killer, math.floor(xp * botScale), headshot and "Disparo a la cabeza" or "Eliminación")
+			PlayerData.AddCoins(killer, math.max(1, math.floor(GameConfig.Coins.Kill * botScale)))
+			if victim then
+				PlayerData.Increment(killer, "TotalKills", 1)
+			end
 			PlayerData.AddWeaponKill(killer, weaponName)
 			PlayerData.Track(killer, "Kill", 1, weaponName)
 			PlayerData.Track(killer, "Streak", streak)
@@ -11464,13 +12051,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if killerData and killerData.EquippedKillEffect then
 			effect = killerData.EquippedKillEffect
 		end
-		-- Los muñecos (sin jugador) estallan en amarillo, como antes
-		Remotes.KillFX:FireAllClients(position, effect, victim and victimColor or Color3.fromRGB(255, 200, 60))
+		-- Los muñecos (sin jugador ni equipo) estallan en amarillo, como antes
+		local burstColor = (victim or (victimBot and victimBot.Team)) and victimColor or Color3.fromRGB(255, 200, 60)
+		Remotes.KillFX:FireAllClients(position, effect, burstColor)
 	end
 
 	local weapon = weaponName and Weapons.Get(weaponName)
 	Remotes.KillFeed:FireAllClients({
-		Killer = killer and killer.Name or nil,
+		Killer = (killer and killer.Name) or (killerBot and killerBot.Name) or nil,
 		KillerColor = killerColor,
 		Victim = victimName,
 		VictimColor = victimColor,
@@ -11841,22 +12429,22 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="47">
+  <Item class="StarterPlayer" referent="48">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="48">
+    <Item class="StarterPlayerScripts" referent="49">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="49">
+      <Item class="Folder" referent="50">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="50">
+        <Item class="LocalScript" referent="51">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -11910,11 +12498,11 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="51">
+        <Item class="Folder" referent="52">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="52">
+          <Item class="ModuleScript" referent="53">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -12011,7 +12599,9 @@ local function dash()
 	velocity.MaxForce = 120000
 	velocity.PlaneVelocity = Vector2.new(direction.X, direction.Z) * config.Speed
 	velocity.Parent = root
+	ClientState.Dashing = true
 	task.delay(config.Duration, function()
+		ClientState.Dashing = false
 		velocity:Destroy()
 		attachment:Destroy()
 	end)
@@ -12136,7 +12726,7 @@ local function build()
 end
 
 local function update()
-	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
+	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen and not ClientState.VotePanelVisible
 	local now = os.clock()
 	for _, action in ACTIONS do
 		local slot = slots[action.Name]
@@ -12178,7 +12768,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="53">
+          <Item class="ModuleScript" referent="54">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -12206,6 +12796,9 @@ local ClientState = {
 	LastShotTime = 0,
 	LastHitPosition = nil :: Vector3?, -- dónde dio tu último disparo a un personaje (números de daño)
 	LastHitTime = 0,
+	VotePanelVisible = false, -- hay votación de mapa en pantalla (la V es para votar, no para inspeccionar)
+	Dashing = false, -- impulso (E) en curso: no se puede deslizar a la vez
+	MenuClosedAt = 0, -- cuándo se cerró la tienda (la B no revive justo después)
 	Bloom = 0, -- apertura extra de la mira por disparos
 	Spread = 0, -- dispersión actual (grados)
 
@@ -12245,7 +12838,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="54">
+          <Item class="ModuleScript" referent="55">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -12268,6 +12861,7 @@ local Sounds = require(Shared.Sounds)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 local MainMenu = require(script.Parent.MainMenu)
+local Menu = require(script.Parent.Menu)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -12414,6 +13008,8 @@ end
 
 local function open(killerName)
 	ClientState.Dead = true
+	-- La tienda se cierra al morir (si no, la B que iba a cerrarla gastaría un revivir)
+	Menu.Close()
 	deathTime = os.clock()
 	gui.Enabled = true
 	refs.Toast.Visible = false
@@ -12618,7 +13214,10 @@ function DeathScreen.Init()
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then
-			tryRevive()
+			-- No gasta un revivir si la B era para cerrar la tienda
+			if not ClientState.MenuOpen and os.clock() - ClientState.MenuClosedAt > 1 then
+				tryRevive()
+			end
 		elseif input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonA then
 			respawnNow()
 		elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR1 then
@@ -12634,7 +13233,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="55">
+          <Item class="ModuleScript" referent="56">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -13493,7 +14092,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -13529,7 +14128,10 @@ local zoom = { 0.5, 400 }
 
 local function setThirdPerson(on)
 	if on then
-		zoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+		-- Solo se guarda el zoom de primera persona (no el de un emote anterior)
+		if not ClientState.Emoting then
+			zoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+		end
 		player.CameraMode = Enum.CameraMode.Classic
 		player.CameraMinZoomDistance = 9
 		player.CameraMaxZoomDistance = 12
@@ -13562,10 +14164,11 @@ local function play(id)
 	local ok, played = pcall(function()
 		return playEmote:Invoke(id)
 	end)
-	if ok and played ~= false then
+	-- PlayEmote devuelve true solo si de verdad empieza (nil si estás saltando, sentado, etc.)
+	if ok and played == true then
+		setThirdPerson(true)
 		ClientState.Emoting = true
 		emoteUntil = os.clock() + EMOTE_TIME
-		setThirdPerson(true)
 	end
 end
 
@@ -13662,7 +14265,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -13803,7 +14406,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -13925,7 +14528,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -14453,7 +15056,7 @@ local function buildFeedsAndOverlays()
 
 	refs.CarrierBanner = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -90),
+		Position = UDim2.new(0.5, 0, 1, -158),
 		Size = UDim2.fromOffset(700, 34),
 		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
 		TextSize = 28,
@@ -14465,7 +15068,7 @@ local function buildFeedsAndOverlays()
 
 	refs.Toast = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -50),
+		Position = UDim2.new(0.5, 0, 1, -122),
 		Size = UDim2.fromOffset(600, 30),
 		Text = "",
 		TextSize = 22,
@@ -14783,7 +15386,7 @@ local function onKillFeed(info)
 end
 
 local hitToken
-local function onHitConfirm(damage, headshot, killed)
+local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local color = Color3.new(1, 1, 1)
 	if killed then
 		color = Color3.fromRGB(255, 40, 40)
@@ -14805,8 +15408,10 @@ local function onHitConfirm(damage, headshot, killed)
 	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
 
 	-- Número de daño en el mundo, encima de donde le diste (si lo sabemos), con un rebote
-	local hitPosition = ClientState.LastHitPosition
-	if type(damage) == "number" and hitPosition and os.clock() - ClientState.LastHitTime < 0.6 then
+	-- El servidor dice dónde fue el daño; si no, el último impacto del propio cliente
+	local hitPosition = typeof(serverPosition) == "Vector3" and serverPosition
+		or (os.clock() - ClientState.LastHitTime < 0.6 and ClientState.LastHitPosition)
+	if type(damage) == "number" and hitPosition then
 		local anchor = Instance.new("Attachment")
 		anchor.WorldPosition = hitPosition + Vector3.new(math.random(-10, 10) / 10, 1.2, math.random(-10, 10) / 10)
 		anchor.Parent = workspace.Terrain
@@ -15225,7 +15830,7 @@ function HUD.Init()
 				.. killerName
 				.. "</b>"
 				.. (weapon and (" · " .. weapon.DisplayName) or "")
-				.. (type(killerHealth) == "number" and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
+				.. (type(killerHealth) == "number" and killerHealth > 0 and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
 		else
 			refs.DeathText.Text = "HAS MUERTO"
 		end
@@ -15276,7 +15881,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -15490,7 +16095,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -16007,7 +16612,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -17567,6 +18172,9 @@ local function setOpen(open)
 		return -- no se cierra a mitad de abrir una caja
 	end
 	ClientState.MenuOpen = open
+	if not open then
+		ClientState.MenuClosedAt = os.clock()
+	end
 	panel.Visible = open
 	if menuModal then
 		menuModal.Visible = open
@@ -17588,6 +18196,12 @@ function Menu.Open(tab)
 		currentTab = tab
 	end
 	setOpen(true)
+end
+
+function Menu.Close()
+	if ClientState.MenuOpen then
+		setOpen(false)
+	end
 end
 
 function Menu.IsOpen()
@@ -17746,8 +18360,8 @@ function Menu.Init()
 	})
 
 	ContextActionService:BindAction("Menu", function(_, state)
-		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte)
-		if state == Enum.UserInputState.Begin and not ClientState.Dead then
+		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte); solo sirve para cerrar la tienda
+		if state == Enum.UserInputState.Begin and (not ClientState.Dead or ClientState.MenuOpen) then
 			Menu.Toggle()
 		end
 		return Enum.ContextActionResult.Pass
@@ -17780,7 +18394,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -17852,7 +18466,7 @@ local function slideDust(floorMaterial)
 end
 
 local function slide()
-	if ClientState.Sliding or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
+	if ClientState.Sliding or ClientState.Dashing or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
 	end
 	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
@@ -17945,6 +18559,7 @@ local function iceSlide(dt)
 	local state = humanoid:GetState()
 	local onIce = humanoid.FloorMaterial == Enum.Material.Ice
 		and not ClientState.Sliding
+		and not ClientState.Dashing
 		and state ~= Enum.HumanoidStateType.Jumping
 		and state ~= Enum.HumanoidStateType.Freefall
 	if not onIce then
@@ -18060,7 +18675,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -18230,7 +18845,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -18419,7 +19034,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -18521,7 +19136,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -18564,6 +19179,7 @@ local function refresh()
 	local voting = ReplicatedStorage:GetAttribute("State") == "Intermission" and ReplicatedStorage:GetAttribute("Vote1_Map") ~= nil
 	-- No tapa el menú ni la pantalla de inicio (sus tarjetas se comerían los clics)
 	panel.Visible = voting and not ClientState.MenuOpen and not ClientState.InMainMenu
+	ClientState.VotePanelVisible = panel.Visible
 	hint.Visible = voting and not open and not ClientState.InMainMenu
 	if not voting then
 		myVote = nil
@@ -18673,7 +19289,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -19433,7 +20049,7 @@ local function bindActions()
 
 	-- Cambiar de arma: tecla Q (siguiente) y botón táctil en móvil (no hay barra de inventario)
 	ContextActionService:BindAction("Inspect", function(_, state)
-		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and def and not reloadStart and not ClientState.Aiming then
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and not ClientState.VotePanelVisible and def and not reloadStart and not ClientState.Aiming then
 			if os.clock() - inspectTime > INSPECT_TIME then
 				inspectTime = os.clock()
 			end
@@ -19541,7 +20157,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -19598,7 +20214,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -19608,6 +20224,7 @@ return WeaponIcon
 --  * Explosión de partículas cuando alguien es eliminado
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Teams = game:GetService("Teams")
 
 local Effects = require(script.Parent.Effects)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
@@ -19673,14 +20290,14 @@ local function teamColorOf(other)
 	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
 end
 
-local function styleCharacter(other, character)
+-- Compañeros: contorno del color del equipo y nombre visible. Enemigos: sin nombre.
+local function applyStyle(character, isTeammate, isSelf, color)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
 	end
-	local isTeammate = player.Team ~= nil and other.Team == player.Team
 	local highlight = character:FindFirstChild("TeamHighlight")
-	if isTeammate and other ~= player then
+	if isTeammate and not isSelf then
 		if not highlight then
 			highlight = Instance.new("Highlight")
 			highlight.Name = "TeamHighlight"
@@ -19689,17 +20306,29 @@ local function styleCharacter(other, character)
 			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			highlight.Parent = character
 		end
-		highlight.OutlineColor = teamColorOf(other)
+		highlight.OutlineColor = color
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
 	else
 		if highlight then
 			highlight:Destroy()
 		end
-		if other ~= player then
+		if not isSelf then
 			-- Sin nombre sobre los enemigos: hay que encontrarlos
 			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		end
 	end
+end
+
+local function styleCharacter(other, character)
+	applyStyle(character, player.Team ~= nil and other.Team == player.Team, other == player, teamColorOf(other))
+end
+
+-- Bots (carpeta workspace.Bots): el servidor les pone el atributo Team
+local function styleBot(model)
+	local teamName = model:GetAttribute("Team")
+	local team = teamName and teamName ~= "" and Teams:FindFirstChild(teamName)
+	local isTeammate = player.Team ~= nil and team == player.Team
+	applyStyle(model, isTeammate, false, team and team:IsA("Team") and team.TeamColor.Color or Color3.fromRGB(255, 200, 60))
 end
 
 local function onCharacter(other, character)
@@ -19727,6 +20356,12 @@ local function restyleAll()
 			styleCharacter(other, other.Character)
 		end
 	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			styleBot(model)
+		end
+	end
 end
 
 function WorldFX.Init()
@@ -19743,6 +20378,19 @@ function WorldFX.Init()
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
+	task.spawn(function()
+		local bots = workspace:WaitForChild("Bots", 30)
+		if not bots then
+			return
+		end
+		bots.ChildAdded:Connect(function(model)
+			model:WaitForChild("Humanoid", 10)
+			styleBot(model)
+		end)
+		for _, model in bots:GetChildren() do
+			task.spawn(styleBot, model)
+		end
+	end)
 
 	-- Efecto de eliminación (lo decide el servidor: el que tenga equipado quien hizo la baja)
 	Remotes.KillFX.OnClientEvent:Connect(function(position, effectId, color)
@@ -19760,19 +20408,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="71">
+  <Item class="Teams" referent="72">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="72">
+  <Item class="Workspace" referent="73">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="73">
+    <Item class="Terrain" referent="74">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

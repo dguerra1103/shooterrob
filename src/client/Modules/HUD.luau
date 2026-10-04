@@ -523,7 +523,7 @@ local function buildFeedsAndOverlays()
 
 	refs.CarrierBanner = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -90),
+		Position = UDim2.new(0.5, 0, 1, -158),
 		Size = UDim2.fromOffset(700, 34),
 		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
 		TextSize = 28,
@@ -535,7 +535,7 @@ local function buildFeedsAndOverlays()
 
 	refs.Toast = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -50),
+		Position = UDim2.new(0.5, 0, 1, -122),
 		Size = UDim2.fromOffset(600, 30),
 		Text = "",
 		TextSize = 22,
@@ -853,7 +853,7 @@ local function onKillFeed(info)
 end
 
 local hitToken
-local function onHitConfirm(damage, headshot, killed)
+local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local color = Color3.new(1, 1, 1)
 	if killed then
 		color = Color3.fromRGB(255, 40, 40)
@@ -875,8 +875,10 @@ local function onHitConfirm(damage, headshot, killed)
 	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
 
 	-- Número de daño en el mundo, encima de donde le diste (si lo sabemos), con un rebote
-	local hitPosition = ClientState.LastHitPosition
-	if type(damage) == "number" and hitPosition and os.clock() - ClientState.LastHitTime < 0.6 then
+	-- El servidor dice dónde fue el daño; si no, el último impacto del propio cliente
+	local hitPosition = typeof(serverPosition) == "Vector3" and serverPosition
+		or (os.clock() - ClientState.LastHitTime < 0.6 and ClientState.LastHitPosition)
+	if type(damage) == "number" and hitPosition then
 		local anchor = Instance.new("Attachment")
 		anchor.WorldPosition = hitPosition + Vector3.new(math.random(-10, 10) / 10, 1.2, math.random(-10, 10) / 10)
 		anchor.Parent = workspace.Terrain
@@ -1295,7 +1297,7 @@ function HUD.Init()
 				.. killerName
 				.. "</b>"
 				.. (weapon and (" · " .. weapon.DisplayName) or "")
-				.. (type(killerHealth) == "number" and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
+				.. (type(killerHealth) == "number" and killerHealth > 0 and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
 		else
 			refs.DeathText.Text = "HAS MUERTO"
 		end

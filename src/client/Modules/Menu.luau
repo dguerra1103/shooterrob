@@ -1555,6 +1555,9 @@ local function setOpen(open)
 		return -- no se cierra a mitad de abrir una caja
 	end
 	ClientState.MenuOpen = open
+	if not open then
+		ClientState.MenuClosedAt = os.clock()
+	end
 	panel.Visible = open
 	if menuModal then
 		menuModal.Visible = open
@@ -1576,6 +1579,12 @@ function Menu.Open(tab)
 		currentTab = tab
 	end
 	setOpen(true)
+end
+
+function Menu.Close()
+	if ClientState.MenuOpen then
+		setOpen(false)
+	end
 end
 
 function Menu.IsOpen()
@@ -1734,8 +1743,8 @@ function Menu.Init()
 	})
 
 	ContextActionService:BindAction("Menu", function(_, state)
-		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte)
-		if state == Enum.UserInputState.Begin and not ClientState.Dead then
+		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte); solo sirve para cerrar la tienda
+		if state == Enum.UserInputState.Begin and (not ClientState.Dead or ClientState.MenuOpen) then
 			Menu.Toggle()
 		end
 		return Enum.ContextActionResult.Pass

@@ -18,32 +18,34 @@ local deaths = {} -- [player] = { Time = os.clock(), Position = Vector3?, Charac
 local revivePoints = {} -- [player] = Vector3 donde debe aparecer tras revivir
 local loading = {} -- [player] = true mientras se carga un personaje (evita cargas dobles)
 
+local function isDead(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return character == nil or humanoid == nil or humanoid.Health <= 0
+end
+
 local function load(player)
 	if loading[player] or not player.Parent then
 		return
 	end
 	loading[player] = true
-	deaths[player] = nil
 	local ok, err = pcall(player.LoadCharacter, player)
 	loading[player] = nil
-	if not ok then
+	if ok then
+		deaths[player] = nil
+	else
 		-- Sin CharacterAutoLoads nadie más lo reintentaría: se queda muerto. Reintento en un segundo.
+		-- (deaths se conserva para que "Regenerar ahora" siga funcionando mientras tanto)
 		warn("[Respawn] No se pudo cargar el personaje:", err)
 		revivePoints[player] = nil
 		task.delay(1, function()
-			if player.Parent and (not player.Character or not player.Character:FindFirstChildOfClass("Humanoid")) then
+			if player.Parent and isDead(player) then
 				load(player)
 			end
 		end)
 	end
 end
 Respawn.Load = load
-
-local function isDead(player)
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	return character == nil or humanoid == nil or humanoid.Health <= 0
-end
 
 local function watch(player, character)
 	local humanoid = character:WaitForChild("Humanoid", 10)

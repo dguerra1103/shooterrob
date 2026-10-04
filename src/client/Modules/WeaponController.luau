@@ -755,7 +755,7 @@ local function bindActions()
 
 	-- Cambiar de arma: tecla Q (siguiente) y botón táctil en móvil (no hay barra de inventario)
 	ContextActionService:BindAction("Inspect", function(_, state)
-		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and def and not reloadStart and not ClientState.Aiming then
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and not ClientState.VotePanelVisible and def and not reloadStart and not ClientState.Aiming then
 			if os.clock() - inspectTime > INSPECT_TIME then
 				inspectTime = os.clock()
 			end

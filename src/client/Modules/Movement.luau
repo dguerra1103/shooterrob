@@ -67,7 +67,7 @@ local function slideDust(floorMaterial)
 end
 
 local function slide()
-	if ClientState.Sliding or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
+	if ClientState.Sliding or ClientState.Dashing or ClientState.IsBlocked() or not humanoid or humanoid.Health <= 0 or not rootPart then
 		return
 	end
 	if os.clock() - lastSlide < GameConfig.SlideCooldown or humanoid.FloorMaterial == Enum.Material.Air then
@@ -160,6 +160,7 @@ local function iceSlide(dt)
 	local state = humanoid:GetState()
 	local onIce = humanoid.FloorMaterial == Enum.Material.Ice
 		and not ClientState.Sliding
+		and not ClientState.Dashing
 		and state ~= Enum.HumanoidStateType.Jumping
 		and state ~= Enum.HumanoidStateType.Freefall
 	if not onIce then

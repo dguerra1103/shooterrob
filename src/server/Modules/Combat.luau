@@ -161,7 +161,7 @@ function Combat.Explode(attacker, position, def, weaponName)
 			end
 		end
 	end
-	local totalDealt, anyKill = 0, false
+	local totalDealt, anyKill, hitPosition, best = 0, false, nil, 0
 	local attackerChar = attacker.Character
 	for _, targetChar in candidates do
 		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
@@ -176,12 +176,15 @@ function Combat.Explode(attacker, position, def, weaponName)
 					local dealt, killed = applyDamage(attacker, humanoid, damage, weaponName, false)
 					totalDealt += dealt
 					anyKill = anyKill or killed
+					if dealt > best then
+						best, hitPosition = dealt, root.Position
+					end
 				end
 			end
 		end
 	end
 	if totalDealt > 0 then
-		Remotes.HitConfirm:FireClient(attacker, math.floor(totalDealt + 0.5), false, anyKill)
+		Remotes.HitConfirm:FireClient(attacker, math.floor(totalDealt + 0.5), false, anyKill, hitPosition)
 	end
 end
 
@@ -314,6 +317,7 @@ local function onFire(player, tool, origin, rays)
 								perTarget[targetHum] = entry
 							end
 							entry.Damage += damage
+							entry.Position = position
 							entry.Headshot = entry.Headshot or headshot
 						end
 					end
@@ -322,17 +326,21 @@ local function onFire(player, tool, origin, rays)
 		end
 	end
 
-	local totalDealt, anyHeadshot, anyKill = 0, false, false
+	-- hitPosition: dónde se hizo más daño (el cliente pone ahí el número de daño)
+	local totalDealt, anyHeadshot, anyKill, hitPosition, best = 0, false, false, nil, 0
 	for targetHum, entry in perTarget do
 		local dealt, killed = applyDamage(player, targetHum, entry.Damage, weaponName, entry.Headshot)
 		if dealt > 0 then
 			totalDealt += dealt
 			anyHeadshot = anyHeadshot or entry.Headshot
 			anyKill = anyKill or killed
+			if dealt > best then
+				best, hitPosition = dealt, entry.Position
+			end
 		end
 	end
 	if totalDealt > 0 then
-		Remotes.HitConfirm:FireClient(player, math.floor(totalDealt + 0.5), anyHeadshot, anyKill)
+		Remotes.HitConfirm:FireClient(player, math.floor(totalDealt + 0.5), anyHeadshot, anyKill, hitPosition)
 	end
 
 	for _, other in Players:GetPlayers() do
@@ -428,7 +436,7 @@ local function onMelee(player, part)
 	removeSpawnShield(character)
 	local dealt, killed = applyDamage(player, targetHum, def.Damage, Weapons.Melee, false)
 	if dealt > 0 then
-		Remotes.HitConfirm:FireClient(player, math.floor(dealt + 0.5), false, killed)
+		Remotes.HitConfirm:FireClient(player, math.floor(dealt + 0.5), false, killed, targetRoot.Position)
 	end
 end
 
