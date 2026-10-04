@@ -1,7 +1,7 @@
 -- Catálogo de la tienda: precios en monedas, packs de Robux, VIP, recompensas diarias y cajas.
 --
 -- IMPORTANTE (Robux): crea los productos en el Creator Hub (Monetización) y pega sus IDs aquí.
---   Developer Products -> CoinPacks[i].ProductId y RevivePacks[i].ProductId
+--   Developer Products -> CoinPacks[i].ProductId, RevivePacks[i].ProductId y Boosters[i].ProductId
 --   Game Pass VIP      -> VIPPassId
 -- Con ID 0 el botón aparece desactivado ("Próximamente").
 local Shop = {}
@@ -108,6 +108,14 @@ function Shop.WheelPrizeText(prize)
 	end
 	return "?"
 end
+
+-- Potenciadores (Developer Products, se pueden comprar varias veces y se acumulan): multiplican la
+-- XP o las monedas ganadas jugando. Su tiempo solo corre mientras juegas (no en la portada ni
+-- desconectado). Field = campo del guardado con los segundos que quedan.
+Shop.Boosters = {
+	{ Id = "XP2", Name = "XP doble", Icon = "⚡", Kind = "XP", Multiplier = 2, Minutes = 30, Robux = 49, ProductId = 0, Field = "BoostXP" },
+	{ Id = "Coins2", Name = "Monedas dobles", Icon = "🪙", Kind = "Coins", Multiplier = 2, Minutes = 30, Robux = 69, ProductId = 0, Field = "BoostCoins" },
+}
 
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra
 Shop.VIPPassId = 0

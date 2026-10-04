@@ -1630,7 +1630,7 @@ return Remotes
           <string name="Source"><![CDATA[-- Catálogo de la tienda: precios en monedas, packs de Robux, VIP, recompensas diarias y cajas.
 --
 -- IMPORTANTE (Robux): crea los productos en el Creator Hub (Monetización) y pega sus IDs aquí.
---   Developer Products -> CoinPacks[i].ProductId y RevivePacks[i].ProductId
+--   Developer Products -> CoinPacks[i].ProductId, RevivePacks[i].ProductId y Boosters[i].ProductId
 --   Game Pass VIP      -> VIPPassId
 -- Con ID 0 el botón aparece desactivado ("Próximamente").
 local Shop = {}
@@ -1737,6 +1737,14 @@ function Shop.WheelPrizeText(prize)
 	end
 	return "?"
 end
+
+-- Potenciadores (Developer Products, se pueden comprar varias veces y se acumulan): multiplican la
+-- XP o las monedas ganadas jugando. Su tiempo solo corre mientras juegas (no en la portada ni
+-- desconectado). Field = campo del guardado con los segundos que quedan.
+Shop.Boosters = {
+	{ Id = "XP2", Name = "XP doble", Icon = "⚡", Kind = "XP", Multiplier = 2, Minutes = 30, Robux = 49, ProductId = 0, Field = "BoostXP" },
+	{ Id = "Coins2", Name = "Monedas dobles", Icon = "🪙", Kind = "Coins", Multiplier = 2, Minutes = 30, Robux = 69, ProductId = 0, Field = "BoostCoins" },
+}
 
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra
 Shop.VIPPassId = 0
@@ -15918,6 +15926,8 @@ local function defaults()
 		GroupReward = false, -- ya reclamó el premio del grupo (GameConfig.Group)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
+		BoostXP = 0, -- segundos de juego que quedan de XP doble (Shop.Boosters)
+		BoostCoins = 0, -- segundos de juego que quedan de monedas dobles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		WheelDay = -1, -- último día con giro gratis de la ruleta usado
 		WheelSpins = 0, -- giros de ruleta comprados sin usar
@@ -16057,6 +16067,8 @@ local function publicView(player, data)
 		EquippedTitle = data.EquippedTitle,
 		Settings = data.Settings,
 		Revives = data.Revives,
+		BoostXP = data.BoostXP,
+		BoostCoins = data.BoostCoins,
 		WheelFree = data.WheelDay ~= Shop.DayNumber(),
 		WheelSpins = data.WheelSpins,
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
@@ -16452,6 +16464,16 @@ function PlayerData.WaitFor(player, timeout)
 	return profiles[player]
 end
 
+-- Potenciador comprado activo (Shop.Boosters) para "XP" o "Coins"
+local function boosterMultiplier(data, kind)
+	for _, booster in Shop.Boosters do
+		if booster.Kind == kind and (tonumber(data[booster.Field]) or 0) > 0 then
+			return booster.Multiplier
+		end
+	end
+	return 1
+end
+
 -- VIP (x2), Roblox Premium (x1,2) y bonus de amigos en el servidor (+10% por amigo, ver Friends)
 local function multiplier(player)
 	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
@@ -16736,7 +16758,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		return
 	end
 	if not fixed then
-		amount = math.floor(amount * multiplier(player) * xpBoost())
+		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(data, "XP"))
 		matchOf(player, data).XP += amount
 	end
 	data.XP += amount
@@ -16767,7 +16789,7 @@ function PlayerData.AddCoins(player, amount, earned)
 	local data = profiles[player]
 	if data then
 		if earned ~= false then
-			amount = math.floor(amount * multiplier(player))
+			amount = math.floor(amount * multiplier(player) * boosterMultiplier(data, "Coins"))
 			matchOf(player, data).Coins += amount
 		end
 		data.Coins += amount
@@ -17022,7 +17044,7 @@ local function claimDaily(player)
 	data.DailyStreak = streak
 	data.LastDailyDay = today
 	local coins = Shop.DailyRewards[streak]
-	PlayerData.AddCoins(player, coins, true)
+	local given = PlayerData.AddCoins(player, coins, true)
 	local crate = streak == Shop.DailyCrateDay
 	if crate then
 		data.FreeCrates += 1
@@ -17031,7 +17053,7 @@ local function claimDaily(player)
 		data.FreeCrates += 1 -- caja diaria extra del VIP
 	end
 	sendUpdate(player)
-	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
+	return true, { Streak = streak, Coins = given, Crate = crate }
 end
 
 local pendingReceipt = {} -- [player] = true mientras se guarda una compra con Robux
@@ -17196,6 +17218,12 @@ local function processReceipt(receipt)
 			bundle = b
 		end
 	end
+	local booster
+	for _, b in Shop.Boosters do
+		if b.ProductId ~= 0 and b.ProductId == receipt.ProductId then
+			booster = b
+		end
+	end
 	if bundle then
 		-- Pack de temporada (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
 		-- deshacer solo se quita lo que se dio.
@@ -17230,6 +17258,15 @@ local function processReceipt(receipt)
 			end
 		end
 		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or (bundle.Icon .. " ¡" .. bundle.Name .. " DESBLOQUEADO!")
+	elseif booster then
+		local seconds = booster.Minutes * 60
+		grant = function()
+			data[booster.Field] = (tonumber(data[booster.Field]) or 0) + seconds
+		end
+		undo = function()
+			data[booster.Field] = math.max(0, (tonumber(data[booster.Field]) or 0) - seconds)
+		end
+		message = booster.Icon .. " ¡" .. string.upper(booster.Name) .. " " .. booster.Minutes .. " MIN!"
 	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
 		grant = function()
 			data.WheelSpins += wheel.SpinsPerPurchase
@@ -17330,6 +17367,35 @@ end
 
 function PlayerData.Init()
 	-- Publica si hay XP extra hoy (la pantalla de inicio lo anuncia); se revisa cada minuto
+	-- Potenciadores: su tiempo corre solo mientras se juega (no en la portada)
+	task.spawn(function()
+		local STEP = 5
+		while true do
+			task.wait(STEP)
+			for player, data in profiles do
+				if player:GetAttribute("InMenu") ~= false then
+					continue -- (en la portada o aún sin entrar en partida)
+				end
+				local changed = false
+				for _, booster in Shop.Boosters do
+					local left = tonumber(data[booster.Field]) or 0
+					if left > 0 then
+						data[booster.Field] = math.max(0, left - STEP)
+						changed = true
+						if data[booster.Field] == 0 then
+							Remotes.Notify:FireClient(player, "Challenge", booster.Icon .. " Se acabó tu " .. booster.Name)
+							sendUpdate(player)
+						elseif data[booster.Field] % 60 < STEP then
+							sendUpdate(player) -- (el cliente cuenta los segundos; se corrige cada minuto)
+						end
+					end
+				end
+				if changed then
+					dirty[player] = true
+				end
+			end
+		end
+	end)
 	task.spawn(function()
 		while true do
 			ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
@@ -19527,6 +19593,7 @@ local InfectionFX = require(Modules.InfectionFX)
 local News = require(Modules.News)
 local Graffiti = require(Modules.Graffiti)
 local DamageIndicator = require(Modules.DamageIndicator)
+local BoostHUD = require(Modules.BoostHUD)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -19568,6 +19635,7 @@ start("InfectionFX", InfectionFX.Init)
 start("News", News.Init)
 start("Graffiti", Graffiti.Init)
 start("DamageIndicator", DamageIndicator.Init)
+start("BoostHUD", BoostHUD.Init)
 start("VoteUI", VoteUI.Init)
 start("GrenadeController", GrenadeController.Init)
 start("KillstreakController", KillstreakController.Init)
@@ -19875,6 +19943,88 @@ return Abilities
           </Item>
           <Item class="ModuleScript" referent="74">
             <Properties>
+              <string name="Name">BoostHUD</string>
+              <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
+-- El servidor manda los segundos que quedan; aquí se cuentan hacia atrás solo mientras se juega
+-- (igual que en el servidor) y se corrigen con cada actualización de datos.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shop = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Shop"))
+local UI = require(script.Parent.UI)
+local ClientState = require(script.Parent.ClientState)
+
+local player = Players.LocalPlayer
+
+local BoostHUD = {}
+
+local left = {} -- [Field] = segundos que quedan
+local label
+
+local function format(seconds)
+	seconds = math.max(0, math.ceil(seconds))
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+local function render()
+	local parts = {}
+	for _, booster in Shop.Boosters do
+		local seconds = left[booster.Field] or 0
+		if seconds > 0 then
+			table.insert(parts, booster.Icon .. " x" .. booster.Multiplier .. (booster.Kind == "XP" and " XP " or " ") .. format(seconds))
+		end
+	end
+	label.Text = table.concat(parts, "   ")
+	label.Visible = #parts > 0 and not ClientState.InMainMenu and not ClientState.MenuOpen
+end
+
+function BoostHUD.Init()
+	local gui = UI.new("ScreenGui", {
+		Name = "Boosters",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	label = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 84),
+		Size = UDim2.fromOffset(320, 22),
+		Text = "",
+		TextSize = 17,
+		TextColor3 = Color3.fromRGB(120, 230, 255),
+		Visible = false,
+		Parent = gui,
+	})
+	local function onData(data)
+		if not data then
+			return
+		end
+		for _, booster in Shop.Boosters do
+			left[booster.Field] = tonumber(data[booster.Field]) or 0
+		end
+		render()
+	end
+	ClientState.DataChanged.Event:Connect(onData)
+	onData(ClientState.Data)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if not ClientState.InMainMenu then
+				for field, seconds in left do
+					left[field] = math.max(0, seconds - 1)
+				end
+			end
+			render()
+		end
+	end)
+end
+
+return BoostHUD
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="75">
+            <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
 -- el nivel de cada jugador (con color según el nivel) y su título. Solo cambia cómo se ve el mensaje (TextChatService, chat nuevo de Roblox).
@@ -19942,7 +20092,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -20028,7 +20178,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -20205,7 +20355,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -20676,7 +20826,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -21786,7 +21936,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -21962,7 +22112,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -22086,7 +22236,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -22227,7 +22377,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -22299,7 +22449,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -22428,7 +22578,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -24121,7 +24271,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -24193,7 +24343,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -24258,7 +24408,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -24491,7 +24641,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -25216,7 +25366,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -27410,6 +27560,43 @@ local function buildShopPage(data)
 		end
 	end)
 
+	-- Potenciadores con Robux (su tiempo solo corre jugando)
+	sectionTitle(scroll, "⚡ Potenciadores (el tiempo solo corre mientras juegas)", 12)
+	local boosters = row(scroll, 13, 150)
+	local BOOST_BLUE = Color3.fromRGB(70, 170, 255)
+	for i, booster in Shop.Boosters do
+		local left = tonumber(data[booster.Field]) or 0
+		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(220, 150), BackgroundColor3 = Color3.fromRGB(20, 40, 70), Parent = boosters }, {
+			UI.corner(12),
+			UI.stroke(left > 0 and GREEN or BOOST_BLUE, 2, 0),
+			UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(90, 150, 230)), Rotation = 90 }),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 36), Text = booster.Icon .. " x" .. booster.Multiplier, TextSize = 28, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 44), Size = UDim2.new(1, 0, 0, 22), Text = booster.Name .. " · " .. booster.Minutes .. " min", TextSize = 17, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 68),
+			Size = UDim2.new(1, 0, 0, 18),
+			Text = left > 0 and ("✔ Activo: quedan " .. math.ceil(left / 60) .. " min") or "Se acumula si compras más",
+			TextSize = 13,
+			Font = UI.FontBody,
+			TextColor3 = left > 0 and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(190, 200, 230),
+			Parent = card,
+		})
+		local buyBoost = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -20, 0, 40),
+			Text = booster.ProductId ~= 0 and ("R$ " .. booster.Robux) or "Próximamente",
+			BackgroundColor3 = booster.ProductId ~= 0 and GREEN or GREY,
+			Parent = card,
+		}, { UI.gloss() })
+		buyBoost.Activated:Connect(function()
+			if booster.ProductId ~= 0 then
+				MarketplaceService:PromptProductPurchase(player, booster.ProductId)
+			end
+		end)
+	end
+
 	-- Roblox Premium (bonus pequeño; la suscripción la cobra Roblox)
 	local premiumConfig = GameConfig.RobloxPremium
 	if premiumConfig then
@@ -27761,7 +27948,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -28054,7 +28241,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -28181,7 +28368,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -28352,7 +28539,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -28522,7 +28709,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -28849,7 +29036,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -29038,7 +29225,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -29124,7 +29311,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -29281,7 +29468,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -29383,7 +29570,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -29564,7 +29751,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -30512,7 +30699,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -30569,7 +30756,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -30863,7 +31050,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -31082,19 +31269,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="104">
+  <Item class="Teams" referent="105">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="105">
+  <Item class="Workspace" referent="106">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="106">
+    <Item class="Terrain" referent="107">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

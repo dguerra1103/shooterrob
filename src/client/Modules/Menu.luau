@@ -2189,6 +2189,43 @@ local function buildShopPage(data)
 		end
 	end)
 
+	-- Potenciadores con Robux (su tiempo solo corre jugando)
+	sectionTitle(scroll, "⚡ Potenciadores (el tiempo solo corre mientras juegas)", 12)
+	local boosters = row(scroll, 13, 150)
+	local BOOST_BLUE = Color3.fromRGB(70, 170, 255)
+	for i, booster in Shop.Boosters do
+		local left = tonumber(data[booster.Field]) or 0
+		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(220, 150), BackgroundColor3 = Color3.fromRGB(20, 40, 70), Parent = boosters }, {
+			UI.corner(12),
+			UI.stroke(left > 0 and GREEN or BOOST_BLUE, 2, 0),
+			UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(90, 150, 230)), Rotation = 90 }),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 36), Text = booster.Icon .. " x" .. booster.Multiplier, TextSize = 28, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 44), Size = UDim2.new(1, 0, 0, 22), Text = booster.Name .. " · " .. booster.Minutes .. " min", TextSize = 17, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 68),
+			Size = UDim2.new(1, 0, 0, 18),
+			Text = left > 0 and ("✔ Activo: quedan " .. math.ceil(left / 60) .. " min") or "Se acumula si compras más",
+			TextSize = 13,
+			Font = UI.FontBody,
+			TextColor3 = left > 0 and Color3.fromRGB(120, 255, 140) or Color3.fromRGB(190, 200, 230),
+			Parent = card,
+		})
+		local buyBoost = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -20, 0, 40),
+			Text = booster.ProductId ~= 0 and ("R$ " .. booster.Robux) or "Próximamente",
+			BackgroundColor3 = booster.ProductId ~= 0 and GREEN or GREY,
+			Parent = card,
+		}, { UI.gloss() })
+		buyBoost.Activated:Connect(function()
+			if booster.ProductId ~= 0 then
+				MarketplaceService:PromptProductPurchase(player, booster.ProductId)
+			end
+		end)
+	end
+
 	-- Roblox Premium (bonus pequeño; la suscripción la cobra Roblox)
 	local premiumConfig = GameConfig.RobloxPremium
 	if premiumConfig then

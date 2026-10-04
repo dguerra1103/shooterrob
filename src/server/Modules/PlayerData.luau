@@ -117,6 +117,8 @@ local function defaults()
 		GroupReward = false, -- ya reclamó el premio del grupo (GameConfig.Group)
 		EventProgress = { Id = "", Count = 0 }, -- caramelos del evento de temporada (ver Event)
 		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
+		BoostXP = 0, -- segundos de juego que quedan de XP doble (Shop.Boosters)
+		BoostCoins = 0, -- segundos de juego que quedan de monedas dobles
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		WheelDay = -1, -- último día con giro gratis de la ruleta usado
 		WheelSpins = 0, -- giros de ruleta comprados sin usar
@@ -256,6 +258,8 @@ local function publicView(player, data)
 		EquippedTitle = data.EquippedTitle,
 		Settings = data.Settings,
 		Revives = data.Revives,
+		BoostXP = data.BoostXP,
+		BoostCoins = data.BoostCoins,
 		WheelFree = data.WheelDay ~= Shop.DayNumber(),
 		WheelSpins = data.WheelSpins,
 		-- (si sus datos no se guardan, no se le enseña el tutorial: probablemente ya lo vio)
@@ -651,6 +655,16 @@ function PlayerData.WaitFor(player, timeout)
 	return profiles[player]
 end
 
+-- Potenciador comprado activo (Shop.Boosters) para "XP" o "Coins"
+local function boosterMultiplier(data, kind)
+	for _, booster in Shop.Boosters do
+		if booster.Kind == kind and (tonumber(data[booster.Field]) or 0) > 0 then
+			return booster.Multiplier
+		end
+	end
+	return 1
+end
+
 -- VIP (x2), Roblox Premium (x1,2) y bonus de amigos en el servidor (+10% por amigo, ver Friends)
 local function multiplier(player)
 	local vip = player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
@@ -935,7 +949,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		return
 	end
 	if not fixed then
-		amount = math.floor(amount * multiplier(player) * xpBoost())
+		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(data, "XP"))
 		matchOf(player, data).XP += amount
 	end
 	data.XP += amount
@@ -966,7 +980,7 @@ function PlayerData.AddCoins(player, amount, earned)
 	local data = profiles[player]
 	if data then
 		if earned ~= false then
-			amount = math.floor(amount * multiplier(player))
+			amount = math.floor(amount * multiplier(player) * boosterMultiplier(data, "Coins"))
 			matchOf(player, data).Coins += amount
 		end
 		data.Coins += amount
@@ -1221,7 +1235,7 @@ local function claimDaily(player)
 	data.DailyStreak = streak
 	data.LastDailyDay = today
 	local coins = Shop.DailyRewards[streak]
-	PlayerData.AddCoins(player, coins, true)
+	local given = PlayerData.AddCoins(player, coins, true)
 	local crate = streak == Shop.DailyCrateDay
 	if crate then
 		data.FreeCrates += 1
@@ -1230,7 +1244,7 @@ local function claimDaily(player)
 		data.FreeCrates += 1 -- caja diaria extra del VIP
 	end
 	sendUpdate(player)
-	return true, { Streak = streak, Coins = math.floor(coins * multiplier(player)), Crate = crate }
+	return true, { Streak = streak, Coins = given, Crate = crate }
 end
 
 local pendingReceipt = {} -- [player] = true mientras se guarda una compra con Robux
@@ -1395,6 +1409,12 @@ local function processReceipt(receipt)
 			bundle = b
 		end
 	end
+	local booster
+	for _, b in Shop.Boosters do
+		if b.ProductId ~= 0 and b.ProductId == receipt.ProductId then
+			booster = b
+		end
+	end
 	if bundle then
 		-- Pack de temporada (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
 		-- deshacer solo se quita lo que se dio.
@@ -1429,6 +1449,15 @@ local function processReceipt(receipt)
 			end
 		end
 		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or (bundle.Icon .. " ¡" .. bundle.Name .. " DESBLOQUEADO!")
+	elseif booster then
+		local seconds = booster.Minutes * 60
+		grant = function()
+			data[booster.Field] = (tonumber(data[booster.Field]) or 0) + seconds
+		end
+		undo = function()
+			data[booster.Field] = math.max(0, (tonumber(data[booster.Field]) or 0) - seconds)
+		end
+		message = booster.Icon .. " ¡" .. string.upper(booster.Name) .. " " .. booster.Minutes .. " MIN!"
 	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
 		grant = function()
 			data.WheelSpins += wheel.SpinsPerPurchase
@@ -1529,6 +1558,35 @@ end
 
 function PlayerData.Init()
 	-- Publica si hay XP extra hoy (la pantalla de inicio lo anuncia); se revisa cada minuto
+	-- Potenciadores: su tiempo corre solo mientras se juega (no en la portada)
+	task.spawn(function()
+		local STEP = 5
+		while true do
+			task.wait(STEP)
+			for player, data in profiles do
+				if player:GetAttribute("InMenu") ~= false then
+					continue -- (en la portada o aún sin entrar en partida)
+				end
+				local changed = false
+				for _, booster in Shop.Boosters do
+					local left = tonumber(data[booster.Field]) or 0
+					if left > 0 then
+						data[booster.Field] = math.max(0, left - STEP)
+						changed = true
+						if data[booster.Field] == 0 then
+							Remotes.Notify:FireClient(player, "Challenge", booster.Icon .. " Se acabó tu " .. booster.Name)
+							sendUpdate(player)
+						elseif data[booster.Field] % 60 < STEP then
+							sendUpdate(player) -- (el cliente cuenta los segundos; se corrige cada minuto)
+						end
+					end
+				end
+				if changed then
+					dirty[player] = true
+				end
+			end
+		end
+	end)
 	task.spawn(function()
 		while true do
 			ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
