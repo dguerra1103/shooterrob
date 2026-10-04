@@ -151,6 +151,9 @@ GameConfig.Badges = {
 	Kills100 = 0, -- 100 bajas
 	FirstWin = 0, -- primera victoria
 	Level10 = 0, -- nivel 10
+	RankGold = 0, -- llegar a rango Oro
+	RankDiamond = 0, -- llegar a rango Diamante
+	RankChampion = 0, -- llegar a rango Campeón
 }
 
 -- Recompensas por nivel. Free = pase gratis, Premium = pase de pago.

@@ -571,6 +571,7 @@ function PlayerData.AddRankPoints(player, delta)
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
 	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	Badges.Check(player, data)
 	dirty[player] = true
 	sendUpdate(player)
 	return data.RankPoints - before

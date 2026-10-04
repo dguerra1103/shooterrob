@@ -4,6 +4,7 @@ local BadgeService = game:GetService("BadgeService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
 
 local Badges = {}
 
@@ -25,6 +26,15 @@ local RULES = {
 	end },
 	{ Name = "Level10", Check = function(data)
 		return (data.Level or 1) >= 10
+	end },
+	{ Name = "RankGold", Check = function(data)
+		return Ranks.Index(data.RankPoints) >= 3
+	end },
+	{ Name = "RankDiamond", Check = function(data)
+		return Ranks.Index(data.RankPoints) >= 5
+	end },
+	{ Name = "RankChampion", Check = function(data)
+		return Ranks.Index(data.RankPoints) >= 6
 	end },
 }
 

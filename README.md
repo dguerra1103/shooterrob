@@ -181,7 +181,7 @@ Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se
    - `TrainingDummies = false`.
    - Si no quieres bots con gente de verdad, baja `Bots.FillTo` (por ejemplo a 4) o pon `Bots.Enabled = false`.
 2. Configura los IDs de la tienda (apartado anterior).
-   - Opcional: crea **insignias** en el Creator Hub (Bienvenida, Primera baja, 100 bajas, Primera victoria y Nivel 10) y pega sus ID en `GameConfig.Badges`; se dan solas.
+   - Opcional: crea **insignias** en el Creator Hub (Bienvenida, Primera baja, 100 bajas, Primera victoria, Nivel 10, Rango Oro, Rango Diamante y Rango Campeón) y pega sus ID en `GameConfig.Badges`; se dan solas.
 3. En el Creator Hub, rellena el **cuestionario de madurez** y, como hay cajas, marca que tiene artículos aleatorios de pago (aunque solo se compren con monedas, las monedas se venden por Robux).
 4. En **Game Settings → Places**, pon el máximo de jugadores por servidor en **20** (10 contra 10) o menos de 30: Roblox solo dibuja 31 contornos a la vez (compañeros y radar).
 5. Cambia la experiencia a **Public** y ponle un icono y miniaturas llamativas (puedes usar las imágenes del concept pack).

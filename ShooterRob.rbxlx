@@ -258,6 +258,9 @@ GameConfig.Badges = {
 	Kills100 = 0, -- 100 bajas
 	FirstWin = 0, -- primera victoria
 	Level10 = 0, -- nivel 10
+	RankGold = 0, -- llegar a rango Oro
+	RankDiamond = 0, -- llegar a rango Diamante
+	RankChampion = 0, -- llegar a rango Campeón
 }
 
 -- Recompensas por nivel. Free = pase gratis, Premium = pase de pago.
@@ -4297,6 +4300,7 @@ local BadgeService = game:GetService("BadgeService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
 
 local Badges = {}
 
@@ -4318,6 +4322,15 @@ local RULES = {
 	end },
 	{ Name = "Level10", Check = function(data)
 		return (data.Level or 1) >= 10
+	end },
+	{ Name = "RankGold", Check = function(data)
+		return Ranks.Index(data.RankPoints) >= 3
+	end },
+	{ Name = "RankDiamond", Check = function(data)
+		return Ranks.Index(data.RankPoints) >= 5
+	end },
+	{ Name = "RankChampion", Check = function(data)
+		return Ranks.Index(data.RankPoints) >= 6
 	end },
 }
 
@@ -13261,6 +13274,7 @@ function PlayerData.AddRankPoints(player, delta)
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
 	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	Badges.Check(player, data)
 	dirty[player] = true
 	sendUpdate(player)
 	return data.RankPoints - before
