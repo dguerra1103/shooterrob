@@ -694,6 +694,26 @@ function Classic.Scythe(_pt)
 	return p
 end
 
+-- Calabazooka (evento de Halloween): el lanzacohetes con una calabaza con cara como proyectil
+function Classic.Calabazooka(pt)
+	local p = {}
+	for _, part in Classic.NovaLauncher(pt) do
+		if part.Name ~= "Warhead" and part.Name ~= "WarheadCone" and part.Name ~= "WarheadTip" and part.Name ~= "RocketFins" then
+			table.insert(p, part)
+		end
+	end
+	local y = pt.Muzzle.Y
+	table.insert(p, C("PumpkinNeck", 0, y, -1.5, 0.4, 0.16, "Dark"))
+	table.insert(p, Ball("Pumpkin", 0, y, -1.95, 0.62, "Panel"))
+	table.insert(p, C("PumpkinStem", 0, y + 0.34, -1.95, 0.06, 0.08, "Accent2"))
+	table.insert(p, B("PumpkinStemTop", 0, y + 0.38, -1.95, 0.06, 0.14, 0.06, "Accent2"))
+	for _, x in { -0.11, 0.11 } do
+		table.insert(p, B("PumpkinEye", x, y + 0.08, -2.24, 0.1, 0.09, 0.04, "Accent", 0, 0, x > 0 and 20 or -20))
+	end
+	table.insert(p, B("PumpkinMouth", 0, y - 0.1, -2.24, 0.26, 0.06, 0.04, "Accent"))
+	return p
+end
+
 -- Garras de zombi (modo Infección): mano verde con tres uñas de hueso largas y curvas
 function Classic.Claws(_pt)
 	local p = {
@@ -713,6 +733,7 @@ end
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
+	Calabazooka = { LeftHand = V(0, -0.4, -0.7) },
 }
 
 return Classic

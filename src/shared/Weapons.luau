@@ -591,6 +591,24 @@ do
 	Weapons.List.Scythe = scythe
 end
 
+-- Calabazooka: premio del evento de Halloween (75 caramelos). Lanza calabazas que explotan.
+do
+	local base = Weapons.List.NovaLauncher
+	local pumpkin = table.clone(base)
+	pumpkin.DisplayName = "Calabazooka"
+	pumpkin.Category = "Lanzacohetes"
+	pumpkin.Description = "¡Premio de Halloween! Calabazas explosivas con cara de susto."
+	pumpkin.Palette = { Body = RGB(60, 35, 80), Panel = RGB(255, 130, 20), Accent = RGB(255, 210, 60), Accent2 = RGB(90, 170, 60), Dark = RGB(30, 22, 40), AccentMaterial = Enum.Material.Neon }
+	pumpkin.UnlockLevel = 999 -- (no se desbloquea por nivel: solo con el evento)
+	pumpkin.Price = nil
+	pumpkin.EventText = "🎃 75 caramelos"
+	pumpkin.Explosive = { Radius = 13, Damage = 115, MinDamage = 30 }
+	pumpkin.ReserveAmmo = 6
+	pumpkin.ProjectileStyle = "Pumpkin"
+	pumpkin.Parts = Classic.Calabazooka(pumpkin)
+	Weapons.List.Calabazooka = pumpkin
+end
+
 -- Garras: arma de los zombis en el modo Infección (no se elige ni se vende: Hidden)
 do
 	local claws = {
@@ -678,6 +696,7 @@ Weapons.Primaries = {
 	"TitanLMG",
 	"GhostlineXR",
 	"NovaLauncher",
+	"Calabazooka",
 	"SplatX",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }

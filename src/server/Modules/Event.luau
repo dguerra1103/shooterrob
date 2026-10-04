@@ -11,6 +11,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Skins = require(Shared.Skins)
 local Outfits = require(Shared.Outfits)
+local Weapons = require(Shared.Weapons)
 
 local PlayerData = require(script.Parent.PlayerData)
 local Kit = require(script.Parent.MapKit)
@@ -110,6 +111,8 @@ local function collect(player, candy)
 			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
 				local outfit = Outfits.Get(milestone.Outfit)
 				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+			elseif milestone.Weapon and PlayerData.GiveWeapon(player, milestone.Weapon) then
+				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Arma " .. Weapons.Get(milestone.Weapon).DisplayName .. " desbloqueada")
 			else
 				local amount = milestone.Coins or milestone.Compensate or 0
 				if amount > 0 then

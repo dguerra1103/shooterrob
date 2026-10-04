@@ -528,6 +528,18 @@ function PlayerData.GiveOutfit(player, outfitId)
 	return true
 end
 
+-- Da un arma (premios de evento). Devuelve false si ya la tenía
+function PlayerData.GiveWeapon(player, weaponName)
+	local data = profiles[player]
+	if not data or not Weapons.List[weaponName] or data.OwnedWeapons[weaponName] then
+		return false
+	end
+	data.OwnedWeapons[weaponName] = true
+	dirty[player] = true
+	sendUpdate(player)
+	return true
+end
+
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
 function PlayerData.MarkDirty(player)
 	if profiles[player] then

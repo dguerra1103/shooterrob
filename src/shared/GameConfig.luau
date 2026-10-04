@@ -87,7 +87,7 @@ GameConfig.Event = {
 	Milestones = {
 		{ Count = 25, Coins = 150 },
 		{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
-		{ Count = 75, Coins = 300 },
+		{ Count = 75, Weapon = "Calabazooka", Compensate = 300 },
 	},
 	SpawnEvery = 12, -- segundos entre caramelos
 	MaxCandies = 6, -- a la vez en el mapa
@@ -105,7 +105,7 @@ GameConfig.News = {
 		{ "🚀", "Mapa nuevo: Base Lunar, con la Tierra en el cielo" },
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
-		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza y skin Embrujada" },
+		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },
 		{ "👤", "Pestaña Perfil con tus estadísticas y tu arma favorita" },
 		{ "🔪", "Guadaña y efectos de eliminación de Halloween en la tienda" },
 	},

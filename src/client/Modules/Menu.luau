@@ -670,6 +670,9 @@ local function buildChallengesPage(data)
 			if prize.Outfit and Outfits.List[prize.Outfit] then
 				outfitViewport(prize.Outfit, preview)
 				title = "Traje " .. Outfits.List[prize.Outfit].Name
+			elseif prize.Weapon and Weapons.Get(prize.Weapon) then
+				WeaponIcon.Create(prize.Weapon, "Default", preview, "angled", 2.2)
+				title = Weapons.Get(prize.Weapon).DisplayName
 			elseif prize.Skin and Skins.List[prize.Skin] then
 				WeaponIcon.Create(data.Primary or "ARX27", prize.Skin, preview, "angled", 2.2)
 				title = "Skin " .. Skins.List[prize.Skin].Name
@@ -829,7 +832,7 @@ local function buildWeaponsPage(data)
 				buy("Weapon", weaponName)
 			end)
 		else
-			button.Text = "🔒 Nivel " .. def.UnlockLevel
+			button.Text = def.EventText or ("🔒 Nivel " .. def.UnlockLevel)
 			button.BackgroundColor3 = GREY
 			button.AutoButtonColor = false
 		end

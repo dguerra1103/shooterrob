@@ -398,7 +398,7 @@ local function fire()
 		local result = workspace:Raycast(origin, direction * def.Range, rayParams)
 		local hitPosition = result and result.Position or origin + direction * def.Range
 		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
-		Effects.Rocket(muzzlePos, hitPosition, def.ProjectileSpeed or 200, tracerColor, def.Explosive.Radius)
+		Effects.Rocket(muzzlePos, hitPosition, def.ProjectileSpeed or 200, tracerColor, def.Explosive.Radius, def.ProjectileStyle)
 	end
 	for pellet = 1, def.Explosive and 0 or def.Pellets do
 		local direction = randomInCone(look, spread)
@@ -858,7 +858,7 @@ local function onShotFX(tool, endpoints)
 	for index, position in endpoints do
 		if typeof(position) == "Vector3" and index <= 3 then
 			if weaponDef and weaponDef.Explosive then
-				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
+				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius, weaponDef.ProjectileStyle)
 			else
 				Effects.Tracer(muzzle.WorldPosition, position, color)
 				-- Paintball: también se ven las manchas de los disparos de los demás (si no es caro)

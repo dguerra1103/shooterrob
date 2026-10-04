@@ -25,7 +25,7 @@ Challenges.Pool = {
 	{ Id = "Pistols", Stat = "Kill", Weapons = { "Viper", "HandCannon", "PhantomSidewind" }, Goal = 4, Text = "4 bajas con pistola", Coins = 200, XP = 300 },
 	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife", "ToyHammer", "Katana", "Scythe" }, Goal = 2, Text = "2 bajas cuerpo a cuerpo", Coins = 300, XP = 400 },
 	{ Id = "Grenades", Stat = "Kill", Weapons = { "Grenade" }, Goal = 3, Text = "3 bajas con granada", Coins = 250, XP = 350 },
-	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher" }, Goal = 3, Text = "3 bajas con el Tempest Core", Coins = 250, XP = 350, MinLevel = 14 },
+	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher", "Calabazooka" }, Goal = 3, Text = "3 bajas con lanzacohetes", Coins = 250, XP = 350, MinLevel = 14 },
 	-- Modo Infección (Halloween)
 	{ Id = "Infect", Stat = "Kill", Weapons = { "Claws" }, Goal = 3, Text = "Infecta a 3 supervivientes (Infección)", Coins = 250, XP = 350 },
 	{ Id = "Survive", Stat = "Survive", Goal = 1, Text = "Sobrevive hasta el final de una Infección", Coins = 300, XP = 400 },

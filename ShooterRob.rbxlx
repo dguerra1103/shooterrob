@@ -204,7 +204,7 @@ Challenges.Pool = {
 	{ Id = "Pistols", Stat = "Kill", Weapons = { "Viper", "HandCannon", "PhantomSidewind" }, Goal = 4, Text = "4 bajas con pistola", Coins = 200, XP = 300 },
 	{ Id = "Knife", Stat = "Kill", Weapons = { "Knife", "ToyHammer", "Katana", "Scythe" }, Goal = 2, Text = "2 bajas cuerpo a cuerpo", Coins = 300, XP = 400 },
 	{ Id = "Grenades", Stat = "Kill", Weapons = { "Grenade" }, Goal = 3, Text = "3 bajas con granada", Coins = 250, XP = 350 },
-	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher" }, Goal = 3, Text = "3 bajas con el Tempest Core", Coins = 250, XP = 350, MinLevel = 14 },
+	{ Id = "Rockets", Stat = "Kill", Weapons = { "NovaLauncher", "Calabazooka" }, Goal = 3, Text = "3 bajas con lanzacohetes", Coins = 250, XP = 350, MinLevel = 14 },
 	-- Modo Infección (Halloween)
 	{ Id = "Infect", Stat = "Kill", Weapons = { "Claws" }, Goal = 3, Text = "Infecta a 3 supervivientes (Infección)", Coins = 250, XP = 350 },
 	{ Id = "Survive", Stat = "Survive", Goal = 1, Text = "Sobrevive hasta el final de una Infección", Coins = 300, XP = 400 },
@@ -343,7 +343,7 @@ GameConfig.Event = {
 	Milestones = {
 		{ Count = 25, Coins = 150 },
 		{ Count = 50, Outfit = "Calabaza", Compensate = 400 },
-		{ Count = 75, Coins = 300 },
+		{ Count = 75, Weapon = "Calabazooka", Compensate = 300 },
 	},
 	SpawnEvery = 12, -- segundos entre caramelos
 	MaxCandies = 6, -- a la vez en el mapa
@@ -361,7 +361,7 @@ GameConfig.News = {
 		{ "🚀", "Mapa nuevo: Base Lunar, con la Tierra en el cielo" },
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
-		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza y skin Embrujada" },
+		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },
 		{ "👤", "Pestaña Perfil con tus estadísticas y tu arma favorita" },
 		{ "🔪", "Guadaña y efectos de eliminación de Halloween en la tienda" },
 	},
@@ -3369,6 +3369,26 @@ function Classic.Scythe(_pt)
 	return p
 end
 
+-- Calabazooka (evento de Halloween): el lanzacohetes con una calabaza con cara como proyectil
+function Classic.Calabazooka(pt)
+	local p = {}
+	for _, part in Classic.NovaLauncher(pt) do
+		if part.Name ~= "Warhead" and part.Name ~= "WarheadCone" and part.Name ~= "WarheadTip" and part.Name ~= "RocketFins" then
+			table.insert(p, part)
+		end
+	end
+	local y = pt.Muzzle.Y
+	table.insert(p, C("PumpkinNeck", 0, y, -1.5, 0.4, 0.16, "Dark"))
+	table.insert(p, Ball("Pumpkin", 0, y, -1.95, 0.62, "Panel"))
+	table.insert(p, C("PumpkinStem", 0, y + 0.34, -1.95, 0.06, 0.08, "Accent2"))
+	table.insert(p, B("PumpkinStemTop", 0, y + 0.38, -1.95, 0.06, 0.14, 0.06, "Accent2"))
+	for _, x in { -0.11, 0.11 } do
+		table.insert(p, B("PumpkinEye", x, y + 0.08, -2.24, 0.1, 0.09, 0.04, "Accent", 0, 0, x > 0 and 20 or -20))
+	end
+	table.insert(p, B("PumpkinMouth", 0, y - 0.1, -2.24, 0.26, 0.06, 0.04, "Accent"))
+	return p
+end
+
 -- Garras de zombi (modo Infección): mano verde con tres uñas de hueso largas y curvas
 function Classic.Claws(_pt)
 	local p = {
@@ -3388,6 +3408,7 @@ end
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
+	Calabazooka = { LeftHand = V(0, -0.4, -0.7) },
 }
 
 return Classic
@@ -4258,6 +4279,24 @@ do
 	Weapons.List.Scythe = scythe
 end
 
+-- Calabazooka: premio del evento de Halloween (75 caramelos). Lanza calabazas que explotan.
+do
+	local base = Weapons.List.NovaLauncher
+	local pumpkin = table.clone(base)
+	pumpkin.DisplayName = "Calabazooka"
+	pumpkin.Category = "Lanzacohetes"
+	pumpkin.Description = "¡Premio de Halloween! Calabazas explosivas con cara de susto."
+	pumpkin.Palette = { Body = RGB(60, 35, 80), Panel = RGB(255, 130, 20), Accent = RGB(255, 210, 60), Accent2 = RGB(90, 170, 60), Dark = RGB(30, 22, 40), AccentMaterial = Enum.Material.Neon }
+	pumpkin.UnlockLevel = 999 -- (no se desbloquea por nivel: solo con el evento)
+	pumpkin.Price = nil
+	pumpkin.EventText = "🎃 75 caramelos"
+	pumpkin.Explosive = { Radius = 13, Damage = 115, MinDamage = 30 }
+	pumpkin.ReserveAmmo = 6
+	pumpkin.ProjectileStyle = "Pumpkin"
+	pumpkin.Parts = Classic.Calabazooka(pumpkin)
+	Weapons.List.Calabazooka = pumpkin
+end
+
 -- Garras: arma de los zombis en el modo Infección (no se elige ni se vende: Hidden)
 do
 	local claws = {
@@ -4345,6 +4384,7 @@ Weapons.Primaries = {
 	"TitanLMG",
 	"GhostlineXR",
 	"NovaLauncher",
+	"Calabazooka",
 	"SplatX",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
@@ -6130,6 +6170,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Skins = require(Shared.Skins)
 local Outfits = require(Shared.Outfits)
+local Weapons = require(Shared.Weapons)
 
 local PlayerData = require(script.Parent.PlayerData)
 local Kit = require(script.Parent.MapKit)
@@ -6229,6 +6270,8 @@ local function collect(player, candy)
 			if milestone.Outfit and PlayerData.GiveOutfit(player, milestone.Outfit) then
 				local outfit = Outfits.Get(milestone.Outfit)
 				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Traje " .. outfit.Name .. " desbloqueado")
+			elseif milestone.Weapon and PlayerData.GiveWeapon(player, milestone.Weapon) then
+				Remotes.Notify:FireClient(player, "Challenge", "🎃 ¡" .. milestone.Count .. " caramelos! Arma " .. Weapons.Get(milestone.Weapon).DisplayName .. " desbloqueada")
 			else
 				local amount = milestone.Coins or milestone.Compensate or 0
 				if amount > 0 then
@@ -14061,6 +14104,18 @@ function PlayerData.GiveOutfit(player, outfitId)
 	return true
 end
 
+-- Da un arma (premios de evento). Devuelve false si ya la tenía
+function PlayerData.GiveWeapon(player, weaponName)
+	local data = profiles[player]
+	if not data or not Weapons.List[weaponName] or data.OwnedWeapons[weaponName] then
+		return false
+	end
+	data.OwnedWeapons[weaponName] = true
+	dirty[player] = true
+	sendUpdate(player)
+	return true
+end
+
 -- Marca los datos para guardarlos en el próximo guardado automático (cambios hechos desde fuera)
 function PlayerData.MarkDirty(player)
 	if profiles[player] then
@@ -17976,25 +18031,28 @@ function Effects.Explosion(position, radius, color)
 end
 
 -- Cohete que vuela hasta `to` y explota al llegar
-function Effects.Rocket(from, to, speed, color, radius)
+-- style = "Pumpkin": el proyectil es una calabaza con cara (Calabazooka)
+function Effects.Rocket(from, to, speed, color, radius, style)
 	local distance = (to - from).Magnitude
 	if distance < 0.5 then
 		Effects.Explosion(to, radius, color)
 		return
 	end
 	local direction = safeLookAt(from, to - from)
+	local pumpkin = style == "Pumpkin"
 	local rocket = fxPart({
-		Color = Color3.fromRGB(230, 230, 235),
+		Color = pumpkin and Color3.fromRGB(255, 130, 20) or Color3.fromRGB(230, 230, 235),
 		Material = Enum.Material.SmoothPlastic,
-		Size = Vector3.new(0.35, 0.35, 1.3),
+		Shape = pumpkin and Enum.PartType.Ball or Enum.PartType.Block,
+		Size = pumpkin and Vector3.new(1.1, 1.1, 1.1) or Vector3.new(0.35, 0.35, 1.3),
 		CFrame = direction,
 	})
 	local tip = fxPart({
-		Color = Color3.fromRGB(220, 40, 40),
-		Material = Enum.Material.SmoothPlastic,
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(0.38, 0.38, 0.38),
-		CFrame = direction * CFrame.new(0, 0, -0.65),
+		Color = pumpkin and Color3.fromRGB(255, 220, 60) or Color3.fromRGB(220, 40, 40),
+		Material = pumpkin and Enum.Material.Neon or Enum.Material.SmoothPlastic,
+		Shape = pumpkin and Enum.PartType.Block or Enum.PartType.Ball,
+		Size = pumpkin and Vector3.new(0.5, 0.18, 0.1) or Vector3.new(0.38, 0.38, 0.38),
+		CFrame = direction * CFrame.new(0, pumpkin and 0.1 or 0, pumpkin and -0.52 or -0.65),
 	})
 	local flame = fxPart({
 		Color = color or Color3.fromRGB(255, 160, 40),
@@ -18689,7 +18747,8 @@ function EventHUD.Init()
 		for _, milestone in milestones do
 			if count < milestone.Count and milestone.Count < goal then
 				local outfit = milestone.Outfit and not (data.Outfits or {})[milestone.Outfit]
-				return milestone.Count, outfit and "Traje" or ((milestone.Coins or milestone.Compensate or 0) .. " 🪙")
+				local weapon = milestone.Weapon and not (data.OwnedWeapons or {})[milestone.Weapon]
+				return milestone.Count, (outfit and "Traje") or (weapon and "Arma") or ((milestone.Coins or milestone.Compensate or 0) .. " 🪙")
 			end
 		end
 		return goal, "Skin"
@@ -22311,6 +22370,9 @@ local function buildChallengesPage(data)
 			if prize.Outfit and Outfits.List[prize.Outfit] then
 				outfitViewport(prize.Outfit, preview)
 				title = "Traje " .. Outfits.List[prize.Outfit].Name
+			elseif prize.Weapon and Weapons.Get(prize.Weapon) then
+				WeaponIcon.Create(prize.Weapon, "Default", preview, "angled", 2.2)
+				title = Weapons.Get(prize.Weapon).DisplayName
 			elseif prize.Skin and Skins.List[prize.Skin] then
 				WeaponIcon.Create(data.Primary or "ARX27", prize.Skin, preview, "angled", 2.2)
 				title = "Skin " .. Skins.List[prize.Skin].Name
@@ -22470,7 +22532,7 @@ local function buildWeaponsPage(data)
 				buy("Weapon", weaponName)
 			end)
 		else
-			button.Text = "🔒 Nivel " .. def.UnlockLevel
+			button.Text = def.EventText or ("🔒 Nivel " .. def.UnlockLevel)
 			button.BackgroundColor3 = GREY
 			button.AutoButtonColor = false
 		end
@@ -25840,7 +25902,7 @@ local function fire()
 		local result = workspace:Raycast(origin, direction * def.Range, rayParams)
 		local hitPosition = result and result.Position or origin + direction * def.Range
 		table.insert(rays, { Part = result and result.Instance or nil, Position = hitPosition })
-		Effects.Rocket(muzzlePos, hitPosition, def.ProjectileSpeed or 200, tracerColor, def.Explosive.Radius)
+		Effects.Rocket(muzzlePos, hitPosition, def.ProjectileSpeed or 200, tracerColor, def.Explosive.Radius, def.ProjectileStyle)
 	end
 	for pellet = 1, def.Explosive and 0 or def.Pellets do
 		local direction = randomInCone(look, spread)
@@ -26300,7 +26362,7 @@ local function onShotFX(tool, endpoints)
 	for index, position in endpoints do
 		if typeof(position) == "Vector3" and index <= 3 then
 			if weaponDef and weaponDef.Explosive then
-				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius)
+				Effects.Rocket(muzzle.WorldPosition, position, weaponDef.ProjectileSpeed or 200, color, weaponDef.Explosive.Radius, weaponDef.ProjectileStyle)
 			else
 				Effects.Tracer(muzzle.WorldPosition, position, color)
 				-- Paintball: también se ven las manchas de los disparos de los demás (si no es caro)

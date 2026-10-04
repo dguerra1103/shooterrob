@@ -618,25 +618,28 @@ function Effects.Explosion(position, radius, color)
 end
 
 -- Cohete que vuela hasta `to` y explota al llegar
-function Effects.Rocket(from, to, speed, color, radius)
+-- style = "Pumpkin": el proyectil es una calabaza con cara (Calabazooka)
+function Effects.Rocket(from, to, speed, color, radius, style)
 	local distance = (to - from).Magnitude
 	if distance < 0.5 then
 		Effects.Explosion(to, radius, color)
 		return
 	end
 	local direction = safeLookAt(from, to - from)
+	local pumpkin = style == "Pumpkin"
 	local rocket = fxPart({
-		Color = Color3.fromRGB(230, 230, 235),
+		Color = pumpkin and Color3.fromRGB(255, 130, 20) or Color3.fromRGB(230, 230, 235),
 		Material = Enum.Material.SmoothPlastic,
-		Size = Vector3.new(0.35, 0.35, 1.3),
+		Shape = pumpkin and Enum.PartType.Ball or Enum.PartType.Block,
+		Size = pumpkin and Vector3.new(1.1, 1.1, 1.1) or Vector3.new(0.35, 0.35, 1.3),
 		CFrame = direction,
 	})
 	local tip = fxPart({
-		Color = Color3.fromRGB(220, 40, 40),
-		Material = Enum.Material.SmoothPlastic,
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(0.38, 0.38, 0.38),
-		CFrame = direction * CFrame.new(0, 0, -0.65),
+		Color = pumpkin and Color3.fromRGB(255, 220, 60) or Color3.fromRGB(220, 40, 40),
+		Material = pumpkin and Enum.Material.Neon or Enum.Material.SmoothPlastic,
+		Shape = pumpkin and Enum.PartType.Block or Enum.PartType.Ball,
+		Size = pumpkin and Vector3.new(0.5, 0.18, 0.1) or Vector3.new(0.38, 0.38, 0.38),
+		CFrame = direction * CFrame.new(0, pumpkin and 0.1 or 0, pumpkin and -0.52 or -0.65),
 	})
 	local flame = fxPart({
 		Color = color or Color3.fromRGB(255, 160, 40),

@@ -66,7 +66,8 @@ function EventHUD.Init()
 		for _, milestone in milestones do
 			if count < milestone.Count and milestone.Count < goal then
 				local outfit = milestone.Outfit and not (data.Outfits or {})[milestone.Outfit]
-				return milestone.Count, outfit and "Traje" or ((milestone.Coins or milestone.Compensate or 0) .. " 🪙")
+				local weapon = milestone.Weapon and not (data.OwnedWeapons or {})[milestone.Weapon]
+				return milestone.Count, (outfit and "Traje") or (weapon and "Arma") or ((milestone.Coins or milestone.Compensate or 0) .. " 🪙")
 			end
 		end
 		return goal, "Skin"
