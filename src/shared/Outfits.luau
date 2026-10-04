@@ -72,6 +72,17 @@ Outfits.List = {
 		PlateMaterial = Enum.Material.Foil,
 		Pieces = { Vest = true, Pouches = true, Backpack = true, Shoulders = true, Belt = true, Knees = true, Boots = true, Gloves = true, Visor = true, Gauntlets = true },
 	},
+	-- Halloween: cabeza de calabaza con cara iluminada y capa
+	Calabaza = {
+		Name = "Cabeza de Calabaza",
+		Rarity = "Legendario",
+		Class = "Edición Halloween",
+		Body = RGB(25, 20, 30),
+		Cloth = RGB(60, 30, 80),
+		Glow = RGB(255, 170, 40),
+		Plate = RGB(255, 130, 20),
+		Pieces = { Pumpkin = true, Cape = true, Belt = true, Boots = true, Gloves = true },
+	},
 }
 
 function Outfits.Get(id)
@@ -242,6 +253,22 @@ function Outfits.Apply(character, id)
 		for i, x in { -0.18, 0, 0.18 } do
 			newPiece(folder, head, "MaskGlow" .. i, V(x, -0.2, -0.56), Z, V(0.08, 0.05, 0.02), Z, o.Glow, glow)
 		end
+	end
+	if P.Pumpkin then
+		-- Calabaza que envuelve la cabeza (malla de esfera: una Ball no se puede achatar)
+		local pumpkin = newPiece(folder, head, "PumpkinHead", V(0, 0.05, 0), Z, V(1.55, 1.35, 1.55), Z, o.Plate)
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = pumpkin
+		newPiece(folder, head, "PumpkinStem", V(0, 0.75, 0), Z, V(0.14, 0.3, 0.14), Z, RGB(80, 120, 40))
+		for _, sx in { -1, 1 } do
+			newPiece(folder, head, "PumpkinEye", V(0.24 * sx, 0.15, -0.74), Z, V(0.2, 0.18, 0.06), Z, o.Glow, glow, CFrame.Angles(0, 0, math.rad(20 * sx)))
+		end
+		newPiece(folder, head, "PumpkinMouth", V(0, -0.2, -0.74), Z, V(0.55, 0.12, 0.06), Z, o.Glow, glow)
+	end
+	if P.Cape then
+		newPiece(folder, upper, "Cape", V(0, -0.35, 0.62), Z, V(1.1, 1.7, 0.06), Z, o.Cloth, Enum.Material.Fabric, CFrame.Angles(math.rad(8), 0, 0))
+		newPiece(folder, upper, "CapeCollar", V(0, 0.48, 0.45), Z, V(1.0, 0.18, 0.25), Z, RGB(150, 30, 40), Enum.Material.Fabric)
 	end
 	if P.Scarf then
 		local scarfColor = o.Cloth == o.Body and o.Glow or o.Cloth

@@ -67,6 +67,7 @@ Shop.SkinPrices = {
 
 -- Precio en monedas de cada traje de operador (ver Outfits)
 Shop.OutfitPrices = {
+	Calabaza = 1800, -- Halloween
 	BlazeRunner = 1500,
 	NeonRecon = 1500,
 	VoltBruiser = 2000,
