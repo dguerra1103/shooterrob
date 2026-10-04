@@ -63,6 +63,7 @@ local headBobTime = 0 -- balanceo de la cámara al andar (GameConfig.Movement.Ca
 local headBobAmount = 0
 -- Animación del arma: inercia con muelle, arma contra la pared, saltos y golpes alternos
 local swayVelX, swayVelY = 0, 0
+local pendingShot, pendingBurst = nil, false -- disparo que espera a que el arma salga del sprint
 local wallAlpha = 0
 local airOffset = 0
 local meleeSide = 1
@@ -403,6 +404,7 @@ local function onEquipped(tool)
 	equipTime = os.clock()
 	sprayCount, debtPitch, debtYaw = 0, 0, 0 -- (el retroceso de otra arma no se recupera con esta)
 	swayX, swayY, swayVelX, swayVelY = 0, 0, 0, 0
+	pendingShot, pendingBurst = nil, false
 	wallAlpha, airOffset = 0, 0
 	updateRayFilter()
 	inspectTime = -10
@@ -566,6 +568,14 @@ local function fire()
 		requestReload()
 		return
 	end
+	-- Salida del sprint: el arma tiene que subir antes de disparar (~0,1 s). El disparo no se pierde:
+	-- queda pendiente y sale en cuanto el arma está arriba
+	if sprintAlpha > 0.35 then
+		ClientState.LastShotTime = now -- (deja de correr)
+		ClientState.Sprinting = false
+		pendingShot = pendingShot or now
+		return
+	end
 
 	if now - lastShot > math.max(0.3, 2.2 / def.FireRate) then
 		sprayCount = 0 -- ráfaga nueva
@@ -675,6 +685,12 @@ local function startBurst()
 	if bursting or not def or not def.Burst then
 		return
 	end
+	if sprintAlpha > 0.35 then -- (salida del sprint: la ráfaga sale cuando el arma esté arriba)
+		ClientState.LastShotTime = os.clock()
+		ClientState.Sprinting = false
+		pendingShot, pendingBurst = pendingShot or os.clock(), true
+		return
+	end
 	if os.clock() - lastBurstEnd < (def.BurstCooldown or 0.3) then
 		return
 	end
@@ -734,6 +750,20 @@ local function renderStep(dt)
 	-- Disparo automático
 	if triggerHeld and def and def.Type == "Gun" and def.Automatic then
 		fire()
+	end
+	-- Disparo pendiente de la salida del sprint (si se tarda demasiado, se descarta)
+	if pendingShot then
+		if os.clock() - pendingShot > 0.5 or not def or def.Type ~= "Gun" then
+			pendingShot, pendingBurst = nil, false
+		elseif sprintAlpha <= 0.35 then
+			local burst = pendingBurst
+			pendingShot, pendingBurst = nil, false
+			if burst then
+				startBurst()
+			elseif not (triggerHeld and def.Automatic) then -- (el automático ya dispara solo)
+				fire()
+			end
+		end
 	end
 
 	local firing = os.clock() - lastShot < 0.15

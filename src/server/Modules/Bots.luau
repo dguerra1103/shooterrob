@@ -342,6 +342,7 @@ local laneGoal, bestIntel, chooseRole -- (más abajo)
 
 -- Adónde ir: objetivo del modo, alerta, pista del equipo o su carril
 local function pickGoal(agent)
+	agent.SpotLook = nil -- (solo vale si el objetivo nuevo es un puesto de vigilancia)
 	local flagTarget = flagGoal(agent)
 	if typeof(flagTarget) == "Vector3" then
 		return flagTarget, true
@@ -1501,6 +1502,7 @@ function Bots.Reset()
 	for i = #agents, 1, -1 do
 		removeAgent(agents[i])
 	end
+	table.clear(intel) -- (lo que sabían del enemigo era de la ronda anterior)
 end
 
 function Bots.Init()
