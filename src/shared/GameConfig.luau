@@ -143,7 +143,7 @@ GameConfig.News = {
 		{ "🏆", "Rangos de Bronce a Campeón, con premios al subir" },
 		{ "🎡", "Ruleta diaria: un giro gratis cada día" },
 		{ "🍬", "Caramelos del evento: traje Cabeza de Calabaza, Calabazooka y skin Embrujada" },
-		{ "👤", "Pestaña Perfil con tus estadísticas y tu arma favorita" },
+		{ "👤", "Pestaña Perfil con tus estadísticas y 24 logros con premio" },
 		{ "🔪", "Guadaña y efectos de eliminación de Halloween en la tienda" },
 	},
 }
