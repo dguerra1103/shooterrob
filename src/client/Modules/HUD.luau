@@ -1262,13 +1262,14 @@ function HUD.Init()
 	Remotes.KillFeed.OnClientEvent:Connect(onKillFeed)
 	Remotes.HitConfirm.OnClientEvent:Connect(onHitConfirm)
 	Remotes.RoundEnd.OnClientEvent:Connect(onRoundEnd)
-	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName)
+	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName, killerHealth)
 		local weapon = weaponName and Weapons.Get(weaponName)
 		if killerName then
 			refs.DeathText.Text = "ELIMINADO POR <b>"
 				.. killerName
 				.. "</b>"
 				.. (weapon and (" · " .. weapon.DisplayName) or "")
+				.. (type(killerHealth) == "number" and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
 		else
 			refs.DeathText.Text = "HAS MUERTO"
 		end

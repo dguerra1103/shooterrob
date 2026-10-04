@@ -175,7 +175,10 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 		local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head"))
 		local position = root and root.Position
 		if victimPlayer then
-			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName)
+			-- Vida que le quedaba al que te eliminó (se enseña en la pantalla de muerte)
+			local killerHumanoid = killer and killer.Character and killer.Character:FindFirstChildOfClass("Humanoid")
+			local killerHealth = killerHumanoid and math.ceil(math.max(0, killerHumanoid.Health)) or nil
+			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName, killerHealth)
 		end
 		if Combat.OnKill then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position)

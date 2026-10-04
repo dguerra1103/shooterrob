@@ -3888,7 +3888,10 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName)
 		local root = character and (character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head"))
 		local position = root and root.Position
 		if victimPlayer then
-			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName)
+			-- Vida que le quedaba al que te eliminó (se enseña en la pantalla de muerte)
+			local killerHumanoid = killer and killer.Character and killer.Character:FindFirstChildOfClass("Humanoid")
+			local killerHealth = killerHumanoid and math.ceil(math.max(0, killerHumanoid.Health)) or nil
+			Remotes.Died:FireClient(victimPlayer, killer and killer.Name, weaponName, killerHealth)
 		end
 		if Combat.OnKill then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position)
@@ -14077,13 +14080,14 @@ function HUD.Init()
 	Remotes.KillFeed.OnClientEvent:Connect(onKillFeed)
 	Remotes.HitConfirm.OnClientEvent:Connect(onHitConfirm)
 	Remotes.RoundEnd.OnClientEvent:Connect(onRoundEnd)
-	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName)
+	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName, killerHealth)
 		local weapon = weaponName and Weapons.Get(weaponName)
 		if killerName then
 			refs.DeathText.Text = "ELIMINADO POR <b>"
 				.. killerName
 				.. "</b>"
 				.. (weapon and (" · " .. weapon.DisplayName) or "")
+				.. (type(killerHealth) == "number" and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
 		else
 			refs.DeathText.Text = "HAS MUERTO"
 		end
