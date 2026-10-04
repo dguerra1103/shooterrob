@@ -697,11 +697,11 @@ local function buildFeedsAndOverlays()
 		Position = UDim2.fromOffset(10, 174),
 		Size = UDim2.new(1, -20, 0, 22),
 		Text = "",
-		TextSize = 17,
+		TextScaled = true, -- (con nombres largos se encoge en vez de salirse)
 		RichText = true,
 		TextColor3 = Color3.fromRGB(225, 228, 240),
 		Parent = refs.RoundEnd,
-	})
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 17 }) })
 
 	-- En pantallas bajas (móvil en horizontal) el panel se encoge para caber entero
 	local roundScale = UI.new("UIScale", { Parent = refs.RoundEnd })
