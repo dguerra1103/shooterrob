@@ -240,6 +240,9 @@ local function grant(player, data, reward)
 	elseif reward.Type == "Outfit" then
 		data.Outfits[reward.Id] = true
 		Remotes.Notify:FireClient(player, "Unlock", "¡Traje desbloqueado: " .. Outfits.Get(reward.Id).Name .. "!")
+	elseif reward.Type == "KillEffect" then
+		data.KillEffects[reward.Id] = true
+		Remotes.Notify:FireClient(player, "Unlock", "¡Efecto desbloqueado: " .. KillEffects.Get(reward.Id).Name .. "!")
 	elseif reward.Type == "Crate" then
 		data.FreeCrates += reward.Amount or 1
 	elseif reward.Type == "Coins" then

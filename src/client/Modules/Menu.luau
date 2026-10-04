@@ -230,6 +230,18 @@ local function rewardCard(reward, unlocked, premium, parent, order)
 			TextColor3 = rarityColor(outfit.Rarity),
 			Parent = card,
 		})
+	elseif reward.Type == "KillEffect" then
+		local effect = KillEffects.Get(reward.Id)
+		UI.label({ Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 44), Text = effect.Icon, TextSize = 38, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 62), Size = UDim2.new(1, 0, 0, 22), Text = effect.Name, TextSize = 16, Parent = card })
+		UI.label({
+			Position = UDim2.fromOffset(0, 84),
+			Size = UDim2.new(1, 0, 0, 16),
+			Text = "Efecto · " .. effect.Rarity,
+			TextSize = 13,
+			TextColor3 = rarityColor(effect.Rarity),
+			Parent = card,
+		})
 	elseif reward.Type == "Crate" then
 		UI.label({ Position = UDim2.fromOffset(0, 18), Size = UDim2.new(1, 0, 0, 40), Text = "🎁", TextSize = 36, Parent = card })
 		UI.label({ Position = UDim2.fromOffset(0, 66), Size = UDim2.new(1, 0, 0, 24), Text = "Caja", TextSize = 18, Parent = card })
@@ -348,7 +360,12 @@ local function buildPassPage(data)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-	for tier, rewards in GameConfig.BattlePass do
+	-- Solo se dibujan los niveles cercanos al tuyo (cada premio lleva un modelo 3D: con 50 a la vez el
+	-- menú iría lento)
+	local first = math.max(1, data.Level - 2)
+	local last = math.min(#GameConfig.BattlePass, first + 14)
+	for tier = first, last do
+		local rewards = GameConfig.BattlePass[tier]
 		local reached = data.Level >= tier
 		local column = UI.new("Frame", {
 			LayoutOrder = tier,
@@ -372,6 +389,17 @@ local function buildPassPage(data)
 		})
 		rewardCard(rewards.Free, reached, false, column, 1)
 		rewardCard(rewards.Premium, reached and data.Premium, true, column, 2)
+	end
+	if last < #GameConfig.BattlePass then
+		UI.label({
+			LayoutOrder = last + 1,
+			Size = UDim2.fromOffset(120, 280),
+			Text = "… y " .. (#GameConfig.BattlePass - last) .. " niveles más\n(hasta el " .. #GameConfig.BattlePass .. ")",
+			TextSize = 16,
+			TextWrapped = true,
+			TextColor3 = Color3.fromRGB(190, 195, 220),
+			Parent = scroll,
+		})
 	end
 end
 

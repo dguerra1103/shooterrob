@@ -830,6 +830,8 @@ local function onNotify(kind, text)
 					return "🎁 Caja"
 				elseif reward.Type == "Outfit" then
 					return "👕 Traje nuevo"
+				elseif reward.Type == "KillEffect" then
+					return "💥 Efecto de eliminación"
 				end
 				return reward.Type
 			end

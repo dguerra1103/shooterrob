@@ -210,4 +210,32 @@ GameConfig.BattlePass = {
 	{ Free = { Type = "Coins", Amount = 500 }, Premium = { Type = "Skin", Id = "Magma" } },
 }
 
+-- Niveles 16 a 50 del pase (para que dure: unas 40 partidas). Cada 5 niveles, caja gratis y un
+-- traje o un efecto en la vía premium; el resto, monedas y camuflajes.
+do
+	local premiumBig = {
+		[20] = { Type = "Outfit", Id = "NeonRecon" },
+		[25] = { Type = "Outfit", Id = "VoltBruiser" },
+		[30] = { Type = "Outfit", Id = "FrostByte" },
+		[35] = { Type = "Outfit", Id = "ToxicRogue" },
+		[40] = { Type = "KillEffect", Id = "Rayo" },
+		[45] = { Type = "KillEffect", Id = "AgujeroNegro" },
+		[50] = { Type = "Outfit", Id = "GoldenAce" },
+	}
+	local premiumSkins = { "CamoBosque", "CamoDesierto", "CamoDigital", "CamoArtico", "CamoTigre", "CamoNebulosa", "Prisma" }
+	local skinIndex = 0
+	for tier = 16, 50 do
+		local entry
+		if tier % 5 == 0 then
+			entry = { Free = { Type = "Crate", Amount = tier == 50 and 3 or 1 }, Premium = premiumBig[tier] }
+		elseif tier % 5 == 3 then
+			skinIndex += 1
+			entry = { Free = { Type = "Coins", Amount = 100 + tier * 5 }, Premium = { Type = "Skin", Id = premiumSkins[(skinIndex - 1) % #premiumSkins + 1] } }
+		else
+			entry = { Free = tier % 2 == 0 and { Type = "Coins", Amount = 100 + tier * 5 } or nil, Premium = { Type = "Coins", Amount = 250 + tier * 10 } }
+		end
+		table.insert(GameConfig.BattlePass, entry)
+	end
+end
+
 return GameConfig
