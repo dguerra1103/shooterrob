@@ -29,6 +29,17 @@ local MODE_ICONS = {
 	["Infección"] = "🧟",
 	["Calabazas"] = "🎃",
 }
+-- Una línea para quien no conoce el modo
+local MODE_HINTS = {
+	["Duelo por equipos"] = "Gana el equipo con más bajas",
+	["Captura la bandera"] = "Roba la bandera enemiga",
+	["Zona de control"] = "Quédate dentro de la zona",
+	["Todos contra todos"] = "Cada uno por su cuenta",
+	["Escalada de armas"] = "Cada baja te da otra arma",
+	["Eliminación"] = "Una sola vida por ronda",
+	["Infección"] = "Sobrevive a los zombis",
+	["Calabazas"] = "Recoge las calabazas enemigas",
+}
 
 local function setOpen(value)
 	open = value
@@ -56,6 +67,7 @@ local function refresh()
 		local count = ReplicatedStorage:GetAttribute("Vote" .. i .. "_Count") or 0
 		card.Map.Text = map
 		card.Mode.Text = (MODE_ICONS[mode] or "") .. " " .. mode
+		card.Hint.Text = MODE_HINTS[mode] or ""
 		card.Count.Text = tostring(count) .. (count == 1 and " voto" or " votos")
 		card.Stroke.Color = myVote == i and Color3.fromRGB(255, 200, 40) or Color3.fromRGB(90, 100, 140)
 		card.Stroke.Thickness = myVote == i and 4 or 2
@@ -117,14 +129,24 @@ function VoteUI.Init()
 			UI.new("UITextSizeConstraint", { MaxTextSize = 24, MinTextSize = 12 }),
 		})
 		local modeLabel = UI.label({ Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 0, 24), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(150, 220, 255), Parent = card })
-		local countLabel = UI.label({ Position = UDim2.fromOffset(0, 74), Size = UDim2.new(1, 0, 0, 24), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(255, 210, 60), Parent = card })
+		local hintLabel = UI.label({
+			Position = UDim2.fromOffset(6, 63),
+			Size = UDim2.new(1, -12, 0, 16),
+			Text = "",
+			TextSize = 13,
+			TextColor3 = Color3.fromRGB(190, 195, 220),
+			Font = UI.FontBody,
+			TextStrokeTransparency = 1,
+			Parent = card,
+		})
+		local countLabel = UI.label({ Position = UDim2.fromOffset(0, 82), Size = UDim2.new(1, 0, 0, 22), Text = "", TextSize = 18, TextColor3 = Color3.fromRGB(255, 210, 60), Parent = card })
 		card.Activated:Connect(function()
 			myVote = i
 			Sounds.Play("Click")
 			Remotes.VoteMap:FireServer(i)
 			refresh()
 		end)
-		cards[i] = { Map = mapLabel, Mode = modeLabel, Count = countLabel, Stroke = stroke }
+		cards[i] = { Map = mapLabel, Mode = modeLabel, Hint = hintLabel, Count = countLabel, Stroke = stroke }
 	end
 	hint = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
