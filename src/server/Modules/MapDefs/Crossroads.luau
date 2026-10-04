@@ -75,6 +75,7 @@ function Map.Build()
 	folder:SetAttribute("Ambience", "War") -- (sonido ambiente: ver Ambience en el cliente)
 	Kit.applyLighting(Kit.pickLighting(Map))
 	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local teams = GameConfig.Teams
 
 	-- Suelo: tierra en los carriles, asfalto en la avenida y aceras

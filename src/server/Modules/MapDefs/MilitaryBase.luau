@@ -48,6 +48,23 @@ Map.LightingVariants = {
 		Clouds = 0.85,
 		SunRays = 0.02,
 	},
+	{
+		Name = "Tormenta",
+		Chance = 0.3,
+		Weather = "Rain",
+		ClockTime = 16,
+		Brightness = 1.2,
+		Exposure = -0.05,
+		Ambient = Color3.fromRGB(60, 64, 70),
+		OutdoorAmbient = Color3.fromRGB(100, 106, 115),
+		Atmosphere = { Density = 0.42, Offset = 0.08, Color = Color3.fromRGB(150, 155, 165), Decay = Color3.fromRGB(90, 95, 105), Glare = 0, Haze = 2.6 },
+		Color = { Saturation = -0.25, Contrast = 0.12, Brightness = 0, Tint = Color3.fromRGB(225, 232, 240) },
+		Bloom = { Intensity = 0.3, Size = 20, Threshold = 2.4 },
+		Clouds = 1,
+		CloudColor = Color3.fromRGB(120, 124, 130),
+		SunRays = 0,
+		Wind = Vector3.new(14, 0, -6),
+	},
 }
 
 local V = Vector3.new
@@ -251,6 +268,7 @@ function Map.Build()
 	folder:SetAttribute("Ambience", "Base") -- (sonido ambiente: ver Ambience en el cliente)
 	Kit.applyLighting(Kit.pickLighting(Map))
 	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local teams = GameConfig.Teams
 
 	-- Suelo: hierba con caminos de hormigón y tierra

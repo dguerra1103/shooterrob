@@ -1319,16 +1319,17 @@ end
 -- los shooters de móvil). map.LightingVariants = { { Name = "Atardecer", Chance = 0.3, ...cambios } }.
 -- Deja el nombre de la variante en Kit.Variant (y el mapa lo guarda en su atributo Variant).
 function Kit.pickLighting(map)
-	Kit.Variant = nil
+	Kit.Variant, Kit.Weather = nil, nil
 	for _, variant in map.LightingVariants or {} do
 		if math.random() < (variant.Chance or 0.3) then
 			local preset = table.clone(map.Lighting)
 			for key, value in variant do
-				if key ~= "Name" and key ~= "Chance" then
+				if key ~= "Name" and key ~= "Chance" and key ~= "Weather" then
 					preset[key] = value
 				end
 			end
 			Kit.Variant = variant.Name
+			Kit.Weather = variant.Weather -- ("Rain": lluvia y truenos en el cliente, ver Ambience)
 			return preset
 		end
 	end

@@ -2,10 +2,14 @@
 --   "War"  (Encrucijada): explosiones y ráfagas lejanas, como una guerra en otros barrios, y algo de viento
 --   "Base" (Base Militar): disparos sueltos de la galería de tiro a lo lejos y brisa
 --   "Wind" (Cumbre): viento fuerte de montaña
+-- Y el tiempo (atributo Weather de workspace.Map): "Rain" = lluvia alrededor de la cámara, ruido de
+-- lluvia y, de vez en cuando, un relámpago (destello) y el trueno un par de segundos después.
 -- Todo con sonidos que vienen con Roblox, apagados (filtro de graves) para que suenen lejos. Solo
 -- durante la partida y nunca en la pantalla de inicio.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 
 local ClientState = require(script.Parent.ClientState)
 
@@ -23,6 +27,8 @@ local PRESETS = {
 
 local group, wind
 local nextBoom, nextBurst = 0, 0
+local rainBox, rainSound, rainConnection
+local nextThunder = 0
 
 -- Grupo con filtro de graves y un poco de eco: todo suena lejano
 local function ensureGroup()
@@ -85,8 +91,110 @@ local function current()
 	return kind and PRESETS[kind] or nil
 end
 
+-- Lluvia: una caja invisible encima de la cámara que la sigue y suelta gotas rápidas y alargadas
+local function startRain()
+	if rainBox and rainBox.Parent then
+		return
+	end
+	rainBox = Instance.new("Part")
+	rainBox.Name = "RainBox"
+	rainBox.Anchored = true
+	rainBox.CanCollide = false
+	rainBox.CanQuery = false
+	rainBox.CanTouch = false
+	rainBox.Transparency = 1
+	rainBox.Size = Vector3.new(70, 1, 70)
+	local drops = Instance.new("ParticleEmitter")
+	drops.Name = "Drops"
+	drops.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	drops.Color = ColorSequence.new(Color3.fromRGB(200, 210, 225))
+	drops.LightInfluence = 1
+	drops.Transparency = NumberSequence.new(0.45)
+	drops.Size = NumberSequence.new(0.09)
+	drops.Squash = NumberSequence.new(-2.5) -- (gotas alargadas en la dirección en la que caen)
+	drops.Orientation = Enum.ParticleOrientation.VelocityParallel
+	drops.Lifetime = NumberRange.new(0.55, 0.7)
+	drops.Speed = NumberRange.new(85, 100)
+	drops.SpreadAngle = Vector2.new(4, 4)
+	drops.EmissionDirection = Enum.NormalId.Bottom
+	drops.Rate = 650
+	drops.Shape = Enum.ParticleEmitterShape.Box
+	drops.Parent = rainBox
+	rainBox.Parent = workspace.CurrentCamera or workspace
+	rainSound = Instance.new("Sound")
+	rainSound.Name = "AmbienceRain"
+	rainSound.SoundId = WIND_ID
+	rainSound.Looped = true
+	rainSound.Volume = 0.22
+	rainSound.PlaybackSpeed = 1.45 -- (el viento acelerado suena como lluvia)
+	rainSound.Parent = SoundService
+	rainSound:Play()
+	rainConnection = RunService.Heartbeat:Connect(function()
+		local camera = workspace.CurrentCamera
+		if camera and rainBox then
+			local p = camera.CFrame.Position
+			rainBox.CFrame = CFrame.new(p.X, p.Y + 40, p.Z)
+		end
+	end)
+end
+
+local function stopRain()
+	if rainConnection then
+		rainConnection:Disconnect()
+		rainConnection = nil
+	end
+	if rainBox then
+		rainBox:Destroy()
+		rainBox = nil
+	end
+	if rainSound then
+		rainSound:Destroy()
+		rainSound = nil
+	end
+end
+
+-- Relámpago: la escena se ilumina de golpe un instante y el trueno llega después
+local function lightning()
+	local before = Lighting.ExposureCompensation
+	Lighting.ExposureCompensation = before + 1.6
+	task.delay(0.08, function()
+		Lighting.ExposureCompensation = before + 0.4
+		task.wait(0.06)
+		Lighting.ExposureCompensation = before + 1.1
+		task.wait(0.1)
+		Lighting.ExposureCompensation = before
+	end)
+	task.delay(1 + math.random() * 2, function()
+		oneShot(BOOM_ID, 0.45, 0.22 + math.random() * 0.06)
+	end)
+end
+
 function Ambience.Update()
 	local preset = current()
+	local map = workspace:FindFirstChild("Map")
+	local raining = preset ~= nil and map ~= nil and map:GetAttribute("Weather") == "Rain"
+	if raining then
+		startRain()
+		-- Bajo techo no caen gotas (seguirían atravesando el tejado); en calidad Baja, menos gotas
+		local drops = rainBox and rainBox:FindFirstChild("Drops")
+		local camera = workspace.CurrentCamera
+		if drops and drops:IsA("ParticleEmitter") and camera then
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Include
+			params.FilterDescendantsInstances = { map }
+			local roof = workspace:Raycast(camera.CFrame.Position, Vector3.new(0, 60, 0), params)
+			drops.Enabled = roof == nil
+			drops.Rate = ClientState.EffectiveQuality == "Baja" and 250 or 650
+		end
+		if os.clock() >= nextThunder then
+			if nextThunder > 0 then
+				lightning()
+			end
+			nextThunder = os.clock() + 14 + math.random() * 18
+		end
+	else
+		stopRain()
+	end
 	if not preset then
 		if wind then
 			wind.Volume = 0

@@ -164,6 +164,7 @@ function Map.Build()
 	folder:SetAttribute("Ambience", "Wind") -- (sonido ambiente: ver Ambience en el cliente)
 	Kit.applyLighting(Kit.pickLighting(Map))
 	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local teams = GameConfig.Teams
 
 	-- Suelo nevado con la carretera despejada
