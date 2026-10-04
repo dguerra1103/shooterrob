@@ -189,10 +189,25 @@ end
 
 -- Devuelve un Model con PrimaryPart = Handle. Las piezas van soldadas al Handle.
 -- withEffects = false para no añadir partículas (por ejemplo en iconos).
--- Punto del que cuelga el colgante: lateral derecho del arma, por encima y delante de la empuñadura
+-- Punto del que cuelga el colgante: borde inferior del lado izquierdo del cuerpo del arma (el que se
+-- ve en primera persona), un poco delante de la empuñadura. Se calcula con las piezas del diseño
+-- para que quede por fuera en todas las armas.
 function WeaponModels.CharmPoint(def)
 	local grip = def.RightHand or Vector3.new(0, -0.4, 0.2)
-	return CFrame.new(0.13, grip.Y + 0.42, grip.Z - 0.28)
+	local z = grip.Z - 0.28
+	local minX, minY = math.huge, math.huge
+	for _, spec in def.Parts or {} do
+		local p = spec.CFrame.Position
+		-- Piezas del cuerpo (por encima de la empuñadura) a la altura de ese punto
+		if p.Y > grip.Y + 0.2 and math.abs(p.Z - z) < 0.45 then
+			minX = math.min(minX, p.X - spec.Size.X / 2)
+			minY = math.min(minY, p.Y - spec.Size.Y / 2)
+		end
+	end
+	if minX == math.huge then
+		return CFrame.new(-0.15, grip.Y + 0.4, z)
+	end
+	return CFrame.new(minX - 0.03, minY + 0.04, z)
 end
 
 -- charmId (opcional): colgante (Charms) para las armas de fuego

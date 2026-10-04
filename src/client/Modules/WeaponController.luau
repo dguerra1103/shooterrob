@@ -154,18 +154,25 @@ local charmRing = nil
 local charmSwing, charmVelocity, lastCameraLook = 0, 0, nil
 
 -- El colgante se balancea como un péndulo: lo empuja el giro de la cámara y vuelve solo
+-- (igual a cualquier número de fotogramas por segundo)
+local function resetCharm()
+	charmSwing, charmVelocity, lastCameraLook = 0, 0, nil
+end
+
 local function swingCharm(dt)
 	if not charmRing or not charmRing.Parent then
 		return
 	end
+	dt = math.clamp(dt, 1 / 240, 0.05)
 	local look = camera.CFrame.LookVector
-	local push = 0
+	local turnRate = 0
 	if lastCameraLook then
-		push = lastCameraLook:Cross(look).Y * 40 -- giro horizontal de este fotograma
+		turnRate = lastCameraLook:Cross(look).Y / dt -- giro horizontal (radianes por segundo)
 	end
 	lastCameraLook = look
-	charmVelocity += (-charmSwing * 60 - charmVelocity * 4 + push * 30) * math.min(dt, 0.05)
-	charmSwing = math.clamp(charmSwing + charmVelocity * math.min(dt, 0.05), -0.8, 0.8)
+	charmVelocity += (-charmSwing * 60 - charmVelocity * 4 + turnRate * 3) * dt
+	-- (hacia dentro casi no puede: chocaría con el arma)
+	charmSwing = math.clamp(charmSwing + charmVelocity * dt, -0.8, 0.12)
 	local pivot = charmRing.CFrame * CFrame.Angles(0, 0, charmSwing)
 	for _, entry in charmParts do
 		entry.Part.CFrame = pivot * entry.Offset
@@ -196,6 +203,7 @@ local function createViewmodel(tool)
 		end
 	end
 	charmRing = ring
+	resetCharm()
 	if weaponDef.RightHand then
 		addArm(model, weaponDef.RightHand, RIGHT_SHOULDER, weaponDef)
 	end
@@ -245,6 +253,7 @@ local function setViewmodelHidden(hidden)
 		return
 	end
 	viewmodelHidden = hidden
+	resetCharm()
 	for _, part in viewmodel:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
