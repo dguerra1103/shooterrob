@@ -7,6 +7,8 @@ local Shared = ReplicatedStorage.Shared
 local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
 
+local Ragdoll = require(script.Parent.Ragdoll)
+
 local Combat = {}
 
 -- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
@@ -227,7 +229,30 @@ end
 -- Detecta la muerte de un Humanoid y avisa a quien corresponda
 -- victimBot: el bot (ver Bots) si el que muere es un bot
 function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
+	Ragdoll.Prepare(humanoid) -- (que Roblox no rompa el cuerpo en piezas al morir)
 	humanoid.Died:Connect(function()
+		-- El cuerpo cae como un muñeco de trapo, con un empujón alejándose de quien le dio
+		-- (mucho más fuerte con explosivos)
+		pcall(function()
+			local character = humanoid.Parent
+			local victimRoot = character and character:FindFirstChild("HumanoidRootPart")
+			local push
+			local attackerId = humanoid:GetAttribute("LastAttacker")
+			local attacker = attackerId and Players:GetPlayerByUserId(attackerId)
+			local attackerModel = (attacker and attacker.Character)
+				or (humanoid:GetAttribute("LastBot") and Combat.BotsByName[humanoid:GetAttribute("LastBot")] and Combat.BotsByName[humanoid:GetAttribute("LastBot")].Model)
+			local attackerRoot = attackerModel and attackerModel:FindFirstChild("HumanoidRootPart")
+			if victimRoot and attackerRoot then
+				local away = victimRoot.Position - attackerRoot.Position
+				away = Vector3.new(away.X, 0, away.Z)
+				if away.Magnitude > 0.1 then
+					local def = Weapons.Get(humanoid:GetAttribute("LastWeapon") or "")
+					local strength = def and def.Explosive and 38 or 9
+					push = away.Unit * strength + Vector3.new(0, def and def.Explosive and 22 or 3, 0)
+				end
+			end
+			Ragdoll.Apply(character, push)
+		end)
 		local killer, killerBot
 		local hitTime = humanoid:GetAttribute("LastHitTime")
 		local recent = hitTime and os.clock() - hitTime < 10
