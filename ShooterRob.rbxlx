@@ -19962,6 +19962,26 @@ function Kit.bombSite(position, letter, defender)
 	p:SetAttribute("Letter", letter)
 	p:SetAttribute("Defender", defender)
 	p:SetAttribute("Radius", 7)
+	-- La letra pintada en el suelo, como en los mapas de los shooters (se ve en todos los modos)
+	local floorY = position.Y
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Kit.folder, workspace.Terrain }
+	local hit = workspace:Raycast(position + V(0, 2, 0), V(0, -5, 0), params)
+	if hit then
+		floorY = hit.Position.Y
+	end
+	local paint = deco("SiteLetter", V(7, 0.05, 7), CFrame.new(position.X, floorY + 0.04, position.Z), C.White, Enum.Material.SmoothPlastic)
+	paint.Transparency = 1
+	paint.CastShadow = false
+	local gui = sign(paint, Enum.NormalId.Top, letter, Color3.fromRGB(205, 58, 40), Color3.fromRGB(205, 58, 40))
+	gui.LightInfluence = 1
+	local label = gui:FindFirstChildOfClass("TextLabel")
+	if label then
+		label.Font = Enum.Font.GothamBlack
+		label.TextTransparency = 0.12
+		label.TextStrokeTransparency = 1
+	end
 	return p
 end
 
