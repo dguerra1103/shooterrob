@@ -37,6 +37,8 @@ local localAmmo = 0
 local reloadStart = nil
 local equipTime = 0
 local meleeTime = -10
+local inspectTime = -10 -- "Inspeccionar" (V): gira el arma para lucir la skin
+local INSPECT_TIME = 2.6
 local meleeWithKnife = false
 
 local recoilKick, recoilRot = 0, 0
@@ -243,6 +245,7 @@ local function onEquipped(tool)
 	end
 	equippedTool, def = tool, weaponDef
 	equipTime = os.clock()
+	inspectTime = -10
 	reloadStart = nil
 	localAmmo = tool:GetAttribute("Ammo") or 0
 
@@ -348,6 +351,7 @@ local function requestReload()
 		return
 	end
 	reloadStart = os.clock()
+	inspectTime = -10
 	Remotes.Reload:FireServer(equippedTool)
 	Sounds.Play("Reload")
 end
@@ -370,6 +374,7 @@ local function fire()
 	lastShot = now
 	localAmmo -= 1
 	ClientState.LastShotTime = now
+	inspectTime = -10
 	ClientState.Sprinting = false
 
 	updateRayFilter()
@@ -502,6 +507,9 @@ local function renderStep(dt)
 	-- Apuntar
 	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.IsBlocked()
 	ClientState.Aiming = canAim
+	if canAim then
+		inspectTime = -10
+	end
 	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * 14))
 	if aimAlpha < 0.001 then
 		aimAlpha = 0
@@ -631,7 +639,23 @@ local function renderStep(dt)
 		end
 	end
 
-	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * recoilCF)
+	-- Inspeccionar: sube el arma, la gira para ver un costado y luego el otro, y vuelve
+	local inspectCF = CFrame.new()
+	local it = (now - inspectTime) / INSPECT_TIME
+	if it < 1 then
+		local function smooth(x)
+			x = math.clamp(x, 0, 1)
+			return x * x * (3 - 2 * x)
+		end
+		local envelope = smooth(math.min(it / 0.18, (1 - it) / 0.18))
+		local turn = smooth((it - 0.18) / 0.64)
+		local yaw = math.rad(70 + (-45 - 70) * turn)
+		local roll = math.rad(-25 + 35 * turn)
+		inspectCF = CFrame.new(-0.35 * envelope, 0.18 * envelope, 0.25 * envelope)
+			* CFrame.Angles(math.rad(12) * envelope, yaw * envelope, roll * envelope)
+	end
+
+	viewmodel:PivotTo(camera.CFrame * bob * sway * base * sprintCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF)
 
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
@@ -719,6 +743,15 @@ local function bindActions()
 	end, false, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.ButtonY)
 
 	-- Cambiar de arma: tecla Q (siguiente) y botón táctil en móvil (no hay barra de inventario)
+	ContextActionService:BindAction("Inspect", function(_, state)
+		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and def and not reloadStart and not ClientState.Aiming then
+			if os.clock() - inspectTime > INSPECT_TIME then
+				inspectTime = os.clock()
+			end
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, Enum.KeyCode.V, Enum.KeyCode.DPadUp)
+
 	ContextActionService:BindAction("SwapWeapon", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			cycleSlot(1)

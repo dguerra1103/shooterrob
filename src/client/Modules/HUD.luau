@@ -342,13 +342,13 @@ local function buildWeaponPanel()
 	if not UserInputService.TouchEnabled or UserInputService.KeyboardEnabled then
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -20, 0.22, 0),
-			Size = UDim2.fromOffset(220, 150),
+			Position = UDim2.new(1, -20, 0.2, 0),
+			Size = UDim2.fromOffset(220, 184),
 			BackgroundTransparency = 1,
 			Parent = gui,
 		}, {
 			UI.new("UIListLayout", {
-				Padding = UDim.new(0, 4),
+				Padding = UDim.new(0, 3),
 				HorizontalAlignment = Enum.HorizontalAlignment.Right,
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			}),
@@ -360,25 +360,26 @@ local function buildWeaponPanel()
 			{ "Deslizar", "C" },
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },
+			{ "Inspeccionar", "V" },
 			{ "Correr", "Shift" },
 		} do
 			local row = UI.new("Frame", {
 				LayoutOrder = i,
-				Size = UDim2.fromOffset(220, 24),
+				Size = UDim2.fromOffset(220, 20),
 				BackgroundTransparency = 1,
 				Parent = hints,
 			})
 			UI.label({
 				Size = UDim2.new(1, -56, 1, 0),
 				Text = pair[1],
-				TextSize = 17,
+				TextSize = 15,
 				TextXAlignment = Enum.TextXAlignment.Right,
 				Parent = row,
 			})
 			local key = UI.new("Frame", {
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, 0, 0.5, 0),
-				Size = UDim2.fromOffset(50, 22),
+				Size = UDim2.fromOffset(46, 19),
 				BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 				Parent = row,
 			}, { UI.corner(5) })

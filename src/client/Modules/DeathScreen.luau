@@ -356,8 +356,15 @@ function DeathScreen.Init()
 			camera.CameraSubject = humanoid
 		end
 	end)
+	-- Las teclas B, F y Espacio están enlazadas con ContextActionService (menú, cuchillo, salto), así que
+	-- llegan marcadas como "procesadas": solo se ignoran si se está escribiendo en el chat. Los clics sí se
+	-- ignoran cuando caen sobre un botón de la interfaz.
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if not ClientState.Dead or processed then
+		if not ClientState.Dead or UserInputService:GetFocusedTextBox() then
+			return
+		end
+		local isClick = input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2
+		if isClick and processed then
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then

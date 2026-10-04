@@ -1734,7 +1734,8 @@ function Menu.Init()
 	})
 
 	ContextActionService:BindAction("Menu", function(_, state)
-		if state == Enum.UserInputState.Begin then
+		-- Muerto, la B es "Revivir instantáneo" (pantalla de muerte)
+		if state == Enum.UserInputState.Begin and not ClientState.Dead then
 			Menu.Toggle()
 		end
 		return Enum.ContextActionResult.Pass
