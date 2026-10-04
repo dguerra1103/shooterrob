@@ -13787,6 +13787,35 @@ function Map.Build()
 		smoke.EmissionDirection = Enum.NormalId.Top
 		smoke.Parent = plume
 	end
+	-- Horizonte de ciudad fuera del límite: bloques altos (algunos medio derruidos) que hacen que la
+	-- ciudad parezca seguir; la neblina los difumina. Sin colisión (nadie llega hasta ahí).
+	local skyline = {}
+	for x = -240, 240, 36 do
+		table.insert(skyline, V(x, 0, 176 + (x % 3) * 9))
+		table.insert(skyline, V(x + 14, 0, -178 - (x % 4) * 7))
+	end
+	for z = -110, 110, 44 do
+		table.insert(skyline, V(258 + (z % 3) * 8, 0, z))
+		table.insert(skyline, V(-262 - (z % 2) * 10, 0, z + 18))
+	end
+	for i, p in skyline do
+		local w, d = 16 + (i * 7) % 14, 14 + (i * 5) % 10
+		local h = 26 + (i * 13) % 46
+		local color = PALETTE.Plaster[(i % 5) + 1]:Lerp(RGB(90, 82, 74), 0.35)
+		deco("SkylineBlock", V(w, h, d), CFrame.new(p + V(0, h / 2, 0)), color, M.Concrete)
+		-- Bandas oscuras de ventanas (sugieren las plantas desde lejos)
+		for f = 1, math.floor(h / 9) do
+			deco("SkylineWindows", V(w + 0.2, 1.6, d + 0.2), CFrame.new(p + V(0, f * 9 - 3.5, 0)), RGB(46, 44, 42), M.Concrete)
+		end
+		if i % 3 == 0 then
+			-- Derruido: le falta una esquina de arriba y quedan vigas sueltas
+			deco("SkylineRuin", V(w * 0.55, h * 0.25, d * 0.6), CFrame.new(p + V(w * 0.22, h + h * 0.125, d * 0.2)), color, M.Concrete)
+			deco("SkylineBeam", V(0.6, 6, 0.6), CFrame.new(p + V(-w * 0.3, h + 3, 0)) * CFrame.Angles(0, 0, 0.3), RGB(70, 60, 52), M.CorrodedMetal)
+		else
+			deco("SkylineTank", V(4, 3, 4), CFrame.new(p + V(w * 0.2, h + 1.5, -d * 0.15)), RGB(80, 80, 82), M.Metal)
+		end
+	end
+
 	-- Colinas secas lejos (fuera del límite)
 	for _, spec in { { V(-320, 0, 260), 90 }, { V(340, 0, -250), 100 }, { V(0, 0, -330), 80 }, { V(60, 0, 340), 90 } } do
 		Kit.naturalHill(spec[1], spec[2], M.Sand)
