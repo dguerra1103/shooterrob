@@ -22817,6 +22817,20 @@ function RealKit.building(cf, sx, sz, opts)
 			local tableCf = cf * CFrame.new(sx / 2 - WALL_T - 2, 0, tableZ)
 			block("Table", V(2.6, 0.3, 4.4), tableCf * CFrame.new(0, 3, 0), RGB(110, 80, 56), M.WoodPlanks)
 			block("TableBase", V(2.2, 2.85, 0.4), tableCf * CFrame.new(0, 1.45, 0), RGB(90, 64, 44), M.Wood) -- (se esconde detrás)
+			-- Sillas junto a la mesa (una volcada)
+			for i, dz in { -1.2, 1.3 } do
+				local chair = tableCf * CFrame.new(-2.2, 0, dz) * (i == 2 and CFrame.Angles(0, 0, rad(80)) * CFrame.new(0.9, -0.6, 0) or CFrame.new())
+				deco("ChairSeat", V(1.4, 0.2, 1.4), chair * CFrame.new(0, 1.8, 0), RGB(96, 70, 48), M.Wood)
+				deco("ChairBack", V(0.2, 1.8, 1.4), chair * CFrame.new(-0.6, 2.8, 0), RGB(96, 70, 48), M.Wood)
+				for _, leg in { V(-0.55, 0, -0.55), V(0.55, 0, -0.55), V(-0.55, 0, 0.55), V(0.55, 0, 0.55) } do
+					deco("ChairLeg", V(0.18, 1.7, 0.18), chair * CFrame.new(leg + V(0, 0.85, 0)), RGB(80, 58, 40), M.Wood)
+				end
+			end
+		end
+		-- Alfombra en el centro y papeles por el suelo
+		deco("Rug", V(math.min(sx / 3, 8), 0.05, math.min(sz / 3, 6)), cf * CFrame.new(sx / 8, 0.14, 0), RGB(120, 52, 44), M.Fabric)
+		for i = 1, 4 do
+			deco("FloorPaper", V(0.9, 0.04, 0.7), cf * CFrame.new(sx / 8 + (i - 2.5) * 1.6, 0.18, (i % 2 - 0.5) * 3) * CFrame.Angles(0, i * 0.9, 0), RGB(225, 220, 205), M.SmoothPlastic)
 		end
 		if clearOfDoors(-sz / 4, 2) then
 			block("Shelf", V(1.2, 5, 4), cf * CFrame.new(sx / 2 - WALL_T - 0.6, 2.5, -sz / 4), RGB(96, 90, 82), M.Metal)
@@ -22825,6 +22839,12 @@ function RealKit.building(cf, sx, sz, opts)
 			local crateCf = cf * CFrame.new(sx / 2 - WALL_T - 2, FLOOR_H, -sz / 4)
 			Kit.crate(crateCf, 2.5)
 			Kit.crate(crateCf * CFrame.new(0, 0, 2.8), 2.5)
+			-- Cama arriba, en la esquina del fondo a la derecha (cobertura baja)
+			local bedCf = cf * CFrame.new(sx / 2 - WALL_T - 1.8, FLOOR_H, sz / 2 - WALL_T - 3.4)
+			block("BedFrame", V(3.2, 1, 6.2), bedCf * CFrame.new(0, 0.5, 0), RGB(70, 60, 52), M.Wood)
+			deco("Mattress", V(3, 0.5, 5.8), bedCf * CFrame.new(0, 1.25, 0), RGB(170, 168, 150), M.Fabric)
+			deco("Blanket", V(3.1, 0.12, 3.4), bedCf * CFrame.new(0, 1.55, -1.1) * CFrame.Angles(0, 0, rad(3)), RGB(70, 84, 64), M.Fabric)
+			deco("Pillow", V(2, 0.4, 1), bedCf * CFrame.new(0, 1.7, 2.2), RGB(225, 222, 210), M.Fabric)
 		end
 	end
 	-- Una luz cálida dentro (las plantas bajas se verían negras al entrar desde el sol)
