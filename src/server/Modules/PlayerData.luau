@@ -87,7 +87,9 @@ local function defaults()
 		Premium = false,
 		DailyStreak = 0,
 		LastDailyDay = -1,
-		LastPlayDay = -1, -- último día (Shop.DayNumber) en que entró: para el premio de regreso
+		LastPlayDay = -1,
+		FirstWinDay = -1, -- día de la última "primera victoria del día"
+		CratePity = 0, -- partidas seguidas sin caja sorpresa -- último día (Shop.DayNumber) en que entró: para el premio de regreso
 		FreeCrates = 0,
 		Purchases = {},
 		KillEffects = { Default = true }, -- efectos de eliminación comprados
@@ -98,7 +100,7 @@ local function defaults()
 		EquippedSpray = "Default",
 		Assists = 0, -- asistencias (ver Combat)
 		RankSeason = "", -- temporada de rango de sus RP (ver Ranks.Seasons)
-		SeasonBest = 1, -- mejor rango alcanzado en esta temporada
+		SeasonBest = 0, -- mejor rango alcanzado en esta temporada (0 = aún no ha jugado de rango)
 		ReferredBy = 0, -- quién le invitó (UserId), ver GameConfig.Referral
 		Referrals = 0, -- amigos nuevos que entraron con su invitación y le dieron premio
 		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
@@ -210,6 +212,9 @@ local function key(player)
 end
 
 local function publicView(player, data)
+	-- (la temporada en curso; tras la última de Ranks.Seasons no se muestra)
+	local season = Ranks.CurrentSeason()
+	local seasonView = os.time() < season.EndsAt and data.RankSeason == season.Id and season or nil
 	return {
 		Level = data.Level,
 		XP = data.XP,
@@ -235,6 +240,7 @@ local function publicView(player, data)
 		VIP = player:GetAttribute("VIP") == true,
 		DailyStreak = data.DailyStreak,
 		DailyAvailable = data.LastDailyDay ~= Shop.DayNumber(),
+		FirstWinAvailable = data.FirstWinDay ~= Shop.DayNumber(),
 		FreeCrates = data.FreeCrates,
 		CratesRestricted = cratesRestricted[player] == true,
 		Day = Shop.DayNumber(),
@@ -258,8 +264,8 @@ local function publicView(player, data)
 		Achievements = data.Achievements,
 		GroupReward = data.GroupReward == true,
 		RankBest = data.RankBest,
-		RankSeasonName = Ranks.SeasonName(data.RankSeason),
-		RankSeasonEndsAt = Ranks.CurrentSeason().EndsAt,
+		RankSeasonName = seasonView and seasonView.Name or nil,
+		RankSeasonEndsAt = seasonView and seasonView.EndsAt or nil,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		BundlesAvailable = (function()
@@ -783,7 +789,6 @@ function PlayerData.MatchSummary(player)
 	}
 end
 
--- Suma (o resta) puntos de rango al acabar una partida; nunca baja del inicio del rango actual
 -- Cambio de temporada de rango: premio por el mejor rango de la anterior y RP a la mitad.
 -- Devuelve el texto del aviso (o nil si no tocaba).
 function PlayerData.RollSeason(data)
@@ -794,16 +799,20 @@ function PlayerData.RollSeason(data)
 	if type(data.RankSeason) ~= "string" or data.RankSeason == "" then
 		-- (jugador nuevo o guardado de antes de las temporadas: empieza en la actual sin premio)
 		data.RankSeason = season.Id
-		data.SeasonBest = Ranks.Index(data.RankPoints)
+		data.SeasonBest = 0
 		return nil
 	end
-	local best = math.clamp(tonumber(data.SeasonBest) or 1, 1, #Ranks.Tiers)
-	local coins = Ranks.SeasonRewards[best] or 0
+	-- (SeasonBest = 0: no jugó ninguna partida de rango esa temporada, así que no hay premio)
+	local best = math.clamp(math.floor(tonumber(data.SeasonBest) or 0), 0, #Ranks.Tiers)
+	local coins = best > 0 and Ranks.SeasonRewards[best] or 0
 	local finished = Ranks.SeasonName(data.RankSeason)
 	data.Coins += coins
 	data.RankPoints = math.floor((data.RankPoints or 0) * Ranks.SeasonCarry)
 	data.RankSeason = season.Id
-	data.SeasonBest = Ranks.Index(data.RankPoints)
+	data.SeasonBest = 0
+	if best == 0 then
+		return "🏁 ¡Empieza la " .. season.Name .. "! Tus RP pasan a la mitad: juega para subir"
+	end
 	local tier = Ranks.Tiers[best]
 	return "🏁 ¡Fin de la " .. finished .. "! Llegaste a " .. tier.Icon .. " " .. tier.Name .. ": +" .. coins .. " 🪙. Empieza la " .. season.Name
 end
@@ -823,21 +832,79 @@ function PlayerData.RollComeback(data, today)
 	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙" .. (config.Crates > 0 and (" y " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
 end
 
+-- Primera victoria del día (GameConfig.FirstWinOfDay): premio extra una vez al día (hora UTC).
+-- Devuelve las monedas dadas (o nil si ya la tuvo hoy).
+function PlayerData.ClaimFirstWin(player, scale)
+	local data = profiles[player]
+	local config = GameConfig.FirstWinOfDay
+	if not data or not config then
+		return nil
+	end
+	local today = Shop.DayNumber()
+	if data.FirstWinDay == today then
+		return nil
+	end
+	data.FirstWinDay = today
+	dirty[player] = true
+	scale = scale or 1
+	PlayerData.AddXP(player, math.floor(config.XP * scale), "Primera victoria del día")
+	return PlayerData.AddCoins(player, math.floor(config.Coins * scale))
+end
+
+-- Caja sorpresa (GameConfig.SurpriseCrate): al acabar una partida jugada, una probabilidad pequeña de
+-- una caja gratis; tras Pity partidas sin ninguna, sale seguro. Devuelve true si toca.
+function PlayerData.RollSurpriseCrate(player, roll)
+	local data = profiles[player]
+	local config = GameConfig.SurpriseCrate
+	if not data or not config then
+		return false
+	end
+	data.CratePity = (tonumber(data.CratePity) or 0) + 1
+	local chance = config.Chance * (player:GetAttribute("VIP") and (config.VIPMultiplier or 1) or 1)
+	if (roll or math.random()) >= chance and data.CratePity < config.Pity then
+		return false
+	end
+	data.CratePity = 0
+	data.FreeCrates += 1
+	dirty[player] = true
+	sendUpdate(player)
+	return true
+end
+
+-- Cambia de temporada a un jugador conectado (al acabar una partida o desde el bucle del servidor).
+-- Devuelve true si ha cambiado.
+function PlayerData.CheckSeason(player)
+	local data = profiles[player]
+	if not data then
+		return false
+	end
+	local text = PlayerData.RollSeason(data)
+	if not text then
+		return false
+	end
+	player:SetAttribute("Rank", Ranks.Index(data.RankPoints))
+	Remotes.Notify:FireClient(player, "Big", text)
+	dirty[player] = true
+	sendUpdate(player)
+	return true
+end
+
+-- Suma (o resta) puntos de rango al acabar una partida; nunca baja del inicio del rango actual
 function PlayerData.AddRankPoints(player, delta)
 	local data = profiles[player]
 	if not data or delta == 0 then
 		return 0
 	end
-	matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
-	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar)
-	local seasonText = PlayerData.RollSeason(data)
-	if seasonText then
-		Remotes.Notify:FireClient(player, "Big", seasonText)
+	local entry = matchOf(player, data) -- (el resumen de la partida guarda el rango de antes)
+	-- (si la temporada acabó con el servidor encendido, se cambia antes de sumar; el resumen
+	-- compara con los RP ya recortados para no enseñar una bajada que no es de la partida)
+	if PlayerData.CheckSeason(player) then
+		entry.StartRank = data.RankPoints
 	end
 	local before = data.RankPoints
 	data.RankPoints = Ranks.Apply(before, delta)
 	local index = Ranks.Index(data.RankPoints)
-	data.SeasonBest = math.max(tonumber(data.SeasonBest) or 1, index)
+	data.SeasonBest = math.max(tonumber(data.SeasonBest) or 0, index)
 	player:SetAttribute("Rank", index)
 	-- Premios de los rangos alcanzados por primera vez
 	while (data.RankBest or 1) < index do
@@ -1465,6 +1532,10 @@ function PlayerData.Init()
 	task.spawn(function()
 		while true do
 			ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
+			-- (la temporada de rango puede acabar con el servidor encendido)
+			for player in profiles do
+				PlayerData.CheckSeason(player)
+			end
 			task.wait(60)
 		end
 	end)
@@ -1480,8 +1551,12 @@ function PlayerData.Init()
 	pcall(function()
 		Players.PlayerMembershipChanged:Connect(function(player)
 			PlayerData.UpdatePremium(player)
-			if player:GetAttribute("RobloxPremium") then
-				Remotes.Notify:FireClient(player, "Big", "⭐ ¡ROBLOX PREMIUM! +20% monedas y XP")
+			local config = GameConfig.RobloxPremium
+			if player:GetAttribute("RobloxPremium") and config then
+				Remotes.Notify:FireClient(player, "Big", utf8.char(0xE001) .. " ¡ROBLOX PREMIUM! +" .. math.floor((config.Multiplier - 1) * 100 + 0.5) .. "% monedas y XP")
+			end
+			if profiles[player] then
+				sendUpdate(player) -- (la Tienda se vuelve a dibujar con el bonus activo)
 			end
 		end)
 	end)

@@ -321,16 +321,23 @@ GameConfig.Group = {
 	Coins = 500,
 }
 
--- Invitaciones: quien entra por primera vez con la invitación de un amigo (botón INVITAR de la
--- portada) recibe NewPlayerCoins, y el que invitó InviterCoins si está en el mismo servidor (como
--- mucho MaxRewards veces, para que no se pueda abusar con cuentas nuevas).
--- Roblox Premium: quien lo tiene gana un poco más de monedas y XP (se suma al VIP). Roblox
+-- Roblox Premium: quien lo tiene gana un poco más de monedas y XP (se multiplica con el VIP). Roblox
 -- además paga al juego por el tiempo que juegan los Premium; en la Tienda hay un botón para hacerse Premium.
 GameConfig.RobloxPremium = { Multiplier = 1.2 }
 
 -- Premio de regreso: quien vuelve tras Days días o más sin jugar recibe Coins monedas y Crates cajas gratis.
 GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1 }
 
+-- Primera victoria del día: la primera partida que ganas cada día (hora UTC) da esto de más.
+GameConfig.FirstWinOfDay = { Coins = 150, XP = 300 }
+
+-- Caja sorpresa: al acabar cada partida jugada hay Chance de llevarte una caja gratis (el VIP, el
+-- doble); tras Pity partidas sin ninguna, sale seguro.
+GameConfig.SurpriseCrate = { Chance = 0.06, VIPMultiplier = 2, Pity = 15 }
+
+-- Invitaciones: quien entra por primera vez con la invitación de un amigo (botón INVITAR de la
+-- portada) recibe NewPlayerCoins, y el que invitó InviterCoins si está en el mismo servidor (como
+-- mucho MaxRewards veces, para que no se pueda abusar con cuentas nuevas).
 GameConfig.Referral = {
 	NewPlayerCoins = 500,
 	InviterCoins = 500,

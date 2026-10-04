@@ -28,13 +28,13 @@ local RULES = {
 		return (data.Level or 1) >= 10
 	end },
 	{ Name = "RankGold", Check = function(data)
-		return Ranks.Index(data.RankPoints) >= 3
+		return math.max(data.RankBest or 1, Ranks.Index(data.RankPoints)) >= 3
 	end },
 	{ Name = "RankDiamond", Check = function(data)
-		return Ranks.Index(data.RankPoints) >= 5
+		return math.max(data.RankBest or 1, Ranks.Index(data.RankPoints)) >= 5
 	end },
 	{ Name = "RankChampion", Check = function(data)
-		return Ranks.Index(data.RankPoints) >= 6
+		return math.max(data.RankBest or 1, Ranks.Index(data.RankPoints)) >= 6
 	end },
 }
 

@@ -2202,7 +2202,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 4),
 			Size = UDim2.new(1, -280, 0, 32),
-			Text = "⭐ Roblox Premium",
+			Text = utf8.char(0xE001) .. " Roblox Premium", -- (icono oficial de Premium)
 			TextSize = 24,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = premiumCard,
@@ -2210,7 +2210,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 36),
 			Size = UDim2.new(1, -280, 0, 26),
-			Text = "+" .. math.floor((premiumConfig.Multiplier - 1) * 100 + 0.5) .. "% monedas y XP en cada partida (se suma al VIP)",
+			Text = "+" .. math.floor((premiumConfig.Multiplier - 1) * 100 + 0.5) .. "% monedas y XP en cada partida (también con VIP)",
 			TextSize = 16,
 			Font = UI.FontBody,
 			TextXAlignment = Enum.TextXAlignment.Left,

@@ -990,6 +990,7 @@ local function endRound()
 	-- la derrota así). Empate (por equipos, o nadie puntúa en todos contra todos) = sin cambios.
 	local now = workspace:GetServerTimeNow()
 	local elim = currentMode == "ELIM"
+	local playedMatch = {} -- [player] = true si ha jugado de verdad (para la primera victoria del día y la caja sorpresa)
 	for _, player in Players:GetPlayers() do
 		local joined = player:GetAttribute("MatchJoinedAt")
 		local stats = PlayerData.GetLeaderstats(player)
@@ -997,6 +998,7 @@ local function endRound()
 		local played = joined ~= nil
 			and (active or (if elim then player:GetAttribute("ElimPlayed") == true else now - joined >= 60))
 		if played then
+			playedMatch[player] = true
 			PlayerData.Increment(player, "Matches", 1)
 			local won
 			if teamMode then
@@ -1036,6 +1038,12 @@ local function endRound()
 			if not soloMatch then
 				PlayerData.Increment(player, "Wins", 1)
 			end
+			if playedMatch[player] then
+				local firstWin = PlayerData.ClaimFirstWin(player, winScale)
+				if firstWin then
+					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 🪙")
+				end
+			end
 			PlayerData.Track(player, "Win", 1)
 			if currentMode == "INF" and winner == teams[1] then
 				PlayerData.Track(player, "Survive", 1)
@@ -1045,6 +1053,13 @@ local function endRound()
 			PlayerData.AddXP(player, GameConfig.XP.Loss, "Partida completada")
 		end
 		PlayerData.Track(player, "Match", 1)
+		if playedMatch[player] and PlayerData.RollSurpriseCrate(player) then
+			task.delay(2.5, function()
+				if player.Parent then
+					Remotes.Notify:FireClient(player, "Big", "🎁 ¡CAJA SORPRESA! Tienes una caja gratis en la Tienda")
+				end
+			end)
+		end
 	end
 
 	Remotes.RoundEnd:FireAllClients({

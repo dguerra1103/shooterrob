@@ -668,6 +668,25 @@ function MainMenu.Init()
 	end
 	ReplicatedStorage:GetAttributeChangedSignal("XPBoost"):Connect(refreshBoost)
 	refreshBoost()
+	-- Primera victoria del día (GameConfig.FirstWinOfDay): recordatorio mientras no la tengas hoy
+	local firstWinConfig = GameConfig.FirstWinOfDay
+	local firstWinLabel = UI.label({
+		Position = UDim2.fromOffset(330, 384),
+		Size = UDim2.fromOffset(230, 22),
+		Text = firstWinConfig and ("🏆 1.ª victoria de hoy: +" .. firstWinConfig.Coins .. " 🪙") or "",
+		TextSize = 16,
+		TextScaled = true,
+		TextColor3 = Color3.fromRGB(255, 210, 60),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Visible = false,
+		Parent = left,
+	})
+	local function refreshFirstWin()
+		local data = ClientState.Data
+		firstWinLabel.Visible = firstWinConfig ~= nil and data ~= nil and data.FirstWinAvailable == true
+	end
+	ClientState.DataChanged.Event:Connect(refreshFirstWin)
+	refreshFirstWin()
 
 	-- Escaparate del arma a la derecha (fuera del CanvasGroup para que el 3D se dibuje siempre)
 	showcase = UI.new("Frame", {

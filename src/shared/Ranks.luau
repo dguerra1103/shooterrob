@@ -32,6 +32,11 @@ Ranks.Seasons = {
 	{ Id = "T2", Name = "Temporada 2", EndsAt = 1806537600 }, -- 1 abr 2027
 	{ Id = "T3", Name = "Temporada 3", EndsAt = 1814400000 }, -- 1 jul 2027
 	{ Id = "T4", Name = "Temporada 4", EndsAt = 1822348800 }, -- 1 oct 2027
+	{ Id = "T5", Name = "Temporada 5", EndsAt = 1830297600 }, -- 1 ene 2028
+	{ Id = "T6", Name = "Temporada 6", EndsAt = 1838160000 }, -- 1 abr 2028
+	{ Id = "T7", Name = "Temporada 7", EndsAt = 1846022400 }, -- 1 jul 2028
+	{ Id = "T8", Name = "Temporada 8", EndsAt = 1853971200 }, -- 1 oct 2028
+	-- (añade más antes de que acabe la última; después de ella ya no cambia de temporada)
 }
 Ranks.SeasonRewards = { 100, 250, 500, 800, 1200, 2000 } -- monedas por el mejor rango (Bronce..Campeón)
 Ranks.SeasonCarry = 0.5

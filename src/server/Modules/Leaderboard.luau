@@ -1,12 +1,14 @@
 -- Clasificación global (todos los servidores): top 10 de bajas, de victorias y de rango (mejor RP).
 -- Se guarda en OrderedDataStores y se publica a los clientes como texto JSON en atributos de
 -- ReplicatedStorage ("Leaderboard_Kills", "Leaderboard_Wins", "Leaderboard_Rank") para la pantalla de inicio.
+-- La de rango es de la temporada en curso (Ranks.Seasons): cada temporada empieza una tabla nueva.
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PlayerData = require(script.Parent.PlayerData)
+local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
 
 local Leaderboard = {}
 
@@ -16,10 +18,35 @@ local TOP = 10
 local BOARDS = {
 	{ Id = "Kills", Store = "TopBajas_v1", Field = "TotalKills" },
 	{ Id = "Wins", Store = "TopVictorias_v1", Field = "Wins" },
-	{ Id = "Rank", Store = "TopRango_v1", Field = "RankPoints" },
+	{ Id = "Rank", Store = "TopRango_v1", Field = "RankPoints", Seasonal = true },
 }
 
-local stores = {}
+local stores = {} -- [board.Id] = OrderedDataStore
+local storeNames = {} -- [board.Id] = nombre del almacén abierto (cambia con la temporada)
+
+-- Nombre del almacén: el de rango lleva la temporada (la primera conserva el nombre de siempre)
+local function storeName(board)
+	if not board.Seasonal then
+		return board.Store
+	end
+	local season = Ranks.CurrentSeason()
+	return season.Id == Ranks.Seasons[1].Id and board.Store or (board.Store .. "_" .. season.Id)
+end
+
+local function openStores()
+	for _, board in BOARDS do
+		local name = storeName(board)
+		if storeNames[board.Id] ~= name then
+			local ok, store = pcall(function()
+				return DataStoreService:GetOrderedDataStore(name)
+			end)
+			if ok then
+				stores[board.Id] = store
+				storeNames[board.Id] = name
+			end
+		end
+	end
+end
 local pushed = {} -- [userId .. board] = último valor enviado
 local names = {} -- caché de nombres por UserId
 
@@ -51,7 +78,10 @@ local function push(player)
 	for _, board in BOARDS do
 		local store = stores[board.Id]
 		local value = math.floor(tonumber(data[board.Field]) or 0)
-		local k = player.UserId .. board.Id
+		if board.Seasonal and data.RankSeason ~= Ranks.CurrentSeason().Id then
+			value = 0 -- (sus RP aún son de la temporada anterior: se suben cuando cambie)
+		end
+		local k = player.UserId .. (storeNames[board.Id] or board.Id)
 		if store and value > 0 and pushed[k] ~= value then
 			-- Nunca baja un récord (por ejemplo si sus datos no cargaron y empieza de 0)
 			local ok = pcall(function()
@@ -88,14 +118,7 @@ local function fetch()
 end
 
 function Leaderboard.Init()
-	for _, board in BOARDS do
-		local ok, store = pcall(function()
-			return DataStoreService:GetOrderedDataStore(board.Store)
-		end)
-		if ok then
-			stores[board.Id] = store
-		end
-	end
+	openStores()
 	if next(stores) == nil then
 		warn("[Leaderboard] Sin acceso a DataStores: no hay clasificación global")
 		return
@@ -104,6 +127,7 @@ function Leaderboard.Init()
 	task.spawn(function()
 		task.wait(10)
 		while true do
+			openStores() -- (si ha empezado otra temporada, la tabla de rango es otra)
 			for _, player in Players:GetPlayers() do
 				push(player)
 			end
