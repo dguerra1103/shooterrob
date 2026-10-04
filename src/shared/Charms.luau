@@ -79,6 +79,20 @@ Charms.List = {
 			part("Beak", V(0.06, 0.03, 0.06), V(0, -0.16, -0.12), RGB(255, 130, 30)),
 		},
 	},
+	Baston = {
+		Name = "Bastón de caramelo",
+		Rarity = "Épico",
+		Icon = "🍭",
+		Price = 500,
+		Parts = {
+			part("Stick1", V(0.05, 0.07, 0.05), V(0, -0.12, 0), RGB(230, 40, 50)),
+			part("Stick2", V(0.05, 0.07, 0.05), V(0, -0.19, 0), RGB(250, 250, 250)),
+			part("Stick3", V(0.05, 0.07, 0.05), V(0, -0.26, 0), RGB(230, 40, 50)),
+			part("Stick4", V(0.05, 0.07, 0.05), V(0, -0.33, 0), RGB(250, 250, 250)),
+			part("Hook", V(0.1, 0.05, 0.05), V(0.03, -0.09, 0), RGB(250, 250, 250)),
+			part("HookEnd", V(0.05, 0.06, 0.05), V(0.07, -0.13, 0), RGB(230, 40, 50)),
+		},
+	},
 	Diamante = {
 		Name = "Diamante",
 		Rarity = "Legendario",

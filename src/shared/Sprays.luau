@@ -16,6 +16,7 @@ Sprays.List = {
 	Gato = { Name = "Gato chulo", Rarity = "Épico", Icon = "😼", Caption = "MIAU", Color = RGB(255, 255, 255), Bg = RGB(140, 80, 220), Price = 500 },
 	Corona = { Name = "Corona", Rarity = "Legendario", Icon = "👑", Caption = "REY", Color = RGB(255, 215, 60), Bg = RGB(120, 20, 40), Price = 800 },
 	Diamante = { Name = "Diamante", Rarity = "Legendario", Icon = "💎", Caption = "PRO", Color = RGB(150, 235, 255), Bg = RGB(20, 40, 90), Price = 1000 },
+	Navidad = { Name = "Navidad", Rarity = "Épico", Icon = "🎄", Caption = "HO HO HO", Color = RGB(255, 255, 255), Bg = RGB(25, 110, 55), Price = 400 },
 	-- Solo para quien tiene el pase VIP (no se vende con monedas)
 	VIP = { Name = "VIP", Rarity = "Legendario", Icon = "👑", Caption = "VIP", Color = RGB(255, 215, 60), Bg = RGB(90, 30, 140), VIPOnly = true },
 }

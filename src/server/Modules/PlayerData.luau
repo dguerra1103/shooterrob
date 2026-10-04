@@ -105,7 +105,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		WeeklyChallenges = { Week = -1, List = {}, Bonus = false }, -- retos semanales
 		StarterPack = false, -- ya compró el pack de inicio
-		HalloweenBundle = false, -- ya compró el pack de Halloween
+		Bundles = {}, -- packs de temporada comprados ([Id] = true, ver Shop.Bundles)
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		Achievements = {}, -- logros reclamados ([Id] = true)
@@ -257,7 +257,15 @@ local function publicView(player, data)
 		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
-		HalloweenBundleAvailable = Shop.HalloweenBundle.ProductId ~= 0 and not data.HalloweenBundle and os.time() < Shop.HalloweenBundle.EndsAt,
+		BundlesAvailable = (function()
+			local list = {}
+			for _, bundle in Shop.Bundles do
+				if Shop.BundleOnSale(bundle) and not data.Bundles[bundle.Id] then
+					table.insert(list, bundle.Id)
+				end
+			end
+			return list
+		end)(),
 		Challenges = challengesView(player, data),
 	}
 end
@@ -454,6 +462,13 @@ local function load(player)
 	if type(merged.Achievements) ~= "table" then
 		merged.Achievements = {}
 	end
+	if type(merged.Bundles) ~= "table" then
+		merged.Bundles = {}
+	end
+	if merged.HalloweenBundle == true then
+		merged.Bundles.Halloween = true -- (antes se guardaba aparte)
+	end
+	merged.HalloweenBundle = nil
 	if type(merged.Titles) ~= "table" then
 		merged.Titles = {}
 	end
@@ -1228,11 +1243,16 @@ local function processReceipt(receipt)
 	local grant, undo, message
 	local starter = Shop.StarterPack
 	local wheel = Shop.Wheel
-	local bundle = Shop.HalloweenBundle
-	if bundle.ProductId ~= 0 and receipt.ProductId == bundle.ProductId then
-		-- Pack de Halloween (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
+	local bundle
+	for _, b in Shop.Bundles do
+		if b.ProductId ~= 0 and b.ProductId == receipt.ProductId then
+			bundle = b
+		end
+	end
+	if bundle then
+		-- Pack de temporada (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
 		-- deshacer solo se quita lo que se dio.
-		local repeated = data.HalloweenBundle == true
+		local repeated = data.Bundles[bundle.Id] == true
 		local had = {
 			Effect = data.KillEffects[bundle.KillEffect] == true,
 			Charm = data.Charms[bundle.Charm] == true,
@@ -1244,7 +1264,7 @@ local function processReceipt(receipt)
 				data.KillEffects[bundle.KillEffect] = true
 				data.Charms[bundle.Charm] = true
 				data.Sprays[bundle.Spray] = true
-				data.HalloweenBundle = true
+				data.Bundles[bundle.Id] = true
 			end
 		end
 		undo = function()
@@ -1259,10 +1279,10 @@ local function processReceipt(receipt)
 				if not had.Spray then
 					data.Sprays[bundle.Spray] = nil
 				end
-				data.HalloweenBundle = false
+				data.Bundles[bundle.Id] = nil
 			end
 		end
-		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or "🎃 ¡PACK DE HALLOWEEN DESBLOQUEADO!"
+		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or (bundle.Icon .. " ¡" .. bundle.Name .. " DESBLOQUEADO!")
 	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
 		grant = function()
 			data.WheelSpins += wheel.SpinsPerPurchase

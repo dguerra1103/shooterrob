@@ -1838,9 +1838,9 @@ local function buildShopPage(data)
 		end)
 	end
 
-	-- Pack de Halloween (compra única, hasta que acaba el evento)
-	local bundle = Shop.HalloweenBundle
-	if data.HalloweenBundleAvailable and os.time() < bundle.EndsAt then
+	-- Packs de temporada (compra única, solo en sus fechas; el servidor dice cuáles se ofrecen)
+	for _, bundle in Shop.Bundles do
+	if table.find(data.BundlesAvailable or {}, bundle.Id) and os.time() < (bundle.EndsAt or math.huge) then
 		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
 		local card = UI.new("Frame", {
 			LayoutOrder = -1,
@@ -1851,14 +1851,14 @@ local function buildShopPage(data)
 			UI.corner(14),
 			UI.stroke(Color3.fromRGB(255, 150, 30), 3, 0),
 			UI.new("UIGradient", {
-				Color = ColorSequence.new(Color3.fromRGB(255, 120, 20), Color3.fromRGB(90, 30, 140)),
+				Color = ColorSequence.new(bundle.Colors[1], bundle.Colors[2]),
 				Rotation = 0,
 			}),
 		})
 		UI.label({
 			Position = UDim2.fromOffset(18, 8),
 			Size = UDim2.new(1, -280, 0, 36),
-			Text = "🎃 PACK DE HALLOWEEN  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
+			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
 			TextSize = 26,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = card,
@@ -1909,6 +1909,7 @@ local function buildShopPage(data)
 				end
 			end)
 		end)
+	end
 	end
 
 	-- Recompensa diaria
@@ -2442,7 +2443,10 @@ function Menu.Init()
 
 	-- Si se cancela la compra del pack de inicio, el botón vuelve a estar disponible
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
-		local single = productId == Shop.StarterPack.ProductId or productId == Shop.HalloweenBundle.ProductId
+		local single = productId == Shop.StarterPack.ProductId
+		for _, bundle in Shop.Bundles do
+			single = single or productId == bundle.ProductId
+		end
 		if userId == player.UserId and single and not purchased and ClientState.MenuOpen then
 			refresh()
 		end

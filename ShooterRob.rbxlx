@@ -368,6 +368,20 @@ Charms.List = {
 			part("Beak", V(0.06, 0.03, 0.06), V(0, -0.16, -0.12), RGB(255, 130, 30)),
 		},
 	},
+	Baston = {
+		Name = "Bastón de caramelo",
+		Rarity = "Épico",
+		Icon = "🍭",
+		Price = 500,
+		Parts = {
+			part("Stick1", V(0.05, 0.07, 0.05), V(0, -0.12, 0), RGB(230, 40, 50)),
+			part("Stick2", V(0.05, 0.07, 0.05), V(0, -0.19, 0), RGB(250, 250, 250)),
+			part("Stick3", V(0.05, 0.07, 0.05), V(0, -0.26, 0), RGB(230, 40, 50)),
+			part("Stick4", V(0.05, 0.07, 0.05), V(0, -0.33, 0), RGB(250, 250, 250)),
+			part("Hook", V(0.1, 0.05, 0.05), V(0.03, -0.09, 0), RGB(250, 250, 250)),
+			part("HookEnd", V(0.05, 0.06, 0.05), V(0.07, -0.13, 0), RGB(230, 40, 50)),
+		},
+	},
 	Diamante = {
 		Name = "Diamante",
 		Rarity = "Legendario",
@@ -841,6 +855,8 @@ KillEffects.List = {
 	-- Halloween
 	Murcielagos = { Name = "Murciélagos", Rarity = "Épico", Icon = "🦇", Price = 1000, Description = "Una bandada de murciélagos sale volando entre humo morado." },
 	Calabazas = { Name = "Calabazas", Rarity = "Legendario", Icon = "🎃", Price = 1600, Description = "Revienta en calabazas que saltan, con una calabaza gigante y un diablillo." },
+	-- Navidad
+	Nieve = { Name = "Ventisca", Rarity = "Legendario", Icon = "☃️", Price = 1600, Description = "Revienta en copos de nieve y aparece un muñeco de nieve." },
 }
 
 function KillEffects.Get(id)
@@ -989,7 +1005,7 @@ Outfits.List = {
 		Name = "Papá Noel",
 		Rarity = "Legendario",
 		Class = "Evento Navidad",
-		Event = "🎄 50 regalos",
+		Event = "🎄 50 regalos (diciembre)",
 		Body = RGB(30, 25, 25),
 		Cloth = RGB(205, 30, 40),
 		Glow = RGB(255, 215, 70),
@@ -1570,18 +1586,48 @@ Shop.StarterPack = {
 	KillEffect = "Confeti",
 }
 
--- Pack de Halloween (Developer Product de compra única y por tiempo limitado: se deja de ofrecer en
--- EndsAt, el mismo día que acaba el evento). Cosas de la tienda por mucho menos que su precio.
-Shop.HalloweenBundle = {
-	ProductId = 0, -- pega aquí el ID del Developer Product
-	Robux = 199,
-	EndsAt = 1793750400, -- 4 de noviembre de 2026 (UTC)
-	Coins = 2500,
-	KillEffect = "Calabazas",
-	Charm = "Calabaza",
-	Spray = "Calabaza",
-	Value = 5000, -- lo que vale todo en monedas (se enseña en la tienda)
+-- Packs de temporada (Developer Product de compra única cada uno): cosas de la tienda por mucho
+-- menos que su precio, solo entre StartsAt y EndsAt (hora UTC). Value = lo que vale todo en monedas.
+local RGB = Color3.fromRGB
+Shop.Bundles = {
+	{
+		Id = "Halloween",
+		Name = "PACK DE HALLOWEEN",
+		Icon = "🎃",
+		ProductId = 0, -- pega aquí el ID del Developer Product
+		Robux = 199,
+		EndsAt = 1793750400, -- 4 nov 2026
+		Coins = 2500,
+		KillEffect = "Calabazas",
+		Charm = "Calabaza",
+		Spray = "Calabaza",
+		Value = 5000,
+		Colors = { RGB(255, 120, 20), RGB(90, 30, 140) },
+	},
+	{
+		Id = "Navidad",
+		Name = "PACK DE NAVIDAD",
+		Icon = "🎄",
+		ProductId = 0, -- pega aquí el ID del Developer Product
+		Robux = 199,
+		StartsAt = 1796083200, -- 1 dic 2026
+		EndsAt = 1799366400, -- 8 ene 2027
+		Coins = 2500,
+		KillEffect = "Nieve",
+		Charm = "Baston",
+		Spray = "Navidad",
+		Value = 5000,
+		Colors = { RGB(210, 30, 40), RGB(30, 120, 60) },
+	},
 }
+Shop.HalloweenBundle = Shop.Bundles[1] -- (nombre antiguo)
+
+-- ¿Se puede comprar este pack ahora?
+function Shop.BundleOnSale(bundle, now)
+	now = now or os.time()
+	return bundle.ProductId ~= 0 and (bundle.StartsAt == nil or now >= bundle.StartsAt) and (bundle.EndsAt == nil or now < bundle.EndsAt)
+end
+
 
 -- Ruleta diaria: un giro gratis al día y giros extra con Robux (Developer Product SpinProductId,
 -- da SpinsPerPurchase giros). Los premios salen según su peso (Weight); las probabilidades se ven en
@@ -2281,6 +2327,7 @@ Sprays.List = {
 	Gato = { Name = "Gato chulo", Rarity = "Épico", Icon = "😼", Caption = "MIAU", Color = RGB(255, 255, 255), Bg = RGB(140, 80, 220), Price = 500 },
 	Corona = { Name = "Corona", Rarity = "Legendario", Icon = "👑", Caption = "REY", Color = RGB(255, 215, 60), Bg = RGB(120, 20, 40), Price = 800 },
 	Diamante = { Name = "Diamante", Rarity = "Legendario", Icon = "💎", Caption = "PRO", Color = RGB(150, 235, 255), Bg = RGB(20, 40, 90), Price = 1000 },
+	Navidad = { Name = "Navidad", Rarity = "Épico", Icon = "🎄", Caption = "HO HO HO", Color = RGB(255, 255, 255), Bg = RGB(25, 110, 55), Price = 400 },
 	-- Solo para quien tiene el pase VIP (no se vende con monedas)
 	VIP = { Name = "VIP", Rarity = "Legendario", Icon = "👑", Caption = "VIP", Color = RGB(255, 215, 60), Bg = RGB(90, 30, 140), VIPOnly = true },
 }
@@ -15351,7 +15398,7 @@ local function defaults()
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		WeeklyChallenges = { Week = -1, List = {}, Bonus = false }, -- retos semanales
 		StarterPack = false, -- ya compró el pack de inicio
-		HalloweenBundle = false, -- ya compró el pack de Halloween
+		Bundles = {}, -- packs de temporada comprados ([Id] = true, ver Shop.Bundles)
 		TutorialDone = false, -- ya vio la tarjeta de controles de la primera partida
 		NewsSeen = 0, -- última versión de las novedades que ha visto (GameConfig.News)
 		Achievements = {}, -- logros reclamados ([Id] = true)
@@ -15503,7 +15550,15 @@ local function publicView(player, data)
 		RankBest = data.RankBest,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
-		HalloweenBundleAvailable = Shop.HalloweenBundle.ProductId ~= 0 and not data.HalloweenBundle and os.time() < Shop.HalloweenBundle.EndsAt,
+		BundlesAvailable = (function()
+			local list = {}
+			for _, bundle in Shop.Bundles do
+				if Shop.BundleOnSale(bundle) and not data.Bundles[bundle.Id] then
+					table.insert(list, bundle.Id)
+				end
+			end
+			return list
+		end)(),
 		Challenges = challengesView(player, data),
 	}
 end
@@ -15700,6 +15755,13 @@ local function load(player)
 	if type(merged.Achievements) ~= "table" then
 		merged.Achievements = {}
 	end
+	if type(merged.Bundles) ~= "table" then
+		merged.Bundles = {}
+	end
+	if merged.HalloweenBundle == true then
+		merged.Bundles.Halloween = true -- (antes se guardaba aparte)
+	end
+	merged.HalloweenBundle = nil
 	if type(merged.Titles) ~= "table" then
 		merged.Titles = {}
 	end
@@ -16474,11 +16536,16 @@ local function processReceipt(receipt)
 	local grant, undo, message
 	local starter = Shop.StarterPack
 	local wheel = Shop.Wheel
-	local bundle = Shop.HalloweenBundle
-	if bundle.ProductId ~= 0 and receipt.ProductId == bundle.ProductId then
-		-- Pack de Halloween (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
+	local bundle
+	for _, b in Shop.Bundles do
+		if b.ProductId ~= 0 and b.ProductId == receipt.ProductId then
+			bundle = b
+		end
+	end
+	if bundle then
+		-- Pack de temporada (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
 		-- deshacer solo se quita lo que se dio.
-		local repeated = data.HalloweenBundle == true
+		local repeated = data.Bundles[bundle.Id] == true
 		local had = {
 			Effect = data.KillEffects[bundle.KillEffect] == true,
 			Charm = data.Charms[bundle.Charm] == true,
@@ -16490,7 +16557,7 @@ local function processReceipt(receipt)
 				data.KillEffects[bundle.KillEffect] = true
 				data.Charms[bundle.Charm] = true
 				data.Sprays[bundle.Spray] = true
-				data.HalloweenBundle = true
+				data.Bundles[bundle.Id] = true
 			end
 		end
 		undo = function()
@@ -16505,10 +16572,10 @@ local function processReceipt(receipt)
 				if not had.Spray then
 					data.Sprays[bundle.Spray] = nil
 				end
-				data.HalloweenBundle = false
+				data.Bundles[bundle.Id] = nil
 			end
 		end
-		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or "🎃 ¡PACK DE HALLOWEEN DESBLOQUEADO!"
+		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or (bundle.Icon .. " ¡" .. bundle.Name .. " DESBLOQUEADO!")
 	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
 		grant = function()
 			data.WheelSpins += wheel.SpinsPerPurchase
@@ -20948,6 +21015,24 @@ KILL_FX.Calabazas = function(position)
 	floatingText(position + Vector3.new(0, 2, 0), "🎃", 110, Vector3.new(0, 3.5, 0), 1.6)
 	task.delay(0.25, function()
 		floatingText(position + Vector3.new(1.5, 3, 0), "😈", 60, Vector3.new(0, 2.5, 0), 1.2)
+	end)
+end
+
+-- Ventisca (Navidad): bolas de nieve que saltan, copos y un muñeco de nieve que sube
+KILL_FX.Nieve = function(position)
+	debrisBurst(position, 12, function()
+		return fxPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.6, 0.6, 0.6),
+			Color = Color3.fromRGB(245, 250, 255),
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end, 16, 1.4)
+	flashBall(position, Color3.fromRGB(200, 235, 255), 5, 0.3)
+	floatingText(position + Vector3.new(0, 2, 0), "☃️", 110, Vector3.new(0, 3.5, 0), 1.6)
+	task.delay(0.2, function()
+		floatingText(position + Vector3.new(-1.5, 2.5, 0), "❄️", 60, Vector3.new(0, 2.5, 0), 1.2)
+		floatingText(position + Vector3.new(1.5, 3, 0), "❄️", 50, Vector3.new(0, 2.5, 0), 1.2)
 	end)
 end
 
@@ -26205,9 +26290,9 @@ local function buildShopPage(data)
 		end)
 	end
 
-	-- Pack de Halloween (compra única, hasta que acaba el evento)
-	local bundle = Shop.HalloweenBundle
-	if data.HalloweenBundleAvailable and os.time() < bundle.EndsAt then
+	-- Packs de temporada (compra única, solo en sus fechas; el servidor dice cuáles se ofrecen)
+	for _, bundle in Shop.Bundles do
+	if table.find(data.BundlesAvailable or {}, bundle.Id) and os.time() < (bundle.EndsAt or math.huge) then
 		local daysLeft = math.max(0, math.ceil((bundle.EndsAt - os.time()) / 86400))
 		local card = UI.new("Frame", {
 			LayoutOrder = -1,
@@ -26218,14 +26303,14 @@ local function buildShopPage(data)
 			UI.corner(14),
 			UI.stroke(Color3.fromRGB(255, 150, 30), 3, 0),
 			UI.new("UIGradient", {
-				Color = ColorSequence.new(Color3.fromRGB(255, 120, 20), Color3.fromRGB(90, 30, 140)),
+				Color = ColorSequence.new(bundle.Colors[1], bundle.Colors[2]),
 				Rotation = 0,
 			}),
 		})
 		UI.label({
 			Position = UDim2.fromOffset(18, 8),
 			Size = UDim2.new(1, -280, 0, 36),
-			Text = "🎃 PACK DE HALLOWEEN  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
+			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días")),
 			TextSize = 26,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = card,
@@ -26276,6 +26361,7 @@ local function buildShopPage(data)
 				end
 			end)
 		end)
+	end
 	end
 
 	-- Recompensa diaria
@@ -26809,7 +26895,10 @@ function Menu.Init()
 
 	-- Si se cancela la compra del pack de inicio, el botón vuelve a estar disponible
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, purchased)
-		local single = productId == Shop.StarterPack.ProductId or productId == Shop.HalloweenBundle.ProductId
+		local single = productId == Shop.StarterPack.ProductId
+		for _, bundle in Shop.Bundles do
+			single = single or productId == bundle.ProductId
+		end
 		if userId == player.UserId and single and not purchased and ClientState.MenuOpen then
 			refresh()
 		end

@@ -18,6 +18,8 @@ KillEffects.List = {
 	-- Halloween
 	Murcielagos = { Name = "Murciélagos", Rarity = "Épico", Icon = "🦇", Price = 1000, Description = "Una bandada de murciélagos sale volando entre humo morado." },
 	Calabazas = { Name = "Calabazas", Rarity = "Legendario", Icon = "🎃", Price = 1600, Description = "Revienta en calabazas que saltan, con una calabaza gigante y un diablillo." },
+	-- Navidad
+	Nieve = { Name = "Ventisca", Rarity = "Legendario", Icon = "☃️", Price = 1600, Description = "Revienta en copos de nieve y aparece un muñeco de nieve." },
 }
 
 function KillEffects.Get(id)

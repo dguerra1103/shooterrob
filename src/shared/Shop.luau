@@ -32,18 +32,48 @@ Shop.StarterPack = {
 	KillEffect = "Confeti",
 }
 
--- Pack de Halloween (Developer Product de compra única y por tiempo limitado: se deja de ofrecer en
--- EndsAt, el mismo día que acaba el evento). Cosas de la tienda por mucho menos que su precio.
-Shop.HalloweenBundle = {
-	ProductId = 0, -- pega aquí el ID del Developer Product
-	Robux = 199,
-	EndsAt = 1793750400, -- 4 de noviembre de 2026 (UTC)
-	Coins = 2500,
-	KillEffect = "Calabazas",
-	Charm = "Calabaza",
-	Spray = "Calabaza",
-	Value = 5000, -- lo que vale todo en monedas (se enseña en la tienda)
+-- Packs de temporada (Developer Product de compra única cada uno): cosas de la tienda por mucho
+-- menos que su precio, solo entre StartsAt y EndsAt (hora UTC). Value = lo que vale todo en monedas.
+local RGB = Color3.fromRGB
+Shop.Bundles = {
+	{
+		Id = "Halloween",
+		Name = "PACK DE HALLOWEEN",
+		Icon = "🎃",
+		ProductId = 0, -- pega aquí el ID del Developer Product
+		Robux = 199,
+		EndsAt = 1793750400, -- 4 nov 2026
+		Coins = 2500,
+		KillEffect = "Calabazas",
+		Charm = "Calabaza",
+		Spray = "Calabaza",
+		Value = 5000,
+		Colors = { RGB(255, 120, 20), RGB(90, 30, 140) },
+	},
+	{
+		Id = "Navidad",
+		Name = "PACK DE NAVIDAD",
+		Icon = "🎄",
+		ProductId = 0, -- pega aquí el ID del Developer Product
+		Robux = 199,
+		StartsAt = 1796083200, -- 1 dic 2026
+		EndsAt = 1799366400, -- 8 ene 2027
+		Coins = 2500,
+		KillEffect = "Nieve",
+		Charm = "Baston",
+		Spray = "Navidad",
+		Value = 5000,
+		Colors = { RGB(210, 30, 40), RGB(30, 120, 60) },
+	},
 }
+Shop.HalloweenBundle = Shop.Bundles[1] -- (nombre antiguo)
+
+-- ¿Se puede comprar este pack ahora?
+function Shop.BundleOnSale(bundle, now)
+	now = now or os.time()
+	return bundle.ProductId ~= 0 and (bundle.StartsAt == nil or now >= bundle.StartsAt) and (bundle.EndsAt == nil or now < bundle.EndsAt)
+end
+
 
 -- Ruleta diaria: un giro gratis al día y giros extra con Robux (Developer Product SpinProductId,
 -- da SpinsPerPurchase giros). Los premios salen según su peso (Weight); las probabilidades se ven en

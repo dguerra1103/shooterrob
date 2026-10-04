@@ -1074,6 +1074,24 @@ KILL_FX.Calabazas = function(position)
 	end)
 end
 
+-- Ventisca (Navidad): bolas de nieve que saltan, copos y un muñeco de nieve que sube
+KILL_FX.Nieve = function(position)
+	debrisBurst(position, 12, function()
+		return fxPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.6, 0.6, 0.6),
+			Color = Color3.fromRGB(245, 250, 255),
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end, 16, 1.4)
+	flashBall(position, Color3.fromRGB(200, 235, 255), 5, 0.3)
+	floatingText(position + Vector3.new(0, 2, 0), "☃️", 110, Vector3.new(0, 3.5, 0), 1.6)
+	task.delay(0.2, function()
+		floatingText(position + Vector3.new(-1.5, 2.5, 0), "❄️", 60, Vector3.new(0, 2.5, 0), 1.2)
+		floatingText(position + Vector3.new(1.5, 3, 0), "❄️", 50, Vector3.new(0, 2.5, 0), 1.2)
+	end)
+end
+
 function Effects.KillEffect(effectId, position, color)
 	local fn = KILL_FX[effectId]
 	if fn then
