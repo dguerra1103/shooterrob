@@ -61,6 +61,7 @@ end
 -- Rivales distintos eliminados en la racha actual (para SE BUSCA: matar al mismo amigo varias veces
 -- no cuenta como "racha contra jugadores")
 local streakVictims = {} -- [player] = { [UserId] = true }
+local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -268,10 +269,12 @@ local function resetStats()
 		player:SetAttribute("MatchJoinedAt", if player:GetAttribute("InMenu") then nil else workspace:GetServerTimeNow())
 		player:SetAttribute("ElimPlayed", nil)
 		player:SetAttribute("InfZombieStart", nil)
+		player:SetAttribute("LastKiller", nil)
 		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
 	Grenades.Reset()
+	firstBlood = false
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -318,8 +321,51 @@ end
 ---------------------------------------------------------------------------
 
 -- killerBot / victimBot: el bot (ver Bots) cuando quien hace la baja o quien muere es un bot
+-- Medalla de baja: aviso y XP (scale: menos contra bots)
+local function medal(player, id, scale)
+	local def = GameConfig.Medals and GameConfig.Medals[id]
+	if def then
+		Remotes.Notify:FireClient(player, "Medal", def.Text)
+		PlayerData.AddXP(player, math.max(1, math.floor(def.XP * scale)), def.Name)
+	end
+end
+
+-- Medallas que gana un jugador con esta baja
+local function awardMedals(killer, victimName, victimStreak, weaponName, position, scale)
+	local medals = GameConfig.Medals or {}
+	if not firstBlood then
+		firstBlood = true
+		medal(killer, "FirstBlood", scale)
+	end
+	if victimName and killer:GetAttribute("LastKiller") == victimName then
+		killer:SetAttribute("LastKiller", nil)
+		medal(killer, "Revenge", scale)
+	end
+	if medals.StreakEnder and victimStreak >= medals.StreakEnder.Streak then
+		medal(killer, "StreakEnder", scale)
+	end
+	local character = killer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or humanoid.Health <= 0 then
+		medal(killer, "Afterlife", scale)
+	elseif root and typeof(position) == "Vector3" and medals.LongShot then
+		local weapon = weaponName and Weapons.Get(weaponName)
+		if weapon and not weapon.Explosive and weapon.Type ~= "Melee" and (root.Position - position).Magnitude >= medals.LongShot.Distance then
+			medal(killer, "LongShot", scale)
+		end
+	end
+end
+
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
 	local bounty = 0
+	-- (la racha que llevaba el caído, antes de ponerla a 0: para la medalla Cazarrachas)
+	local victimStreak = (victim and victim:GetAttribute("Streak")) or (victimBot and victimBot.Streak) or 0
+	-- Para la medalla Venganza: quién eliminó a este jugador la última vez
+	if victim then
+		local by = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
+		victim:SetAttribute("LastKiller", by)
+	end
 	if victim then
 		PlayerData.GetLeaderstats(victim).Muertes.Value += 1
 		PlayerData.Increment(victim, "TotalDeaths", 1)
@@ -356,6 +402,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	-- Un bot hace una baja: punto para su equipo (en equipos) o para él (todos contra todos)
 	if killerBot then
 		Bots.AddStat(killerBot, "Kills", 1)
+		if playing then
+			firstBlood = true -- (la primera sangre de un bot cuenta: ya no la gana nadie más)
+		end
 		if killerBot.Team then
 			killerColor = killerBot.Team.TeamColor.Color
 			if playing and currentMode == "TDM" then
@@ -410,6 +459,9 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				xp += GameConfig.XP.Headshot
 			end
 			PlayerData.AddXP(killer, math.floor(xp * botScale), headshot and "Disparo a la cabeza" or "Eliminación")
+			if playing then
+				awardMedals(killer, victimName, victimStreak, weaponName, position, botScale)
+			end
 			PlayerData.AddCoins(killer, math.max(1, math.floor(GameConfig.Coins.Kill * botScale)))
 			if victim then
 				PlayerData.Increment(killer, "TotalKills", 1)

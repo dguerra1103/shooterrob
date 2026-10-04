@@ -641,6 +641,22 @@ local function buildFeedsAndOverlays()
 		Parent = refs.KillBanner,
 	})
 
+	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja
+	refs.Medals = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.7, 38),
+		Size = UDim2.fromOffset(640, 34),
+		BackgroundTransparency = 1,
+		Parent = gui,
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
 	-- Fin de ronda
 	refs.RoundEnd = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -769,6 +785,40 @@ local function nextOrder()
 	return orderCounter
 end
 
+-- Medalla: una placa que aparece con rebote y se va sola (máximo 3 a la vez)
+local function showMedal(text)
+	local list = {}
+	for _, child in refs.Medals:GetChildren() do
+		if child:IsA("TextLabel") then
+			table.insert(list, child)
+		end
+	end
+	if #list >= 3 then
+		list[1]:Destroy()
+	end
+	local badge = UI.label({
+		LayoutOrder = nextOrder(),
+		Size = UDim2.fromOffset(0, 34),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Text = "  " .. tostring(text) .. "  ",
+		TextSize = 22,
+		TextColor3 = Color3.fromRGB(255, 225, 110),
+		BackgroundColor3 = Color3.fromRGB(25, 22, 12),
+		BackgroundTransparency = 0.2,
+		Parent = refs.Medals,
+	}, { UI.corner(8), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.1) })
+	local scale = UI.new("UIScale", { Scale = 1.6, Parent = badge })
+	tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	Sounds.Play("Click")
+	task.delay(2.6, function()
+		if badge.Parent then
+			tween(badge, 0.3, { TextTransparency = 1, BackgroundTransparency = 1 })
+			task.wait(0.3)
+			badge:Destroy()
+		end
+	end)
+end
+
 local function popup(text, color)
 	local label = UI.label({
 		Size = UDim2.fromOffset(400, 26),
@@ -819,6 +869,8 @@ end
 local function onNotify(kind, text)
 	if kind == "XP" then
 		popup(text)
+	elseif kind == "Medal" then
+		showMedal(text)
 	elseif kind == "Big" then
 		bigMessage(text)
 	elseif kind == "Challenge" then
