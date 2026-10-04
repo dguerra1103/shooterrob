@@ -72,7 +72,11 @@ local function bigButton(text, color, order, parent)
 	button.TextStrokeTransparency = 0.5
 	-- Textos largos ("RECOMPENSA DIARIA") se encogen para caber en el botón
 	button.TextScaled = true
-	UI.new("UITextSizeConstraint", { MaxTextSize = text and #text > 18 and 24 or 28, Parent = button })
+	-- (tamaño máximo = el TextSize pedido; si quien crea el botón lo cambia después, se respeta)
+	local constraint = UI.new("UITextSizeConstraint", { MaxTextSize = button.TextSize, Parent = button })
+	button:GetPropertyChangedSignal("TextSize"):Connect(function()
+		constraint.MaxTextSize = button.TextSize
+	end)
 	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
 	local scale = UI.new("UIScale", { Parent = button })
 	button.MouseEnter:Connect(function()

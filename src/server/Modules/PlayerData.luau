@@ -402,8 +402,9 @@ local function load(player)
 	if type(merged.WheelDay) ~= "number" then
 		merged.WheelDay = -1
 	end
-	if type(merged.RankBest) ~= "number" then
-		merged.RankBest = Ranks.Index(merged.RankPoints)
+	-- (los guardados de antes de existir RankBest: su rango actual)
+	if type(merged.RankBest) ~= "number" or (not isNew and type(data) == "table" and data.RankBest == nil) then
+		merged.RankBest = math.max(type(merged.RankBest) == "number" and merged.RankBest or 1, Ranks.Index(merged.RankPoints))
 	end
 	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
 		merged.EventProgress = { Id = "", Count = 0 }
@@ -1353,7 +1354,7 @@ function PlayerData.Init()
 	Remotes.ClaimAchievement.OnServerInvoke = function(player, id)
 		local data = profiles[player]
 		if not data or type(id) ~= "string" then
-			return false
+			return false, "No se pudo reclamar"
 		end
 		for _, achievement in GameConfig.Achievements do
 			if achievement.Id == id then

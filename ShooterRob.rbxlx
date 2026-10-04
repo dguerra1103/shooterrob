@@ -14050,8 +14050,9 @@ local function load(player)
 	if type(merged.WheelDay) ~= "number" then
 		merged.WheelDay = -1
 	end
-	if type(merged.RankBest) ~= "number" then
-		merged.RankBest = Ranks.Index(merged.RankPoints)
+	-- (los guardados de antes de existir RankBest: su rango actual)
+	if type(merged.RankBest) ~= "number" or (not isNew and type(data) == "table" and data.RankBest == nil) then
+		merged.RankBest = math.max(type(merged.RankBest) == "number" and merged.RankBest or 1, Ranks.Index(merged.RankPoints))
 	end
 	if type(merged.EventProgress) ~= "table" or type(merged.EventProgress.Count) ~= "number" then
 		merged.EventProgress = { Id = "", Count = 0 }
@@ -15001,7 +15002,7 @@ function PlayerData.Init()
 	Remotes.ClaimAchievement.OnServerInvoke = function(player, id)
 		local data = profiles[player]
 		if not data or type(id) ~= "string" then
-			return false
+			return false, "No se pudo reclamar"
 		end
 		for _, achievement in GameConfig.Achievements do
 			if achievement.Id == id then
@@ -21272,7 +21273,11 @@ local function bigButton(text, color, order, parent)
 	button.TextStrokeTransparency = 0.5
 	-- Textos largos ("RECOMPENSA DIARIA") se encogen para caber en el botón
 	button.TextScaled = true
-	UI.new("UITextSizeConstraint", { MaxTextSize = text and #text > 18 and 24 or 28, Parent = button })
+	-- (tamaño máximo = el TextSize pedido; si quien crea el botón lo cambia después, se respeta)
+	local constraint = UI.new("UITextSizeConstraint", { MaxTextSize = button.TextSize, Parent = button })
+	button:GetPropertyChangedSignal("TextSize"):Connect(function()
+		constraint.MaxTextSize = button.TextSize
+	end)
 	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
 	local scale = UI.new("UIScale", { Parent = button })
 	button.MouseEnter:Connect(function()
