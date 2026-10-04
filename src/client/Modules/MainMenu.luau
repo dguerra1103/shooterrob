@@ -25,6 +25,7 @@ local MainMenu = {}
 
 local gui, root, infoLabel, showcase, dailyButton, starterButton
 local blur
+local titleScale
 local orbitAngle = 0
 local controls
 
@@ -224,6 +225,36 @@ local function buildLeaderboard(parent)
 	end)
 end
 
+-- Abre la pantalla de inicio: desenfoque, cámara girando, título que respira y controles bloqueados
+local function openMenu()
+	blur = blur or Instance.new("BlurEffect")
+	blur.Name = "MainMenuBlur"
+	blur.Size = 10
+	blur.Parent = Lighting
+
+	ClientState.InMainMenu = true
+	UserInputService.MouseIconEnabled = true
+	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
+
+	-- El título "respira"
+	task.spawn(function()
+		while ClientState.InMainMenu do
+			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1.04 }):Play()
+			task.wait(1.2)
+			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+			task.wait(1.2)
+		end
+	end)
+
+	-- Bloquea el movimiento del personaje mientras tanto
+	task.spawn(function()
+		local ctrl = getControls()
+		if ctrl and ClientState.InMainMenu then
+			ctrl:Disable()
+		end
+	end)
+end
+
 local function play()
 	if not ClientState.InMainMenu then
 		return
@@ -255,6 +286,20 @@ local function play()
 		end
 		ClientState.UpdateMouse()
 	end)
+end
+
+-- "Volver al menú" (por ejemplo desde la pantalla de muerte)
+function MainMenu.Show()
+	if ClientState.InMainMenu or not gui then
+		return
+	end
+	Remotes.EnterMenu:FireServer()
+	gui.Enabled = true
+	root.GroupTransparency = 0
+	showcase.Visible = true
+	openMenu()
+	refreshInfo()
+	ClientState.UpdateMouse()
 end
 
 function MainMenu.Init()
@@ -326,7 +371,7 @@ function MainMenu.Init()
 		}),
 		UI.new("UIStroke", { Thickness = 6, Color = Color3.fromRGB(30, 10, 40) }),
 	})
-	local titleScale = UI.new("UIScale", { Parent = title })
+	titleScale = UI.new("UIScale", { Parent = title })
 
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
@@ -429,33 +474,7 @@ function MainMenu.Init()
 
 	buildLeaderboard(root)
 
-	-- Desenfoque del fondo
-	blur = Instance.new("BlurEffect")
-	blur.Name = "MainMenuBlur"
-	blur.Size = 10
-	blur.Parent = Lighting
-
-	ClientState.InMainMenu = true
-	UserInputService.MouseIconEnabled = true
-	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
-
-	-- El título "respira"
-	task.spawn(function()
-		while ClientState.InMainMenu do
-			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1.04 }):Play()
-			task.wait(1.2)
-			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
-			task.wait(1.2)
-		end
-	end)
-
-	-- Bloquea el movimiento del personaje mientras tanto
-	task.spawn(function()
-		local ctrl = getControls()
-		if ctrl and ClientState.InMainMenu then
-			ctrl:Disable()
-		end
-	end)
+	openMenu()
 
 	ClientState.DataChanged.Event:Connect(refreshInfo)
 	refreshInfo()

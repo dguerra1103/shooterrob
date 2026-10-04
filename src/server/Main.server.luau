@@ -14,6 +14,7 @@ local Hazards = require(Modules.Hazards)
 local Grenades = require(Modules.Grenades)
 local Leaderboard = require(Modules.Leaderboard)
 local Killstreaks = require(Modules.Killstreaks)
+local Respawn = require(Modules.Respawn)
 
 MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
@@ -21,6 +22,7 @@ Loadout.Init()
 Combat.Init()
 Combat.OnKill = Round.RegisterKill
 Round.Init()
+Respawn.Init() -- reaparición propia (CharacterAutoLoads desactivado): después de Round
 Dummies.Init()
 Hazards.Init()
 Grenades.Init()

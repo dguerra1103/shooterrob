@@ -1,0 +1,148 @@
+-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
+--   * Al morir se reaparece solo tras GameConfig.RespawnTime segundos
+--   * "Regenerar ahora": a partir de GameConfig.RespawnNowDelay se puede reaparecer antes
+--   * "Revivir instantáneo": gasta un revivir (data.Revives) y vuelve justo donde moriste
+-- Round llama a Respawn.ApplyRevive al aparecer el personaje para colocarlo en ese punto.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Respawn = {}
+
+local deaths = {} -- [player] = { Time = os.clock(), Position = Vector3?, Character = Model }
+local revivePoints = {} -- [player] = Vector3 donde debe aparecer tras revivir
+local loading = {} -- [player] = true mientras se carga un personaje (evita cargas dobles)
+
+local function load(player)
+	if loading[player] or not player.Parent then
+		return
+	end
+	loading[player] = true
+	deaths[player] = nil
+	local ok, err = pcall(player.LoadCharacter, player)
+	loading[player] = nil
+	if not ok then
+		warn("[Respawn] No se pudo cargar el personaje:", err)
+	end
+end
+Respawn.Load = load
+
+local function isDead(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return character == nil or humanoid == nil or humanoid.Health <= 0
+end
+
+local function watch(player, character)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then
+		return
+	end
+	humanoid.Died:Connect(function()
+		local root = character:FindFirstChild("HumanoidRootPart")
+		deaths[player] = { Time = os.clock(), Position = root and root.Position, Character = character }
+		task.delay(GameConfig.RespawnTime, function()
+			-- Solo si sigue con el mismo personaje muerto (no ha usado "Regenerar" ni "Revivir")
+			if player.Parent and player.Character == character then
+				load(player)
+			end
+		end)
+	end)
+end
+
+-- Llamada por Round al aparecer: si el jugador acaba de revivir, lo pone donde murió.
+-- Devuelve true si lo ha colocado (y entonces no se usa el punto de aparición normal).
+function Respawn.ApplyRevive(player, character)
+	local point = revivePoints[player]
+	if not point then
+		return false
+	end
+	revivePoints[player] = nil
+	local root = character:WaitForChild("HumanoidRootPart", 5)
+	if not root then
+		return false
+	end
+	task.wait()
+	character:PivotTo(CFrame.new(point + Vector3.new(0, 3, 0)) * (root.CFrame - root.Position))
+	-- Protección breve al revivir (se pierde al disparar, como la de reaparición)
+	local shield = Instance.new("ForceField")
+	shield.Name = "SpawnShield"
+	shield.Visible = true
+	shield.Parent = character
+	task.delay(GameConfig.ReviveShieldTime, function()
+		if shield.Parent then
+			shield:Destroy()
+		end
+	end)
+	return true
+end
+
+-- Comprueba si se puede revivir ahora mismo; devuelve el punto o nil y el motivo
+local function reviveCheck(player)
+	local death = deaths[player]
+	if not death or not isDead(player) then
+		return nil, "Solo al morir"
+	end
+	if os.clock() - death.Time > GameConfig.RespawnTime + 0.5 then
+		return nil, "Demasiado tarde"
+	end
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+		return nil, "La ronda no está en juego"
+	end
+	local point = death.Position
+	if not point or point.Y < -20 then
+		return nil, "No se puede revivir aquí"
+	end
+	return point
+end
+
+function Respawn.Init()
+	Players.CharacterAutoLoads = false -- también en default.project.json; aquí por si se usa otro lugar
+	Remotes.RespawnNow.OnServerEvent:Connect(function(player)
+		local death = deaths[player]
+		if death and isDead(player) and os.clock() - death.Time >= GameConfig.RespawnNowDelay then
+			load(player)
+		end
+	end)
+
+	Remotes.InstantRevive.OnServerInvoke = function(player)
+		local point, reason = reviveCheck(player)
+		if not point then
+			return false, reason
+		end
+		if not PlayerData.UseRevive(player) then
+			return false, "Sin revivir"
+		end
+		revivePoints[player] = point
+		task.spawn(load, player)
+		return true
+	end
+
+	local function onPlayer(player)
+		player.CharacterAdded:Connect(function(character)
+			task.spawn(watch, player, character)
+		end)
+		if player.Character then
+			task.spawn(watch, player, player.Character)
+		else
+			-- Primera aparición (CharacterAutoLoads está desactivado)
+			task.defer(load, player)
+		end
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in Players:GetPlayers() do
+		onPlayer(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		deaths[player] = nil
+		revivePoints[player] = nil
+		loading[player] = nil
+	end)
+end
+
+return Respawn

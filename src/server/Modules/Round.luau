@@ -23,6 +23,7 @@ local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
+local Respawn = require(script.Parent.Respawn)
 
 local Round = {}
 
@@ -618,7 +619,12 @@ function Round.Init()
 	local function onPlayer(player)
 		assignTeam(player)
 		player.CharacterAdded:Connect(function(character)
-			task.spawn(ffaSpawnFor, player, character)
+			task.spawn(function()
+				-- Revivir instantáneo: aparece donde murió; si no, punto normal (FFA)
+				if not Respawn.ApplyRevive(player, character) then
+					ffaSpawnFor(player, character)
+				end
+			end)
 		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)

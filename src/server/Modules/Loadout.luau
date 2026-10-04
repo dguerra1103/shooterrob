@@ -170,6 +170,13 @@ end
 function Loadout.Init()
 	PlayerData.OnSkinChanged = onSkinChanged
 	PlayerData.OnOutfitChanged = onOutfitChanged
+	-- "Volver al menú": vuelve a ser invulnerable y queda fuera de los objetivos
+	Remotes.EnterMenu.OnServerEvent:Connect(function(player)
+		player:SetAttribute("InMenu", true)
+		if player.Character then
+			addMenuShield(player, player.Character)
+		end
+	end)
 	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
 		player:SetAttribute("InMenu", false)
 		local shield = player.Character and player.Character:FindFirstChild("MenuShield")

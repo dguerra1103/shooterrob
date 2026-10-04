@@ -3,6 +3,7 @@ local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
 	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
+	Dead = false, -- pantalla de muerte abierta (la rellena DeathScreen)
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
@@ -27,7 +28,7 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead
 end
 
 -- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)

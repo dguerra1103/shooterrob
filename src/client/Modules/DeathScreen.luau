@@ -1,0 +1,376 @@
+-- Pantalla de muerte (estilo shooters de Roblox):
+--   * Observas al que te eliminó en tercera persona (clic / clic derecho cambia de jugador)
+--   * VOLVER AL MENÚ, REVIVIR INSTANTÁNEO (B, gasta un revivir: vuelves donde caíste) y
+--     REGENERAR AHORA (Espacio o F, a partir de GameConfig.RespawnNowDelay)
+-- Sin revivir disponibles, el botón abre la compra del pack (si está configurado en Shop).
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+local Shop = require(Shared.Shop)
+local Sounds = require(Shared.Sounds)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+local MainMenu = require(script.Parent.MainMenu)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local DeathScreen = {}
+
+local gui: any = nil
+local refs: { [string]: any } = {}
+local deathTime = 0
+local targets = {} -- jugadores que se pueden observar
+local targetIndex = 0
+local spectating = nil -- Player observado
+local reviving = false
+local originalZoom = { 0.5, 400 } -- zoom de la cámara del jugador (se restaura al reaparecer)
+
+local BLUE = Color3.fromRGB(40, 140, 255)
+local PINK = Color3.fromRGB(255, 70, 200)
+local GREEN = Color3.fromRGB(70, 220, 60)
+
+local function alive(p)
+	local character = p.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.Health > 0, humanoid
+end
+
+-- Cámara en tercera persona detrás del jugador observado
+local function watch(target)
+	spectating = target
+	local ok, humanoid = alive(target)
+	if not ok then
+		return
+	end
+	player.CameraMode = Enum.CameraMode.Classic
+	player.CameraMinZoomDistance = 10
+	player.CameraMaxZoomDistance = 14
+	camera.CameraType = Enum.CameraType.Custom
+	camera.CameraSubject = humanoid
+	refs.SpectateName.Text = target.DisplayName .. " (" .. target.Name .. ")"
+	refs.SpectatePanel.Visible = true
+end
+
+local function stopWatching()
+	spectating = nil
+	refs.SpectatePanel.Visible = false
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera.CameraSubject = humanoid
+	end
+end
+
+local function restoreCamera()
+	player.CameraMinZoomDistance = originalZoom[1]
+	player.CameraMaxZoomDistance = originalZoom[2]
+	player.CameraMode = Enum.CameraMode.LockFirstPerson
+end
+
+local function refreshTargets(firstChoice)
+	targets = {}
+	for _, p in Players:GetPlayers() do
+		if p ~= player and alive(p) then
+			table.insert(targets, p)
+		end
+	end
+	-- Primero el que te eliminó, luego tus compañeros
+	table.sort(targets, function(a, b)
+		local function rank(p)
+			if p == firstChoice then
+				return 0
+			end
+			return (player.Team and p.Team == player.Team) and 1 or 2
+		end
+		return rank(a) < rank(b)
+	end)
+end
+
+local function cycle(step)
+	refreshTargets(spectating)
+	if #targets == 0 then
+		stopWatching()
+		return
+	end
+	local current = spectating and table.find(targets, spectating) or 0
+	targetIndex = ((current - 1 + step) % #targets) + 1
+	watch(targets[targetIndex])
+end
+
+local function revivesLeft()
+	local data = ClientState.Data
+	return data and data.Revives or 0
+end
+
+local function toast(text)
+	refs.Toast.Text = text
+	refs.Toast.Visible = true
+	task.delay(2, function()
+		if refs.Toast.Text == text then
+			refs.Toast.Visible = false
+		end
+	end)
+end
+
+local function tryRevive()
+	if not ClientState.Dead or reviving then
+		return
+	end
+	if revivesLeft() <= 0 then
+		local pack = Shop.RevivePacks[1]
+		if pack and pack.ProductId ~= 0 then
+			MarketplaceService:PromptProductPurchase(player, pack.ProductId)
+		else
+			toast("No te quedan revivir")
+		end
+		return
+	end
+	reviving = true
+	Sounds.Play("Click")
+	local ok, result, reason = pcall(function()
+		return Remotes.InstantRevive:InvokeServer()
+	end)
+	reviving = false
+	if not ok or not result then
+		toast(reason or "No se pudo revivir")
+	end
+end
+
+local function respawnNow()
+	if ClientState.Dead and os.clock() - deathTime >= GameConfig.RespawnNowDelay then
+		Sounds.Play("Click")
+		Remotes.RespawnNow:FireServer()
+	end
+end
+
+local function close()
+	if not ClientState.Dead then
+		return
+	end
+	ClientState.Dead = false
+	gui.Enabled = false
+	stopWatching()
+	restoreCamera()
+	ClientState.UpdateMouse()
+end
+
+local function open(killerName)
+	ClientState.Dead = true
+	deathTime = os.clock()
+	gui.Enabled = true
+	refs.Toast.Visible = false
+	ClientState.UpdateMouse()
+	local killer = killerName and Players:FindFirstChild(killerName)
+	refreshTargets(killer)
+	if killer and alive(killer) then
+		watch(killer)
+	elseif #targets > 0 then
+		watch(targets[1])
+	else
+		refs.SpectatePanel.Visible = false
+	end
+end
+
+-- Botón grande con texto encima ("Presiona B") y barra debajo
+local function actionButton(text, hint, color, x)
+	local holder = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, x, 1, -150),
+		Size = UDim2.fromOffset(280, 110),
+		BackgroundTransparency = 1,
+		Parent = refs.Bottom,
+	})
+	if hint then
+		UI.label({
+			Size = UDim2.new(1, 0, 0, 26),
+			Text = hint,
+			TextSize = 22,
+			Parent = holder,
+		})
+	end
+	local button = UI.button({
+		Position = UDim2.fromOffset(0, 28),
+		Size = UDim2.new(1, 0, 0, 58),
+		Text = text,
+		TextSize = 26,
+		BackgroundColor3 = color,
+		Parent = holder,
+	}, { UI.stroke(Color3.new(1, 1, 1), 3, 0), UI.gloss() })
+	local bar = UI.new("Frame", {
+		Position = UDim2.fromOffset(6, 92),
+		Size = UDim2.new(1, -12, 0, 14),
+		BackgroundColor3 = color:Lerp(Color3.new(0, 0, 0), 0.65),
+		Parent = holder,
+	}, { UI.corner(7) })
+	local fill = UI.new("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = color,
+		Parent = bar,
+	}, { UI.corner(7) })
+	return holder, button, fill
+end
+
+local function build()
+	gui = UI.new("ScreenGui", {
+		Name = "DeathScreen",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 3,
+		Enabled = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	-- Libera el ratón aunque la cámara esté en primera persona
+	UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Parent = gui })
+
+	refs.Bottom = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
+	local scale = UI.new("UIScale", { Parent = refs.Bottom })
+	local function rescale()
+		local size = camera.ViewportSize
+		scale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), 0.55, 1)
+	end
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+	rescale()
+
+	local _, menuButton = actionButton("VOLVER AL MENÚ", nil, BLUE, -300)
+	local reviveHolder, reviveButton, reviveFill = actionButton("REVIVIR INSTANTÁNEO", "Presiona B", PINK, 0)
+	local _, respawnButton, respawnFill = actionButton("REGENERAR AHORA", "Presiona Espacio o F", GREEN, 300)
+	refs.ReviveButton, refs.ReviveFill, refs.RespawnButton, refs.RespawnFill = reviveButton, reviveFill, respawnButton, respawnFill
+
+	-- Corazón con alas y "N restantes"
+	refs.ReviveBadge = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, -6, 0, 22),
+		Size = UDim2.fromOffset(150, 30),
+		Rotation = -14,
+		Text = "",
+		TextSize = 22,
+		TextColor3 = Color3.new(1, 1, 1),
+		Parent = reviveHolder,
+	})
+	UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, -2, 0, 58),
+		Size = UDim2.fromOffset(60, 60),
+		Text = "💖",
+		TextSize = 48,
+		Parent = reviveHolder,
+	})
+
+	menuButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		close()
+		MainMenu.Show()
+	end)
+	reviveButton.Activated:Connect(tryRevive)
+	respawnButton.Activated:Connect(respawnNow)
+
+	-- Panel de observar (izquierda)
+	refs.SpectatePanel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 30, 0.5, 20),
+		Size = UDim2.fromOffset(440, 220),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = refs.Bottom,
+	})
+	refs.SpectateName = UI.label({
+		Size = UDim2.new(1, 0, 0, 40),
+		Text = "",
+		TextSize = 32,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.SpectatePanel,
+	})
+	UI.label({
+		Position = UDim2.fromOffset(0, 40),
+		Size = UDim2.new(1, 0, 0, 26),
+		Text = "Haz clic / clic derecho para cambiar",
+		TextSize = 20,
+		TextColor3 = Color3.fromRGB(215, 215, 230),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.SpectatePanel,
+	})
+	local stop = UI.button({
+		Position = UDim2.fromOffset(0, 90),
+		Size = UDim2.fromOffset(230, 46),
+		Text = "DEJAR DE OBSERVAR",
+		TextSize = 20,
+		BackgroundColor3 = Color3.fromRGB(230, 50, 60),
+		Parent = refs.SpectatePanel,
+	}, { UI.stroke(Color3.new(1, 1, 1), 2, 0), UI.gloss() })
+	stop.Activated:Connect(function()
+		Sounds.Play("Click")
+		stopWatching()
+	end)
+
+	refs.Toast = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -270),
+		Size = UDim2.fromOffset(500, 34),
+		Text = "",
+		TextSize = 26,
+		TextColor3 = Color3.fromRGB(255, 120, 140),
+		Visible = false,
+		Parent = refs.Bottom,
+	})
+end
+
+local function update()
+	if not ClientState.Dead then
+		return
+	end
+	local elapsed = os.clock() - deathTime
+	-- Revivir: la barra se vacía mientras queda tiempo para usarlo
+	local reviveWindow = math.clamp(1 - elapsed / GameConfig.RespawnTime, 0, 1)
+	refs.ReviveFill.Size = UDim2.fromScale(reviveWindow, 1)
+	local left = revivesLeft()
+	refs.ReviveBadge.Text = left > 0 and (left .. " restantes") or "¡Consigue más!"
+	refs.ReviveButton.AutoButtonColor = reviveWindow > 0
+	-- Regenerar: la barra se llena hasta que se puede pulsar
+	local charge = math.clamp(elapsed / GameConfig.RespawnNowDelay, 0, 1)
+	refs.RespawnFill.Size = UDim2.fromScale(charge, 1)
+	refs.RespawnButton.BackgroundTransparency = charge >= 1 and 0 or 0.35
+	-- Si el observado muere o se va, pasa al siguiente
+	if spectating and not alive(spectating) then
+		cycle(1)
+	end
+end
+
+function DeathScreen.Init()
+	originalZoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+	build()
+	Remotes.Died.OnClientEvent:Connect(open)
+	player.CharacterAdded:Connect(function(character)
+		close()
+		local humanoid = character:WaitForChild("Humanoid", 5)
+		if humanoid and not ClientState.InMainMenu then
+			camera.CameraType = Enum.CameraType.Custom
+			camera.CameraSubject = humanoid
+		end
+	end)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not ClientState.Dead or processed then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then
+			tryRevive()
+		elseif input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonA then
+			respawnNow()
+		elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR1 then
+			cycle(1)
+		elseif input.UserInputType == Enum.UserInputType.MouseButton2 or input.KeyCode == Enum.KeyCode.ButtonL1 then
+			cycle(-1)
+		end
+	end)
+	RunService.RenderStepped:Connect(update)
+end
+
+return DeathScreen

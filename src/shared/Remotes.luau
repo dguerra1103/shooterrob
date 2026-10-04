@@ -9,6 +9,8 @@ local EVENTS = {
 	"EquipSkin", -- cliente -> servidor: equipar skin
 	"SetPrimary", -- cliente -> servidor: elegir arma principal
 	"LeaveMenu", -- cliente -> servidor: ha salido de la pantalla de inicio
+	"EnterMenu", -- cliente -> servidor: vuelve a la pantalla de inicio (escudo y fuera de juego)
+	"RespawnNow", -- cliente -> servidor: "Regenerar ahora" tras morir
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
@@ -34,6 +36,7 @@ local FUNCTIONS = {
 	"ClaimDaily", -- recoger la recompensa diaria
 	"OpenCrate", -- abrir una caja
 	"RerollChallenge", -- cambiar un reto diario
+	"InstantRevive", -- revivir donde moriste (gasta un revivir)
 }
 
 local Remotes = {}

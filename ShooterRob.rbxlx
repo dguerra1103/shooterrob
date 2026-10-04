@@ -17,6 +17,7 @@
   <Item class="Players" referent="2">
     <Properties>
       <string name="Name">Players</string>
+      <bool name="CharacterAutoLoads">false</bool>
       <float name="RespawnTime">3</float>
     </Properties>
   </Item>
@@ -144,6 +145,9 @@ GameConfig.Flag = {
 }
 GameConfig.EndScreenTime = 8
 GameConfig.RespawnTime = 3
+GameConfig.RespawnNowDelay = 1 -- "Regenerar ahora" se puede pulsar a partir de este segundo
+GameConfig.StartingRevives = 3 -- revivir instantáneos con los que empieza un jugador nuevo
+GameConfig.ReviveShieldTime = 2 -- segundos de escudo al revivir
 GameConfig.SpawnProtection = 2 -- segundos de escudo al reaparecer
 GameConfig.TrainingDummies = true -- muñecos de práctica en el mapa (ponlo en false al publicar)
 
@@ -558,6 +562,8 @@ local EVENTS = {
 	"EquipSkin", -- cliente -> servidor: equipar skin
 	"SetPrimary", -- cliente -> servidor: elegir arma principal
 	"LeaveMenu", -- cliente -> servidor: ha salido de la pantalla de inicio
+	"EnterMenu", -- cliente -> servidor: vuelve a la pantalla de inicio (escudo y fuera de juego)
+	"RespawnNow", -- cliente -> servidor: "Regenerar ahora" tras morir
 	"SetSecondary", -- cliente -> servidor: elegir arma secundaria
 	"EquipOutfit", -- cliente -> servidor: equipar traje de operador
 	"VoteMap", -- cliente -> servidor: voto de mapa/modo
@@ -583,6 +589,7 @@ local FUNCTIONS = {
 	"ClaimDaily", -- recoger la recompensa diaria
 	"OpenCrate", -- abrir una caja
 	"RerollChallenge", -- cambiar un reto diario
+	"InstantRevive", -- revivir donde moriste (gasta un revivir)
 }
 
 local Remotes = {}
@@ -626,7 +633,7 @@ return Remotes
           <string name="Source"><![CDATA[-- Catálogo de la tienda: precios en monedas, packs de Robux, VIP, recompensas diarias y cajas.
 --
 -- IMPORTANTE (Robux): crea los productos en el Creator Hub (Monetización) y pega sus IDs aquí.
---   Developer Products -> CoinPacks[i].ProductId
+--   Developer Products -> CoinPacks[i].ProductId y RevivePacks[i].ProductId
 --   Game Pass VIP      -> VIPPassId
 -- Con ID 0 el botón aparece desactivado ("Próximamente").
 local Shop = {}
@@ -637,6 +644,12 @@ Shop.CoinPacks = {
 	{ Name = "Bolsa", Coins = 1200, Robux = 99, ProductId = 0, Tag = "+20%" },
 	{ Name = "Cofre", Coins = 3000, Robux = 199, ProductId = 0, Tag = "MÁS VENDIDO" },
 	{ Name = "Bóveda", Coins = 8000, Robux = 449, ProductId = 0, Tag = "MEJOR VALOR" },
+}
+
+-- Packs de "Revivir instantáneo" (Developer Products): vuelves a la acción justo donde caíste
+Shop.RevivePacks = {
+	{ Name = "5 revivir", Revives = 5, Robux = 25, ProductId = 0 },
+	{ Name = "15 revivir", Revives = 15, Robux = 59, ProductId = 0, Tag = "MEJOR VALOR" },
 }
 
 -- Pack de inicio (Developer Product de compra única): solo se ofrece a jugadores nuevos.
@@ -2912,6 +2925,7 @@ local Hazards = require(Modules.Hazards)
 local Grenades = require(Modules.Grenades)
 local Leaderboard = require(Modules.Leaderboard)
 local Killstreaks = require(Modules.Killstreaks)
+local Respawn = require(Modules.Respawn)
 
 MapBuilder.Build() -- primer mapa de la rotación (o tu mapa propio si existe workspace.Map)
 PlayerData.Init()
@@ -2919,6 +2933,7 @@ Loadout.Init()
 Combat.Init()
 Combat.OnKill = Round.RegisterKill
 Round.Init()
+Respawn.Init() -- reaparición propia (CharacterAutoLoads desactivado): después de Round
 Dummies.Init()
 Hazards.Init()
 Grenades.Init()
@@ -4742,6 +4757,13 @@ end
 function Loadout.Init()
 	PlayerData.OnSkinChanged = onSkinChanged
 	PlayerData.OnOutfitChanged = onOutfitChanged
+	-- "Volver al menú": vuelve a ser invulnerable y queda fuera de los objetivos
+	Remotes.EnterMenu.OnServerEvent:Connect(function(player)
+		player:SetAttribute("InMenu", true)
+		if player.Character then
+			addMenuShield(player, player.Character)
+		end
+	end)
 	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
 		player:SetAttribute("InMenu", false)
 		local shield = player.Character and player.Character:FindFirstChild("MenuShield")
@@ -8312,6 +8334,7 @@ local function defaults()
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
+		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -8403,6 +8426,7 @@ local function publicView(player, data)
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
+		Revives = data.Revives,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
@@ -8541,6 +8565,9 @@ local function load(player)
 	if type(merged.WeaponCamos) ~= "table" then
 		merged.WeaponCamos = {}
 	end
+	if type(merged.Revives) ~= "number" or merged.Revives ~= merged.Revives then
+		merged.Revives = GameConfig.StartingRevives
+	end
 	if type(merged.Settings) ~= "table" then
 		merged.Settings = table.clone(GameConfig.DefaultSettings)
 	end
@@ -8653,6 +8680,18 @@ end
 
 local function multiplier(player)
 	return player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
+end
+
+-- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
+function PlayerData.UseRevive(player)
+	local data = profiles[player]
+	if not data or (data.Revives or 0) <= 0 then
+		return false
+	end
+	data.Revives -= 1
+	dirty[player] = true
+	sendUpdate(player)
+	return true
 end
 
 function PlayerData.AddXP(player, amount, reason)
@@ -8949,7 +8988,13 @@ local function processReceipt(receipt)
 	if table.find(data.Purchases, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
-	-- Qué se entrega: un pack de monedas o el pack de inicio
+	-- Qué se entrega: un pack de monedas, de revivir o el pack de inicio
+	local revivePack
+	for _, p in Shop.RevivePacks do
+		if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
+			revivePack = p
+		end
+	end
 	local grant, undo, message
 	local starter = Shop.StarterPack
 	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
@@ -8990,6 +9035,15 @@ local function processReceipt(receipt)
 			data.StarterPack = false
 		end
 		message = "¡PACK DE INICIO DESBLOQUEADO!"
+	elseif revivePack then
+		local pack = revivePack
+		grant = function()
+			data.Revives += pack.Revives
+		end
+		undo = function()
+			data.Revives -= pack.Revives
+		end
+		message = "+" .. pack.Revives .. " REVIVIR INSTANTÁNEO"
 	else
 		local pack
 		for _, p in Shop.CoinPacks do
@@ -9233,6 +9287,160 @@ return PlayerData
         </Item>
         <Item class="ModuleScript" referent="40">
           <Properties>
+            <string name="Name">Respawn</string>
+            <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
+--   * Al morir se reaparece solo tras GameConfig.RespawnTime segundos
+--   * "Regenerar ahora": a partir de GameConfig.RespawnNowDelay se puede reaparecer antes
+--   * "Revivir instantáneo": gasta un revivir (data.Revives) y vuelve justo donde moriste
+-- Round llama a Respawn.ApplyRevive al aparecer el personaje para colocarlo en ese punto.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+
+local PlayerData = require(script.Parent.PlayerData)
+
+local Respawn = {}
+
+local deaths = {} -- [player] = { Time = os.clock(), Position = Vector3?, Character = Model }
+local revivePoints = {} -- [player] = Vector3 donde debe aparecer tras revivir
+local loading = {} -- [player] = true mientras se carga un personaje (evita cargas dobles)
+
+local function load(player)
+	if loading[player] or not player.Parent then
+		return
+	end
+	loading[player] = true
+	deaths[player] = nil
+	local ok, err = pcall(player.LoadCharacter, player)
+	loading[player] = nil
+	if not ok then
+		warn("[Respawn] No se pudo cargar el personaje:", err)
+	end
+end
+Respawn.Load = load
+
+local function isDead(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return character == nil or humanoid == nil or humanoid.Health <= 0
+end
+
+local function watch(player, character)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then
+		return
+	end
+	humanoid.Died:Connect(function()
+		local root = character:FindFirstChild("HumanoidRootPart")
+		deaths[player] = { Time = os.clock(), Position = root and root.Position, Character = character }
+		task.delay(GameConfig.RespawnTime, function()
+			-- Solo si sigue con el mismo personaje muerto (no ha usado "Regenerar" ni "Revivir")
+			if player.Parent and player.Character == character then
+				load(player)
+			end
+		end)
+	end)
+end
+
+-- Llamada por Round al aparecer: si el jugador acaba de revivir, lo pone donde murió.
+-- Devuelve true si lo ha colocado (y entonces no se usa el punto de aparición normal).
+function Respawn.ApplyRevive(player, character)
+	local point = revivePoints[player]
+	if not point then
+		return false
+	end
+	revivePoints[player] = nil
+	local root = character:WaitForChild("HumanoidRootPart", 5)
+	if not root then
+		return false
+	end
+	task.wait()
+	character:PivotTo(CFrame.new(point + Vector3.new(0, 3, 0)) * (root.CFrame - root.Position))
+	-- Protección breve al revivir (se pierde al disparar, como la de reaparición)
+	local shield = Instance.new("ForceField")
+	shield.Name = "SpawnShield"
+	shield.Visible = true
+	shield.Parent = character
+	task.delay(GameConfig.ReviveShieldTime, function()
+		if shield.Parent then
+			shield:Destroy()
+		end
+	end)
+	return true
+end
+
+-- Comprueba si se puede revivir ahora mismo; devuelve el punto o nil y el motivo
+local function reviveCheck(player)
+	local death = deaths[player]
+	if not death or not isDead(player) then
+		return nil, "Solo al morir"
+	end
+	if os.clock() - death.Time > GameConfig.RespawnTime + 0.5 then
+		return nil, "Demasiado tarde"
+	end
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+		return nil, "La ronda no está en juego"
+	end
+	local point = death.Position
+	if not point or point.Y < -20 then
+		return nil, "No se puede revivir aquí"
+	end
+	return point
+end
+
+function Respawn.Init()
+	Players.CharacterAutoLoads = false -- también en default.project.json; aquí por si se usa otro lugar
+	Remotes.RespawnNow.OnServerEvent:Connect(function(player)
+		local death = deaths[player]
+		if death and isDead(player) and os.clock() - death.Time >= GameConfig.RespawnNowDelay then
+			load(player)
+		end
+	end)
+
+	Remotes.InstantRevive.OnServerInvoke = function(player)
+		local point, reason = reviveCheck(player)
+		if not point then
+			return false, reason
+		end
+		if not PlayerData.UseRevive(player) then
+			return false, "Sin revivir"
+		end
+		revivePoints[player] = point
+		task.spawn(load, player)
+		return true
+	end
+
+	local function onPlayer(player)
+		player.CharacterAdded:Connect(function(character)
+			task.spawn(watch, player, character)
+		end)
+		if player.Character then
+			task.spawn(watch, player, player.Character)
+		else
+			-- Primera aparición (CharacterAutoLoads está desactivado)
+			task.defer(load, player)
+		end
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, player in Players:GetPlayers() do
+		onPlayer(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		deaths[player] = nil
+		revivePoints[player] = nil
+		loading[player] = nil
+	end)
+end
+
+return Respawn
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="41">
+          <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
 -- Modos: TDM (duelo por equipos), CTF (captura la bandera), KOTH (zona de control),
@@ -9259,6 +9467,7 @@ local MapBuilder = require(script.Parent.MapBuilder)
 local Loadout = require(script.Parent.Loadout)
 local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
+local Respawn = require(script.Parent.Respawn)
 
 local Round = {}
 
@@ -9854,7 +10063,12 @@ function Round.Init()
 	local function onPlayer(player)
 		assignTeam(player)
 		player.CharacterAdded:Connect(function(character)
-			task.spawn(ffaSpawnFor, player, character)
+			task.spawn(function()
+				-- Revivir instantáneo: aparece donde murió; si no, punto normal (FFA)
+				if not Respawn.ApplyRevive(player, character) then
+					ffaSpawnFor(player, character)
+				end
+			end)
 		end)
 	end
 	Players.PlayerAdded:Connect(onPlayer)
@@ -9879,22 +10093,22 @@ return Round
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="41">
+  <Item class="StarterPlayer" referent="42">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="42">
+    <Item class="StarterPlayerScripts" referent="43">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="43">
+      <Item class="Folder" referent="44">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="44">
+        <Item class="LocalScript" referent="45">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -9915,6 +10129,7 @@ local GrenadeController = require(Modules.GrenadeController)
 local KillstreakController = require(Modules.KillstreakController)
 local Settings = require(Modules.Settings)
 local Footprints = require(Modules.Footprints)
+local DeathScreen = require(Modules.DeathScreen)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -9933,6 +10148,7 @@ Movement.Init()
 WeaponController.Init()
 WorldFX.Init()
 Footprints.Init()
+DeathScreen.Init()
 VoteUI.Init()
 GrenadeController.Init()
 KillstreakController.Init()
@@ -9940,11 +10156,11 @@ MainMenu.Init() -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="45">
+        <Item class="Folder" referent="46">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -9952,6 +10168,7 @@ local ClientState = {
 	Data = nil, -- datos de progreso (nivel, XP, skins...)
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
 	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
+	Dead = false, -- pantalla de muerte abierta (la rellena DeathScreen)
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
@@ -9976,7 +10193,7 @@ local ClientState = {
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
 function ClientState.IsBlocked()
-	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
+	return ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu or ClientState.Dead
 end
 
 -- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)
@@ -10005,7 +10222,389 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="48">
+            <Properties>
+              <string name="Name">DeathScreen</string>
+              <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
+--   * Observas al que te eliminó en tercera persona (clic / clic derecho cambia de jugador)
+--   * VOLVER AL MENÚ, REVIVIR INSTANTÁNEO (B, gasta un revivir: vuelves donde caíste) y
+--     REGENERAR AHORA (Espacio o F, a partir de GameConfig.RespawnNowDelay)
+-- Sin revivir disponibles, el botón abre la compra del pack (si está configurado en Shop).
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
+local Remotes = require(Shared.Remotes)
+local Shop = require(Shared.Shop)
+local Sounds = require(Shared.Sounds)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+local MainMenu = require(script.Parent.MainMenu)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local DeathScreen = {}
+
+local gui: any = nil
+local refs: { [string]: any } = {}
+local deathTime = 0
+local targets = {} -- jugadores que se pueden observar
+local targetIndex = 0
+local spectating = nil -- Player observado
+local reviving = false
+local originalZoom = { 0.5, 400 } -- zoom de la cámara del jugador (se restaura al reaparecer)
+
+local BLUE = Color3.fromRGB(40, 140, 255)
+local PINK = Color3.fromRGB(255, 70, 200)
+local GREEN = Color3.fromRGB(70, 220, 60)
+
+local function alive(p)
+	local character = p.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.Health > 0, humanoid
+end
+
+-- Cámara en tercera persona detrás del jugador observado
+local function watch(target)
+	spectating = target
+	local ok, humanoid = alive(target)
+	if not ok then
+		return
+	end
+	player.CameraMode = Enum.CameraMode.Classic
+	player.CameraMinZoomDistance = 10
+	player.CameraMaxZoomDistance = 14
+	camera.CameraType = Enum.CameraType.Custom
+	camera.CameraSubject = humanoid
+	refs.SpectateName.Text = target.DisplayName .. " (" .. target.Name .. ")"
+	refs.SpectatePanel.Visible = true
+end
+
+local function stopWatching()
+	spectating = nil
+	refs.SpectatePanel.Visible = false
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera.CameraSubject = humanoid
+	end
+end
+
+local function restoreCamera()
+	player.CameraMinZoomDistance = originalZoom[1]
+	player.CameraMaxZoomDistance = originalZoom[2]
+	player.CameraMode = Enum.CameraMode.LockFirstPerson
+end
+
+local function refreshTargets(firstChoice)
+	targets = {}
+	for _, p in Players:GetPlayers() do
+		if p ~= player and alive(p) then
+			table.insert(targets, p)
+		end
+	end
+	-- Primero el que te eliminó, luego tus compañeros
+	table.sort(targets, function(a, b)
+		local function rank(p)
+			if p == firstChoice then
+				return 0
+			end
+			return (player.Team and p.Team == player.Team) and 1 or 2
+		end
+		return rank(a) < rank(b)
+	end)
+end
+
+local function cycle(step)
+	refreshTargets(spectating)
+	if #targets == 0 then
+		stopWatching()
+		return
+	end
+	local current = spectating and table.find(targets, spectating) or 0
+	targetIndex = ((current - 1 + step) % #targets) + 1
+	watch(targets[targetIndex])
+end
+
+local function revivesLeft()
+	local data = ClientState.Data
+	return data and data.Revives or 0
+end
+
+local function toast(text)
+	refs.Toast.Text = text
+	refs.Toast.Visible = true
+	task.delay(2, function()
+		if refs.Toast.Text == text then
+			refs.Toast.Visible = false
+		end
+	end)
+end
+
+local function tryRevive()
+	if not ClientState.Dead or reviving then
+		return
+	end
+	if revivesLeft() <= 0 then
+		local pack = Shop.RevivePacks[1]
+		if pack and pack.ProductId ~= 0 then
+			MarketplaceService:PromptProductPurchase(player, pack.ProductId)
+		else
+			toast("No te quedan revivir")
+		end
+		return
+	end
+	reviving = true
+	Sounds.Play("Click")
+	local ok, result, reason = pcall(function()
+		return Remotes.InstantRevive:InvokeServer()
+	end)
+	reviving = false
+	if not ok or not result then
+		toast(reason or "No se pudo revivir")
+	end
+end
+
+local function respawnNow()
+	if ClientState.Dead and os.clock() - deathTime >= GameConfig.RespawnNowDelay then
+		Sounds.Play("Click")
+		Remotes.RespawnNow:FireServer()
+	end
+end
+
+local function close()
+	if not ClientState.Dead then
+		return
+	end
+	ClientState.Dead = false
+	gui.Enabled = false
+	stopWatching()
+	restoreCamera()
+	ClientState.UpdateMouse()
+end
+
+local function open(killerName)
+	ClientState.Dead = true
+	deathTime = os.clock()
+	gui.Enabled = true
+	refs.Toast.Visible = false
+	ClientState.UpdateMouse()
+	local killer = killerName and Players:FindFirstChild(killerName)
+	refreshTargets(killer)
+	if killer and alive(killer) then
+		watch(killer)
+	elseif #targets > 0 then
+		watch(targets[1])
+	else
+		refs.SpectatePanel.Visible = false
+	end
+end
+
+-- Botón grande con texto encima ("Presiona B") y barra debajo
+local function actionButton(text, hint, color, x)
+	local holder = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, x, 1, -150),
+		Size = UDim2.fromOffset(280, 110),
+		BackgroundTransparency = 1,
+		Parent = refs.Bottom,
+	})
+	if hint then
+		UI.label({
+			Size = UDim2.new(1, 0, 0, 26),
+			Text = hint,
+			TextSize = 22,
+			Parent = holder,
+		})
+	end
+	local button = UI.button({
+		Position = UDim2.fromOffset(0, 28),
+		Size = UDim2.new(1, 0, 0, 58),
+		Text = text,
+		TextSize = 26,
+		BackgroundColor3 = color,
+		Parent = holder,
+	}, { UI.stroke(Color3.new(1, 1, 1), 3, 0), UI.gloss() })
+	local bar = UI.new("Frame", {
+		Position = UDim2.fromOffset(6, 92),
+		Size = UDim2.new(1, -12, 0, 14),
+		BackgroundColor3 = color:Lerp(Color3.new(0, 0, 0), 0.65),
+		Parent = holder,
+	}, { UI.corner(7) })
+	local fill = UI.new("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = color,
+		Parent = bar,
+	}, { UI.corner(7) })
+	return holder, button, fill
+end
+
+local function build()
+	gui = UI.new("ScreenGui", {
+		Name = "DeathScreen",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 3,
+		Enabled = false,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	-- Libera el ratón aunque la cámara esté en primera persona
+	UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Parent = gui })
+
+	refs.Bottom = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
+	local scale = UI.new("UIScale", { Parent = refs.Bottom })
+	local function rescale()
+		local size = camera.ViewportSize
+		scale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 720), 0.55, 1)
+	end
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+	rescale()
+
+	local _, menuButton = actionButton("VOLVER AL MENÚ", nil, BLUE, -300)
+	local reviveHolder, reviveButton, reviveFill = actionButton("REVIVIR INSTANTÁNEO", "Presiona B", PINK, 0)
+	local _, respawnButton, respawnFill = actionButton("REGENERAR AHORA", "Presiona Espacio o F", GREEN, 300)
+	refs.ReviveButton, refs.ReviveFill, refs.RespawnButton, refs.RespawnFill = reviveButton, reviveFill, respawnButton, respawnFill
+
+	-- Corazón con alas y "N restantes"
+	refs.ReviveBadge = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, -6, 0, 22),
+		Size = UDim2.fromOffset(150, 30),
+		Rotation = -14,
+		Text = "",
+		TextSize = 22,
+		TextColor3 = Color3.new(1, 1, 1),
+		Parent = reviveHolder,
+	})
+	UI.label({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, -2, 0, 58),
+		Size = UDim2.fromOffset(60, 60),
+		Text = "💖",
+		TextSize = 48,
+		Parent = reviveHolder,
+	})
+
+	menuButton.Activated:Connect(function()
+		Sounds.Play("Click")
+		close()
+		MainMenu.Show()
+	end)
+	reviveButton.Activated:Connect(tryRevive)
+	respawnButton.Activated:Connect(respawnNow)
+
+	-- Panel de observar (izquierda)
+	refs.SpectatePanel = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 30, 0.5, 20),
+		Size = UDim2.fromOffset(440, 220),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = refs.Bottom,
+	})
+	refs.SpectateName = UI.label({
+		Size = UDim2.new(1, 0, 0, 40),
+		Text = "",
+		TextSize = 32,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.SpectatePanel,
+	})
+	UI.label({
+		Position = UDim2.fromOffset(0, 40),
+		Size = UDim2.new(1, 0, 0, 26),
+		Text = "Haz clic / clic derecho para cambiar",
+		TextSize = 20,
+		TextColor3 = Color3.fromRGB(215, 215, 230),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = refs.SpectatePanel,
+	})
+	local stop = UI.button({
+		Position = UDim2.fromOffset(0, 90),
+		Size = UDim2.fromOffset(230, 46),
+		Text = "DEJAR DE OBSERVAR",
+		TextSize = 20,
+		BackgroundColor3 = Color3.fromRGB(230, 50, 60),
+		Parent = refs.SpectatePanel,
+	}, { UI.stroke(Color3.new(1, 1, 1), 2, 0), UI.gloss() })
+	stop.Activated:Connect(function()
+		Sounds.Play("Click")
+		stopWatching()
+	end)
+
+	refs.Toast = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -270),
+		Size = UDim2.fromOffset(500, 34),
+		Text = "",
+		TextSize = 26,
+		TextColor3 = Color3.fromRGB(255, 120, 140),
+		Visible = false,
+		Parent = refs.Bottom,
+	})
+end
+
+local function update()
+	if not ClientState.Dead then
+		return
+	end
+	local elapsed = os.clock() - deathTime
+	-- Revivir: la barra se vacía mientras queda tiempo para usarlo
+	local reviveWindow = math.clamp(1 - elapsed / GameConfig.RespawnTime, 0, 1)
+	refs.ReviveFill.Size = UDim2.fromScale(reviveWindow, 1)
+	local left = revivesLeft()
+	refs.ReviveBadge.Text = left > 0 and (left .. " restantes") or "¡Consigue más!"
+	refs.ReviveButton.AutoButtonColor = reviveWindow > 0
+	-- Regenerar: la barra se llena hasta que se puede pulsar
+	local charge = math.clamp(elapsed / GameConfig.RespawnNowDelay, 0, 1)
+	refs.RespawnFill.Size = UDim2.fromScale(charge, 1)
+	refs.RespawnButton.BackgroundTransparency = charge >= 1 and 0 or 0.35
+	-- Si el observado muere o se va, pasa al siguiente
+	if spectating and not alive(spectating) then
+		cycle(1)
+	end
+end
+
+function DeathScreen.Init()
+	originalZoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
+	build()
+	Remotes.Died.OnClientEvent:Connect(open)
+	player.CharacterAdded:Connect(function(character)
+		close()
+		local humanoid = character:WaitForChild("Humanoid", 5)
+		if humanoid and not ClientState.InMainMenu then
+			camera.CameraType = Enum.CameraType.Custom
+			camera.CameraSubject = humanoid
+		end
+	end)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not ClientState.Dead or processed then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then
+			tryRevive()
+		elseif input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonA then
+			respawnNow()
+		elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR1 then
+			cycle(1)
+		elseif input.UserInputType == Enum.UserInputType.MouseButton2 or input.KeyCode == Enum.KeyCode.ButtonL1 then
+			cycle(-1)
+		end
+	end)
+	RunService.RenderStepped:Connect(update)
+end
+
+return DeathScreen
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -10864,7 +11463,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="48">
+          <Item class="ModuleScript" referent="50">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -11005,7 +11604,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="49">
+          <Item class="ModuleScript" referent="51">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -11127,7 +11726,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="50">
+          <Item class="ModuleScript" referent="52">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -11689,17 +12288,17 @@ local function buildFeedsAndOverlays()
 		Parent = refs.Damage,
 	})
 
-	-- Pantalla de muerte
+	-- Quién te eliminó (arriba); los botones y la cámara de espectador están en DeathScreen
 	refs.DeathScreen = UI.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.6,
+		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
 	})
 	refs.DeathText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.45),
+		Position = UDim2.fromScale(0.5, 0.17),
 		Size = UDim2.fromOffset(800, 60),
 		Text = "",
 		TextSize = 40,
@@ -11711,14 +12310,15 @@ local function buildFeedsAndOverlays()
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.53),
 		Size = UDim2.fromOffset(600, 30),
-		Text = "Reapareciendo...",
+		Text = "",
+		Visible = false,
 		TextSize = 22,
 		Parent = refs.DeathScreen,
 	})
 	refs.DeathIcon = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.33),
-		Size = UDim2.fromOffset(280, 110),
+		Position = UDim2.fromScale(0.5, 0.27),
+		Size = UDim2.fromOffset(220, 86),
 		BackgroundTransparency = 1,
 		Parent = refs.DeathScreen,
 	})
@@ -12414,17 +13014,6 @@ function HUD.Init()
 			icon.Parent = refs.DeathIcon
 		end
 		refs.DeathScreen.Visible = true
-		-- Cuenta atrás para reaparecer
-		task.spawn(function()
-			for t = GameConfig.RespawnTime, 1, -1 do
-				if not refs.DeathScreen.Visible then
-					return
-				end
-				refs.RespawnText.Text = "Reapareciendo en " .. t .. "..."
-				task.wait(1)
-			end
-			refs.RespawnText.Text = "Reapareciendo..."
-		end)
 	end)
 	player.CharacterAdded:Connect(function()
 		refs.DeathScreen.Visible = false
@@ -12459,7 +13048,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="51">
+          <Item class="ModuleScript" referent="53">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -12673,7 +13262,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="52">
+          <Item class="ModuleScript" referent="54">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -12703,6 +13292,7 @@ local MainMenu = {}
 
 local gui, root, infoLabel, showcase, dailyButton, starterButton
 local blur
+local titleScale
 local orbitAngle = 0
 local controls
 
@@ -12902,6 +13492,36 @@ local function buildLeaderboard(parent)
 	end)
 end
 
+-- Abre la pantalla de inicio: desenfoque, cámara girando, título que respira y controles bloqueados
+local function openMenu()
+	blur = blur or Instance.new("BlurEffect")
+	blur.Name = "MainMenuBlur"
+	blur.Size = 10
+	blur.Parent = Lighting
+
+	ClientState.InMainMenu = true
+	UserInputService.MouseIconEnabled = true
+	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
+
+	-- El título "respira"
+	task.spawn(function()
+		while ClientState.InMainMenu do
+			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1.04 }):Play()
+			task.wait(1.2)
+			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
+			task.wait(1.2)
+		end
+	end)
+
+	-- Bloquea el movimiento del personaje mientras tanto
+	task.spawn(function()
+		local ctrl = getControls()
+		if ctrl and ClientState.InMainMenu then
+			ctrl:Disable()
+		end
+	end)
+end
+
 local function play()
 	if not ClientState.InMainMenu then
 		return
@@ -12933,6 +13553,20 @@ local function play()
 		end
 		ClientState.UpdateMouse()
 	end)
+end
+
+-- "Volver al menú" (por ejemplo desde la pantalla de muerte)
+function MainMenu.Show()
+	if ClientState.InMainMenu or not gui then
+		return
+	end
+	Remotes.EnterMenu:FireServer()
+	gui.Enabled = true
+	root.GroupTransparency = 0
+	showcase.Visible = true
+	openMenu()
+	refreshInfo()
+	ClientState.UpdateMouse()
 end
 
 function MainMenu.Init()
@@ -13004,7 +13638,7 @@ function MainMenu.Init()
 		}),
 		UI.new("UIStroke", { Thickness = 6, Color = Color3.fromRGB(30, 10, 40) }),
 	})
-	local titleScale = UI.new("UIScale", { Parent = title })
+	titleScale = UI.new("UIScale", { Parent = title })
 
 	UI.label({
 		Position = UDim2.fromOffset(4, 112),
@@ -13107,33 +13741,7 @@ function MainMenu.Init()
 
 	buildLeaderboard(root)
 
-	-- Desenfoque del fondo
-	blur = Instance.new("BlurEffect")
-	blur.Name = "MainMenuBlur"
-	blur.Size = 10
-	blur.Parent = Lighting
-
-	ClientState.InMainMenu = true
-	UserInputService.MouseIconEnabled = true
-	RunService:BindToRenderStep("MainMenuOrbit", Enum.RenderPriority.Camera.Value + 2, orbit)
-
-	-- El título "respira"
-	task.spawn(function()
-		while ClientState.InMainMenu do
-			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1.04 }):Play()
-			task.wait(1.2)
-			TweenService:Create(titleScale, TweenInfo.new(1.2, Enum.EasingStyle.Sine), { Scale = 1 }):Play()
-			task.wait(1.2)
-		end
-	end)
-
-	-- Bloquea el movimiento del personaje mientras tanto
-	task.spawn(function()
-		local ctrl = getControls()
-		if ctrl and ClientState.InMainMenu then
-			ctrl:Disable()
-		end
-	end)
+	openMenu()
 
 	ClientState.DataChanged.Event:Connect(refreshInfo)
 	refreshInfo()
@@ -13153,7 +13761,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="53">
+          <Item class="ModuleScript" referent="55">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -14571,9 +15179,39 @@ local function buildShopPage(data)
 		end)
 	end
 
+	-- Revivir instantáneo con Robux (vuelves a la acción justo donde caíste)
+	local PINK_REVIVE = Color3.fromRGB(255, 70, 200)
+	sectionTitle(scroll, "💖 Revivir instantáneo", 8)
+	local revives = row(scroll, 9, 150)
+	for i, pack in Shop.RevivePacks do
+		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(200, 150), BackgroundColor3 = Color3.fromRGB(70, 20, 60), Parent = revives }, {
+			UI.corner(12),
+			UI.stroke(PINK_REVIVE, 2, 0),
+			UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 80, 170)), Rotation = 90 }),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 40), Text = string.rep("💖", i + 1), TextSize = 28, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 30), Text = "x" .. pack.Revives, TextSize = 30, TextColor3 = Color3.fromRGB(255, 200, 240), Parent = card })
+		if pack.Tag then
+			UI.label({ Position = UDim2.fromOffset(0, 78), Size = UDim2.new(1, 0, 0, 18), Text = pack.Tag, TextSize = 13, TextColor3 = Color3.fromRGB(120, 255, 140), Parent = card })
+		end
+		local buyRevive = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -20, 0, 40),
+			Text = pack.ProductId ~= 0 and ("R$ " .. pack.Robux) or "Próximamente",
+			BackgroundColor3 = pack.ProductId ~= 0 and GREEN or GREY,
+			Parent = card,
+		}, { UI.gloss() })
+		buyRevive.Activated:Connect(function()
+			if pack.ProductId ~= 0 then
+				MarketplaceService:PromptProductPurchase(player, pack.ProductId)
+			end
+		end)
+	end
+
 	-- VIP
 	local vip = UI.new("Frame", {
-		LayoutOrder = 8,
+		LayoutOrder = 10,
 		Size = UDim2.new(1, -10, 0, 90),
 		BackgroundColor3 = Color3.fromRGB(70, 50, 10),
 		Parent = scroll,
@@ -14895,7 +15533,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="54">
+          <Item class="ModuleScript" referent="56">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -15175,7 +15813,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="55">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -15364,7 +16002,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -15466,7 +16104,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -15618,7 +16256,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -16440,7 +17078,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -16497,7 +17135,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -16659,19 +17297,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="61">
+  <Item class="Teams" referent="63">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="62">
+  <Item class="Workspace" referent="64">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="63">
+    <Item class="Terrain" referent="65">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

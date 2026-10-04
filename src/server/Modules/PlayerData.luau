@@ -80,6 +80,7 @@ local function defaults()
 		WeaponCamos = {}, -- camuflaje de maestría elegido para cada arma
 		Challenges = { Day = -1, List = {}, Rerolls = 0, Bonus = false },
 		StarterPack = false, -- ya compró el pack de inicio
+		Revives = GameConfig.StartingRevives, -- "Revivir instantáneo" disponibles
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -171,6 +172,7 @@ local function publicView(player, data)
 		KillEffects = data.KillEffects,
 		EquippedKillEffect = data.EquippedKillEffect,
 		Settings = data.Settings,
+		Revives = data.Revives,
 		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
 		Challenges = challengesView(player, data),
 	}
@@ -309,6 +311,9 @@ local function load(player)
 	if type(merged.WeaponCamos) ~= "table" then
 		merged.WeaponCamos = {}
 	end
+	if type(merged.Revives) ~= "number" or merged.Revives ~= merged.Revives then
+		merged.Revives = GameConfig.StartingRevives
+	end
 	if type(merged.Settings) ~= "table" then
 		merged.Settings = table.clone(GameConfig.DefaultSettings)
 	end
@@ -421,6 +426,18 @@ end
 
 local function multiplier(player)
 	return player:GetAttribute("VIP") and Shop.VIPMultiplier or 1
+end
+
+-- Gasta un "Revivir instantáneo". Devuelve false si no le quedan.
+function PlayerData.UseRevive(player)
+	local data = profiles[player]
+	if not data or (data.Revives or 0) <= 0 then
+		return false
+	end
+	data.Revives -= 1
+	dirty[player] = true
+	sendUpdate(player)
+	return true
 end
 
 function PlayerData.AddXP(player, amount, reason)
@@ -717,7 +734,13 @@ local function processReceipt(receipt)
 	if table.find(data.Purchases, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
-	-- Qué se entrega: un pack de monedas o el pack de inicio
+	-- Qué se entrega: un pack de monedas, de revivir o el pack de inicio
+	local revivePack
+	for _, p in Shop.RevivePacks do
+		if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
+			revivePack = p
+		end
+	end
 	local grant, undo, message
 	local starter = Shop.StarterPack
 	if starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
@@ -758,6 +781,15 @@ local function processReceipt(receipt)
 			data.StarterPack = false
 		end
 		message = "¡PACK DE INICIO DESBLOQUEADO!"
+	elseif revivePack then
+		local pack = revivePack
+		grant = function()
+			data.Revives += pack.Revives
+		end
+		undo = function()
+			data.Revives -= pack.Revives
+		end
+		message = "+" .. pack.Revives .. " REVIVIR INSTANTÁNEO"
 	else
 		local pack
 		for _, p in Shop.CoinPacks do

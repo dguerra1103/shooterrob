@@ -1,7 +1,7 @@
 -- Catálogo de la tienda: precios en monedas, packs de Robux, VIP, recompensas diarias y cajas.
 --
 -- IMPORTANTE (Robux): crea los productos en el Creator Hub (Monetización) y pega sus IDs aquí.
---   Developer Products -> CoinPacks[i].ProductId
+--   Developer Products -> CoinPacks[i].ProductId y RevivePacks[i].ProductId
 --   Game Pass VIP      -> VIPPassId
 -- Con ID 0 el botón aparece desactivado ("Próximamente").
 local Shop = {}
@@ -12,6 +12,12 @@ Shop.CoinPacks = {
 	{ Name = "Bolsa", Coins = 1200, Robux = 99, ProductId = 0, Tag = "+20%" },
 	{ Name = "Cofre", Coins = 3000, Robux = 199, ProductId = 0, Tag = "MÁS VENDIDO" },
 	{ Name = "Bóveda", Coins = 8000, Robux = 449, ProductId = 0, Tag = "MEJOR VALOR" },
+}
+
+-- Packs de "Revivir instantáneo" (Developer Products): vuelves a la acción justo donde caíste
+Shop.RevivePacks = {
+	{ Name = "5 revivir", Revives = 5, Robux = 25, ProductId = 0 },
+	{ Name = "15 revivir", Revives = 15, Robux = 59, ProductId = 0, Tag = "MEJOR VALOR" },
 }
 
 -- Pack de inicio (Developer Product de compra única): solo se ofrece a jugadores nuevos.

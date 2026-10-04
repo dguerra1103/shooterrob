@@ -557,17 +557,17 @@ local function buildFeedsAndOverlays()
 		Parent = refs.Damage,
 	})
 
-	-- Pantalla de muerte
+	-- Quién te eliminó (arriba); los botones y la cámara de espectador están en DeathScreen
 	refs.DeathScreen = UI.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.6,
+		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
 	})
 	refs.DeathText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.45),
+		Position = UDim2.fromScale(0.5, 0.17),
 		Size = UDim2.fromOffset(800, 60),
 		Text = "",
 		TextSize = 40,
@@ -579,14 +579,15 @@ local function buildFeedsAndOverlays()
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.53),
 		Size = UDim2.fromOffset(600, 30),
-		Text = "Reapareciendo...",
+		Text = "",
+		Visible = false,
 		TextSize = 22,
 		Parent = refs.DeathScreen,
 	})
 	refs.DeathIcon = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.33),
-		Size = UDim2.fromOffset(280, 110),
+		Position = UDim2.fromScale(0.5, 0.27),
+		Size = UDim2.fromOffset(220, 86),
 		BackgroundTransparency = 1,
 		Parent = refs.DeathScreen,
 	})
@@ -1282,17 +1283,6 @@ function HUD.Init()
 			icon.Parent = refs.DeathIcon
 		end
 		refs.DeathScreen.Visible = true
-		-- Cuenta atrás para reaparecer
-		task.spawn(function()
-			for t = GameConfig.RespawnTime, 1, -1 do
-				if not refs.DeathScreen.Visible then
-					return
-				end
-				refs.RespawnText.Text = "Reapareciendo en " .. t .. "..."
-				task.wait(1)
-			end
-			refs.RespawnText.Text = "Reapareciendo..."
-		end)
 	end)
 	player.CharacterAdded:Connect(function()
 		refs.DeathScreen.Visible = false

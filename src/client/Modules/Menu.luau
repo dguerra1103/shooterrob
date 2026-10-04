@@ -1413,9 +1413,39 @@ local function buildShopPage(data)
 		end)
 	end
 
+	-- Revivir instantáneo con Robux (vuelves a la acción justo donde caíste)
+	local PINK_REVIVE = Color3.fromRGB(255, 70, 200)
+	sectionTitle(scroll, "💖 Revivir instantáneo", 8)
+	local revives = row(scroll, 9, 150)
+	for i, pack in Shop.RevivePacks do
+		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(200, 150), BackgroundColor3 = Color3.fromRGB(70, 20, 60), Parent = revives }, {
+			UI.corner(12),
+			UI.stroke(PINK_REVIVE, 2, 0),
+			UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 80, 170)), Rotation = 90 }),
+		})
+		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 40), Text = string.rep("💖", i + 1), TextSize = 28, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 30), Text = "x" .. pack.Revives, TextSize = 30, TextColor3 = Color3.fromRGB(255, 200, 240), Parent = card })
+		if pack.Tag then
+			UI.label({ Position = UDim2.fromOffset(0, 78), Size = UDim2.new(1, 0, 0, 18), Text = pack.Tag, TextSize = 13, TextColor3 = Color3.fromRGB(120, 255, 140), Parent = card })
+		end
+		local buyRevive = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -20, 0, 40),
+			Text = pack.ProductId ~= 0 and ("R$ " .. pack.Robux) or "Próximamente",
+			BackgroundColor3 = pack.ProductId ~= 0 and GREEN or GREY,
+			Parent = card,
+		}, { UI.gloss() })
+		buyRevive.Activated:Connect(function()
+			if pack.ProductId ~= 0 then
+				MarketplaceService:PromptProductPurchase(player, pack.ProductId)
+			end
+		end)
+	end
+
 	-- VIP
 	local vip = UI.new("Frame", {
-		LayoutOrder = 8,
+		LayoutOrder = 10,
 		Size = UDim2.new(1, -10, 0, 90),
 		BackgroundColor3 = Color3.fromRGB(70, 50, 10),
 		Parent = scroll,
