@@ -1083,6 +1083,11 @@ local function endRound()
 				end
 			end
 			PlayerData.Track(player, "Win", 1)
+			-- (reto semanal: ganar en el mapa destacado del día)
+			local featured = ReplicatedStorage:GetAttribute("FeaturedMap")
+			if featured and featured == ReplicatedStorage:GetAttribute("MapName") then
+				PlayerData.Track(player, "FeaturedWin", 1)
+			end
 			if currentMode == "INF" and winner == teams[1] then
 				PlayerData.Track(player, "Survive", 1)
 			end

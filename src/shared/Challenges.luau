@@ -47,6 +47,7 @@ Challenges.WeeklyPool = {
 	{ Id = "W_Melee", Stat = "Kill", Weapons = { "Knife", "ToyHammer", "Katana", "Scythe" }, Goal = 10, Text = "10 bajas cuerpo a cuerpo", Coins = 900, XP = 1500 },
 	{ Id = "W_Snipers", Stat = "Kill", Weapons = { "Signal7", "GhostlineXR", "RaptorDMR" }, Goal = 25, Text = "25 bajas con francotirador o DMR", Coins = 900, XP = 1500, MinLevel = 3 },
 	{ Id = "W_Grenades", Stat = "Kill", Weapons = { "Grenade" }, Goal = 12, Text = "12 bajas con granada", Coins = 900, XP = 1500 },
+	{ Id = "W_Featured", Stat = "FeaturedWin", Goal = 3, Text = "Gana 3 partidas en el mapa del día ⭐", Coins = 900, XP = 1800 },
 }
 
 local byId = {}
