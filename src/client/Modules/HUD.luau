@@ -1605,9 +1605,24 @@ function HUD.Init()
 	Remotes.Died.OnClientEvent:Connect(function(killerName, weaponName, killerHealth)
 		local weapon = weaponName and Weapons.Get(weaponName)
 		if killerName then
+			-- Rango y título de quien te eliminó (si es un jugador)
+			local killer = Players:FindFirstChild(killerName)
+			local extra = ""
+			if killer and killer:IsA("Player") then
+				local rank = Ranks.Tiers[killer:GetAttribute("Rank") or 0]
+				local title = killer:GetAttribute("Title")
+				local titleColor = killer:GetAttribute("TitleColor")
+				if type(title) == "string" and title ~= "" then
+					extra ..= string.format(' <font color="#%s">«%s»</font>', typeof(titleColor) == "Color3" and titleColor:ToHex() or "C8C8D2", title)
+				end
+				if rank then
+					extra = " " .. rank.Icon .. extra
+				end
+			end
 			refs.DeathText.Text = "ELIMINADO POR <b>"
 				.. killerName
 				.. "</b>"
+				.. extra
 				.. (weapon and (" · " .. weapon.DisplayName) or "")
 				.. (type(killerHealth) == "number" and killerHealth > 0 and killerName ~= player.Name and string.format('  <font color="#7CFF8A">❤ %d</font>', killerHealth) or "")
 		else
