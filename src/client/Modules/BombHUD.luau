@@ -59,7 +59,7 @@ function BombHUD.Init()
 	})
 	barBack = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.62, 0),
+		Position = UDim2.new(0.5, 0, 0.55, 0), -- (entre la mira y los botones de habilidades)
 		Size = UDim2.fromOffset(260, 22),
 		BackgroundColor3 = Color3.fromRGB(20, 22, 28),
 		BackgroundTransparency = 0.2,
