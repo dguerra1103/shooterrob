@@ -204,11 +204,13 @@ GameConfig.XP = {
 	Capture = 300, -- capturar la bandera
 	FlagReturn = 75, -- devolver tu bandera caída
 	CarrierKill = 75, -- eliminar al portador de tu bandera
+	Assist = 40, -- asistencia: le quitaste vida a alguien que remató otro (en los últimos 10 s)
 }
 GameConfig.Coins = {
 	Kill = 5,
 	Win = 50,
 	Capture = 20,
+	Assist = 2,
 	WinStreak = 10, -- extra por cada victoria seguida (2.ª victoria +10, 3.ª +20...)
 	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
 }

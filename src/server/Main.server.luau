@@ -36,6 +36,7 @@ start("PlayerData", PlayerData.Init)
 start("Loadout", Loadout.Init)
 start("Combat", Combat.Init)
 Combat.OnKill = Round.RegisterKill
+Combat.OnAssist = Round.RegisterAssist
 start("Round", Round.Init)
 start("Respawn", Respawn.Init) -- reaparición propia (CharacterAutoLoads desactivado): después de Round
 start("Dummies", Dummies.Init)

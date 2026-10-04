@@ -11,6 +11,12 @@ local Combat = {}
 
 -- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
+Combat.OnAssist = nil -- (jugadores que ayudaron, nombre de la víctima, bot víctima)
+
+-- Quién le ha quitado vida a cada Humanoid y cuándo (para las asistencias)
+local ASSIST_WINDOW = 10
+local ASSIST_MIN_DAMAGE = 20
+local damageLog = setmetatable({}, { __mode = "k" }) -- [humanoid] = { [userId] = { Time, Damage } }
 
 -- Cadencia: "cubo" de disparos por arma. Se rellena a FireRate por segundo y guarda hasta 3, así los
 -- disparos legítimos que llegan juntos (lag) no se pierden, pero no se puede disparar más rápido.
@@ -126,6 +132,18 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 	local before = humanoid.Health
 	humanoid:TakeDamage(damage) -- respeta el ForceField de spawn
 	local dealt = before - humanoid.Health
+	if dealt > 0 then
+		local log = damageLog[humanoid] or {}
+		damageLog[humanoid] = log
+		local entry = log[attacker.UserId]
+		if entry and os.clock() - entry.Time < ASSIST_WINDOW then
+			entry.Damage += dealt
+		else
+			entry = { Damage = dealt }
+			log[attacker.UserId] = entry
+		end
+		entry.Time = os.clock()
+	end
 	return dealt, humanoid.Health <= 0
 end
 
@@ -219,6 +237,22 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 		-- Espectador de Eliminación (entró a mitad de ronda): pantalla de muerte, pero sin baja ni muerte
 		if Combat.OnKill and not humanoid:GetAttribute("Spectator") then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
+		end
+		-- Asistencias: quien le quitó bastante vida hace poco y no es quien lo remató
+		local log = damageLog[humanoid]
+		damageLog[humanoid] = nil
+		if log and Combat.OnAssist and not humanoid:GetAttribute("Spectator") then
+			local helpers = {}
+			for userId, entry in log do
+				local helper = Players:GetPlayerByUserId(userId)
+				if helper and helper ~= killer and helper ~= victimPlayer and entry.Damage >= ASSIST_MIN_DAMAGE
+					and os.clock() - entry.Time < ASSIST_WINDOW then
+					table.insert(helpers, helper)
+				end
+			end
+			if #helpers > 0 then
+				Combat.OnAssist(helpers, victimName, victimBot)
+			end
 		end
 	end)
 end

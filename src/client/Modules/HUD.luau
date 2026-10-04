@@ -860,6 +860,8 @@ local function onNotify(kind, text)
 		Sounds.Play("Flag")
 	elseif kind == "Streak" then
 		timedLabel(refs.Banner, "🔥 " .. text, 3)
+	elseif kind == "Assist" then
+		popup("🤝 ASISTENCIA  " .. tostring(text), Color3.fromRGB(120, 220, 255))
 	elseif kind == "Bounty" then
 		timedLabel(refs.Banner, "💰 " .. text, 3.5)
 	elseif kind == "Wanted" then

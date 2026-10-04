@@ -635,11 +635,13 @@ GameConfig.XP = {
 	Capture = 300, -- capturar la bandera
 	FlagReturn = 75, -- devolver tu bandera caída
 	CarrierKill = 75, -- eliminar al portador de tu bandera
+	Assist = 40, -- asistencia: le quitaste vida a alguien que remató otro (en los últimos 10 s)
 }
 GameConfig.Coins = {
 	Kill = 5,
 	Win = 50,
 	Capture = 20,
+	Assist = 2,
 	WinStreak = 10, -- extra por cada victoria seguida (2.ª victoria +10, 3.ª +20...)
 	WinStreakMax = 5, -- tope de victorias seguidas que suman extra
 }
@@ -5052,6 +5054,7 @@ start("PlayerData", PlayerData.Init)
 start("Loadout", Loadout.Init)
 start("Combat", Combat.Init)
 Combat.OnKill = Round.RegisterKill
+Combat.OnAssist = Round.RegisterAssist
 start("Round", Round.Init)
 start("Respawn", Respawn.Init) -- reaparición propia (CharacterAutoLoads desactivado): después de Round
 start("Dummies", Dummies.Init)
@@ -6268,6 +6271,12 @@ local Combat = {}
 
 -- Asignado desde Main: function(killer: Player?, victim: Player?, victimName, weaponName, headshot, position: Vector3?)
 Combat.OnKill = nil
+Combat.OnAssist = nil -- (jugadores que ayudaron, nombre de la víctima, bot víctima)
+
+-- Quién le ha quitado vida a cada Humanoid y cuándo (para las asistencias)
+local ASSIST_WINDOW = 10
+local ASSIST_MIN_DAMAGE = 20
+local damageLog = setmetatable({}, { __mode = "k" }) -- [humanoid] = { [userId] = { Time, Damage } }
 
 -- Cadencia: "cubo" de disparos por arma. Se rellena a FireRate por segundo y guarda hasta 3, así los
 -- disparos legítimos que llegan juntos (lag) no se pierden, pero no se puede disparar más rápido.
@@ -6383,6 +6392,18 @@ local function applyDamage(attacker, humanoid, damage, weaponName, headshot)
 	local before = humanoid.Health
 	humanoid:TakeDamage(damage) -- respeta el ForceField de spawn
 	local dealt = before - humanoid.Health
+	if dealt > 0 then
+		local log = damageLog[humanoid] or {}
+		damageLog[humanoid] = log
+		local entry = log[attacker.UserId]
+		if entry and os.clock() - entry.Time < ASSIST_WINDOW then
+			entry.Damage += dealt
+		else
+			entry = { Damage = dealt }
+			log[attacker.UserId] = entry
+		end
+		entry.Time = os.clock()
+	end
 	return dealt, humanoid.Health <= 0
 end
 
@@ -6476,6 +6497,22 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 		-- Espectador de Eliminación (entró a mitad de ronda): pantalla de muerte, pero sin baja ni muerte
 		if Combat.OnKill and not humanoid:GetAttribute("Spectator") then
 			Combat.OnKill(killer, victimPlayer, victimName, weaponName, headshot, position, killerBot, victimBot)
+		end
+		-- Asistencias: quien le quitó bastante vida hace poco y no es quien lo remató
+		local log = damageLog[humanoid]
+		damageLog[humanoid] = nil
+		if log and Combat.OnAssist and not humanoid:GetAttribute("Spectator") then
+			local helpers = {}
+			for userId, entry in log do
+				local helper = Players:GetPlayerByUserId(userId)
+				if helper and helper ~= killer and helper ~= victimPlayer and entry.Damage >= ASSIST_MIN_DAMAGE
+					and os.clock() - entry.Time < ASSIST_WINDOW then
+					table.insert(helpers, helper)
+				end
+			end
+			if #helpers > 0 then
+				Combat.OnAssist(helpers, victimName, victimBot)
+			end
 		end
 	end)
 end
@@ -14895,6 +14932,7 @@ local function defaults()
 		EquippedCharm = "Default",
 		Sprays = { Default = true }, -- grafitis comprados (tecla J)
 		EquippedSpray = "Default",
+		Assists = 0, -- asistencias (ver Combat)
 		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
 		EquippedTitle = "Novato",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
@@ -17067,6 +17105,17 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	-- Infección: el superviviente que cae se convierte en zombi en el acto (antes de que pueda revivir)
 	if ReplicatedStorage:GetAttribute("Infection") == "On" and onInfectionDeath then
 		onInfectionDeath(victim, victimBot)
+	end
+end
+
+-- Asistencias (ver Combat): XP y monedas a quien ayudó a eliminar (menos si la víctima era un bot)
+function Round.RegisterAssist(helpers, victimName, victimBot)
+	local scale = victimBot and GameConfig.Bots.RewardScale or 1
+	for _, helper in helpers do
+		PlayerData.AddXP(helper, math.floor((GameConfig.XP.Assist or 0) * scale), "Asistencia")
+		PlayerData.AddCoins(helper, math.max(1, math.floor((GameConfig.Coins.Assist or 0) * scale)))
+		PlayerData.Increment(helper, "Assists", 1)
+		Remotes.Notify:FireClient(helper, "Assist", tostring(victimName or ""))
 	end
 end
 
@@ -21737,6 +21786,8 @@ local function onNotify(kind, text)
 		Sounds.Play("Flag")
 	elseif kind == "Streak" then
 		timedLabel(refs.Banner, "🔥 " .. text, 3)
+	elseif kind == "Assist" then
+		popup("🤝 ASISTENCIA  " .. tostring(text), Color3.fromRGB(120, 220, 255))
 	elseif kind == "Bounty" then
 		timedLabel(refs.Banner, "💰 " .. text, 3.5)
 	elseif kind == "Wanted" then

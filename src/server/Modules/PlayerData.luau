@@ -95,6 +95,7 @@ local function defaults()
 		EquippedCharm = "Default",
 		Sprays = { Default = true }, -- grafitis comprados (tecla J)
 		EquippedSpray = "Default",
+		Assists = 0, -- asistencias (ver Combat)
 		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
 		EquippedTitle = "Novato",
 		WeaponKills = {}, -- bajas con cada arma (maestría)

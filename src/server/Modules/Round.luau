@@ -401,6 +401,17 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	end
 end
 
+-- Asistencias (ver Combat): XP y monedas a quien ayudó a eliminar (menos si la víctima era un bot)
+function Round.RegisterAssist(helpers, victimName, victimBot)
+	local scale = victimBot and GameConfig.Bots.RewardScale or 1
+	for _, helper in helpers do
+		PlayerData.AddXP(helper, math.floor((GameConfig.XP.Assist or 0) * scale), "Asistencia")
+		PlayerData.AddCoins(helper, math.max(1, math.floor((GameConfig.Coins.Assist or 0) * scale)))
+		PlayerData.Increment(helper, "Assists", 1)
+		Remotes.Notify:FireClient(helper, "Assist", tostring(victimName or ""))
+	end
+end
+
 ---------------------------------------------------------------------------
 -- Aparición libre (FFA / Escalada): el punto más alejado de los demás
 ---------------------------------------------------------------------------
