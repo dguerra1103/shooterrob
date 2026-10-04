@@ -17769,6 +17769,25 @@ function Map.Build()
 		end
 	end
 
+	-- Nieve acumulada en todo lo que mira hacia arriba: tejados, cornisas, alféizares, parapetos,
+	-- cajas, sacos, máquinas de las azoteas y vehículos (capas finas, sin sombra ni colisión)
+	local SNOWY = {
+		Roof = true, Cornice = true, Sill = true, Lintel = true, Parapet = true, Crate = true, MetalCrate = true,
+		Sandbags = true, RoofAC = true, Band = true, PlowCab = true, PlowBody = true, Cover = true, WaterTank = false,
+	}
+	local capped = {}
+	for _, part in folder:GetDescendants() do
+		if part:IsA("BasePart") and SNOWY[part.Name] and part.CFrame.UpVector.Y > 0.97 and part.Shape == Enum.PartType.Block then
+			table.insert(capped, part)
+		end
+	end
+	for _, part in capped do
+		local s = part.Size
+		local thick = (part.Name == "Roof" or part.Name == "Parapet") and 0.45 or 0.22
+		local cap = deco("SnowCap", V(s.X + 0.15, thick, s.Z + 0.15), part.CFrame * CFrame.new(0, s.Y / 2 + thick / 2, 0), SNOW, M.Snow)
+		cap.CastShadow = false
+	end
+
 	-- Zonas de salida, banderas y límites
 	local spawnStyle = { Floor = RGB(120, 122, 128), FloorMaterial = M.Concrete, Roof = RGB(90, 92, 100), RoofMaterial = M.CorrodedMetal }
 	Kit.spawnArea(teams[1], CFrame.new(-184, 0, 0), spawnStyle)
