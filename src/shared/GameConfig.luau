@@ -283,6 +283,15 @@ GameConfig.Group = {
 	Coins = 500,
 }
 
+-- Invitaciones: quien entra por primera vez con la invitación de un amigo (botón INVITAR de la
+-- portada) recibe NewPlayerCoins, y el que invitó InviterCoins si está en el mismo servidor (como
+-- mucho MaxRewards veces, para que no se pueda abusar con cuentas nuevas).
+GameConfig.Referral = {
+	NewPlayerCoins = 500,
+	InviterCoins = 500,
+	MaxRewards = 10,
+}
+
 -- "SE BUSCA": quien llega a una racha de Streak bajas lleva una recompensa encima (todos lo ven
 -- marcado). Quien lo elimine cobra Base monedas, + PerKill por cada baja más de la racha (hasta Max).
 GameConfig.Bounty = {

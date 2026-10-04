@@ -96,6 +96,8 @@ local function defaults()
 		Sprays = { Default = true }, -- grafitis comprados (tecla J)
 		EquippedSpray = "Default",
 		Assists = 0, -- asistencias (ver Combat)
+		ReferredBy = 0, -- quién le invitó (UserId), ver GameConfig.Referral
+		Referrals = 0, -- amigos nuevos que entraron con su invitación y le dieron premio
 		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
 		EquippedTitle = "Novato",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
@@ -503,7 +505,38 @@ local function load(player)
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
 	PlayerData.PublishTitle(player)
 	grantTierRewards(player)
+	if isNew then
+		PlayerData.HandleReferral(player)
+	end
 	sendUpdate(player)
+end
+
+-- Invitación de un amigo (GameConfig.Referral): la invitación lleva "ref:<UserId>" en LaunchData.
+-- Solo para jugadores nuevos y una vez; el que invitó cobra si está en este servidor.
+function PlayerData.HandleReferral(player)
+	local data = profiles[player]
+	local config = GameConfig.Referral
+	if not data or not config or (data.ReferredBy or 0) ~= 0 then
+		return
+	end
+	local ok, joinData = pcall(player.GetJoinData, player)
+	local launch = ok and type(joinData) == "table" and joinData.LaunchData
+	local inviterId = type(launch) == "string" and tonumber(string.match(launch, "^ref:(%d+)$"))
+	if not inviterId or inviterId == player.UserId or inviterId <= 0 then
+		return
+	end
+	data.ReferredBy = inviterId
+	dirty[player] = true
+	local inviter = Players:GetPlayerByUserId(inviterId)
+	local given = PlayerData.AddCoins(player, config.NewPlayerCoins or 0, false)
+	Remotes.Notify:FireClient(player, "Big", "👥 ¡Te invitó " .. (inviter and inviter.DisplayName or "un amigo") .. "! +" .. given .. " 🪙")
+	local inviterData = inviter and profiles[inviter]
+	if inviterData and (inviterData.Referrals or 0) < (config.MaxRewards or 0) then
+		inviterData.Referrals = (inviterData.Referrals or 0) + 1
+		local bonus = PlayerData.AddCoins(inviter, config.InviterCoins or 0, false)
+		dirty[inviter] = true
+		Remotes.Notify:FireClient(inviter, "Big", "👥 ¡" .. player.DisplayName .. " entró con tu invitación! +" .. bonus .. " 🪙")
+	end
 end
 
 -- Guarda los datos. release = true al salir el jugador: suelta el bloqueo de sesión.

@@ -715,6 +715,15 @@ GameConfig.Group = {
 	Coins = 500,
 }
 
+-- Invitaciones: quien entra por primera vez con la invitación de un amigo (botón INVITAR de la
+-- portada) recibe NewPlayerCoins, y el que invitó InviterCoins si está en el mismo servidor (como
+-- mucho MaxRewards veces, para que no se pueda abusar con cuentas nuevas).
+GameConfig.Referral = {
+	NewPlayerCoins = 500,
+	InviterCoins = 500,
+	MaxRewards = 10,
+}
+
 -- "SE BUSCA": quien llega a una racha de Streak bajas lleva una recompensa encima (todos lo ven
 -- marcado). Quien lo elimine cobra Base monedas, + PerKill por cada baja más de la racha (hasta Max).
 GameConfig.Bounty = {
@@ -15305,6 +15314,8 @@ local function defaults()
 		Sprays = { Default = true }, -- grafitis comprados (tecla J)
 		EquippedSpray = "Default",
 		Assists = 0, -- asistencias (ver Combat)
+		ReferredBy = 0, -- quién le invitó (UserId), ver GameConfig.Referral
+		Referrals = 0, -- amigos nuevos que entraron con su invitación y le dieron premio
 		Titles = {}, -- títulos comprados (los ganados jugando salen de las estadísticas)
 		EquippedTitle = "Novato",
 		WeaponKills = {}, -- bajas con cada arma (maestría)
@@ -15712,7 +15723,38 @@ local function load(player)
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
 	PlayerData.PublishTitle(player)
 	grantTierRewards(player)
+	if isNew then
+		PlayerData.HandleReferral(player)
+	end
 	sendUpdate(player)
+end
+
+-- Invitación de un amigo (GameConfig.Referral): la invitación lleva "ref:<UserId>" en LaunchData.
+-- Solo para jugadores nuevos y una vez; el que invitó cobra si está en este servidor.
+function PlayerData.HandleReferral(player)
+	local data = profiles[player]
+	local config = GameConfig.Referral
+	if not data or not config or (data.ReferredBy or 0) ~= 0 then
+		return
+	end
+	local ok, joinData = pcall(player.GetJoinData, player)
+	local launch = ok and type(joinData) == "table" and joinData.LaunchData
+	local inviterId = type(launch) == "string" and tonumber(string.match(launch, "^ref:(%d+)$"))
+	if not inviterId or inviterId == player.UserId or inviterId <= 0 then
+		return
+	end
+	data.ReferredBy = inviterId
+	dirty[player] = true
+	local inviter = Players:GetPlayerByUserId(inviterId)
+	local given = PlayerData.AddCoins(player, config.NewPlayerCoins or 0, false)
+	Remotes.Notify:FireClient(player, "Big", "👥 ¡Te invitó " .. (inviter and inviter.DisplayName or "un amigo") .. "! +" .. given .. " 🪙")
+	local inviterData = inviter and profiles[inviter]
+	if inviterData and (inviterData.Referrals or 0) < (config.MaxRewards or 0) then
+		inviterData.Referrals = (inviterData.Referrals or 0) + 1
+		local bonus = PlayerData.AddCoins(inviter, config.InviterCoins or 0, false)
+		dirty[inviter] = true
+		Remotes.Notify:FireClient(inviter, "Big", "👥 ¡" .. player.DisplayName .. " entró con tu invitación! +" .. bonus .. " 🪙")
+	end
 end
 
 -- Guarda los datos. release = true al salir el jugador: suelta el bloqueo de sesión.
@@ -23751,8 +23793,10 @@ local function buildLeaderboard(parent)
 		Parent = parent,
 	}, { UI.corner(14), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.2) })
 	-- Invitar amigos, justo debajo de la clasificación (cada amigo en el servidor da +10% de XP y
-	-- monedas, ver Friends en el servidor)
-	local invite = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 0, panel)
+	-- monedas, ver Friends; y si entra por primera vez con tu invitación, monedas para los dos, ver
+	-- GameConfig.Referral: la invitación lleva tu UserId)
+	local inviteText = "👥  INVITA: +" .. ((GameConfig.Referral and GameConfig.Referral.InviterCoins) or 0) .. " 🪙 y +10%"
+	local invite = bigButton(inviteText, Color3.fromRGB(40, 170, 200), 0, panel)
 	invite.Position = UDim2.new(0, 0, 1, 10)
 	invite.Size = UDim2.new(1, 0, 0, 44)
 	invite.TextSize = 22
@@ -23760,11 +23804,19 @@ local function buildLeaderboard(parent)
 		Sounds.Play("Click")
 		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
 		if ok and canInvite then
-			pcall(SocialService.PromptGameInvite, SocialService, player)
+			local prompted = pcall(function()
+				local options = Instance.new("ExperienceInviteOptions")
+				options.LaunchData = "ref:" .. player.UserId
+				options.PromptMessage = "¡Juega conmigo a SHOOTER NEW y nos llevamos monedas los dos!"
+				SocialService:PromptGameInvite(player, options)
+			end)
+			if not prompted then
+				pcall(SocialService.PromptGameInvite, SocialService, player)
+			end
 		else
 			invite.Text = "No puedes invitar desde aquí"
 			task.delay(2, function()
-				invite.Text = "👥  INVITAR AMIGOS  +10%"
+				invite.Text = inviteText
 			end)
 		end
 	end)

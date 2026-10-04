@@ -172,8 +172,10 @@ local function buildLeaderboard(parent)
 		Parent = parent,
 	}, { UI.corner(14), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.2) })
 	-- Invitar amigos, justo debajo de la clasificación (cada amigo en el servidor da +10% de XP y
-	-- monedas, ver Friends en el servidor)
-	local invite = bigButton("👥  INVITAR AMIGOS  +10%", Color3.fromRGB(40, 170, 200), 0, panel)
+	-- monedas, ver Friends; y si entra por primera vez con tu invitación, monedas para los dos, ver
+	-- GameConfig.Referral: la invitación lleva tu UserId)
+	local inviteText = "👥  INVITA: +" .. ((GameConfig.Referral and GameConfig.Referral.InviterCoins) or 0) .. " 🪙 y +10%"
+	local invite = bigButton(inviteText, Color3.fromRGB(40, 170, 200), 0, panel)
 	invite.Position = UDim2.new(0, 0, 1, 10)
 	invite.Size = UDim2.new(1, 0, 0, 44)
 	invite.TextSize = 22
@@ -181,11 +183,19 @@ local function buildLeaderboard(parent)
 		Sounds.Play("Click")
 		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
 		if ok and canInvite then
-			pcall(SocialService.PromptGameInvite, SocialService, player)
+			local prompted = pcall(function()
+				local options = Instance.new("ExperienceInviteOptions")
+				options.LaunchData = "ref:" .. player.UserId
+				options.PromptMessage = "¡Juega conmigo a SHOOTER NEW y nos llevamos monedas los dos!"
+				SocialService:PromptGameInvite(player, options)
+			end)
+			if not prompted then
+				pcall(SocialService.PromptGameInvite, SocialService, player)
+			end
 		else
 			invite.Text = "No puedes invitar desde aquí"
 			task.delay(2, function()
-				invite.Text = "👥  INVITAR AMIGOS  +10%"
+				invite.Text = inviteText
 			end)
 		end
 	end)
