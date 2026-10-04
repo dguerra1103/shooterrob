@@ -12,6 +12,7 @@ local Map = {
 }
 
 Map.Lighting = {
+	CartoonNeutral = { Hue = 0.57, Sat = 0.16 }, -- tono de los grises en estilo Cartoon
 	ClockTime = 15.6,
 	Latitude = 70, -- sol bajo: sombras largas y azules sobre la nieve
 	Brightness = 2.4,

@@ -11,6 +11,7 @@ local Map = {
 }
 
 Map.Lighting = {
+	CartoonNeutral = { Hue = 0.07, Sat = 0.18 }, -- tono de los grises en estilo Cartoon
 	ClockTime = 17.6,
 	Brightness = 2.6,
 	Exposure = 0,

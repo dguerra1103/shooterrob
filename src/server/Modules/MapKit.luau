@@ -79,13 +79,19 @@ local KEEP_LOOK = {
 	CastleTop = true, JumpPadRing = true, -- blancos de Caja de Juguetes y de las plataformas de salto
 }
 
+-- Tono de los grises en estilo Cartoon (cada mapa puede tener el suyo: Lighting.CartoonNeutral)
+Kit.Neutral = { Hue = 0.68, Sat = 0.16 } -- lavanda por defecto
+
 function Kit.vivid(color)
 	local h, s, v = color:ToHSV()
 	if s < 0.22 then
+		local neutral = Kit.Neutral
 		if v >= 0.45 then
-			return Color3.fromHSV(0.68, 0.16, math.min(1, v * 1.02 + 0.05)) -- piedra, yeso, gris claro → lavanda
+			-- piedra, yeso, gris claro → pastel del tono del mapa (lavanda por defecto)
+			return Color3.fromHSV(neutral.Hue, neutral.Sat, math.min(1, v * 1.02 + 0.05))
 		elseif v >= 0.2 then
-			return Color3.fromHSV(0.66, 0.2, math.min(1, v * 1.08)) -- asfalto, hormigón oscuro → gris azulado
+			-- asfalto, hormigón oscuro → gris con un toque del mismo tono
+			return Color3.fromHSV(neutral.Hue, math.min(0.35, neutral.Sat + 0.08), math.min(1, v * 1.12))
 		end
 		return color -- negros
 	end
@@ -1206,6 +1212,9 @@ end
 
 -- preset: tabla con ClockTime, Brightness, Ambient, OutdoorAmbient, Atmosphere{...}, Color{...}, Bloom{...}, Clouds
 function Kit.applyLighting(preset)
+	-- Tono de los grises de este mapa (se usa al crear las piezas, que van después)
+	local neutral = preset.CartoonNeutral
+	Kit.Neutral = type(neutral) == "table" and { Hue = neutral.Hue or 0.68, Sat = neutral.Sat or 0.16 } or { Hue = 0.68, Sat = 0.16 }
 	if Kit.Cartoon then
 		preset = cartoonize(preset)
 	end
