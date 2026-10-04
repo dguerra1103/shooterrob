@@ -661,6 +661,7 @@ local function infectionRound(s)
 	Remotes.Notify:FireAllClients("Big", "🧟 ¡HAN LLEGADO LOS ZOMBIS! ¡Sobrevive!")
 	local roundEnd = os.clock() + s.RoundTime
 	local winner
+	local lastAnnounced = false
 	while not roundOver do
 		-- Los supervivientes que caen (por lo que sea) se convierten en zombis; quien vuelve al menú
 		-- deja de ser superviviente
@@ -679,6 +680,25 @@ local function infectionRound(s)
 			end
 		end
 		local alive, zombies = infectionCounts()
+		-- ¡Último superviviente! Se anuncia y recibe más vida para el final
+		if alive == 1 and not lastAnnounced then
+			lastAnnounced = true
+			for _, player in Players:GetPlayers() do
+				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if player.Team == a and not player:GetAttribute("InMenu") and humanoid and humanoid.Health > 0 then
+					humanoid.MaxHealth = 150
+					humanoid.Health = 150
+					Remotes.Notify:FireAllClients("Big", "🧑 ¡" .. string.upper(player.Name) .. " ES EL ÚLTIMO SUPERVIVIENTE!")
+				end
+			end
+			for _, agent in Bots.Agents do
+				if agent.Team == a and agent.Humanoid and agent.Humanoid.Health > 0 then
+					agent.Humanoid.MaxHealth = 150
+					agent.Humanoid.Health = 150
+					Remotes.Notify:FireAllClients("Big", "🧑 ¡" .. string.upper(agent.Name) .. " ES EL ÚLTIMO SUPERVIVIENTE!")
+				end
+			end
+		end
 		ReplicatedStorage:SetAttribute("AliveA", alive)
 		ReplicatedStorage:SetAttribute("AliveB", zombies)
 		ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
