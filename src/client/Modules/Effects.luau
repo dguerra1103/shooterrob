@@ -1092,6 +1092,32 @@ KILL_FX.Nieve = function(position)
 	end)
 end
 
+KILL_FX.Rodadora = function(position)
+	-- Polvareda del desierto, una bola de matojos que sale rodando y un sombrero volando
+	local anchor = emitterAnchor(position, Vector3.yAxis, 1)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(230, 190, 130), Color3.fromRGB(180, 140, 90)),
+		Size = seq(2, 6),
+		Transparency = seq(0.25, 1),
+		Lifetime = NumberRange.new(0.9, 1.4),
+		Speed = NumberRange.new(5, 10),
+		SpreadAngle = Vector2.new(80, 80),
+	}, 16)
+	debrisBurst(position, 6, function()
+		return fxPart({
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(1.6, 1.6, 1.6),
+			Color = Color3.fromRGB(170, 130, 70),
+			Material = Enum.Material.Grass,
+		})
+	end, 14, 1.4)
+	floatingText(position + Vector3.new(0, 2, 0), "🤠", 110, Vector3.new(0, 5, 0), 1.6)
+	task.delay(0.15, function()
+		floatingText(position + Vector3.new(1.5, 1.5, 0), "🌵", 60, Vector3.new(0, 2.5, 0), 1.2)
+	end)
+end
+
 function Effects.KillEffect(effectId, position, color)
 	local fn = KILL_FX[effectId]
 	if fn then

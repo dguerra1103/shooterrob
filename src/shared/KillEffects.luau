@@ -19,6 +19,7 @@ KillEffects.List = {
 	Murcielagos = { Name = "Murciélagos", Rarity = "Épico", Icon = "🦇", Price = 1000, Description = "Una bandada de murciélagos sale volando entre humo morado." },
 	Calabazas = { Name = "Calabazas", Rarity = "Legendario", Icon = "🎃", Price = 1600, Description = "Revienta en calabazas que saltan, con una calabaza gigante y un diablillo." },
 	-- Navidad
+	Rodadora = { Name = "Rodadora", Rarity = "Épico", Icon = "🤠", Price = 900, Description = "Polvareda del desierto, matojos que salen rodando y un sombrero de vaquero volando." },
 	Nieve = { Name = "Ventisca", Rarity = "Legendario", Icon = "☃️", Price = 1600, Description = "Revienta en copos de nieve y aparece un muñeco de nieve." },
 }
 
