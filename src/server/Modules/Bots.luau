@@ -511,6 +511,36 @@ bestIntel = function(agent, maxAge, maxDistance)
 	return best
 end
 
+-- Radar (racha de 3 de un bot o de un jugador de su equipo): mientras dure, el equipo sabe en
+-- todo momento dónde está cada enemigo, como el radar de los jugadores
+local radarUntil = {} -- [clave de intel] = os.clock() en que se acaba
+
+function Bots.Radar(key, seconds)
+	radarUntil[key] = os.clock() + seconds
+end
+
+function Bots.RadarKey(agent)
+	return intelKey(agent)
+end
+
+local function radarSweep()
+	local now = os.clock()
+	for key, untilTime in radarUntil do
+		if now > untilTime then
+			radarUntil[key] = nil
+			continue
+		end
+		for _, agent in agents do
+			if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Root and intelKey(agent) == key then
+				for _, target in candidates(agent) do
+					reportEnemy(agent, target.Head.Position)
+				end
+				break
+			end
+		end
+	end
+end
+
 -- Oído: disparos recientes de enemigos a su alcance
 local function hear(agent, now)
 	local noise = Combat.Noise
@@ -1529,6 +1559,7 @@ end
 -- Nueva ronda de Eliminación: los muertos reaparecen y los vivos vuelven a su base con la vida llena
 function Bots.RespawnAll()
 	table.clear(intel)
+	table.clear(radarUntil)
 	for _, agent in table.clone(agents) do
 		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
@@ -1541,6 +1572,7 @@ function Bots.RespawnAll()
 			agent.ReloadUntil, agent.RetreatUntil, agent.HoldUntil, agent.BurstLeft = 0, 0, 0, 0
 			agent.HoldLook, agent.SpotLook, agent.Arrived = nil, nil, false
 			agent.LastSeenPosition, agent.LastSeenTime = nil, nil
+			agent.Streak = 0
 		elseif not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
@@ -1582,6 +1614,7 @@ function Bots.Reset()
 		removeAgent(agents[i])
 	end
 	table.clear(intel) -- (lo que sabían del enemigo era de la ronda anterior)
+	table.clear(radarUntil)
 end
 
 function Bots.Init()
@@ -1605,6 +1638,10 @@ function Bots.Init()
 			local ok, err = pcall(balance)
 			if not ok then
 				warn("[Bots] balance:", err)
+			end
+			ok, err = pcall(radarSweep)
+			if not ok then
+				warn("[Bots] radar:", err)
 			end
 		end
 	end)

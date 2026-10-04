@@ -1,6 +1,8 @@
 -- Recompensas por racha de bajas (sin morir):
 --   3 bajas: RADAR. Durante unos segundos tu equipo (o tú, en Todos contra todos) ve a los
 --            enemigos a través de las paredes. Atributo de jugador RadarUntil = hora del servidor.
+--            Los bots también lo consiguen (BotRadar): sus compañeros humanos lo ven y los rivales
+--            reciben el aviso, como el radar enemigo de los shooters de móvil.
 --   5 bajas: ATAQUE AÉREO. Se guarda (atributo Airstrikes) y se lanza con la tecla T: marca el
 --            punto al que apuntas y caen 5 explosiones en línea.
 -- No hay recompensas en Escalada de armas.
@@ -18,6 +20,7 @@ local Killstreaks = {}
 Killstreaks.RadarStreak = 3
 Killstreaks.AirstrikeStreak = 5
 local RADAR_TIME = 12
+Killstreaks.RadarTime = RADAR_TIME
 local MAX_RANGE = 600
 local STRIKE_DELAY = 1.6 -- segundos de aviso antes de que caigan las bombas
 local STRIKES = 5
@@ -45,6 +48,25 @@ local function activateRadar(player)
 			Remotes.Notify:FireClient(other, "Info", "📡 ¡El enemigo tiene radar!")
 		end
 	end
+end
+
+-- Un bot llega a la racha del radar: lo comparten los jugadores de su equipo y se avisa al rival
+-- (los bots de su equipo lo reciben en Bots.Radar, que llama Round)
+function Killstreaks.OnBotStreak(botName, team, streak)
+	if not enabled() or streak ~= Killstreaks.RadarStreak then
+		return false
+	end
+	local untilTime = now() + RADAR_TIME
+	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
+	for _, other in Players:GetPlayers() do
+		if team ~= nil and teamMode and other.Team == team then
+			other:SetAttribute("RadarUntil", math.max(other:GetAttribute("RadarUntil") or 0, untilTime))
+			Remotes.Notify:FireClient(other, "Info", "📡 Radar activado por " .. botName)
+		else
+			Remotes.Notify:FireClient(other, "Info", "📡 ¡El enemigo tiene radar!")
+		end
+	end
+	return true
 end
 
 -- Lo llama Round cada vez que alguien suma una baja a su racha

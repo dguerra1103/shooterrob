@@ -344,6 +344,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 
 	if victimBot then
 		Bots.AddStat(victimBot, "Deaths", 1)
+		victimBot.Streak = 0
+	end
+	-- Racha del bot (sin morir): con 3 bajas su equipo tiene radar (no los zombis)
+	if killerBot and killerBot ~= victimBot and playing and not killerBot.Zombie then
+		killerBot.Streak = (killerBot.Streak or 0) + 1
+		if Killstreaks.OnBotStreak(killerBot.Name, killerBot.Team, killerBot.Streak) then
+			Bots.Radar(Bots.RadarKey(killerBot), Killstreaks.RadarTime)
+		end
 	end
 	-- Un bot hace una baja: punto para su equipo (en equipos) o para él (todos contra todos)
 	if killerBot then
@@ -419,6 +427,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
 			Killstreaks.OnStreak(killer, streak)
+			-- (el radar de un jugador también lo usan los bots de su equipo)
+			if streak == Killstreaks.RadarStreak and killer.Team and isTeamMode()
+				and currentMode ~= "GUN" and not (killer.Character and killer.Character:GetAttribute("Zombie")) then
+				Bots.Radar(killer.Team.Name, Killstreaks.RadarTime)
+			end
 			-- (los zombis de la Infección no tienen recompensa por su cabeza)
 			if not (ReplicatedStorage:GetAttribute("Infection") == "On" and killer.Team == teams[2]) then
 				Bounty.OnStreak(killer, streak)

@@ -6999,6 +6999,36 @@ bestIntel = function(agent, maxAge, maxDistance)
 	return best
 end
 
+-- Radar (racha de 3 de un bot o de un jugador de su equipo): mientras dure, el equipo sabe en
+-- todo momento dónde está cada enemigo, como el radar de los jugadores
+local radarUntil = {} -- [clave de intel] = os.clock() en que se acaba
+
+function Bots.Radar(key, seconds)
+	radarUntil[key] = os.clock() + seconds
+end
+
+function Bots.RadarKey(agent)
+	return intelKey(agent)
+end
+
+local function radarSweep()
+	local now = os.clock()
+	for key, untilTime in radarUntil do
+		if now > untilTime then
+			radarUntil[key] = nil
+			continue
+		end
+		for _, agent in agents do
+			if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Root and intelKey(agent) == key then
+				for _, target in candidates(agent) do
+					reportEnemy(agent, target.Head.Position)
+				end
+				break
+			end
+		end
+	end
+end
+
 -- Oído: disparos recientes de enemigos a su alcance
 local function hear(agent, now)
 	local noise = Combat.Noise
@@ -8017,6 +8047,7 @@ end
 -- Nueva ronda de Eliminación: los muertos reaparecen y los vivos vuelven a su base con la vida llena
 function Bots.RespawnAll()
 	table.clear(intel)
+	table.clear(radarUntil)
 	for _, agent in table.clone(agents) do
 		if agent.Humanoid and agent.Humanoid.Health > 0 and agent.Model then
 			agent.Humanoid.Health = agent.Humanoid.MaxHealth
@@ -8029,6 +8060,7 @@ function Bots.RespawnAll()
 			agent.ReloadUntil, agent.RetreatUntil, agent.HoldUntil, agent.BurstLeft = 0, 0, 0, 0
 			agent.HoldLook, agent.SpotLook, agent.Arrived = nil, nil, false
 			agent.LastSeenPosition, agent.LastSeenTime = nil, nil
+			agent.Streak = 0
 		elseif not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
@@ -8070,6 +8102,7 @@ function Bots.Reset()
 		removeAgent(agents[i])
 	end
 	table.clear(intel) -- (lo que sabían del enemigo era de la ronda anterior)
+	table.clear(radarUntil)
 end
 
 function Bots.Init()
@@ -8093,6 +8126,10 @@ function Bots.Init()
 			local ok, err = pcall(balance)
 			if not ok then
 				warn("[Bots] balance:", err)
+			end
+			ok, err = pcall(radarSweep)
+			if not ok then
+				warn("[Bots] radar:", err)
 			end
 		end
 	end)
@@ -11021,6 +11058,8 @@ return HealthRegen
             <string name="Source"><![CDATA[-- Recompensas por racha de bajas (sin morir):
 --   3 bajas: RADAR. Durante unos segundos tu equipo (o tú, en Todos contra todos) ve a los
 --            enemigos a través de las paredes. Atributo de jugador RadarUntil = hora del servidor.
+--            Los bots también lo consiguen (BotRadar): sus compañeros humanos lo ven y los rivales
+--            reciben el aviso, como el radar enemigo de los shooters de móvil.
 --   5 bajas: ATAQUE AÉREO. Se guarda (atributo Airstrikes) y se lanza con la tecla T: marca el
 --            punto al que apuntas y caen 5 explosiones en línea.
 -- No hay recompensas en Escalada de armas.
@@ -11038,6 +11077,7 @@ local Killstreaks = {}
 Killstreaks.RadarStreak = 3
 Killstreaks.AirstrikeStreak = 5
 local RADAR_TIME = 12
+Killstreaks.RadarTime = RADAR_TIME
 local MAX_RANGE = 600
 local STRIKE_DELAY = 1.6 -- segundos de aviso antes de que caigan las bombas
 local STRIKES = 5
@@ -11065,6 +11105,25 @@ local function activateRadar(player)
 			Remotes.Notify:FireClient(other, "Info", "📡 ¡El enemigo tiene radar!")
 		end
 	end
+end
+
+-- Un bot llega a la racha del radar: lo comparten los jugadores de su equipo y se avisa al rival
+-- (los bots de su equipo lo reciben en Bots.Radar, que llama Round)
+function Killstreaks.OnBotStreak(botName, team, streak)
+	if not enabled() or streak ~= Killstreaks.RadarStreak then
+		return false
+	end
+	local untilTime = now() + RADAR_TIME
+	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
+	for _, other in Players:GetPlayers() do
+		if team ~= nil and teamMode and other.Team == team then
+			other:SetAttribute("RadarUntil", math.max(other:GetAttribute("RadarUntil") or 0, untilTime))
+			Remotes.Notify:FireClient(other, "Info", "📡 Radar activado por " .. botName)
+		else
+			Remotes.Notify:FireClient(other, "Info", "📡 ¡El enemigo tiene radar!")
+		end
+	end
+	return true
 end
 
 -- Lo llama Round cada vez que alguien suma una baja a su racha
@@ -22815,6 +22874,14 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 
 	if victimBot then
 		Bots.AddStat(victimBot, "Deaths", 1)
+		victimBot.Streak = 0
+	end
+	-- Racha del bot (sin morir): con 3 bajas su equipo tiene radar (no los zombis)
+	if killerBot and killerBot ~= victimBot and playing and not killerBot.Zombie then
+		killerBot.Streak = (killerBot.Streak or 0) + 1
+		if Killstreaks.OnBotStreak(killerBot.Name, killerBot.Team, killerBot.Streak) then
+			Bots.Radar(Bots.RadarKey(killerBot), Killstreaks.RadarTime)
+		end
 	end
 	-- Un bot hace una baja: punto para su equipo (en equipos) o para él (todos contra todos)
 	if killerBot then
@@ -22890,6 +22957,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 				Remotes.Notify:FireAllClients("Streak", killer.Name .. " tiene una racha de " .. streak .. " bajas")
 			end
 			Killstreaks.OnStreak(killer, streak)
+			-- (el radar de un jugador también lo usan los bots de su equipo)
+			if streak == Killstreaks.RadarStreak and killer.Team and isTeamMode()
+				and currentMode ~= "GUN" and not (killer.Character and killer.Character:GetAttribute("Zombie")) then
+				Bots.Radar(killer.Team.Name, Killstreaks.RadarTime)
+			end
 			-- (los zombis de la Infección no tienen recompensa por su cabeza)
 			if not (ReplicatedStorage:GetAttribute("Infection") == "On" and killer.Team == teams[2]) then
 				Bounty.OnStreak(killer, streak)
