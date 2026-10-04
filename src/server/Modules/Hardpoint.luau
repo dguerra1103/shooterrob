@@ -102,10 +102,12 @@ local function makeVisual(zone)
 	visual = model
 end
 
+local paintedVisual, paintedColor -- (solo se repinta si cambia el color o la zona)
 local function paint(color)
-	if not visual then
+	if not visual or (visual == paintedVisual and color == paintedColor) then
 		return
 	end
+	paintedVisual, paintedColor = visual, color
 	for _, p in visual:GetDescendants() do
 		if p:IsA("BasePart") then
 			p.Color = color

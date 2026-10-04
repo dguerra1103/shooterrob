@@ -46,6 +46,7 @@ local function throw()
 	Sounds.Play("Swing", nil, 0.8, 1)
 end
 
+local lastKey
 local function updateWidget()
 	local gunGame = ReplicatedStorage:GetAttribute("Mode") == "GUN"
 	widget.Visible = not ClientState.InMainMenu and not gunGame
@@ -53,6 +54,12 @@ local function updateWidget()
 		return
 	end
 	local left = readyAt() - workspace:GetServerTimeNow()
+	-- (solo se escribe cuando cambia el segundo o la barra en pasos de 1/40)
+	local key = left <= 0 and -1 or math.ceil(left) * 100 + math.floor((1 - left / DEF.Cooldown) * 40)
+	if key == lastKey then
+		return
+	end
+	lastKey = key
 	if left <= 0 then
 		label.Text = "💣 G"
 		label.TextColor3 = Color3.fromRGB(255, 255, 255)
