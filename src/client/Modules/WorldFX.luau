@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local Teams = game:GetService("Teams")
 
 local Effects = require(script.Parent.Effects)
+local ClientState = require(script.Parent.ClientState)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local player = Players.LocalPlayer
@@ -47,8 +48,12 @@ local function track(inst)
 	end
 end
 
+local frame = 0
 local function animate()
 	local t = os.clock()
+	-- Lo que gira despacio (la noria) se mueve 1 de cada 2 fotogramas (1 de cada 4 en calidad Baja)
+	frame += 1
+	local orbitNow = frame % (ClientState.EffectiveQuality == "Baja" and 4 or 2) == 0
 	for part, info in animated do
 		if not part.Parent then
 			animated[part] = nil
@@ -60,6 +65,9 @@ local function animate()
 			part.Transparency = on and info.BaseTransparency or 0.95
 		end
 		if info.Orbit then
+			if not orbitNow then
+				continue
+			end
 			local turn = CFrame.fromAxisAngle(info.OrbitAxis, math.rad(info.Orbit * t))
 			-- (con ancla, la pieza sigue a su punto de enganche sin girar su propio desplazamiento)
 			local anchor = info.OrbitAnchor or info.Base.Position
