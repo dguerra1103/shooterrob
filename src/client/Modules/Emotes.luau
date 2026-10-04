@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -147,7 +148,7 @@ function Emotes.Init()
 	end, true, Enum.KeyCode.N)
 	-- Botón táctil en móvil
 	ContextActionService:SetTitle("Emotes", "😀")
-	ContextActionService:SetPosition("Emotes", UDim2.new(1, -120, 1, -320))
+	TouchLayout.Set("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then
 			setWheel(false)

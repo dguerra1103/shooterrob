@@ -58,6 +58,7 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Caja sorpresa** | Juega varias partidas enteras | De vez en cuando (y como mucho a las 15 partidas) sale en grande "🎁 ¡CAJA SORPRESA!" y en la Tienda tienes una caja gratis más. |
 | **Premio de regreso** | Con el guardado activado, en la consola del servidor: `require(game.ServerScriptService.Server.Modules.PlayerData).Get(game.Players:GetPlayers()[1]).LastPlayDay -= 5`; para el juego y vuelve a darle a Play | A los pocos segundos de entrar: "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +400 🪙, 1 caja gratis y ⚡ XP doble 30 min" (y debajo del marcador "⚡ x2 XP 30:00" al entrar en partida). |
 | **Roblox Premium** | Menú → Tienda → abajo del VIP | Tarjeta "⭐ Roblox Premium · +20% monedas y XP" con el botón "Hazte Premium" (o "✔ Bonus activo" si tu cuenta ya es Premium). |
+| **Tablet** | Studio → Test → **Device** → un iPad | Los botones táctiles (disparar, apuntar, recargar...) quedan a la izquierda del botón de saltar, que en tablet es más grande; ninguno lo tapa. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 
 ## Probar la Navidad ahora (sin esperar a diciembre)

@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 
 local player = Players.LocalPlayer
@@ -261,7 +262,7 @@ function Movement.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
 	ContextActionService:SetTitle("Sprint", "Correr")
-	ContextActionService:SetPosition("Sprint", UDim2.new(1, -260, 1, -160))
+	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	ContextActionService:BindAction("Slide", function(_, state)
 		if state == Enum.UserInputState.Begin then
@@ -270,7 +271,7 @@ function Movement.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
 	ContextActionService:SetTitle("Slide", "Deslizar")
-	ContextActionService:SetPosition("Slide", UDim2.new(1, -270, 1, -240))
+	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr
 	UserInputService.WindowFocusReleased:Connect(function()

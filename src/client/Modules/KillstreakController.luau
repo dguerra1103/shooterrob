@@ -12,6 +12,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -205,7 +206,7 @@ function KillstreakController.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
 	ContextActionService:SetTitle("Airstrike", "✈")
-	ContextActionService:SetPosition("Airstrike", UDim2.new(1, -280, 1, -310))
+	TouchLayout.Set("Airstrike", UDim2.new(1, -280, 1, -310))
 	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
 	ClientState.UpdateMouse()
 

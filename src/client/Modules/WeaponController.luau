@@ -12,6 +12,7 @@ local Sounds = require(Shared.Sounds)
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
 local Outfits = require(Shared.Outfits)
@@ -757,7 +758,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
 	ContextActionService:SetTitle("Fire", "Disparar")
-	ContextActionService:SetPosition("Fire", UDim2.new(1, -110, 1, -160))
+	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
 	ContextActionService:BindAction("Aim", function(_, state, input)
 		if ClientState.IsBlocked() then
@@ -776,7 +777,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
 	ContextActionService:SetTitle("Aim", "Apuntar")
-	ContextActionService:SetPosition("Aim", UDim2.new(1, -190, 1, -110))
+	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
 	ContextActionService:BindAction("Reload", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
@@ -785,7 +786,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
 	ContextActionService:SetTitle("Reload", "R")
-	ContextActionService:SetPosition("Reload", UDim2.new(1, -200, 1, -190))
+	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
 	ContextActionService:BindAction("Melee", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
@@ -794,7 +795,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
 	ContextActionService:SetTitle("Melee", "F")
-	ContextActionService:SetPosition("Melee", UDim2.new(1, -120, 1, -240))
+	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)
 		if state ~= Enum.UserInputState.Begin then
@@ -829,7 +830,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.Q)
 	ContextActionService:SetTitle("SwapWeapon", "⇄")
-	ContextActionService:SetPosition("SwapWeapon", UDim2.new(1, -280, 1, -100))
+	TouchLayout.Set("SwapWeapon", UDim2.new(1, -280, 1, -100))
 
 	UserInputService.InputChanged:Connect(function(input, processed)
 		if processed or ClientState.IsBlocked() then

@@ -9,6 +9,7 @@ local Remotes = require(Shared.Remotes)
 local Sprays = require(Shared.Sprays)
 local Sounds = require(Shared.Sounds)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 
 local player = Players.LocalPlayer
@@ -60,7 +61,7 @@ function Graffiti.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J, Enum.KeyCode.ButtonR1) -- (R1 en el mando)
 	ContextActionService:SetTitle("Spray", "🎨")
-	ContextActionService:SetPosition("Spray", UDim2.new(1, -200, 1, -340))
+	TouchLayout.Set("Spray", UDim2.new(1, -200, 1, -340))
 end
 
 return Graffiti

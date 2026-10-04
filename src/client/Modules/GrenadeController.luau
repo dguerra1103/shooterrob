@@ -10,6 +10,7 @@ local Weapons = require(Shared.Weapons)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
 local UI = require(script.Parent.UI)
@@ -103,7 +104,7 @@ function GrenadeController.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
 	ContextActionService:SetTitle("Grenade", "💣")
-	ContextActionService:SetPosition("Grenade", UDim2.new(1, -200, 1, -270))
+	TouchLayout.Set("Grenade", UDim2.new(1, -200, 1, -270))
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)
 		if typeof(position) == "Vector3" then

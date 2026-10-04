@@ -21956,6 +21956,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -22096,7 +22097,7 @@ function Emotes.Init()
 	end, true, Enum.KeyCode.N)
 	-- Botón táctil en móvil
 	ContextActionService:SetTitle("Emotes", "😀")
-	ContextActionService:SetPosition("Emotes", UDim2.new(1, -120, 1, -320))
+	TouchLayout.Set("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then
 			setWheel(false)
@@ -22399,6 +22400,7 @@ local Remotes = require(Shared.Remotes)
 local Sprays = require(Shared.Sprays)
 local Sounds = require(Shared.Sounds)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 
 local player = Players.LocalPlayer
@@ -22450,7 +22452,7 @@ function Graffiti.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J, Enum.KeyCode.ButtonR1) -- (R1 en el mando)
 	ContextActionService:SetTitle("Spray", "🎨")
-	ContextActionService:SetPosition("Spray", UDim2.new(1, -200, 1, -340))
+	TouchLayout.Set("Spray", UDim2.new(1, -200, 1, -340))
 end
 
 return Graffiti
@@ -22472,6 +22474,7 @@ local Weapons = require(Shared.Weapons)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
 local UI = require(script.Parent.UI)
@@ -22565,7 +22568,7 @@ function GrenadeController.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
 	ContextActionService:SetTitle("Grenade", "💣")
-	ContextActionService:SetPosition("Grenade", UDim2.new(1, -200, 1, -270))
+	TouchLayout.Set("Grenade", UDim2.new(1, -200, 1, -270))
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)
 		if typeof(position) == "Vector3" then
@@ -24433,6 +24436,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -24626,7 +24630,7 @@ function KillstreakController.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
 	ContextActionService:SetTitle("Airstrike", "✈")
-	ContextActionService:SetPosition("Airstrike", UDim2.new(1, -280, 1, -310))
+	TouchLayout.Set("Airstrike", UDim2.new(1, -280, 1, -310))
 	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
 	ClientState.UpdateMouse()
 
@@ -27971,6 +27975,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 
 local player = Players.LocalPlayer
@@ -28222,7 +28227,7 @@ function Movement.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
 	ContextActionService:SetTitle("Sprint", "Correr")
-	ContextActionService:SetPosition("Sprint", UDim2.new(1, -260, 1, -160))
+	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	ContextActionService:BindAction("Slide", function(_, state)
 		if state == Enum.UserInputState.Begin then
@@ -28231,7 +28236,7 @@ function Movement.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
 	ContextActionService:SetTitle("Slide", "Deslizar")
-	ContextActionService:SetPosition("Slide", UDim2.new(1, -270, 1, -240))
+	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr
 	UserInputService.WindowFocusReleased:Connect(function()
@@ -29321,6 +29326,58 @@ return SkinFX
           </Item>
           <Item class="ModuleScript" referent="98">
             <Properties>
+              <string name="Name">TouchLayout</string>
+              <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
+-- para el teléfono, alrededor del botón de saltar de Roblox. En tablet (pantalla grande) ese botón
+-- es más grande y está más arriba y a la izquierda (120 px, a 170 de la derecha y 210 de abajo), así
+-- que todo el grupo de abajo a la derecha se corre a la izquierda para no taparlo.
+local ContextActionService = game:GetService("ContextActionService")
+
+local TouchLayout = {}
+
+local TABLET_SHIFT_X = -130
+local registered = {} -- [acción] = posición de teléfono
+local watching = false
+
+local function isLarge()
+	local size = workspace.CurrentCamera.ViewportSize
+	return math.min(size.X, size.Y) > 500
+end
+
+local function apply(actionName, position)
+	if isLarge() and position.X.Scale == 1 and position.Y.Scale == 1 then
+		position = UDim2.new(1, position.X.Offset + TABLET_SHIFT_X, 1, position.Y.Offset)
+	end
+	pcall(function()
+		ContextActionService:SetPosition(actionName, position)
+	end)
+end
+
+-- Igual que ContextActionService:SetPosition, pero se ajusta en tablet (y al girar la pantalla)
+function TouchLayout.Set(actionName, position)
+	registered[actionName] = position
+	apply(actionName, position)
+	if not watching then
+		watching = true
+		local wasLarge = isLarge()
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			local large = isLarge()
+			if large ~= wasLarge then
+				wasLarge = large
+				for name, phonePosition in registered do
+					apply(name, phonePosition)
+				end
+			end
+		end)
+	end
+end
+
+return TouchLayout
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="99">
+            <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
 -- básicos (adaptados a PC o a móvil). Se cierra con el botón o a los 20 s y no vuelve a salir
@@ -29476,7 +29533,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -29578,7 +29635,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -29759,7 +29816,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -29776,6 +29833,7 @@ local Sounds = require(Shared.Sounds)
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
+local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
 local Outfits = require(Shared.Outfits)
@@ -30521,7 +30579,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
 	ContextActionService:SetTitle("Fire", "Disparar")
-	ContextActionService:SetPosition("Fire", UDim2.new(1, -110, 1, -160))
+	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
 	ContextActionService:BindAction("Aim", function(_, state, input)
 		if ClientState.IsBlocked() then
@@ -30540,7 +30598,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
 	ContextActionService:SetTitle("Aim", "Apuntar")
-	ContextActionService:SetPosition("Aim", UDim2.new(1, -190, 1, -110))
+	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
 	ContextActionService:BindAction("Reload", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
@@ -30549,7 +30607,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
 	ContextActionService:SetTitle("Reload", "R")
-	ContextActionService:SetPosition("Reload", UDim2.new(1, -200, 1, -190))
+	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
 	ContextActionService:BindAction("Melee", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
@@ -30558,7 +30616,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
 	ContextActionService:SetTitle("Melee", "F")
-	ContextActionService:SetPosition("Melee", UDim2.new(1, -120, 1, -240))
+	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)
 		if state ~= Enum.UserInputState.Begin then
@@ -30593,7 +30651,7 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.Q)
 	ContextActionService:SetTitle("SwapWeapon", "⇄")
-	ContextActionService:SetPosition("SwapWeapon", UDim2.new(1, -280, 1, -100))
+	TouchLayout.Set("SwapWeapon", UDim2.new(1, -280, 1, -100))
 
 	UserInputService.InputChanged:Connect(function(input, processed)
 		if processed or ClientState.IsBlocked() then
@@ -30707,7 +30765,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -30764,7 +30822,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -31058,7 +31116,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -31277,19 +31335,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="105">
+  <Item class="Teams" referent="106">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="106">
+  <Item class="Workspace" referent="107">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="107">
+    <Item class="Terrain" referent="108">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
