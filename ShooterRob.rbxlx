@@ -771,8 +771,9 @@ GameConfig.Group = {
 -- además paga al juego por el tiempo que juegan los Premium; en la Tienda hay un botón para hacerse Premium.
 GameConfig.RobloxPremium = { Multiplier = 1.2 }
 
--- Premio de regreso: quien vuelve tras Days días o más sin jugar recibe Coins monedas y Crates cajas gratis.
-GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1 }
+-- Premio de regreso: quien vuelve tras Days días o más sin jugar recibe Coins monedas, Crates cajas
+-- gratis y BoostXPMinutes minutos de XP doble (de muestra de los potenciadores de la Tienda).
+GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1, BoostXPMinutes = 30 }
 
 -- Primera victoria del día: la primera partida que ganas cada día (hora UTC) da esto de más.
 GameConfig.FirstWinOfDay = { Coins = 150, XP = 300 }
@@ -1717,7 +1718,7 @@ Shop.Wheel = {
 		{ Kind = "Coins", Amount = 100, Weight = 24, Color = Color3.fromRGB(255, 200, 60) },
 		{ Kind = "Revives", Amount = 1, Weight = 12, Color = Color3.fromRGB(80, 210, 120) },
 		{ Kind = "Coins", Amount = 250, Weight = 12, Color = Color3.fromRGB(255, 120, 60) },
-		{ Kind = "XP", Amount = 400, Weight = 10, Color = Color3.fromRGB(120, 220, 255) },
+		{ Kind = "Boost", Field = "BoostXP", Amount = 15, Weight = 10, Color = Color3.fromRGB(120, 220, 255) }, -- 15 min de XP doble
 		{ Kind = "Crate", Amount = 1, Weight = 8, Color = Color3.fromRGB(180, 100, 255) },
 		{ Kind = "Coins", Amount = 600, Weight = 5, Color = Color3.fromRGB(255, 80, 140) },
 		{ Kind = "Coins", Amount = 2000, Weight = 1, Color = Color3.fromRGB(255, 230, 90), Jackpot = true },
@@ -1734,6 +1735,8 @@ function Shop.WheelPrizeText(prize)
 		return prize.Amount .. " XP"
 	elseif prize.Kind == "Crate" then
 		return prize.Amount .. " 📦"
+	elseif prize.Kind == "Boost" then
+		return "⚡x2 " .. prize.Amount .. "m"
 	end
 	return "?"
 end
@@ -16652,7 +16655,10 @@ function PlayerData.RollComeback(data, today)
 	end
 	data.Coins += config.Coins
 	data.FreeCrates = (data.FreeCrates or 0) + config.Crates
-	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙" .. (config.Crates > 0 and (" y " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
+	data.BoostXP = (tonumber(data.BoostXP) or 0) + (config.BoostXPMinutes or 0) * 60
+	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙"
+		.. (config.Crates > 0 and (", " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
+		.. ((config.BoostXPMinutes or 0) > 0 and (" y ⚡ XP doble " .. config.BoostXPMinutes .. " min") or "")
 end
 
 -- Primera victoria del día (GameConfig.FirstWinOfDay): premio extra una vez al día (hora UTC).
@@ -17104,6 +17110,8 @@ local function spinWheel(player)
 		data.FreeCrates += prize.Amount
 	elseif prize.Kind == "XP" then
 		PlayerData.AddXP(player, prize.Amount, "Ruleta", true)
+	elseif prize.Kind == "Boost" then
+		data[prize.Field] = (tonumber(data[prize.Field]) or 0) + prize.Amount * 60
 	end
 	sendUpdate(player)
 	requestSave(player)

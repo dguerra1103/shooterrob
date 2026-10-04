@@ -325,8 +325,9 @@ GameConfig.Group = {
 -- además paga al juego por el tiempo que juegan los Premium; en la Tienda hay un botón para hacerse Premium.
 GameConfig.RobloxPremium = { Multiplier = 1.2 }
 
--- Premio de regreso: quien vuelve tras Days días o más sin jugar recibe Coins monedas y Crates cajas gratis.
-GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1 }
+-- Premio de regreso: quien vuelve tras Days días o más sin jugar recibe Coins monedas, Crates cajas
+-- gratis y BoostXPMinutes minutos de XP doble (de muestra de los potenciadores de la Tienda).
+GameConfig.Comeback = { Days = 3, Coins = 400, Crates = 1, BoostXPMinutes = 30 }
 
 -- Primera victoria del día: la primera partida que ganas cada día (hora UTC) da esto de más.
 GameConfig.FirstWinOfDay = { Coins = 150, XP = 300 }

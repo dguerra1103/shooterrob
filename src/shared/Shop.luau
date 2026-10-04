@@ -88,7 +88,7 @@ Shop.Wheel = {
 		{ Kind = "Coins", Amount = 100, Weight = 24, Color = Color3.fromRGB(255, 200, 60) },
 		{ Kind = "Revives", Amount = 1, Weight = 12, Color = Color3.fromRGB(80, 210, 120) },
 		{ Kind = "Coins", Amount = 250, Weight = 12, Color = Color3.fromRGB(255, 120, 60) },
-		{ Kind = "XP", Amount = 400, Weight = 10, Color = Color3.fromRGB(120, 220, 255) },
+		{ Kind = "Boost", Field = "BoostXP", Amount = 15, Weight = 10, Color = Color3.fromRGB(120, 220, 255) }, -- 15 min de XP doble
 		{ Kind = "Crate", Amount = 1, Weight = 8, Color = Color3.fromRGB(180, 100, 255) },
 		{ Kind = "Coins", Amount = 600, Weight = 5, Color = Color3.fromRGB(255, 80, 140) },
 		{ Kind = "Coins", Amount = 2000, Weight = 1, Color = Color3.fromRGB(255, 230, 90), Jackpot = true },
@@ -105,6 +105,8 @@ function Shop.WheelPrizeText(prize)
 		return prize.Amount .. " XP"
 	elseif prize.Kind == "Crate" then
 		return prize.Amount .. " 📦"
+	elseif prize.Kind == "Boost" then
+		return "⚡x2 " .. prize.Amount .. "m"
 	end
 	return "?"
 end

@@ -843,7 +843,10 @@ function PlayerData.RollComeback(data, today)
 	end
 	data.Coins += config.Coins
 	data.FreeCrates = (data.FreeCrates or 0) + config.Crates
-	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙" .. (config.Crates > 0 and (" y " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
+	data.BoostXP = (tonumber(data.BoostXP) or 0) + (config.BoostXPMinutes or 0) * 60
+	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙"
+		.. (config.Crates > 0 and (", " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
+		.. ((config.BoostXPMinutes or 0) > 0 and (" y ⚡ XP doble " .. config.BoostXPMinutes .. " min") or "")
 end
 
 -- Primera victoria del día (GameConfig.FirstWinOfDay): premio extra una vez al día (hora UTC).
@@ -1295,6 +1298,8 @@ local function spinWheel(player)
 		data.FreeCrates += prize.Amount
 	elseif prize.Kind == "XP" then
 		PlayerData.AddXP(player, prize.Amount, "Ruleta", true)
+	elseif prize.Kind == "Boost" then
+		data[prize.Field] = (tonumber(data[prize.Field]) or 0) + prize.Amount * 60
 	end
 	sendUpdate(player)
 	requestSave(player)
