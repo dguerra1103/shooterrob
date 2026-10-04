@@ -373,6 +373,7 @@ local function spawnArea(team, cf)
 	sign(banner, Enum.NormalId.Right, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
 	sign(banner, Enum.NormalId.Left, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
 	roof.Name = team.Name .. "SpawnRoof"
+	roof.CanCollide = false -- (no se puede pisar: nadie acampa encima de la base enemiga)
 
 	for _, z in { -34, 34 } do
 		block("Pillar", Vector3.new(2, 16, 2), cf * CFrame.new(14, 8, z), Color3.fromRGB(235, 235, 240), Enum.Material.Concrete)

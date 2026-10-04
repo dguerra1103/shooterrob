@@ -1027,7 +1027,10 @@ function Kit.spawnArea(team, cf, style)
 		deco("FloorLine", V(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic)
 	end
 	local roofColor = style.Roof or RGB(235, 235, 240)
-	block(team.Name .. "SpawnRoof", V(30, 1, 70), cf * CFrame.new(0, 16, 0), roofColor, style.RoofMaterial or Enum.Material.Concrete)
+	local roof = block(team.Name .. "SpawnRoof", V(30, 1, 70), cf * CFrame.new(0, 16, 0), roofColor, style.RoofMaterial or Enum.Material.Concrete)
+	-- (no se puede pisar: con el supersalto alguien podría subirse a acampar encima de la base enemiga;
+	-- las balas sí lo siguen chocando)
+	roof.CanCollide = false
 	deco("RoofTrim", V(0.6, 0.5, 70.2), cf * CFrame.new(15, 15.4, 0), teamColor, Enum.Material.Neon)
 	local banner = block("TeamBanner", V(0.6, 4, 28), cf * CFrame.new(15.2, 18.6, 0), teamColor, Enum.Material.SmoothPlastic)
 	sign(banner, Enum.NormalId.Right, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
