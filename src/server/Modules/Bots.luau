@@ -16,6 +16,7 @@ local Remotes = require(Shared.Remotes)
 
 local Combat = require(script.Parent.Combat)
 local Loadout = require(script.Parent.Loadout)
+local Zombie = require(script.Parent.Zombie)
 
 local Bots = {}
 
@@ -56,6 +57,11 @@ end
 local function pickTeam()
 	if not teamMode() then
 		return nil
+	end
+	-- Infección: antes de la infección, superviviente (equipo A); después, zombi (equipo B)
+	local infection = ReplicatedStorage:GetAttribute("Infection")
+	if infection then
+		return Teams:FindFirstChild(ReplicatedStorage:GetAttribute(infection == "On" and "TeamB" or "TeamA") or "")
 	end
 	local best, bestCount = nil, math.huge
 	for _, team in Teams:GetTeams() do
@@ -107,10 +113,13 @@ local function spawnPoint(team)
 end
 
 -- Pinta al bot con los colores de su equipo (o de color aleatorio en todos contra todos)
-local function makeDescription(team)
+local function makeDescription(team, zombie)
 	local description = Instance.new("HumanoidDescription")
 	local shirt = team and team.TeamColor.Color or Color3.fromHSV(math.random(), 0.6, 0.85)
 	local skin = ({ Color3.fromRGB(255, 205, 160), Color3.fromRGB(200, 150, 110), Color3.fromRGB(140, 95, 65), Color3.fromRGB(255, 220, 190) })[math.random(1, 4)]
+	if zombie then
+		skin = Zombie.Skin
+	end
 	description.HeadColor = skin
 	description.LeftArmColor = skin
 	description.RightArmColor = skin
@@ -250,6 +259,65 @@ local function shoot(agent, target, distance)
 	Remotes.ShotFX:FireAllClients(tool, { endpoint })
 end
 
+-- Zombi (Infección): persigue al superviviente más cercano (aunque no lo vea, con el buscador de
+-- caminos) y le araña cuando lo tiene al alcance
+local function zombieThink(agent, humanoid, root, now)
+	local def = Weapons.Get("Claws")
+	local best, bestDistance = nil, math.huge
+	for _, target in candidates(agent) do
+		local distance = (target.Head.Position - root.Position).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = target, distance
+		end
+	end
+	if not best then
+		humanoid:MoveTo(root.Position)
+		return
+	end
+	local targetRoot = best.Model:FindFirstChild("HumanoidRootPart") or best.Head
+	if bestDistance <= def.Range + 1 then
+		humanoid:MoveTo(targetRoot.Position)
+		if now >= agent.NextShot then
+			agent.NextShot = now + def.Cooldown + math.random() * 0.3
+			local targetPlayer = Players:GetPlayerFromCharacter(best.Model)
+			local skill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
+			Combat.BotDamage(agent, best.Humanoid, def.Damage * CONFIG.DamageScale * 1.4 * skill, "Claws")
+		end
+		return
+	end
+	-- Cerca y a la vista: directo; si no, por el camino (se recalcula cada poco)
+	if bestDistance < 30 and canSee(agent, best) then
+		agent.Waypoints = nil
+		humanoid:MoveTo(targetRoot.Position)
+		return
+	end
+	if not agent.Computing and (not agent.Waypoints or now > agent.GoalDeadline or agent.WaypointIndex > #agent.Waypoints) then
+		agent.Computing = true
+		agent.GoalDeadline = now + 2.5
+		local goal = targetRoot.Position
+		task.spawn(function()
+			computePath(agent, goal)
+			agent.Computing = false
+			if not agent.Waypoints and agent.Humanoid then
+				agent.Humanoid:MoveTo(goal)
+			end
+		end)
+		return
+	end
+	local waypoints = agent.Waypoints
+	if waypoints and waypoints[agent.WaypointIndex] then
+		local waypoint = waypoints[agent.WaypointIndex]
+		if (Vector3.new(waypoint.Position.X, root.Position.Y, waypoint.Position.Z) - root.Position).Magnitude < 3 then
+			agent.WaypointIndex += 1
+		else
+			if waypoint.Action == Enum.PathWaypointAction.Jump then
+				humanoid.Jump = true
+			end
+			humanoid:MoveTo(waypoint.Position)
+		end
+	end
+end
+
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
@@ -260,6 +328,10 @@ local function think(agent)
 		return
 	end
 	local now = os.clock()
+	if agent.Zombie then
+		zombieThink(agent, humanoid, root, now)
+		return
+	end
 	local target, distance = findTarget(agent)
 	if target then
 		if agent.Target ~= target.Model then
@@ -434,13 +506,16 @@ spawnAgent = function(agent)
 		return false
 	end
 	agent.Team = agent.Team or pickTeam()
+	if ReplicatedStorage:GetAttribute("Infection") == "On" and agent.Team and agent.Team.Name == ReplicatedStorage:GetAttribute("TeamB") then
+		agent.Zombie = true
+	end
 	agent.Spawning = true
 	local ok, model = pcall(function()
-		return Players:CreateHumanoidModelFromDescriptionAsync(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
+		return Players:CreateHumanoidModelFromDescriptionAsync(makeDescription(agent.Team, agent.Zombie), Enum.HumanoidRigType.R15)
 	end)
 	if not ok then
 		ok, model = pcall(function()
-			return Players:CreateHumanoidModelFromDescription(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
+			return Players:CreateHumanoidModelFromDescription(makeDescription(agent.Team, agent.Zombie), Enum.HumanoidRigType.R15)
 		end)
 	end
 	agent.Spawning = false
@@ -475,7 +550,12 @@ spawnAgent = function(agent)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
 	statsOf(agent)
 	animate(humanoid)
-	agent.Weapon = CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	agent.Weapon = agent.Zombie and "Claws" or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	if agent.Zombie then
+		local claws = Weapons.Get("Claws")
+		Zombie.Apply(model, GameConfig.ModeSettings.INF.ZombieHealth)
+		humanoid.WalkSpeed = CONFIG.WalkSpeed * (claws.WalkSpeedMultiplier or 1)
+	end
 	agent.Tool = Loadout.MakeTool(agent.Weapon, "Default")
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
@@ -603,6 +683,26 @@ function Bots.RespawnDead()
 		if not agent.Humanoid and not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
+	end
+end
+
+-- Infección: el bot pasa a ser zombi (si está vivo, reaparece ya como zombi; si no, al reaparecer)
+function Bots.Infect(agent, zombieTeam)
+	if agent.Zombie then
+		return
+	end
+	agent.Team = zombieTeam
+	agent.Zombie = true
+	local entry = statsOf(agent)
+	if entry then
+		entry:SetAttribute("Team", zombieTeam.Name)
+	end
+	if agent.Humanoid and agent.Model then
+		-- Paciente cero: se cambia el cuerpo por uno de zombi (sin contar como muerte)
+		local model = agent.Model
+		agent.Humanoid = nil
+		model:Destroy()
+		task.spawn(safeSpawn, agent)
 	end
 end
 

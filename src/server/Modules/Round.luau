@@ -27,6 +27,7 @@ local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
 local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
+local Zombie = require(script.Parent.Zombie)
 
 local Round = {}
 
@@ -131,6 +132,13 @@ local function smallestTeam(exclude)
 end
 
 local function assignTeam(player)
+	-- Infección: quien entra antes de la infección es superviviente; después, zombi
+	local infection = ReplicatedStorage:GetAttribute("Infection")
+	if infection then
+		player.Neutral = false
+		player.Team = infection == "On" and teams[2] or teams[1]
+		return
+	end
 	if isTeamMode() then
 		player.Neutral = false
 		player.Team = smallestTeam(player)
@@ -141,6 +149,14 @@ local function assignTeam(player)
 end
 
 local function balanceTeams()
+	-- Infección: todos empiezan como supervivientes
+	if ReplicatedStorage:GetAttribute("Infection") then
+		for _, player in Players:GetPlayers() do
+			player.Neutral = false
+			player.Team = teams[1]
+		end
+		return
+	end
 	if not isTeamMode() then
 		for _, player in Players:GetPlayers() do
 			player.Team = nil
@@ -478,6 +494,166 @@ local function respawnAll()
 	end
 end
 
+local function isDeadPlayer(player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return not humanoid or humanoid.Health <= 0
+end
+
+---------------------------------------------------------------------------
+-- Infección (INF): supervivientes (equipo A) contra zombis (equipo B)
+---------------------------------------------------------------------------
+
+-- Los zombis solo llevan garras; los supervivientes, sus armas de siempre
+local function infectionLoadout(player)
+	if ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team == teams[2] then
+		return { "Claws" }
+	end
+	return nil
+end
+
+-- Aspecto de zombi al aparecer (después de cargar la ropa del avatar, que si no lo taparía)
+local function zombify(player, character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not humanoid or player.Character ~= character then
+		return
+	end
+	Zombie.Apply(character, settings("INF").ZombieHealth)
+	local started = os.clock()
+	while not player:HasAppearanceLoaded() and os.clock() - started < 5 do
+		task.wait(0.2)
+	end
+	if player.Character == character then
+		Zombie.Apply(character, nil)
+	end
+end
+
+-- Convierte en zombi a un jugador. Si sigue vivo (paciente cero) reaparece ya como zombi.
+local function infectPlayer(player, announce)
+	if player.Team == teams[2] then
+		return
+	end
+	player.Neutral = false
+	player.Team = teams[2]
+	if announce then
+		Remotes.Notify:FireAllClients("Streak", "🧟 " .. player.Name .. " se ha convertido en zombi")
+	end
+	if not isDeadPlayer(player) and not player:GetAttribute("InMenu") then
+		task.spawn(Respawn.Load, player)
+	end
+end
+
+local function infectionCounts()
+	local survivors, zombies = 0, 0
+	for _, player in Players:GetPlayers() do
+		if not player:GetAttribute("InMenu") then
+			if player.Team == teams[1] then
+				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if Respawn.IsLoading(player) or (humanoid and humanoid.Health > 0) then
+					survivors += 1
+				end
+			elseif player.Team == teams[2] then
+				zombies += 1
+			end
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Team == teams[1] then
+			if agent.Spawning or (agent.Humanoid and agent.Humanoid.Health > 0) then
+				survivors += 1
+			end
+		elseif agent.Team == teams[2] then
+			zombies += 1
+		end
+	end
+	return survivors, zombies
+end
+
+-- Elige pacientes cero al azar entre los supervivientes (jugadores fuera del menú y bots)
+local function infectRandom(count)
+	local pool = {}
+	for _, player in Players:GetPlayers() do
+		if player.Team == teams[1] and not player:GetAttribute("InMenu") then
+			table.insert(pool, player)
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Team == teams[1] and agent.Humanoid then
+			table.insert(pool, agent)
+		end
+	end
+	for _ = 1, math.min(count, #pool - 1) do
+		local chosen = table.remove(pool, math.random(1, #pool))
+		if typeof(chosen) == "Instance" then
+			infectPlayer(chosen, true)
+		else
+			Bots.Infect(chosen, teams[2])
+			Remotes.Notify:FireAllClients("Streak", "🧟 " .. chosen.Name .. " se ha convertido en zombi")
+		end
+	end
+end
+
+local function infectionRound(s)
+	local a, b = teams[1], teams[2]
+	-- Preparación: todos son supervivientes y se reparten por el mapa
+	for t = s.PrepTime, 1, -1 do
+		ReplicatedStorage:SetAttribute("TimeLeft", t)
+		if t == s.PrepTime or t <= 3 then
+			Remotes.Notify:FireAllClients("Big", "🧟 La infección empieza en " .. t .. "…")
+		end
+		local survivors = infectionCounts()
+		ReplicatedStorage:SetAttribute("AliveA", survivors)
+		ReplicatedStorage:SetAttribute("AliveB", 0)
+		task.wait(1)
+	end
+	ReplicatedStorage:SetAttribute("Infection", "On")
+	local survivors = infectionCounts()
+	infectRandom(math.max(1, math.floor(survivors / (s.ZombieRatio or 5))))
+	Remotes.Notify:FireAllClients("Big", "🧟 ¡HAN LLEGADO LOS ZOMBIS! ¡Sobrevive!")
+	local roundEnd = os.clock() + s.RoundTime
+	local winner
+	while not roundOver do
+		-- Los supervivientes que caen (por lo que sea) se convierten en zombis
+		for _, player in Players:GetPlayers() do
+			if player.Team == a and not player:GetAttribute("InMenu") and not Respawn.IsLoading(player) and isDeadPlayer(player) then
+				infectPlayer(player, true)
+			end
+		end
+		for _, agent in table.clone(Bots.Agents) do
+			if agent.Team == a and not agent.Humanoid and not agent.Spawning then
+				Bots.Infect(agent, b)
+			end
+		end
+		local alive, zombies = infectionCounts()
+		ReplicatedStorage:SetAttribute("AliveA", alive)
+		ReplicatedStorage:SetAttribute("AliveB", zombies)
+		ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
+		if alive == 0 then
+			winner = b
+			break
+		elseif zombies == 0 and alive >= 2 then
+			-- Se fueron todos los zombis: nuevo paciente cero
+			infectRandom(1)
+		end
+		if os.clock() >= roundEnd then
+			winner = a
+			break
+		end
+		task.wait(0.25)
+	end
+	if winner then
+		addScore(winner, 1)
+		Remotes.Notify:FireAllClients("Big", winner == a and "🧑 ¡GANAN LOS SUPERVIVIENTES!" or "🧟 ¡GANAN LOS ZOMBIS!")
+		task.wait(2)
+	end
+end
+
+-- Limpia el estado de Infección (al acabar o si la ronda falla)
+local function clearInfection()
+	ReplicatedStorage:SetAttribute("Infection", nil)
+	ReplicatedStorage:SetAttribute("AliveA", nil)
+	ReplicatedStorage:SetAttribute("AliveB", nil)
+end
+
 ---------------------------------------------------------------------------
 -- Eliminación (ELIM)
 ---------------------------------------------------------------------------
@@ -507,11 +683,6 @@ local function aliveCount(team)
 		end
 	end
 	return alive, members
-end
-
-local function isDeadPlayer(player)
-	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	return not humanoid or humanoid.Health <= 0
 end
 
 -- Limpia el estado de Eliminación (al acabar o si la ronda falla)
@@ -760,7 +931,15 @@ local function startMode(mode)
 	ReplicatedStorage:SetAttribute("ModeName", s.Name)
 	ReplicatedStorage:SetAttribute("TeamMode", s.Teams ~= false)
 	ReplicatedStorage:SetAttribute("ScoreToWin", scoreToWin)
-	Loadout.Override = mode == "GUN" and gunGameWeapons or nil
+	-- (antes de empezar: así los bots que entran al empezar ya son supervivientes)
+	ReplicatedStorage:SetAttribute("Infection", if mode == "INF" then "Prep" else nil)
+	if mode == "GUN" then
+		Loadout.Override = gunGameWeapons
+	elseif mode == "INF" then
+		Loadout.Override = infectionLoadout
+	else
+		Loadout.Override = nil
+	end
 end
 
 -- Una ronda completa: descanso con votación, partida y pantalla final
@@ -829,11 +1008,14 @@ local function playRound()
 			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
+			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
 		if mode == "ELIM" then
 			task.wait(2)
 			eliminationRounds(s)
+		elseif mode == "INF" then
+			infectionRound(s)
 		else
 			countdown(s.RoundTime, function()
 				return roundOver
@@ -842,6 +1024,11 @@ local function playRound()
 		Flags.Stop()
 		Hardpoint.Stop()
 		Loadout.Override = nil
+		if mode == "INF" then
+			clearInfection()
+			-- Fuera de la Infección todos vuelven a ser normales (los zombis reaparecen)
+			respawnAll()
+		end
 		if mode == "GUN" then
 			-- Fuera de la Escalada cada uno recupera sus armas
 			for _, player in Players:GetPlayers() do
@@ -861,6 +1048,7 @@ local function gameLoop()
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
 			clearElimination()
+			clearInfection()
 			pcall(respawnAll)
 			Loadout.Override = nil
 			roundOver = true
@@ -900,6 +1088,9 @@ function Round.Init()
 				-- Revivir instantáneo: aparece donde murió; si no, punto normal (FFA)
 				if not Respawn.ApplyRevive(player, character) then
 					ffaSpawnFor(player, character)
+				end
+				if ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team == teams[2] then
+					zombify(player, character)
 				end
 			end)
 		end)

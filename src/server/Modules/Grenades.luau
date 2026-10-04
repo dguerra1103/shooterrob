@@ -69,7 +69,8 @@ local function throw(player, direction)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local head = character and character:FindFirstChild("Head")
-	if not humanoid or humanoid.Health <= 0 or not head then
+	-- (los zombis de la Infección solo arañan)
+	if not humanoid or humanoid.Health <= 0 or not head or character:GetAttribute("Zombie") then
 		return
 	end
 	if now() < (player:GetAttribute("GrenadeReadyAt") or 0) then

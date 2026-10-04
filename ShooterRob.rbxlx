@@ -126,7 +126,7 @@ GameConfig.IntermissionTime = 20
 
 -- Modos de juego. En cada descanso se votan 3 combinaciones de mapa + modo entre estos.
 -- Quita alguno de la lista si no lo quieres.
-GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM" }
+GameConfig.Modes = { "TDM", "CTF", "KOTH", "FFA", "GUN", "ELIM", "INF" }
 GameConfig.ModeSettings = {
 	TDM = { Name = "Duelo por equipos", ScoreToWin = 40, RoundTime = 8 * 60, Teams = true }, -- puntos = bajas
 	CTF = { Name = "Captura la bandera", ScoreToWin = 3, RoundTime = 10 * 60, Teams = true }, -- puntos = capturas
@@ -135,6 +135,10 @@ GameConfig.ModeSettings = {
 	GUN = { Name = "Escalada de armas", ScoreToWin = 0, RoundTime = 10 * 60, Teams = false }, -- 0 = una baja por arma
 	-- Eliminación: rondas cortas de UNA vida; gana la ronda el equipo que deje al otro sin nadie en pie
 	ELIM = { Name = "Eliminación", ScoreToWin = 5, RoundTime = 10 * 60, Teams = true, SubRoundTime = 75, PrepTime = 4 },
+	-- Infección (Halloween): todos empiezan como supervivientes (equipo A) y tras PrepTime uno de cada
+	-- ZombieRatio se convierte en zombi (equipo B: garras, más vida y algo más rápidos). Quien cae ante
+	-- los zombis se convierte en zombi. Ganan los supervivientes si queda alguno al acabar el tiempo.
+	INF = { Name = "Infección", ScoreToWin = 1, RoundTime = 150, Teams = true, PrepTime = 12, ZombieHealth = 200, ZombieRatio = 5 },
 }
 GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 
@@ -3094,6 +3098,22 @@ function Classic.ToyHammer(_pt)
 	return p
 end
 
+-- Garras de zombi (modo Infección): mano verde con tres uñas de hueso largas y curvas
+function Classic.Claws(_pt)
+	local p = {
+		B("Handle", 0, 0, 0.15, 0.34, 0.26, 0.5, "Body"),
+		B("Wrist", 0, -0.02, 0.48, 0.3, 0.24, 0.2, "Dark"),
+		B("Knuckles", 0, 0.06, -0.12, 0.4, 0.2, 0.16, "Body"),
+	}
+	for i, x in { -0.13, 0, 0.13 } do
+		local spread = (i - 2) * 6
+		table.insert(p, B("ClawBase" .. i, x, 0.06, -0.38, 0.07, 0.09, 0.4, "Accent", -6, spread, 0))
+		table.insert(p, B("ClawTip" .. i, x * 1.25, 0.0, -0.72, 0.05, 0.07, 0.34, "Accent", -22, spread, 0))
+		table.insert(p, B("Blood" .. i, x * 1.3, -0.04, -0.86, 0.055, 0.06, 0.1, "Accent2", -22, spread, 0))
+	end
+	return p
+end
+
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },
@@ -3949,6 +3969,29 @@ do
 	Weapons.List.ToyHammer = hammer
 end
 
+-- Garras: arma de los zombis en el modo Infección (no se elige ni se vende: Hidden)
+do
+	local claws = {
+		DisplayName = "Garras",
+		Category = "Cuerpo a cuerpo",
+		Description = "Solo para zombis (modo Infección).",
+		Slot = 3,
+		Type = "Melee",
+		Hidden = true,
+		ZombieArms = Color3.fromRGB(110, 165, 80), -- brazos verdes en primera persona
+		Palette = { Body = RGB(95, 150, 70), Panel = RGB(95, 150, 70), Dark = RGB(60, 40, 50), Accent = RGB(235, 228, 200), Accent2 = RGB(170, 20, 30), Lens = RGB(70, 120, 175), BodyMaterial = Enum.Material.SmoothPlastic, AccentMaterial = Enum.Material.SmoothPlastic },
+		UnlockLevel = 1,
+		Damage = 50,
+		Range = 8,
+		Cooldown = 0.5,
+		WalkSpeedMultiplier = 1.12, -- los zombis corren un poco más
+		ViewOffset = CFrame.new(0.85, -0.85, -1.4) * CFrame.Angles(rad(10), rad(10), 0),
+		RightHand = V(0, 0, 0.15),
+	}
+	claws.Parts = Classic.Claws(claws)
+	Weapons.List.Claws = claws
+end
+
 -- Marcadora de paintball (estilo cartoon): las bolas dejan salpicaduras de pintura de colores
 do
 	local splat = {
@@ -4401,6 +4444,7 @@ local Remotes = require(Shared.Remotes)
 
 local Combat = require(script.Parent.Combat)
 local Loadout = require(script.Parent.Loadout)
+local Zombie = require(script.Parent.Zombie)
 
 local Bots = {}
 
@@ -4441,6 +4485,11 @@ end
 local function pickTeam()
 	if not teamMode() then
 		return nil
+	end
+	-- Infección: antes de la infección, superviviente (equipo A); después, zombi (equipo B)
+	local infection = ReplicatedStorage:GetAttribute("Infection")
+	if infection then
+		return Teams:FindFirstChild(ReplicatedStorage:GetAttribute(infection == "On" and "TeamB" or "TeamA") or "")
 	end
 	local best, bestCount = nil, math.huge
 	for _, team in Teams:GetTeams() do
@@ -4492,10 +4541,13 @@ local function spawnPoint(team)
 end
 
 -- Pinta al bot con los colores de su equipo (o de color aleatorio en todos contra todos)
-local function makeDescription(team)
+local function makeDescription(team, zombie)
 	local description = Instance.new("HumanoidDescription")
 	local shirt = team and team.TeamColor.Color or Color3.fromHSV(math.random(), 0.6, 0.85)
 	local skin = ({ Color3.fromRGB(255, 205, 160), Color3.fromRGB(200, 150, 110), Color3.fromRGB(140, 95, 65), Color3.fromRGB(255, 220, 190) })[math.random(1, 4)]
+	if zombie then
+		skin = Zombie.Skin
+	end
 	description.HeadColor = skin
 	description.LeftArmColor = skin
 	description.RightArmColor = skin
@@ -4635,6 +4687,65 @@ local function shoot(agent, target, distance)
 	Remotes.ShotFX:FireAllClients(tool, { endpoint })
 end
 
+-- Zombi (Infección): persigue al superviviente más cercano (aunque no lo vea, con el buscador de
+-- caminos) y le araña cuando lo tiene al alcance
+local function zombieThink(agent, humanoid, root, now)
+	local def = Weapons.Get("Claws")
+	local best, bestDistance = nil, math.huge
+	for _, target in candidates(agent) do
+		local distance = (target.Head.Position - root.Position).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = target, distance
+		end
+	end
+	if not best then
+		humanoid:MoveTo(root.Position)
+		return
+	end
+	local targetRoot = best.Model:FindFirstChild("HumanoidRootPart") or best.Head
+	if bestDistance <= def.Range + 1 then
+		humanoid:MoveTo(targetRoot.Position)
+		if now >= agent.NextShot then
+			agent.NextShot = now + def.Cooldown + math.random() * 0.3
+			local targetPlayer = Players:GetPlayerFromCharacter(best.Model)
+			local skill = targetPlayer and CONFIG.SkillByRank and CONFIG.SkillByRank[targetPlayer:GetAttribute("Rank") or 1] or 1
+			Combat.BotDamage(agent, best.Humanoid, def.Damage * CONFIG.DamageScale * 1.4 * skill, "Claws")
+		end
+		return
+	end
+	-- Cerca y a la vista: directo; si no, por el camino (se recalcula cada poco)
+	if bestDistance < 30 and canSee(agent, best) then
+		agent.Waypoints = nil
+		humanoid:MoveTo(targetRoot.Position)
+		return
+	end
+	if not agent.Computing and (not agent.Waypoints or now > agent.GoalDeadline or agent.WaypointIndex > #agent.Waypoints) then
+		agent.Computing = true
+		agent.GoalDeadline = now + 2.5
+		local goal = targetRoot.Position
+		task.spawn(function()
+			computePath(agent, goal)
+			agent.Computing = false
+			if not agent.Waypoints and agent.Humanoid then
+				agent.Humanoid:MoveTo(goal)
+			end
+		end)
+		return
+	end
+	local waypoints = agent.Waypoints
+	if waypoints and waypoints[agent.WaypointIndex] then
+		local waypoint = waypoints[agent.WaypointIndex]
+		if (Vector3.new(waypoint.Position.X, root.Position.Y, waypoint.Position.Z) - root.Position).Magnitude < 3 then
+			agent.WaypointIndex += 1
+		else
+			if waypoint.Action == Enum.PathWaypointAction.Jump then
+				humanoid.Jump = true
+			end
+			humanoid:MoveTo(waypoint.Position)
+		end
+	end
+end
+
 local function think(agent)
 	local humanoid, root = agent.Humanoid, agent.Root
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
@@ -4645,6 +4756,10 @@ local function think(agent)
 		return
 	end
 	local now = os.clock()
+	if agent.Zombie then
+		zombieThink(agent, humanoid, root, now)
+		return
+	end
 	local target, distance = findTarget(agent)
 	if target then
 		if agent.Target ~= target.Model then
@@ -4819,13 +4934,16 @@ spawnAgent = function(agent)
 		return false
 	end
 	agent.Team = agent.Team or pickTeam()
+	if ReplicatedStorage:GetAttribute("Infection") == "On" and agent.Team and agent.Team.Name == ReplicatedStorage:GetAttribute("TeamB") then
+		agent.Zombie = true
+	end
 	agent.Spawning = true
 	local ok, model = pcall(function()
-		return Players:CreateHumanoidModelFromDescriptionAsync(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
+		return Players:CreateHumanoidModelFromDescriptionAsync(makeDescription(agent.Team, agent.Zombie), Enum.HumanoidRigType.R15)
 	end)
 	if not ok then
 		ok, model = pcall(function()
-			return Players:CreateHumanoidModelFromDescription(makeDescription(agent.Team), Enum.HumanoidRigType.R15)
+			return Players:CreateHumanoidModelFromDescription(makeDescription(agent.Team, agent.Zombie), Enum.HumanoidRigType.R15)
 		end)
 	end
 	agent.Spawning = false
@@ -4860,7 +4978,12 @@ spawnAgent = function(agent)
 	agent.Model, agent.Humanoid, agent.Root = model, humanoid, root
 	statsOf(agent)
 	animate(humanoid)
-	agent.Weapon = CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	agent.Weapon = agent.Zombie and "Claws" or CONFIG.Weapons[math.random(1, #CONFIG.Weapons)]
+	if agent.Zombie then
+		local claws = Weapons.Get("Claws")
+		Zombie.Apply(model, GameConfig.ModeSettings.INF.ZombieHealth)
+		humanoid.WalkSpeed = CONFIG.WalkSpeed * (claws.WalkSpeedMultiplier or 1)
+	end
 	agent.Tool = Loadout.MakeTool(agent.Weapon, "Default")
 	agent.Tool.Parent = model
 	humanoid:EquipTool(agent.Tool)
@@ -4988,6 +5111,26 @@ function Bots.RespawnDead()
 		if not agent.Humanoid and not agent.Spawning then
 			task.spawn(safeSpawn, agent)
 		end
+	end
+end
+
+-- Infección: el bot pasa a ser zombi (si está vivo, reaparece ya como zombi; si no, al reaparecer)
+function Bots.Infect(agent, zombieTeam)
+	if agent.Zombie then
+		return
+	end
+	agent.Team = zombieTeam
+	agent.Zombie = true
+	local entry = statsOf(agent)
+	if entry then
+		entry:SetAttribute("Team", zombieTeam.Name)
+	end
+	if agent.Humanoid and agent.Model then
+		-- Paciente cero: se cambia el cuerpo por uno de zombi (sin contar como muerte)
+		local model = agent.Model
+		agent.Humanoid = nil
+		model:Destroy()
+		task.spawn(safeSpawn, agent)
 	end
 end
 
@@ -6616,7 +6759,8 @@ local function throw(player, direction)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local head = character and character:FindFirstChild("Head")
-	if not humanoid or humanoid.Health <= 0 or not head then
+	-- (los zombis de la Infección solo arañan)
+	if not humanoid or humanoid.Health <= 0 or not head or character:GetAttribute("Zombie") then
 		return
 	end
 	if now() < (player:GetAttribute("GrenadeReadyAt") or 0) then
@@ -13338,7 +13482,7 @@ function PlayerData.AddXP(player, amount, reason)
 		Remotes.Notify:FireClient(player, "LevelUp", data.Level)
 		-- ¿Desbloquea alguna arma este nivel?
 		for name, def in Weapons.List do
-			if def.UnlockLevel == data.Level then
+			if def.UnlockLevel == data.Level and not def.Hidden then
 				Remotes.Notify:FireClient(player, "Unlock", "¡Arma desbloqueada: " .. def.DisplayName .. "!")
 			end
 		end
@@ -14169,6 +14313,7 @@ local Killstreaks = require(script.Parent.Killstreaks)
 local Grenades = require(script.Parent.Grenades)
 local Respawn = require(script.Parent.Respawn)
 local Bots = require(script.Parent.Bots)
+local Zombie = require(script.Parent.Zombie)
 
 local Round = {}
 
@@ -14273,6 +14418,13 @@ local function smallestTeam(exclude)
 end
 
 local function assignTeam(player)
+	-- Infección: quien entra antes de la infección es superviviente; después, zombi
+	local infection = ReplicatedStorage:GetAttribute("Infection")
+	if infection then
+		player.Neutral = false
+		player.Team = infection == "On" and teams[2] or teams[1]
+		return
+	end
 	if isTeamMode() then
 		player.Neutral = false
 		player.Team = smallestTeam(player)
@@ -14283,6 +14435,14 @@ local function assignTeam(player)
 end
 
 local function balanceTeams()
+	-- Infección: todos empiezan como supervivientes
+	if ReplicatedStorage:GetAttribute("Infection") then
+		for _, player in Players:GetPlayers() do
+			player.Neutral = false
+			player.Team = teams[1]
+		end
+		return
+	end
 	if not isTeamMode() then
 		for _, player in Players:GetPlayers() do
 			player.Team = nil
@@ -14620,6 +14780,166 @@ local function respawnAll()
 	end
 end
 
+local function isDeadPlayer(player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return not humanoid or humanoid.Health <= 0
+end
+
+---------------------------------------------------------------------------
+-- Infección (INF): supervivientes (equipo A) contra zombis (equipo B)
+---------------------------------------------------------------------------
+
+-- Los zombis solo llevan garras; los supervivientes, sus armas de siempre
+local function infectionLoadout(player)
+	if ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team == teams[2] then
+		return { "Claws" }
+	end
+	return nil
+end
+
+-- Aspecto de zombi al aparecer (después de cargar la ropa del avatar, que si no lo taparía)
+local function zombify(player, character)
+	local humanoid = character:WaitForChild("Humanoid", 5)
+	if not humanoid or player.Character ~= character then
+		return
+	end
+	Zombie.Apply(character, settings("INF").ZombieHealth)
+	local started = os.clock()
+	while not player:HasAppearanceLoaded() and os.clock() - started < 5 do
+		task.wait(0.2)
+	end
+	if player.Character == character then
+		Zombie.Apply(character, nil)
+	end
+end
+
+-- Convierte en zombi a un jugador. Si sigue vivo (paciente cero) reaparece ya como zombi.
+local function infectPlayer(player, announce)
+	if player.Team == teams[2] then
+		return
+	end
+	player.Neutral = false
+	player.Team = teams[2]
+	if announce then
+		Remotes.Notify:FireAllClients("Streak", "🧟 " .. player.Name .. " se ha convertido en zombi")
+	end
+	if not isDeadPlayer(player) and not player:GetAttribute("InMenu") then
+		task.spawn(Respawn.Load, player)
+	end
+end
+
+local function infectionCounts()
+	local survivors, zombies = 0, 0
+	for _, player in Players:GetPlayers() do
+		if not player:GetAttribute("InMenu") then
+			if player.Team == teams[1] then
+				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+				if Respawn.IsLoading(player) or (humanoid and humanoid.Health > 0) then
+					survivors += 1
+				end
+			elseif player.Team == teams[2] then
+				zombies += 1
+			end
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Team == teams[1] then
+			if agent.Spawning or (agent.Humanoid and agent.Humanoid.Health > 0) then
+				survivors += 1
+			end
+		elseif agent.Team == teams[2] then
+			zombies += 1
+		end
+	end
+	return survivors, zombies
+end
+
+-- Elige pacientes cero al azar entre los supervivientes (jugadores fuera del menú y bots)
+local function infectRandom(count)
+	local pool = {}
+	for _, player in Players:GetPlayers() do
+		if player.Team == teams[1] and not player:GetAttribute("InMenu") then
+			table.insert(pool, player)
+		end
+	end
+	for _, agent in Bots.Agents do
+		if agent.Team == teams[1] and agent.Humanoid then
+			table.insert(pool, agent)
+		end
+	end
+	for _ = 1, math.min(count, #pool - 1) do
+		local chosen = table.remove(pool, math.random(1, #pool))
+		if typeof(chosen) == "Instance" then
+			infectPlayer(chosen, true)
+		else
+			Bots.Infect(chosen, teams[2])
+			Remotes.Notify:FireAllClients("Streak", "🧟 " .. chosen.Name .. " se ha convertido en zombi")
+		end
+	end
+end
+
+local function infectionRound(s)
+	local a, b = teams[1], teams[2]
+	-- Preparación: todos son supervivientes y se reparten por el mapa
+	for t = s.PrepTime, 1, -1 do
+		ReplicatedStorage:SetAttribute("TimeLeft", t)
+		if t == s.PrepTime or t <= 3 then
+			Remotes.Notify:FireAllClients("Big", "🧟 La infección empieza en " .. t .. "…")
+		end
+		local survivors = infectionCounts()
+		ReplicatedStorage:SetAttribute("AliveA", survivors)
+		ReplicatedStorage:SetAttribute("AliveB", 0)
+		task.wait(1)
+	end
+	ReplicatedStorage:SetAttribute("Infection", "On")
+	local survivors = infectionCounts()
+	infectRandom(math.max(1, math.floor(survivors / (s.ZombieRatio or 5))))
+	Remotes.Notify:FireAllClients("Big", "🧟 ¡HAN LLEGADO LOS ZOMBIS! ¡Sobrevive!")
+	local roundEnd = os.clock() + s.RoundTime
+	local winner
+	while not roundOver do
+		-- Los supervivientes que caen (por lo que sea) se convierten en zombis
+		for _, player in Players:GetPlayers() do
+			if player.Team == a and not player:GetAttribute("InMenu") and not Respawn.IsLoading(player) and isDeadPlayer(player) then
+				infectPlayer(player, true)
+			end
+		end
+		for _, agent in table.clone(Bots.Agents) do
+			if agent.Team == a and not agent.Humanoid and not agent.Spawning then
+				Bots.Infect(agent, b)
+			end
+		end
+		local alive, zombies = infectionCounts()
+		ReplicatedStorage:SetAttribute("AliveA", alive)
+		ReplicatedStorage:SetAttribute("AliveB", zombies)
+		ReplicatedStorage:SetAttribute("TimeLeft", math.max(0, math.ceil(roundEnd - os.clock())))
+		if alive == 0 then
+			winner = b
+			break
+		elseif zombies == 0 and alive >= 2 then
+			-- Se fueron todos los zombis: nuevo paciente cero
+			infectRandom(1)
+		end
+		if os.clock() >= roundEnd then
+			winner = a
+			break
+		end
+		task.wait(0.25)
+	end
+	if winner then
+		addScore(winner, 1)
+		Remotes.Notify:FireAllClients("Big", winner == a and "🧑 ¡GANAN LOS SUPERVIVIENTES!" or "🧟 ¡GANAN LOS ZOMBIS!")
+		task.wait(2)
+	end
+end
+
+-- Limpia el estado de Infección (al acabar o si la ronda falla)
+local function clearInfection()
+	ReplicatedStorage:SetAttribute("Infection", nil)
+	ReplicatedStorage:SetAttribute("AliveA", nil)
+	ReplicatedStorage:SetAttribute("AliveB", nil)
+end
+
 ---------------------------------------------------------------------------
 -- Eliminación (ELIM)
 ---------------------------------------------------------------------------
@@ -14649,11 +14969,6 @@ local function aliveCount(team)
 		end
 	end
 	return alive, members
-end
-
-local function isDeadPlayer(player)
-	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	return not humanoid or humanoid.Health <= 0
 end
 
 -- Limpia el estado de Eliminación (al acabar o si la ronda falla)
@@ -14902,7 +15217,15 @@ local function startMode(mode)
 	ReplicatedStorage:SetAttribute("ModeName", s.Name)
 	ReplicatedStorage:SetAttribute("TeamMode", s.Teams ~= false)
 	ReplicatedStorage:SetAttribute("ScoreToWin", scoreToWin)
-	Loadout.Override = mode == "GUN" and gunGameWeapons or nil
+	-- (antes de empezar: así los bots que entran al empezar ya son supervivientes)
+	ReplicatedStorage:SetAttribute("Infection", if mode == "INF" then "Prep" else nil)
+	if mode == "GUN" then
+		Loadout.Override = gunGameWeapons
+	elseif mode == "INF" then
+		Loadout.Override = infectionLoadout
+	else
+		Loadout.Override = nil
+	end
 end
 
 -- Una ronda completa: descanso con votación, partida y pantalla final
@@ -14971,11 +15294,14 @@ local function playRound()
 			FFA = "¡TODOS CONTRA TODOS! Primero a " .. goal .. " bajas",
 			GUN = "¡ESCALADA DE ARMAS! Una baja con cada arma",
 			ELIM = "¡ELIMINACIÓN! Una vida por ronda · primero a " .. goal .. " rondas",
+			INF = "🧟 ¡INFECCIÓN! Escóndete y prepárate",
 		}
 		Remotes.Notify:FireAllClients("Big", intro[mode] or s.Name)
 		if mode == "ELIM" then
 			task.wait(2)
 			eliminationRounds(s)
+		elseif mode == "INF" then
+			infectionRound(s)
 		else
 			countdown(s.RoundTime, function()
 				return roundOver
@@ -14984,6 +15310,11 @@ local function playRound()
 		Flags.Stop()
 		Hardpoint.Stop()
 		Loadout.Override = nil
+		if mode == "INF" then
+			clearInfection()
+			-- Fuera de la Infección todos vuelven a ser normales (los zombis reaparecen)
+			respawnAll()
+		end
 		if mode == "GUN" then
 			-- Fuera de la Escalada cada uno recupera sus armas
 			for _, player in Players:GetPlayers() do
@@ -15003,6 +15334,7 @@ local function gameLoop()
 			pcall(Flags.Stop)
 			pcall(Hardpoint.Stop)
 			clearElimination()
+			clearInfection()
 			pcall(respawnAll)
 			Loadout.Override = nil
 			roundOver = true
@@ -15043,6 +15375,9 @@ function Round.Init()
 				if not Respawn.ApplyRevive(player, character) then
 					ffaSpawnFor(player, character)
 				end
+				if ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team == teams[2] then
+					zombify(player, character)
+				end
 			end)
 		end)
 	end
@@ -15065,25 +15400,96 @@ return Round
 ]]></string>
           </Properties>
         </Item>
+        <Item class="ModuleScript" referent="56">
+          <Properties>
+            <string name="Name">Zombie</string>
+            <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
+-- brillantes y más vida. Las garras y la velocidad vienen del arma (Weapons.Claws).
+local Zombie = {}
+
+Zombie.Skin = Color3.fromRGB(110, 165, 80)
+local EYE = Color3.fromRGB(255, 40, 30)
+local SKIN_PARTS = {
+	"Head",
+	"LeftHand",
+	"RightHand",
+	"LeftLowerArm",
+	"RightLowerArm",
+	"LeftUpperArm",
+	"RightUpperArm",
+	"Left Arm",
+	"Right Arm",
+}
+
+local function eye(head, x)
+	local part = Instance.new("Part")
+	part.Name = "ZombieEye"
+	part.Size = Vector3.new(0.2, 0.12, 0.05)
+	part.Color = EYE
+	part.Material = Enum.Material.Neon
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Massless = true
+	part.CastShadow = false
+	part.CFrame = head.CFrame * CFrame.new(x * head.Size.X, head.Size.Y * 0.12, -head.Size.Z * 0.5)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = head
+	weld.Part1 = part
+	weld.Parent = part
+	part.Parent = head
+end
+
+-- Pinta al personaje de zombi y le da la vida indicada
+function Zombie.Apply(character, health)
+	character:SetAttribute("Zombie", true)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and health then
+		humanoid.MaxHealth = health
+		humanoid.Health = health
+	end
+	local bodyColors = character:FindFirstChildOfClass("BodyColors")
+	if bodyColors then
+		bodyColors.HeadColor3 = Zombie.Skin
+		bodyColors.LeftArmColor3 = Zombie.Skin
+		bodyColors.RightArmColor3 = Zombie.Skin
+	end
+	for _, name in SKIN_PARTS do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			part.Color = Zombie.Skin
+		end
+	end
+	local head = character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") and not head:FindFirstChild("ZombieEye") then
+		eye(head, -0.17)
+		eye(head, 0.17)
+	end
+end
+
+return Zombie
+]]></string>
+          </Properties>
+        </Item>
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="56">
+  <Item class="StarterPlayer" referent="57">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="57">
+    <Item class="StarterPlayerScripts" referent="58">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="58">
+      <Item class="Folder" referent="59">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="59">
+        <Item class="LocalScript" referent="60">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -15159,11 +15565,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="60">
+        <Item class="Folder" referent="61">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -15438,7 +15844,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo
@@ -15501,7 +15907,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -15577,7 +15983,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -16048,7 +16454,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -17018,7 +17424,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -17194,7 +17600,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -17303,7 +17709,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -17444,7 +17850,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -17566,7 +17972,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -18890,6 +19296,26 @@ local function updateScoreboard()
 		refs.FlagB.TextColor3 = Color3.fromRGB(200, 210, 230)
 	end
 
+	-- Infección: supervivientes contra zombis (en vez de los puntos)
+	local infection = ReplicatedStorage:GetAttribute("Infection")
+	if infection and state == "Playing" then
+		local survivors = ReplicatedStorage:GetAttribute("AliveA") or 0
+		local zombies = ReplicatedStorage:GetAttribute("AliveB") or 0
+		refs.ScoreA.Text = tostring(survivors)
+		refs.ScoreB.Text = tostring(zombies)
+		refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(90, 160, 60)
+		refs.FlagA.Text, refs.FlagA.TextColor3 = "🧑 Supervivientes", Color3.fromRGB(200, 230, 255)
+		refs.FlagB.Text, refs.FlagB.TextColor3 = "🧟 Zombis", Color3.fromRGB(150, 255, 120)
+		local zombie = player.Team and player.Team.Name == teamB and infection == "On"
+		if infection == "Prep" then
+			refs.Mode.Text = modeName .. " · ¡Escóndete! La infección va a empezar"
+		elseif zombie then
+			refs.Mode.Text = modeName .. " · 🧟 Eres un zombi: ¡atrapa a los supervivientes!"
+		else
+			refs.Mode.Text = modeName .. " · ¡Sobrevive hasta que acabe el tiempo!"
+		end
+	end
+
 	-- La bandera que llevamos a la espalda no nos tapa la vista
 	local flagsFolder = workspace:FindFirstChild("Flags")
 	if flagsFolder then
@@ -19127,7 +19553,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -19192,7 +19618,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -19423,7 +19849,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -20020,7 +20446,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -21809,7 +22235,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift) y deslizarse (C).
@@ -22102,7 +22528,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -22273,7 +22699,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="77">
+          <Item class="ModuleScript" referent="78">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -22443,7 +22869,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="78">
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -22761,7 +23187,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="79">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -22950,7 +23376,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="80">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -23036,7 +23462,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="81">
+          <Item class="ModuleScript" referent="82">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -23193,7 +23619,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="82">
+          <Item class="ModuleScript" referent="83">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -23295,7 +23721,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="84">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -23452,7 +23878,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="85">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -23552,12 +23978,18 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	if outfitColors then
 		sleeveColor = outfitColors.Sleeve
 	end
+	-- Zombi (garras): brazos verdes y manga rota oscura
+	local zombieSkin = weaponDef.ZombieArms
+	if zombieSkin then
+		sleeveColor = Color3.fromRGB(60, 45, 55)
+		outfitColors = { Sleeve = sleeveColor, Glove = zombieSkin, Cuff = sleeveColor }
+	end
 
 	local arm = Instance.new("Part")
 	arm.Name = "Arm"
 	arm.Size = Vector3.new(0.4, 0.4, length)
 	arm.CFrame = CFrame.lookAt((handPos + shoulder) / 2, handPos)
-	arm.Color = skinTone()
+	arm.Color = zombieSkin or skinTone()
 	arm.Material = Enum.Material.SmoothPlastic
 	arm.Parent = model
 
@@ -23583,7 +24015,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
 	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
 	cuff.Color = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250)
-	cuff.Material = outfitColors and Enum.Material.Neon or Enum.Material.Fabric
+	cuff.Material = (outfitColors and not zombieSkin) and Enum.Material.Neon or Enum.Material.Fabric
 	cuff.Parent = model
 end
 
@@ -24345,7 +24777,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -24402,7 +24834,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -24597,19 +25029,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="87">
+  <Item class="Teams" referent="88">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="88">
+  <Item class="Workspace" referent="89">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="89">
+    <Item class="Terrain" referent="90">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

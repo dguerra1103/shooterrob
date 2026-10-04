@@ -620,7 +620,7 @@ function PlayerData.AddXP(player, amount, reason)
 		Remotes.Notify:FireClient(player, "LevelUp", data.Level)
 		-- ¿Desbloquea alguna arma este nivel?
 		for name, def in Weapons.List do
-			if def.UnlockLevel == data.Level then
+			if def.UnlockLevel == data.Level and not def.Hidden then
 				Remotes.Notify:FireClient(player, "Unlock", "¡Arma desbloqueada: " .. def.DisplayName .. "!")
 			end
 		end

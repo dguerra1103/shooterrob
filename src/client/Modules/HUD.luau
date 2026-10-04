@@ -1319,6 +1319,26 @@ local function updateScoreboard()
 		refs.FlagB.TextColor3 = Color3.fromRGB(200, 210, 230)
 	end
 
+	-- Infección: supervivientes contra zombis (en vez de los puntos)
+	local infection = ReplicatedStorage:GetAttribute("Infection")
+	if infection and state == "Playing" then
+		local survivors = ReplicatedStorage:GetAttribute("AliveA") or 0
+		local zombies = ReplicatedStorage:GetAttribute("AliveB") or 0
+		refs.ScoreA.Text = tostring(survivors)
+		refs.ScoreB.Text = tostring(zombies)
+		refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(90, 160, 60)
+		refs.FlagA.Text, refs.FlagA.TextColor3 = "🧑 Supervivientes", Color3.fromRGB(200, 230, 255)
+		refs.FlagB.Text, refs.FlagB.TextColor3 = "🧟 Zombis", Color3.fromRGB(150, 255, 120)
+		local zombie = player.Team and player.Team.Name == teamB and infection == "On"
+		if infection == "Prep" then
+			refs.Mode.Text = modeName .. " · ¡Escóndete! La infección va a empezar"
+		elseif zombie then
+			refs.Mode.Text = modeName .. " · 🧟 Eres un zombi: ¡atrapa a los supervivientes!"
+		else
+			refs.Mode.Text = modeName .. " · ¡Sobrevive hasta que acabe el tiempo!"
+		end
+	end
+
 	-- La bandera que llevamos a la espalda no nos tapa la vista
 	local flagsFolder = workspace:FindFirstChild("Flags")
 	if flagsFolder then

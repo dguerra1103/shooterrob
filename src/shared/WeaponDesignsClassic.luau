@@ -668,6 +668,22 @@ function Classic.ToyHammer(_pt)
 	return p
 end
 
+-- Garras de zombi (modo Infección): mano verde con tres uñas de hueso largas y curvas
+function Classic.Claws(_pt)
+	local p = {
+		B("Handle", 0, 0, 0.15, 0.34, 0.26, 0.5, "Body"),
+		B("Wrist", 0, -0.02, 0.48, 0.3, 0.24, 0.2, "Dark"),
+		B("Knuckles", 0, 0.06, -0.12, 0.4, 0.2, 0.16, "Body"),
+	}
+	for i, x in { -0.13, 0, 0.13 } do
+		local spread = (i - 2) * 6
+		table.insert(p, B("ClawBase" .. i, x, 0.06, -0.38, 0.07, 0.09, 0.4, "Accent", -6, spread, 0))
+		table.insert(p, B("ClawTip" .. i, x * 1.25, 0.0, -0.72, 0.05, 0.07, 0.34, "Accent", -22, spread, 0))
+		table.insert(p, B("Blood" .. i, x * 1.3, -0.04, -0.86, 0.055, 0.06, 0.1, "Accent2", -22, spread, 0))
+	end
+	return p
+end
+
 -- Puntos que cambian respecto al diseño original (el lanzacohetes se coge por el tubo, no por el cohete)
 Classic.Points = {
 	NovaLauncher = { LeftHand = V(0, -0.4, -0.7) },

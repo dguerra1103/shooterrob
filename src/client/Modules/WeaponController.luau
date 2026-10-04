@@ -95,12 +95,18 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	if outfitColors then
 		sleeveColor = outfitColors.Sleeve
 	end
+	-- Zombi (garras): brazos verdes y manga rota oscura
+	local zombieSkin = weaponDef.ZombieArms
+	if zombieSkin then
+		sleeveColor = Color3.fromRGB(60, 45, 55)
+		outfitColors = { Sleeve = sleeveColor, Glove = zombieSkin, Cuff = sleeveColor }
+	end
 
 	local arm = Instance.new("Part")
 	arm.Name = "Arm"
 	arm.Size = Vector3.new(0.4, 0.4, length)
 	arm.CFrame = CFrame.lookAt((handPos + shoulder) / 2, handPos)
-	arm.Color = skinTone()
+	arm.Color = zombieSkin or skinTone()
 	arm.Material = Enum.Material.SmoothPlastic
 	arm.Parent = model
 
@@ -126,7 +132,7 @@ local function addArm(model, handPos, shoulderCam, weaponDef)
 	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
 	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, 0.545), handPos)
 	cuff.Color = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250)
-	cuff.Material = outfitColors and Enum.Material.Neon or Enum.Material.Fabric
+	cuff.Material = (outfitColors and not zombieSkin) and Enum.Material.Neon or Enum.Material.Fabric
 	cuff.Parent = model
 end
 

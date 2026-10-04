@@ -573,6 +573,29 @@ do
 	Weapons.List.ToyHammer = hammer
 end
 
+-- Garras: arma de los zombis en el modo Infección (no se elige ni se vende: Hidden)
+do
+	local claws = {
+		DisplayName = "Garras",
+		Category = "Cuerpo a cuerpo",
+		Description = "Solo para zombis (modo Infección).",
+		Slot = 3,
+		Type = "Melee",
+		Hidden = true,
+		ZombieArms = Color3.fromRGB(110, 165, 80), -- brazos verdes en primera persona
+		Palette = { Body = RGB(95, 150, 70), Panel = RGB(95, 150, 70), Dark = RGB(60, 40, 50), Accent = RGB(235, 228, 200), Accent2 = RGB(170, 20, 30), Lens = RGB(70, 120, 175), BodyMaterial = Enum.Material.SmoothPlastic, AccentMaterial = Enum.Material.SmoothPlastic },
+		UnlockLevel = 1,
+		Damage = 50,
+		Range = 8,
+		Cooldown = 0.5,
+		WalkSpeedMultiplier = 1.12, -- los zombis corren un poco más
+		ViewOffset = CFrame.new(0.85, -0.85, -1.4) * CFrame.Angles(rad(10), rad(10), 0),
+		RightHand = V(0, 0, 0.15),
+	}
+	claws.Parts = Classic.Claws(claws)
+	Weapons.List.Claws = claws
+end
+
 -- Marcadora de paintball (estilo cartoon): las bolas dejan salpicaduras de pintura de colores
 do
 	local splat = {
