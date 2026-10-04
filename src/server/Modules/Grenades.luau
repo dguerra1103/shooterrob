@@ -92,6 +92,9 @@ local function throw(player, direction)
 	local hit = workspace:Raycast(head.Position, direction * 2.5, params)
 	local start = hit and (hit.Position - direction * 0.6) or (head.Position + direction * 2)
 	local grenade, light = makeGrenade(CFrame.new(start))
+	-- (para el aviso de granada cercana del cliente: no avisa de las propias ni de las del equipo)
+	grenade:SetAttribute("Thrower", player.Name)
+	grenade:SetAttribute("Team", player.Team and player.Team.Name or "")
 	-- No choca con quien la lanza (si mira hacia abajo no sale rebotada de su cuerpo)
 	for _, part in character:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -147,6 +150,8 @@ function Grenades.BotThrow(model, from, target, onExplode)
 	local gravity = Vector3.new(0, -workspace.Gravity, 0)
 	local velocity = (target - from) / flight - gravity * flight / 2
 	local grenade, light = makeGrenade(CFrame.new(from))
+	grenade:SetAttribute("Thrower", model.Name)
+	grenade:SetAttribute("Team", model:GetAttribute("Team") or "")
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			local noCollide = Instance.new("NoCollisionConstraint")
