@@ -557,8 +557,25 @@ local function onAimPitch(player, pitch)
 	end
 end
 
+-- Linterna del arma (de noche): los demás la ven si la llevas encendida
+local lastFlashlight = setmetatable({}, { __mode = "k" }) -- [player] = os.clock()
+local function onFlashlight(player, on)
+	if type(on) ~= "boolean" then
+		return
+	end
+	local now = os.clock()
+	if now - (lastFlashlight[player] or 0) < 0.2 then
+		return
+	end
+	lastFlashlight[player] = now
+	if player.Character then
+		player.Character:SetAttribute("Flashlight", on)
+	end
+end
+
 function Combat.Init()
 	Remotes.AimPitch.OnServerEvent:Connect(onAimPitch)
+	Remotes.Flashlight.OnServerEvent:Connect(onFlashlight)
 	Remotes.Fire.OnServerEvent:Connect(onFire)
 	Remotes.Reload.OnServerEvent:Connect(onReload)
 	Remotes.Melee.OnServerEvent:Connect(onMelee)

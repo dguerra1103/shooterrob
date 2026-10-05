@@ -370,7 +370,7 @@ local function buildWeaponPanel()
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -20, 0.42, 0), -- (debajo del registro de bajas)
-			Size = UDim2.fromOffset(220, 228),
+			Size = UDim2.fromOffset(220, 247),
 			BackgroundTransparency = 1,
 			Parent = gui,
 		}, {
@@ -382,7 +382,8 @@ local function buildWeaponPanel()
 		})
 		for i, pair in {
 			{ "Menú y tienda", "B" },
-			{ "Granada", "G" },
+			{ "Granada (mantén: cocinar)", "G" },
+			{ "Linterna (de noche)", "L" },
 			{ "Ataque aéreo (racha 5)", "T" },
 			{ "Agacharse / deslizar", "C" },
 			{ "Cuchillo rápido", "F" },

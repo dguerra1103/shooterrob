@@ -38,6 +38,7 @@ local EVENTS = {
 	"RoundEnd", -- servidor -> clientes: resultado de la ronda
 	"FinalKillcam", -- servidor -> clientes: repetición de la última baja de la partida/ronda (Killcam)
 	"AimPitch", -- cliente -> servidor: hacia dónde mira arriba/abajo (los demás ven el arma inclinada)
+	"Flashlight", -- cliente -> servidor: linterna del arma encendida o apagada (de noche; Flashlights)
 	"MatchSummary", -- servidor -> cliente: resumen de tu partida (XP, monedas, bajas, mejor racha)
 }
 local FUNCTIONS = {
