@@ -32,6 +32,7 @@ local function readMap(map)
 					Half = box.Size / 2,
 					Volume = box.Size.X * box.Size.Y * box.Size.Z,
 					Name = name,
+					Site = box:GetAttribute("Site") == true,
 				})
 			end
 		end
@@ -60,7 +61,12 @@ end
 -- Nombre de la zona en este punto del mapa (nil si no se sabe)
 function ZoneName.At(position, info)
 	local best = nil
+	-- (los sitios de bomba solo cuentan en Buscar y destruir)
+	local snd = game:GetService("ReplicatedStorage"):GetAttribute("Mode") == "SND"
 	for _, box in info.Boxes do
+		if box.Site and not snd then
+			continue
+		end
 		local p = box.CFrame:PointToObjectSpace(position)
 		if math.abs(p.X) <= box.Half.X and math.abs(p.Y) <= box.Half.Y and math.abs(p.Z) <= box.Half.Z then
 			if not best or box.Volume < best.Volume then
@@ -125,12 +131,14 @@ function ZoneName.Update(dt)
 		setText(nil)
 		return
 	end
-	local stale = mapInfo ~= nil and os.clock() - mapInfo.ReadAt > 3
-		and (#mapInfo.Boxes == 0 or not mapInfo.Length or #mapInfo.Bases < 2 or not mapInfo.Checked)
+	-- (como mucho dos relecturas por mapa: muchos mapas no tienen zonas con nombre y no hay que
+	-- recorrer el mapa entero cada poco)
+	local stale = mapInfo ~= nil and mapInfo.Map == map and (mapInfo.Rereads or 0) < 2 and os.clock() - mapInfo.ReadAt > 3
+		and (#mapInfo.Boxes == 0 or not mapInfo.Length or #mapInfo.Bases < 2 or (mapInfo.Rereads or 0) == 0)
 	if not mapInfo or mapInfo.Map ~= map or stale then
-		local first = not mapInfo or mapInfo.Map ~= map
+		local rereads = (stale and mapInfo) and (mapInfo.Rereads or 0) + 1 or 0
 		mapInfo = readMap(map)
-		mapInfo.Checked = not first
+		mapInfo.Rereads = rereads
 	end
 	setText(ZoneName.At(root.Position, mapInfo))
 	-- Debajo del minimapa (y del botón de la tienda cuando se ve)

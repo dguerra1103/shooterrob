@@ -62,7 +62,7 @@ local function collect()
 				Team = team,
 				Kills = entry:GetAttribute("Kills") or 0,
 				Deaths = entry:GetAttribute("Deaths") or 0,
-				Assists = entry:GetAttribute("Assists") or 0,
+				Assists = "–", -- (los bots no llevan la cuenta de asistencias)
 				Score = entry:GetAttribute("Score") or 0,
 				Captures = 0,
 				IsBot = true,
@@ -100,7 +100,7 @@ local function columnTitles(parent, y, third)
 	for i, text in { "JUGADOR", "BAJAS", "ASIST.", "MUERTES", third } do
 		UI.label({
 			Position = i == 1 and UDim2.fromOffset(12, 0) or UDim2.new(1, -COLS_X + (i - 2) * COL_W, 0, 0),
-			Size = UDim2.fromOffset(i == 1 and 200 or COL_W, 22),
+			Size = i == 1 and UDim2.new(1, -(COLS_X + 12), 0, 22) or UDim2.fromOffset(COL_W, 22),
 			Text = text,
 			TextSize = 14,
 			TextColor3 = Color3.fromRGB(200, 200, 220),
@@ -178,7 +178,7 @@ local function refresh()
 	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
 	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
 	for _, row in rows do
-		table.insert(parts, string.format("%s/%s/%d/%d/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, row.Assists or 0, row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
+		table.insert(parts, string.format("%s/%s/%d/%s/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, tostring(row.Assists or 0), row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
 	end
 	for _, teamName in { ReplicatedStorage:GetAttribute("TeamA"), ReplicatedStorage:GetAttribute("TeamB") } do
 		table.insert(parts, tostring(teamName and ReplicatedStorage:GetAttribute("Score_" .. teamName)))

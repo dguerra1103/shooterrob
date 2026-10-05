@@ -557,6 +557,7 @@ local function buildFeedsAndOverlays()
 		TextScaled = true,
 		TextStrokeTransparency = 0,
 		Visible = false,
+		ZIndex = 11, -- (por encima del panel de fin de ronda)
 		Parent = gui,
 	})
 	refs.BigFit = UI.new("UITextSizeConstraint", { MaxTextSize = 54, Parent = refs.BigText })
@@ -570,6 +571,7 @@ local function buildFeedsAndOverlays()
 		RichText = true,
 		TextStrokeTransparency = 0.3,
 		Visible = false,
+		ZIndex = 11,
 		Parent = gui,
 	})
 
@@ -720,6 +722,7 @@ local function buildFeedsAndOverlays()
 		Size = UDim2.fromOffset(370, 24),
 		Text = "",
 		TextSize = 20,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextColor3 = Color3.fromRGB(255, 225, 100),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = refs.KillBanner,
@@ -1109,7 +1112,7 @@ local function onNotify(kind, text)
 		if weaponName then
 			-- (con la pantalla final delante, celebrate solo echa confeti: el nombre va en el aviso)
 			local endScreen = refs.RoundEnd and refs.RoundEnd.Visible
-			if not celebrate("🔓 ¡ARMA NUEVA!", weaponName .. " · ya puedes equiparla en Armas (B)", Color3.fromRGB(255, 200, 60), true, true) or endScreen then
+			if not celebrate("🔓 ¡ARMA NUEVA!", weaponName .. " · ya puedes equiparla en Armas (B)", Color3.fromRGB(255, 200, 60), true) or endScreen then
 				bigMessage("🔓 " .. text, Color3.fromRGB(255, 200, 60))
 			end
 		else
@@ -1233,8 +1236,14 @@ local function showKillBanner(victim, headshot)
 		local bounds = label.TextBounds
 		return typeof(bounds) == "Vector2" and bounds.X or 0
 	end
-	local textWidth = math.max(boundsX(refs.KillTitle), boundsX(refs.KillSub))
+	-- (TextBounds viene en píxeles de pantalla, ya escalados por la UIScale del aviso: se pasa a las
+	-- unidades del aviso)
+	local currentScale = math.max(refs.KillScale.Scale, 0.1)
+	local textWidth = math.max(boundsX(refs.KillTitle), boundsX(refs.KillSub)) / currentScale
 	local plateWidth = textWidth > 0 and math.clamp(textWidth + 92, 180, phone and 300 or 400) or (phone and 250 or 400)
+	-- (y el texto no pasa de la placa: si no cabe, se corta con «…»)
+	refs.KillTitle.Size = UDim2.fromOffset(plateWidth - 70, 34)
+	refs.KillSub.Size = UDim2.fromOffset(plateWidth - 70, 24)
 	refs.KillPlate.Size = UDim2.fromOffset(math.min(120, plateWidth), 56)
 	tween(refs.KillPlate, 0.18, { Size = UDim2.fromOffset(plateWidth, 56) })
 	refs.KillBanner.Visible = true

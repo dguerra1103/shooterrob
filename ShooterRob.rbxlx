@@ -20986,7 +20986,8 @@ function Kit.bombSite(position, letter, defender)
 	p:SetAttribute("Radius", 7)
 	-- (zona con nombre: «SITIO A · ROJO», el equipo que lo defiende)
 	local defenderTeam = GameConfig.Teams[defender]
-	Kit.callout("SITIO " .. letter .. (defenderTeam and (" · " .. string.upper(defenderTeam.Name)) or ""), CFrame.new(position + V(0, 6, 0)), V(26, 18, 26))
+	local siteBox = Kit.callout("SITIO " .. letter .. (defenderTeam and (" · " .. string.upper(defenderTeam.Name)) or ""), CFrame.new(position + V(0, 6, 0)), V(7 * 2 + 12, 18, 7 * 2 + 12))
+	siteBox:SetAttribute("Site", true) -- (el cliente solo lo nombra en Buscar y destruir)
 	-- La letra pintada en el suelo, como en los mapas de los shooters (se ve en todos los modos)
 	local floorY = position.Y
 	local params = RaycastParams.new()
@@ -33077,6 +33078,7 @@ local function buildFeedsAndOverlays()
 		TextScaled = true,
 		TextStrokeTransparency = 0,
 		Visible = false,
+		ZIndex = 11, -- (por encima del panel de fin de ronda)
 		Parent = gui,
 	})
 	refs.BigFit = UI.new("UITextSizeConstraint", { MaxTextSize = 54, Parent = refs.BigText })
@@ -33090,6 +33092,7 @@ local function buildFeedsAndOverlays()
 		RichText = true,
 		TextStrokeTransparency = 0.3,
 		Visible = false,
+		ZIndex = 11,
 		Parent = gui,
 	})
 
@@ -33240,6 +33243,7 @@ local function buildFeedsAndOverlays()
 		Size = UDim2.fromOffset(370, 24),
 		Text = "",
 		TextSize = 20,
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextColor3 = Color3.fromRGB(255, 225, 100),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = refs.KillBanner,
@@ -33629,7 +33633,7 @@ local function onNotify(kind, text)
 		if weaponName then
 			-- (con la pantalla final delante, celebrate solo echa confeti: el nombre va en el aviso)
 			local endScreen = refs.RoundEnd and refs.RoundEnd.Visible
-			if not celebrate("🔓 ¡ARMA NUEVA!", weaponName .. " · ya puedes equiparla en Armas (B)", Color3.fromRGB(255, 200, 60), true, true) or endScreen then
+			if not celebrate("🔓 ¡ARMA NUEVA!", weaponName .. " · ya puedes equiparla en Armas (B)", Color3.fromRGB(255, 200, 60), true) or endScreen then
 				bigMessage("🔓 " .. text, Color3.fromRGB(255, 200, 60))
 			end
 		else
@@ -33753,8 +33757,14 @@ local function showKillBanner(victim, headshot)
 		local bounds = label.TextBounds
 		return typeof(bounds) == "Vector2" and bounds.X or 0
 	end
-	local textWidth = math.max(boundsX(refs.KillTitle), boundsX(refs.KillSub))
+	-- (TextBounds viene en píxeles de pantalla, ya escalados por la UIScale del aviso: se pasa a las
+	-- unidades del aviso)
+	local currentScale = math.max(refs.KillScale.Scale, 0.1)
+	local textWidth = math.max(boundsX(refs.KillTitle), boundsX(refs.KillSub)) / currentScale
 	local plateWidth = textWidth > 0 and math.clamp(textWidth + 92, 180, phone and 300 or 400) or (phone and 250 or 400)
+	-- (y el texto no pasa de la placa: si no cabe, se corta con «…»)
+	refs.KillTitle.Size = UDim2.fromOffset(plateWidth - 70, 34)
+	refs.KillSub.Size = UDim2.fromOffset(plateWidth - 70, 24)
 	refs.KillPlate.Size = UDim2.fromOffset(math.min(120, plateWidth), 56)
 	tween(refs.KillPlate, 0.18, { Size = UDim2.fromOffset(plateWidth, 56) })
 	refs.KillBanner.Visible = true
@@ -42380,7 +42390,7 @@ local function collect()
 				Team = team,
 				Kills = entry:GetAttribute("Kills") or 0,
 				Deaths = entry:GetAttribute("Deaths") or 0,
-				Assists = entry:GetAttribute("Assists") or 0,
+				Assists = "–", -- (los bots no llevan la cuenta de asistencias)
 				Score = entry:GetAttribute("Score") or 0,
 				Captures = 0,
 				IsBot = true,
@@ -42418,7 +42428,7 @@ local function columnTitles(parent, y, third)
 	for i, text in { "JUGADOR", "BAJAS", "ASIST.", "MUERTES", third } do
 		UI.label({
 			Position = i == 1 and UDim2.fromOffset(12, 0) or UDim2.new(1, -COLS_X + (i - 2) * COL_W, 0, 0),
-			Size = UDim2.fromOffset(i == 1 and 200 or COL_W, 22),
+			Size = i == 1 and UDim2.new(1, -(COLS_X + 12), 0, 22) or UDim2.fromOffset(COL_W, 22),
 			Text = text,
 			TextSize = 14,
 			TextColor3 = Color3.fromRGB(200, 200, 220),
@@ -42496,7 +42506,7 @@ local function refresh()
 	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
 	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
 	for _, row in rows do
-		table.insert(parts, string.format("%s/%s/%d/%d/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, row.Assists or 0, row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
+		table.insert(parts, string.format("%s/%s/%d/%s/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, tostring(row.Assists or 0), row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
 	end
 	for _, teamName in { ReplicatedStorage:GetAttribute("TeamA"), ReplicatedStorage:GetAttribute("TeamB") } do
 		table.insert(parts, tostring(teamName and ReplicatedStorage:GetAttribute("Score_" .. teamName)))
@@ -42831,6 +42841,7 @@ function Settings.Init()
 			return
 		end
 		local changedQuality = data.Settings.Quality ~= current.Quality
+		local oldEnemyColor = current.EnemyColor
 		for key, value in data.Settings do
 			if GameConfig.DefaultSettings[key] ~= nil and type(value) == type(GameConfig.DefaultSettings[key]) then
 				current[key] = value
@@ -42838,6 +42849,10 @@ function Settings.Init()
 		end
 		if changedQuality then
 			applyQuality()
+		end
+		-- (el color de enemigos guardado se aplica también a los que ya están en pantalla)
+		if current.EnemyColor ~= oldEnemyColor then
+			ClientState.SettingsChanged:Fire("EnemyColor")
 		end
 	end
 	ClientState.DataChanged.Event:Connect(fromData)
@@ -43488,9 +43503,11 @@ function UI.pressFeel(button)
 			-- (si el dedo se suelta fuera del botón, p. ej. al deslizar una lista, InputEnded no llega:
 			-- se vigila el propio toque)
 			local changed
-			changed = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+			local function check()
 				if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
-					changed:Disconnect()
+					if changed then
+						changed:Disconnect()
+					end
 					if pressed then
 						pressed = false
 						if input.UserInputType == Enum.UserInputType.Touch then
@@ -43498,8 +43515,13 @@ function UI.pressFeel(button)
 						end
 						go(RELEASE_INFO)
 					end
+					return true
 				end
-			end)
+				return false
+			end
+			changed = input:GetPropertyChangedSignal("UserInputState"):Connect(check)
+			-- (un toque muy rápido puede llegar ya terminado: entonces no se queda escuchando)
+			check()
 		end
 	end)
 	button.InputEnded:Connect(function(input)
@@ -45977,6 +45999,7 @@ local function readMap(map)
 					Half = box.Size / 2,
 					Volume = box.Size.X * box.Size.Y * box.Size.Z,
 					Name = name,
+					Site = box:GetAttribute("Site") == true,
 				})
 			end
 		end
@@ -46005,7 +46028,12 @@ end
 -- Nombre de la zona en este punto del mapa (nil si no se sabe)
 function ZoneName.At(position, info)
 	local best = nil
+	-- (los sitios de bomba solo cuentan en Buscar y destruir)
+	local snd = game:GetService("ReplicatedStorage"):GetAttribute("Mode") == "SND"
 	for _, box in info.Boxes do
+		if box.Site and not snd then
+			continue
+		end
 		local p = box.CFrame:PointToObjectSpace(position)
 		if math.abs(p.X) <= box.Half.X and math.abs(p.Y) <= box.Half.Y and math.abs(p.Z) <= box.Half.Z then
 			if not best or box.Volume < best.Volume then
@@ -46070,12 +46098,14 @@ function ZoneName.Update(dt)
 		setText(nil)
 		return
 	end
-	local stale = mapInfo ~= nil and os.clock() - mapInfo.ReadAt > 3
-		and (#mapInfo.Boxes == 0 or not mapInfo.Length or #mapInfo.Bases < 2 or not mapInfo.Checked)
+	-- (como mucho dos relecturas por mapa: muchos mapas no tienen zonas con nombre y no hay que
+	-- recorrer el mapa entero cada poco)
+	local stale = mapInfo ~= nil and mapInfo.Map == map and (mapInfo.Rereads or 0) < 2 and os.clock() - mapInfo.ReadAt > 3
+		and (#mapInfo.Boxes == 0 or not mapInfo.Length or #mapInfo.Bases < 2 or (mapInfo.Rereads or 0) == 0)
 	if not mapInfo or mapInfo.Map ~= map or stale then
-		local first = not mapInfo or mapInfo.Map ~= map
+		local rereads = (stale and mapInfo) and (mapInfo.Rereads or 0) + 1 or 0
 		mapInfo = readMap(map)
-		mapInfo.Checked = not first
+		mapInfo.Rereads = rereads
 	end
 	setText(ZoneName.At(root.Position, mapInfo))
 	-- Debajo del minimapa (y del botón de la tienda cuando se ve)

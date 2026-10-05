@@ -181,6 +181,7 @@ function Settings.Init()
 			return
 		end
 		local changedQuality = data.Settings.Quality ~= current.Quality
+		local oldEnemyColor = current.EnemyColor
 		for key, value in data.Settings do
 			if GameConfig.DefaultSettings[key] ~= nil and type(value) == type(GameConfig.DefaultSettings[key]) then
 				current[key] = value
@@ -188,6 +189,10 @@ function Settings.Init()
 		end
 		if changedQuality then
 			applyQuality()
+		end
+		-- (el color de enemigos guardado se aplica también a los que ya están en pantalla)
+		if current.EnemyColor ~= oldEnemyColor then
+			ClientState.SettingsChanged:Fire("EnemyColor")
 		end
 	end
 	ClientState.DataChanged.Event:Connect(fromData)

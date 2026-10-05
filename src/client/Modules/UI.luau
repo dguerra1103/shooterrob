@@ -141,9 +141,11 @@ function UI.pressFeel(button)
 			-- (si el dedo se suelta fuera del botón, p. ej. al deslizar una lista, InputEnded no llega:
 			-- se vigila el propio toque)
 			local changed
-			changed = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+			local function check()
 				if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
-					changed:Disconnect()
+					if changed then
+						changed:Disconnect()
+					end
 					if pressed then
 						pressed = false
 						if input.UserInputType == Enum.UserInputType.Touch then
@@ -151,8 +153,13 @@ function UI.pressFeel(button)
 						end
 						go(RELEASE_INFO)
 					end
+					return true
 				end
-			end)
+				return false
+			end
+			changed = input:GetPropertyChangedSignal("UserInputState"):Connect(check)
+			-- (un toque muy rápido puede llegar ya terminado: entonces no se queda escuchando)
+			check()
 		end
 	end)
 	button.InputEnded:Connect(function(input)
