@@ -2,6 +2,8 @@
 --   "War"  (Encrucijada): explosiones y ráfagas lejanas, como una guerra en otros barrios, y algo de viento
 --   "Base" (Base Militar): disparos sueltos de la galería de tiro a lo lejos y brisa
 --   "Wind" (Cumbre): viento fuerte de montaña
+--   y en los demás mapas: "Breeze" (brisa), "Snow" (viento helado), "Coast" (brisa y olas que rompen),
+--   "Night" (viento suave de noche), "Jungle", "Factory" (nave: casi nada, eco de nave) y "Desert"
 -- Y el tiempo (atributo Weather de workspace.Map): "Rain" = lluvia alrededor de la cámara, ruido de
 -- lluvia y, de vez en cuando, un relámpago (destello) y el trueno un par de segundos después.
 -- Todo con sonidos que vienen con Roblox, apagados (filtro de graves) para que suenen lejos. Solo
@@ -18,15 +20,23 @@ local Ambience = {}
 local WIND_ID = "rbxasset://sounds/action_falling.mp3"
 local BOOM_ID = "rbxasset://sounds/Rocket shot.wav"
 local SHOT_ID = "rbxasset://sounds/paintball.wav"
+local WAVE_ID = "rbxasset://sounds/impact_water.mp3"
 
 local PRESETS = {
 	War = { Wind = 0.12, WindSpeed = 0.55, Booms = { 9, 22 }, Bursts = { 4, 11 } },
 	Base = { Wind = 0.07, WindSpeed = 0.5, Booms = nil, Bursts = { 6, 16 } },
 	Wind = { Wind = 0.4, WindSpeed = 0.42, Booms = nil, Bursts = nil },
+	Breeze = { Wind = 0.06, WindSpeed = 0.5 },
+	Snow = { Wind = 0.22, WindSpeed = 0.45 },
+	Coast = { Wind = 0.1, WindSpeed = 0.55, Waves = { 5, 10 } },
+	Night = { Wind = 0.12, WindSpeed = 0.38 },
+	Jungle = { Wind = 0.07, WindSpeed = 0.62 },
+	Factory = { Wind = 0.03, WindSpeed = 0.3 },
+	Desert = { Wind = 0.16, WindSpeed = 0.5 },
 }
 
 local group, wind
-local nextBoom, nextBurst = 0, 0
+local nextBoom, nextBurst, nextWave = 0, 0, 0
 local rainBox, rainSound, rainConnection
 local nextThunder = 0
 
@@ -171,7 +181,14 @@ end
 
 -- Eco del sitio (SoundService.AmbientReverb, afecta a todos los sonidos): dentro de un edificio los
 -- disparos retumban como en una habitación; fuera, según el mapa (ciudad, montaña, campo abierto)
-local OUTDOOR_REVERB = { War = Enum.ReverbType.City, Base = Enum.ReverbType.Plain, Wind = Enum.ReverbType.Mountains }
+local OUTDOOR_REVERB = {
+	War = Enum.ReverbType.City,
+	Base = Enum.ReverbType.Plain,
+	Wind = Enum.ReverbType.Mountains,
+	Snow = Enum.ReverbType.Mountains,
+	Jungle = Enum.ReverbType.Forest,
+	Factory = Enum.ReverbType.Hangar,
+}
 local reverbParams = RaycastParams.new()
 reverbParams.FilterType = Enum.RaycastFilterType.Include
 local function updateReverb(map, preset)
@@ -273,6 +290,13 @@ function Ambience.Update()
 			burst()
 		end
 		nextBurst = now + preset.Bursts[1] + math.random() * (preset.Bursts[2] - preset.Bursts[1])
+	end
+	-- Olas que rompen a lo lejos (puertos y playas)
+	if preset.Waves and now >= nextWave then
+		if nextWave > 0 then
+			oneShot(WAVE_ID, 0.08 + math.random() * 0.06, 0.45 + math.random() * 0.15)
+		end
+		nextWave = now + preset.Waves[1] + math.random() * (preset.Waves[2] - preset.Waves[1])
 	end
 end
 

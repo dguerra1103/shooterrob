@@ -481,6 +481,7 @@ Map.Lighting = {
 
 function Map.Build()
 	mapFolder = Kit.Begin(Map.Name)
+	mapFolder:SetAttribute("Ambience", "Breeze") -- (sonido ambiente: ver Ambience en el cliente)
 	Kit.applyLighting(Map.Lighting)
 
 	-- Suelo: asfalto, aceras y plaza central
