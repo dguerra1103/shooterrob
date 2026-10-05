@@ -56,6 +56,7 @@ local camKick, camYaw = 0, 0
 local kickVel, rotVel = 0, 0
 local recoilSide, sideVel = 0, 0
 local sprayCount = 0 -- disparos seguidos de la ráfaga actual
+local smokeShots = 0 -- disparos de la ráfaga que calientan el cañón (humo al soltar; Effects.BarrelSmoke)
 local debtPitch, debtYaw = 0, 0
 local RECOVER = 0.65 -- parte del retroceso que la mira recupera sola al soltar
 local swayX, swayY = 0, 0
@@ -400,6 +401,7 @@ local function onUnequipped()
 	end
 	destroyViewmodel()
 	equippedTool, def = nil, nil
+	smokeShots = 0
 	triggerHeld = false
 	reloadStart = nil
 	ClientState.CurrentTool = nil
@@ -644,6 +646,10 @@ local function fire()
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	Effects.MuzzleFlash(muzzle)
+	if not def.Explosive then
+		smokeShots += 1
+		Effects.StopBarrelSmoke(muzzle)
+	end
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
 	if not def.Explosive then
 		Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
@@ -866,6 +872,15 @@ local function renderStep(dt)
 	end
 	-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano
 	AimAssist.Update(dt)
+	-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
+	if smokeShots > 0 and os.clock() - lastShot > 0.3 then
+		local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
+		local shots = heavy and smokeShots * 4 or smokeShots
+		if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
+			Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+		end
+		smokeShots = 0
+	end
 
 	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
 	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.

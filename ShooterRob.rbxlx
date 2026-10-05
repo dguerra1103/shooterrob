@@ -28750,10 +28750,46 @@ local bulletRing, trailRing, markRing, chipRing = partRing(30), partRing(30), pa
 
 ---------------------------------------------------------------------------
 
+-- Trazadoras de verdad (mapas realistas): como la munición trazadora, una de cada tres balas deja
+-- una raya brillante de color cálido; las demás, solo un destello tenue y rapidísimo
+local TRACER_WARM = Color3.fromRGB(255, 196, 128)
+local tracerCount = 0
+local function realisticTracer(from, to, distance)
+	tracerCount += 1
+	local bright = tracerCount % 3 == 1
+	local direction = safeLookAt(from, to - from)
+	if bright then
+		local trail = ringPart(trailRing, {
+			Color = TRACER_WARM,
+			Size = Vector3.new(0.025, 0.025, distance),
+			CFrame = direction * CFrame.new(0, 0, -distance / 2),
+			Transparency = 0.82,
+		})
+		TweenService:Create(trail, TweenInfo.new(0.07), { Transparency = 1 }):Play()
+	end
+	local length = math.min(bright and 5 or 3, distance)
+	local travel = math.max(distance - length, 0.01)
+	local duration = math.clamp(distance / 1400, 0.015, 0.2)
+	local bullet, index, token = ringPart(bulletRing, {
+		Color = bright and TRACER_WARM or Color3.fromRGB(255, 236, 205),
+		Size = Vector3.new(bright and 0.07 or 0.04, bright and 0.07 or 0.04, length),
+		CFrame = direction * CFrame.new(0, 0, -length / 2),
+		Transparency = bright and 0.05 or 0.6,
+	})
+	TweenService
+		:Create(bullet, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = direction * CFrame.new(0, 0, -length / 2 - travel) })
+		:Play()
+	hideLater(bulletRing, index, token, duration + 0.02)
+end
+
 -- Bala trazadora que viaja desde el cañón hasta el impacto, con una estela tenue
 function Effects.Tracer(from, to, color)
 	local distance = (to - from).Magnitude
 	if distance < 1 then
+		return
+	end
+	if realisticMap() then
+		realisticTracer(from, to, distance)
 		return
 	end
 	color = color or Color3.fromRGB(255, 230, 120)
@@ -28784,6 +28820,83 @@ function Effects.Tracer(from, to, color)
 	hideLater(bulletRing, index, token, duration + 0.02)
 end
 
+-- Fogonazo realista: cada disparo distinto (3-5 lenguas de fuego cortas de distinto largo alrededor
+-- del cañón, un núcleo casi blanco de un fotograma, un cono de llama hacia delante), un golpe de luz
+-- cálida y un humo gris que se queda flotando un momento
+local FLASH_WARM = Color3.fromRGB(255, 190, 105)
+local function realisticFlash(cf, remote)
+	local scale = 0.7 + math.random() * 0.55
+	local spin = math.random() * math.pi * 2
+	local prongs = remote and 3 or math.random(3, 5)
+	for i = 1, prongs do
+		local angle = spin + (i + (math.random() - 0.5) * 0.4) * (math.pi * 2 / prongs)
+		local length = (0.22 + math.random() * 0.3) * scale
+		local prong = fxPart({
+			Color = FLASH_WARM:Lerp(Color3.new(1, 1, 1), 0.3),
+			Size = Vector3.new(0.045 * scale, length, 0.1 * scale),
+			CFrame = cf * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, 0, angle) * CFrame.new(0, length / 2, 0),
+			Transparency = 0.1 + math.random() * 0.3,
+		})
+		Debris:AddItem(prong, 0.035)
+	end
+	local flameLength = (0.35 + math.random() * 0.35) * scale
+	local flame = fxPart({
+		Color = FLASH_WARM,
+		Size = Vector3.new(0.13 * scale, 0.13 * scale, flameLength),
+		CFrame = cf * CFrame.new(0, 0, -0.08 - flameLength / 2),
+		Transparency = 0.2 + math.random() * 0.2,
+	})
+	Debris:AddItem(flame, 0.035)
+	local core = fxPart({
+		Color = Color3.fromRGB(255, 244, 214),
+		Size = Vector3.one * (0.2 + math.random() * 0.1) * scale,
+		Shape = Enum.PartType.Ball,
+		CFrame = cf * CFrame.new(0, 0, -0.1),
+		Transparency = 0.05,
+	})
+	if not remote then
+		local light = Instance.new("PointLight")
+		light.Color = FLASH_WARM
+		light.Range = 13 + math.random() * 5
+		light.Brightness = 5
+		light.Parent = core
+	end
+	Debris:AddItem(core, 0.045)
+
+	local anchor = pooledAnchor(cf.Position, cf.LookVector)
+	emitPooled(anchor, "MuzzleFireReal", {
+		Texture = TEX.Fire,
+		Color = ColorSequence.new(Color3.fromRGB(255, 236, 190), FLASH_WARM),
+		LightEmission = 1,
+		Size = seq(0.3, 0),
+		Transparency = seq(0.1, 1),
+		Lifetime = NumberRange.new(0.03, 0.06),
+		Speed = NumberRange.new(5, 10),
+		SpreadAngle = Vector2.new(8, 8),
+	}, 4)
+	emitPooled(anchor, "MuzzleSmokeReal", {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(205, 205, 200), Color3.fromRGB(170, 170, 165)),
+		Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.15),
+			NumberSequenceKeypoint.new(0.4, 0.8),
+			NumberSequenceKeypoint.new(1, 1.6),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.75),
+			NumberSequenceKeypoint.new(0.3, 0.8),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Lifetime = NumberRange.new(0.7, 1.3),
+		Speed = NumberRange.new(1.5, 3.5),
+		Drag = 3,
+		RotSpeed = NumberRange.new(-40, 40),
+		Rotation = NumberRange.new(0, 360),
+		SpreadAngle = Vector2.new(14, 14),
+		Acceleration = Vector3.new(0, 1.2, 0),
+	}, remote and 1 or 2)
+end
+
 -- Fogonazo: estrella de luz, llamas y humo. remote = disparo de otro (más barato: sin luz ni estrella)
 function Effects.MuzzleFlash(attachment, color, remote)
 	if not attachment then
@@ -28791,6 +28904,10 @@ function Effects.MuzzleFlash(attachment, color, remote)
 	end
 	color = color or Color3.fromRGB(255, 200, 90)
 	local cf = attachment.WorldCFrame
+	if realisticMap() then
+		realisticFlash(cf, remote)
+		return
+	end
 	local spin = math.random() * math.pi
 	for i = 0, remote and -1 or 1 do
 		local star = fxPart({
@@ -29139,6 +29256,60 @@ function Effects.ShellCasing(attachment, cameraCFrame, color)
 	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3)
 	casing.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
 	Debris:AddItem(casing, 1.5)
+end
+
+-- Humo del cañón: tras una ráfaga larga, del cañón caliente sale un hilo de humo un par de segundos
+-- (amount 0..1 según lo larga que fue la ráfaga). Un emisor por arma, en la propia boca del cañón.
+function Effects.BarrelSmoke(attachment, amount)
+	if not attachment or not attachment.Parent or ClientState.EffectiveQuality == "Baja" then
+		return
+	end
+	amount = math.clamp(amount or 0.5, 0, 1)
+	local emitter = attachment:FindFirstChild("BarrelSmoke")
+	if not emitter then
+		emitter = Instance.new("ParticleEmitter")
+		emitter.Name = "BarrelSmoke"
+		emitter.Texture = TEX.Smoke
+		emitter.Color = ColorSequence.new(Color3.fromRGB(215, 215, 212))
+		emitter.LightInfluence = 1
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.05),
+			NumberSequenceKeypoint.new(1, 0.55),
+		})
+		emitter.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.85),
+			NumberSequenceKeypoint.new(0.5, 0.88),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		emitter.Lifetime = NumberRange.new(0.9, 1.4)
+		emitter.Speed = NumberRange.new(0.3, 0.7)
+		emitter.Drag = 1
+		emitter.RotSpeed = NumberRange.new(-30, 30)
+		emitter.Rotation = NumberRange.new(0, 360)
+		emitter.SpreadAngle = Vector2.new(10, 10)
+		emitter.Acceleration = Vector3.new(0, 2.2, 0)
+		emitter.EmissionDirection = Enum.NormalId.Top
+		emitter.Enabled = false
+		emitter.Parent = attachment
+	end
+	emitter.Rate = 10 + 16 * amount
+	emitter.Enabled = true
+	local token = (emitter:GetAttribute("Token") or 0) + 1
+	emitter:SetAttribute("Token", token)
+	task.delay(0.8 + 1.6 * amount, function()
+		if emitter.Parent and emitter:GetAttribute("Token") == token then
+			emitter.Enabled = false
+		end
+	end)
+	return emitter
+end
+
+-- Al volver a disparar, el humo se corta (el fogonazo lo tapa)
+function Effects.StopBarrelSmoke(attachment)
+	local emitter = attachment and attachment:FindFirstChild("BarrelSmoke")
+	if emitter then
+		emitter.Enabled = false
+	end
 end
 
 -- Explosión del cohete
@@ -40711,6 +40882,7 @@ local camKick, camYaw = 0, 0
 local kickVel, rotVel = 0, 0
 local recoilSide, sideVel = 0, 0
 local sprayCount = 0 -- disparos seguidos de la ráfaga actual
+local smokeShots = 0 -- disparos de la ráfaga que calientan el cañón (humo al soltar; Effects.BarrelSmoke)
 local debtPitch, debtYaw = 0, 0
 local RECOVER = 0.65 -- parte del retroceso que la mira recupera sola al soltar
 local swayX, swayY = 0, 0
@@ -41055,6 +41227,7 @@ local function onUnequipped()
 	end
 	destroyViewmodel()
 	equippedTool, def = nil, nil
+	smokeShots = 0
 	triggerHeld = false
 	reloadStart = nil
 	ClientState.CurrentTool = nil
@@ -41299,6 +41472,10 @@ local function fire()
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	Effects.MuzzleFlash(muzzle)
+	if not def.Explosive then
+		smokeShots += 1
+		Effects.StopBarrelSmoke(muzzle)
+	end
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
 	if not def.Explosive then
 		Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
@@ -41521,6 +41698,15 @@ local function renderStep(dt)
 	end
 	-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano
 	AimAssist.Update(dt)
+	-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
+	if smokeShots > 0 and os.clock() - lastShot > 0.3 then
+		local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
+		local shots = heavy and smokeShots * 4 or smokeShots
+		if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
+			Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+		end
+		smokeShots = 0
+	end
 
 	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
 	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
