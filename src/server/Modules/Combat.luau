@@ -538,7 +538,27 @@ local function onMelee(player, part)
 	end
 end
 
+-- Hacia dónde mira cada jugador arriba/abajo (radianes): se guarda en su personaje (atributo AimPitch,
+-- se replica) para que los demás le vean apuntar con el arma inclinada (RiflePose). Como mucho unas
+-- 10 veces por segundo y redondeado (cambios pequeños no se mandan)
+local lastPitch = setmetatable({}, { __mode = "k" }) -- [player] = os.clock()
+local function onAimPitch(player, pitch)
+	if type(pitch) ~= "number" or pitch ~= pitch then
+		return
+	end
+	local now = os.clock()
+	if now - (lastPitch[player] or 0) < 0.08 then
+		return
+	end
+	lastPitch[player] = now
+	local character = player.Character
+	if character then
+		character:SetAttribute("AimPitch", math.floor(math.clamp(pitch, -1.3, 1.3) * 20 + 0.5) / 20)
+	end
+end
+
 function Combat.Init()
+	Remotes.AimPitch.OnServerEvent:Connect(onAimPitch)
 	Remotes.Fire.OnServerEvent:Connect(onFire)
 	Remotes.Reload.OnServerEvent:Connect(onReload)
 	Remotes.Melee.OnServerEvent:Connect(onMelee)

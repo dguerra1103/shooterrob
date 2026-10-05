@@ -38,9 +38,14 @@ local function rearOf(def, name)
 	return rear
 end
 
+-- Hacia dónde apunta arriba/abajo (atributo AimPitch del personaje, ver AimPitch): los brazos y el
+-- arma giran alrededor del pecho
+local PITCH_PIVOT = Vector3.new(0, 0.5, 0)
+RiflePose.MaxPitch = 0.9 -- (unos 50°: más inclinado el arma se metería en la cabeza)
+
 -- Dónde van la mano derecha (con su giro: el arma mira hacia delante) y la izquierda, respecto al pecho.
 -- Devuelve CFrame de la empuñadura y Vector3 de la mano izquierda, o nil si no es un arma de fuego
-function RiflePose.Targets(weaponName, scale)
+function RiflePose.Targets(weaponName, scale, pitch)
 	local def = weaponName and Weapons.Get(weaponName)
 	if not def or def.Type ~= "Gun" or not def.RightHand then
 		return nil
@@ -65,6 +70,13 @@ function RiflePose.Targets(weaponName, scale)
 		if side < REACH * REACH then
 			hand = Vector3.new(hand.X, hand.Y, LEFT_SHOULDER.Z - math.sqrt(REACH * REACH - side))
 		end
+	end
+	-- Apuntando arriba o abajo: todo gira alrededor del pecho
+	pitch = math.clamp(tonumber(pitch) or 0, -RiflePose.MaxPitch, RiflePose.MaxPitch)
+	if math.abs(pitch) > 0.01 then
+		local turn = CFrame.new(PITCH_PIVOT) * CFrame.Angles(pitch, 0, 0) * CFrame.new(-PITCH_PIVOT)
+		grip = turn * grip
+		hand = turn * hand
 	end
 	return grip, hand
 end
@@ -102,7 +114,7 @@ local function update(model)
 	local tool = heldGun(model)
 	local grip, hand
 	if tool and humanoid and humanoid.Health > 0 then
-		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1)
+		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1, model:GetAttribute("AimPitch"))
 	end
 	if grip and hand then
 		rig.Grip.CFrame = grip
@@ -196,6 +208,10 @@ function RiflePose.Setup(model)
 		if child:IsA("Tool") then
 			update(model)
 		end
+	end))
+	-- (apunta arriba o abajo: el arma se inclina)
+	table.insert(rig.Connections, model:GetAttributeChangedSignal("AimPitch"):Connect(function()
+		update(model)
 	end))
 	-- Al morir, el cuerpo cae suelto (Ragdoll): nada de sujetar el arma
 	table.insert(rig.Connections, humanoid.Died:Connect(function()

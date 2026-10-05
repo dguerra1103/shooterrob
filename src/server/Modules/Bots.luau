@@ -894,6 +894,21 @@ local function lookAt(root, position)
 	end
 end
 
+-- Inclinación del arma (los clientes la ven con RiflePose): hacia la cabeza del enemigo, o recta
+local function aimPitch(agent, position)
+	local head = agent.Model:FindFirstChild("Head")
+	local pitch = 0
+	if head and position then
+		local offset = position - head.Position
+		local flat = Vector3.new(offset.X, 0, offset.Z).Magnitude
+		pitch = math.atan2(offset.Y, math.max(flat, 0.1))
+	end
+	pitch = math.floor(math.clamp(pitch, -1.3, 1.3) * 20 + 0.5) / 20
+	if agent.Model:GetAttribute("AimPitch") ~= pitch then
+		agent.Model:SetAttribute("AimPitch", pitch)
+	end
+end
+
 -- Pelea con un enemigo a la vista: se mueve según su rol, se cubre si le queda poca vida y dispara
 -- en ráfagas (a quemarropa, a todo lo que da el arma)
 -- Agacharse (como los jugadores: baja la cadera, se ve y se le da peor). Se levanta solo al
@@ -922,6 +937,7 @@ local function fight(agent, humanoid, root, target, distance, now)
 	humanoid.WalkSpeed = CONFIG.WalkSpeed
 	humanoid.AutoRotate = false
 	lookAt(root, target.Head.Position)
+	aimPitch(agent, target.Head.Position)
 
 	-- Con poca vida se retira a cubierto (la vida se recupera sola) y luego vuelve
 	if humanoid.Health < humanoid.MaxHealth * 0.35 and agent.Role ~= "Escopeta" and now > (agent.NextRetreat or 0) then
@@ -1095,6 +1111,7 @@ local function think(agent)
 		agent.Target = nil
 	end
 	humanoid.AutoRotate = true
+	aimPitch(agent, nil)
 
 	-- Recarga táctica cuando no hay nadie delante
 	local def = Weapons.Get(agent.Weapon)
