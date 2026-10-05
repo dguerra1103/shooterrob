@@ -69,6 +69,11 @@ local function updateRadar()
 	for _, mark in marks do
 		local character, enemy = mark[1], mark[2]
 		local highlight = character:FindFirstChild("RadarHighlight")
+		-- (un modelo solo muestra un resaltado: con el del radar, el contorno normal se apaga)
+		local outline = character:FindFirstChild("EnemyOutline")
+		if outline and outline:IsA("Highlight") then
+			outline.Enabled = not (active and enemy)
+		end
 		if active and enemy then
 			if not highlight then
 				highlight = Instance.new("Highlight")

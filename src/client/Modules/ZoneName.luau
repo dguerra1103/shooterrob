@@ -21,7 +21,7 @@ local mapInfo = nil -- { Map, Boxes = { { CFrame, Half, Volume, Name } }, Length
 
 -- Lo que se sabe del mapa (se calcula una vez por mapa)
 local function readMap(map)
-	local info = { Map = map, Boxes = {}, Bases = {} }
+	local info = { Map = map, Boxes = {}, Bases = {}, ReadAt = os.clock() }
 	local folder = map:FindFirstChild("Callouts")
 	if folder then
 		for _, box in folder:GetChildren() do
@@ -118,15 +118,27 @@ function ZoneName.Update(dt)
 	if not visible or not map or not root then
 		return
 	end
-	if not mapInfo or mapInfo.Map ~= map then
+	-- (el mapa llega al cliente en varios fotogramas: mientras se carga no se lee, y una lectura que
+	-- salió incompleta, o la primera, se repite al rato)
+	if game:GetService("ReplicatedStorage"):GetAttribute("LoadingMap") then
+		mapInfo = nil
+		setText(nil)
+		return
+	end
+	local stale = mapInfo ~= nil and os.clock() - mapInfo.ReadAt > 3
+		and (#mapInfo.Boxes == 0 or not mapInfo.Length or #mapInfo.Bases < 2 or not mapInfo.Checked)
+	if not mapInfo or mapInfo.Map ~= map or stale then
+		local first = not mapInfo or mapInfo.Map ~= map
 		mapInfo = readMap(map)
+		mapInfo.Checked = not first
 	end
 	setText(ZoneName.At(root.Position, mapInfo))
 	-- Debajo del minimapa (y del botón de la tienda cuando se ve)
 	local top = ClientState.MinimapBottom or 200
 	local phone = UI.IsPhone()
-	local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
-	local below = (phone or not playing) and (phone and 40 or 54) or 6
+	-- (en el móvil el botón de la tienda va siempre bajo el minimapa; en PC solo se ve fuera de combate
+	-- y entonces va arriba, no debajo)
+	local below = phone and 40 or 6
 	label.Position = UDim2.fromOffset(phone and 14 or 16, top + below)
 end
 

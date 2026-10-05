@@ -103,8 +103,22 @@ function UI.pressFeel(button)
 	local scale = Instance.new("UIScale")
 	scale.Name = "PressScale"
 	scale.Parent = button
+	-- (Roblox usa una sola UIScale por objeto: si el botón trae su propia animación de escala, p. ej.
+	-- un latido, esa manda y esta se quita)
+	local yielded = false
+	local watch
+	watch = button.ChildAdded:Connect(function(child)
+		if child:IsA("UIScale") and child ~= scale then
+			yielded = true
+			watch:Disconnect()
+			scale:Destroy()
+		end
+	end)
 	local hovering, pressed = false, false
 	local function go(info)
+		if yielded then
+			return
+		end
 		local target = pressed and 0.94 or (hovering and 1.04 or 1)
 		TweenService:Create(scale, info, { Scale = target }):Play()
 	end
@@ -124,6 +138,21 @@ function UI.pressFeel(button)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			pressed = true
 			go(PRESS_INFO)
+			-- (si el dedo se suelta fuera del botón, p. ej. al deslizar una lista, InputEnded no llega:
+			-- se vigila el propio toque)
+			local changed
+			changed = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+				if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
+					changed:Disconnect()
+					if pressed then
+						pressed = false
+						if input.UserInputType == Enum.UserInputType.Touch then
+							hovering = false
+						end
+						go(RELEASE_INFO)
+					end
+				end
+			end)
 		end
 	end)
 	button.InputEnded:Connect(function(input)

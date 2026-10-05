@@ -275,7 +275,7 @@ local function update()
 		end
 		if ready and not slot.WasReady then
 			-- Lista otra vez: pequeño salto del icono
-			local s = slot.Frame:FindFirstChild("ReadyScale") or UI.new("UIScale", { Name = "ReadyScale", Parent = slot.Frame })
+			local s = slot.Frame:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = slot.Frame })
 			s.Scale = 1.2
 			TweenService:Create(s, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 		end

@@ -79,9 +79,8 @@ local function bigButton(text, color, order, parent)
 		constraint.MaxTextSize = button.TextSize
 	end)
 	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
-	-- (el latido de los botones de regalo usa su propia escala; pasar por encima y pulsar ya lo hace
-	-- UI.button)
-	UI.new("UIScale", { Name = "PulseScale", Parent = button })
+	-- (pasar por encima y pulsar ya lo hace UI.button; el latido de los botones de regalo usa esa
+	-- misma escala: Roblox solo aplica una por botón)
 	return button
 end
 
@@ -575,7 +574,7 @@ function MainMenu.Init()
 	end)
 		-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scales = { dailyButton:FindFirstChild("PulseScale"), starterButton:FindFirstChild("PulseScale"), wheelButton:FindFirstChild("PulseScale") }
+		local scales = { dailyButton:FindFirstChild("PressScale"), starterButton:FindFirstChild("PressScale"), wheelButton:FindFirstChild("PressScale") }
 		local buttonsList = { dailyButton, starterButton, wheelButton }
 		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
 		while gui.Parent do

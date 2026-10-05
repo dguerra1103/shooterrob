@@ -1042,6 +1042,10 @@ local function roundResult(info)
 	local colorB = refs.ScoreBBox.BackgroundColor3
 	local line = string.format('<font color="%s">%s %d</font>  –  <font color="%s">%d %s</font>',
 		UI.hex(colorA), teamA, tonumber(info.ScoreA) or 0, UI.hex(colorB), tonumber(info.ScoreB) or 0, teamB)
+	-- (el ACE de la ronda no se pierde: el aviso grande lo pisa el resultado, aquí se queda escrito)
+	if type(info.Ace) == "string" then
+		line = string.format('<font color="#FFC832">⭐ ACE de %s</font>   ·   ', info.Ace) .. line
+	end
 	if type(info.MVP) == "string" and (tonumber(info.MVPKills) or 0) > 0 then
 		line ..= string.format('   ·   ⭐ %s <font color="#C8C8D2">(%d)</font>', info.MVP, tonumber(info.MVPKills) or 0)
 	end
@@ -1325,6 +1329,7 @@ end
 local hitToken
 local checkClutch
 local hitFlash, hitFlashTween, hitFlashToken -- destello del enemigo al impactar
+local hitFlashOutline -- contorno de enemigo apagado durante el destello
 local dmgCombo -- número de daño que se va sumando sobre el enemigo al que das
 local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local color = Color3.new(1, 1, 1)
@@ -1380,7 +1385,18 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 			hitFlash.OutlineTransparency = 1
 			hitFlash.Parent = workspace.CurrentCamera
 		end
-		hitFlash.Adornee = target
+		-- (un modelo solo muestra un resaltado: el contorno de enemigo se apaga mientras destella,
+		-- y el del radar manda: con radar no se destella)
+		local outline = target:FindFirstChild("EnemyOutline")
+		local radar = target:FindFirstChild("RadarHighlight")
+		if outline and outline:IsA("Highlight") and not radar then
+			outline.Enabled = false
+		end
+		if hitFlashOutline and hitFlashOutline ~= outline and hitFlashOutline.Parent and not hitFlashOutline.Parent:FindFirstChild("RadarHighlight") then
+			hitFlashOutline.Enabled = true
+		end
+		hitFlashOutline = outline
+		hitFlash.Adornee = not radar and target or nil
 		hitFlash.FillColor = killed and Color3.fromRGB(255, 60, 60) or Color3.new(1, 1, 1)
 		hitFlash.FillTransparency = killed and 0.25 or 0.45
 		hitFlash.Enabled = true
@@ -1396,6 +1412,12 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 			if hitFlashToken == flashToken and hitFlash then
 				hitFlash.Enabled = false
 				hitFlash.Adornee = nil
+				-- (vuelve el contorno, si no hay radar)
+				local outline = hitFlashOutline
+				if outline and outline.Parent and not outline.Parent:FindFirstChild("RadarHighlight") then
+					outline.Enabled = true
+				end
+				hitFlashOutline = nil
 			end
 		end)
 	end

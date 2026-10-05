@@ -2866,12 +2866,13 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 			Sounds.PlayGun("Mech", parent, layers.Mech[1], layers.Mech[2])
 		end
 		-- Cola: tus disparos dejan un eco grave y apagado que rebota en el mapa (capa "entorno").
-		-- Como mucho una cada 0,12 s: en ráfaga no se amontonan
+		-- Como mucho una cada 0,2 s: en ráfaga no se amontonan
 		local tail = Sounds.ShotTails[kind]
-		if tail and parent == nil and os.clock() - lastTail >= 0.12 then
+		if tail and parent == nil and os.clock() - lastTail >= 0.2 then
 			lastTail = os.clock()
 			task.delay(0.07, function()
-				local echo = Sounds.Play("Boom", nil, tail[1], tail[2])
+				-- (en el grupo de las armas: el volumen de armas también la baja)
+				local echo = Sounds.PlayGun("Boom", nil, tail[1], tail[2])
 				if echo then
 					pcall(function()
 						local eq = Instance.new("EqualizerSoundEffect")
@@ -25082,12 +25083,21 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if aceRound and playing and killerTeam and victimTeam and killerTeam ~= victimTeam then
 			local count = (aceRound.Kills[killerName] or 0) + 1
 			aceRound.Kills[killerName] = count
+			if victimBot then
+				aceRound.BotVictims = true
+			end
 			local members = aceRound.Members[victimTeam.Name] or 0
 			if members >= 3 and count >= members and not aceRound.Done then
 				aceRound.Done = true
+				aceRound.AceBy = killerName
 				Remotes.Notify:FireAllClients("Ace", killerName)
 				if killer then
-					PlayerData.AddXP(killer, GameConfig.XP.Ace, "¡ACE!")
+					-- (contra bots vale menos, como las demás bajas a bots)
+					local xp = GameConfig.XP.Ace
+					if aceRound.BotVictims then
+						xp = math.max(1, math.floor(xp * GameConfig.Bots.RewardScale))
+					end
+					PlayerData.AddXP(killer, xp, "¡ACE!")
 				end
 			end
 		end
@@ -25759,6 +25769,7 @@ local function eliminationRounds(s)
 				ScoreB = getScore(b.Name),
 				MVP = roundMVP,
 				MVPKills = roundKills,
+				Ace = roundStats and roundStats.AceBy or nil,
 			})
 			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
 			if not playFinalKillcam() then
@@ -26897,7 +26908,7 @@ local function update()
 		end
 		if ready and not slot.WasReady then
 			-- Lista otra vez: pequeño salto del icono
-			local s = slot.Frame:FindFirstChild("ReadyScale") or UI.new("UIScale", { Name = "ReadyScale", Parent = slot.Frame })
+			local s = slot.Frame:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = slot.Frame })
 			s.Scale = 1.2
 			TweenService:Create(s, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 		end
@@ -31711,7 +31722,8 @@ function EventHUD.Init()
 			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
 			local data = ClientState.Data
 			local candy = data and data.EventCandy or 0
-			if candy ~= lastCount then
+			-- (solo con los datos ya cargados: al cargar no cuenta como «has sumado»)
+			if data and candy ~= lastCount then
 				if lastCount ~= nil then
 					shownUntil = os.clock() + 5
 				end
@@ -33535,6 +33547,10 @@ local function roundResult(info)
 	local colorB = refs.ScoreBBox.BackgroundColor3
 	local line = string.format('<font color="%s">%s %d</font>  –  <font color="%s">%d %s</font>',
 		UI.hex(colorA), teamA, tonumber(info.ScoreA) or 0, UI.hex(colorB), tonumber(info.ScoreB) or 0, teamB)
+	-- (el ACE de la ronda no se pierde: el aviso grande lo pisa el resultado, aquí se queda escrito)
+	if type(info.Ace) == "string" then
+		line = string.format('<font color="#FFC832">⭐ ACE de %s</font>   ·   ', info.Ace) .. line
+	end
 	if type(info.MVP) == "string" and (tonumber(info.MVPKills) or 0) > 0 then
 		line ..= string.format('   ·   ⭐ %s <font color="#C8C8D2">(%d)</font>', info.MVP, tonumber(info.MVPKills) or 0)
 	end
@@ -33818,6 +33834,7 @@ end
 local hitToken
 local checkClutch
 local hitFlash, hitFlashTween, hitFlashToken -- destello del enemigo al impactar
+local hitFlashOutline -- contorno de enemigo apagado durante el destello
 local dmgCombo -- número de daño que se va sumando sobre el enemigo al que das
 local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local color = Color3.new(1, 1, 1)
@@ -33873,7 +33890,18 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 			hitFlash.OutlineTransparency = 1
 			hitFlash.Parent = workspace.CurrentCamera
 		end
-		hitFlash.Adornee = target
+		-- (un modelo solo muestra un resaltado: el contorno de enemigo se apaga mientras destella,
+		-- y el del radar manda: con radar no se destella)
+		local outline = target:FindFirstChild("EnemyOutline")
+		local radar = target:FindFirstChild("RadarHighlight")
+		if outline and outline:IsA("Highlight") and not radar then
+			outline.Enabled = false
+		end
+		if hitFlashOutline and hitFlashOutline ~= outline and hitFlashOutline.Parent and not hitFlashOutline.Parent:FindFirstChild("RadarHighlight") then
+			hitFlashOutline.Enabled = true
+		end
+		hitFlashOutline = outline
+		hitFlash.Adornee = not radar and target or nil
 		hitFlash.FillColor = killed and Color3.fromRGB(255, 60, 60) or Color3.new(1, 1, 1)
 		hitFlash.FillTransparency = killed and 0.25 or 0.45
 		hitFlash.Enabled = true
@@ -33889,6 +33917,12 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 			if hitFlashToken == flashToken and hitFlash then
 				hitFlash.Enabled = false
 				hitFlash.Adornee = nil
+				-- (vuelve el contorno, si no hay radar)
+				local outline = hitFlashOutline
+				if outline and outline.Parent and not outline.Parent:FindFirstChild("RadarHighlight") then
+					outline.Enabled = true
+				end
+				hitFlashOutline = nil
 			end
 		end)
 	end
@@ -35576,6 +35610,11 @@ local function updateRadar()
 	for _, mark in marks do
 		local character, enemy = mark[1], mark[2]
 		local highlight = character:FindFirstChild("RadarHighlight")
+		-- (un modelo solo muestra un resaltado: con el del radar, el contorno normal se apaga)
+		local outline = character:FindFirstChild("EnemyOutline")
+		if outline and outline:IsA("Highlight") then
+			outline.Enabled = not (active and enemy)
+		end
 		if active and enemy then
 			if not highlight then
 				highlight = Instance.new("Highlight")
@@ -35942,9 +35981,8 @@ local function bigButton(text, color, order, parent)
 		constraint.MaxTextSize = button.TextSize
 	end)
 	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
-	-- (el latido de los botones de regalo usa su propia escala; pasar por encima y pulsar ya lo hace
-	-- UI.button)
-	UI.new("UIScale", { Name = "PulseScale", Parent = button })
+	-- (pasar por encima y pulsar ya lo hace UI.button; el latido de los botones de regalo usa esa
+	-- misma escala: Roblox solo aplica una por botón)
 	return button
 end
 
@@ -36438,7 +36476,7 @@ function MainMenu.Init()
 	end)
 		-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scales = { dailyButton:FindFirstChild("PulseScale"), starterButton:FindFirstChild("PulseScale"), wheelButton:FindFirstChild("PulseScale") }
+		local scales = { dailyButton:FindFirstChild("PressScale"), starterButton:FindFirstChild("PressScale"), wheelButton:FindFirstChild("PressScale") }
 		local buttonsList = { dailyButton, starterButton, wheelButton }
 		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
 		while gui.Parent do
@@ -43337,8 +43375,22 @@ function UI.pressFeel(button)
 	local scale = Instance.new("UIScale")
 	scale.Name = "PressScale"
 	scale.Parent = button
+	-- (Roblox usa una sola UIScale por objeto: si el botón trae su propia animación de escala, p. ej.
+	-- un latido, esa manda y esta se quita)
+	local yielded = false
+	local watch
+	watch = button.ChildAdded:Connect(function(child)
+		if child:IsA("UIScale") and child ~= scale then
+			yielded = true
+			watch:Disconnect()
+			scale:Destroy()
+		end
+	end)
 	local hovering, pressed = false, false
 	local function go(info)
+		if yielded then
+			return
+		end
 		local target = pressed and 0.94 or (hovering and 1.04 or 1)
 		TweenService:Create(scale, info, { Scale = target }):Play()
 	end
@@ -43358,6 +43410,21 @@ function UI.pressFeel(button)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			pressed = true
 			go(PRESS_INFO)
+			-- (si el dedo se suelta fuera del botón, p. ej. al deslizar una lista, InputEnded no llega:
+			-- se vigila el propio toque)
+			local changed
+			changed = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+				if input.UserInputState == Enum.UserInputState.End or input.UserInputState == Enum.UserInputState.Cancel then
+					changed:Disconnect()
+					if pressed then
+						pressed = false
+						if input.UserInputType == Enum.UserInputType.Touch then
+							hovering = false
+						end
+						go(RELEASE_INFO)
+					end
+				end
+			end)
 		end
 	end)
 	button.InputEnded:Connect(function(input)
@@ -45810,7 +45877,7 @@ local mapInfo = nil -- { Map, Boxes = { { CFrame, Half, Volume, Name } }, Length
 
 -- Lo que se sabe del mapa (se calcula una vez por mapa)
 local function readMap(map)
-	local info = { Map = map, Boxes = {}, Bases = {} }
+	local info = { Map = map, Boxes = {}, Bases = {}, ReadAt = os.clock() }
 	local folder = map:FindFirstChild("Callouts")
 	if folder then
 		for _, box in folder:GetChildren() do
@@ -45907,15 +45974,27 @@ function ZoneName.Update(dt)
 	if not visible or not map or not root then
 		return
 	end
-	if not mapInfo or mapInfo.Map ~= map then
+	-- (el mapa llega al cliente en varios fotogramas: mientras se carga no se lee, y una lectura que
+	-- salió incompleta, o la primera, se repite al rato)
+	if game:GetService("ReplicatedStorage"):GetAttribute("LoadingMap") then
+		mapInfo = nil
+		setText(nil)
+		return
+	end
+	local stale = mapInfo ~= nil and os.clock() - mapInfo.ReadAt > 3
+		and (#mapInfo.Boxes == 0 or not mapInfo.Length or #mapInfo.Bases < 2 or not mapInfo.Checked)
+	if not mapInfo or mapInfo.Map ~= map or stale then
+		local first = not mapInfo or mapInfo.Map ~= map
 		mapInfo = readMap(map)
+		mapInfo.Checked = not first
 	end
 	setText(ZoneName.At(root.Position, mapInfo))
 	-- Debajo del minimapa (y del botón de la tienda cuando se ve)
 	local top = ClientState.MinimapBottom or 200
 	local phone = UI.IsPhone()
-	local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
-	local below = (phone or not playing) and (phone and 40 or 54) or 6
+	-- (en el móvil el botón de la tienda va siempre bajo el minimapa; en PC solo se ve fuera de combate
+	-- y entonces va arriba, no debajo)
+	local below = phone and 40 or 6
 	label.Position = UDim2.fromOffset(phone and 14 or 16, top + below)
 end
 

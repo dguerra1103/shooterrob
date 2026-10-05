@@ -95,7 +95,8 @@ function EventHUD.Init()
 			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
 			local data = ClientState.Data
 			local candy = data and data.EventCandy or 0
-			if candy ~= lastCount then
+			-- (solo con los datos ya cargados: al cargar no cuenta como «has sumado»)
+			if data and candy ~= lastCount then
 				if lastCount ~= nil then
 					shownUntil = os.clock() + 5
 				end

@@ -550,12 +550,21 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if aceRound and playing and killerTeam and victimTeam and killerTeam ~= victimTeam then
 			local count = (aceRound.Kills[killerName] or 0) + 1
 			aceRound.Kills[killerName] = count
+			if victimBot then
+				aceRound.BotVictims = true
+			end
 			local members = aceRound.Members[victimTeam.Name] or 0
 			if members >= 3 and count >= members and not aceRound.Done then
 				aceRound.Done = true
+				aceRound.AceBy = killerName
 				Remotes.Notify:FireAllClients("Ace", killerName)
 				if killer then
-					PlayerData.AddXP(killer, GameConfig.XP.Ace, "¡ACE!")
+					-- (contra bots vale menos, como las demás bajas a bots)
+					local xp = GameConfig.XP.Ace
+					if aceRound.BotVictims then
+						xp = math.max(1, math.floor(xp * GameConfig.Bots.RewardScale))
+					end
+					PlayerData.AddXP(killer, xp, "¡ACE!")
 				end
 			end
 		end
@@ -1227,6 +1236,7 @@ local function eliminationRounds(s)
 				ScoreB = getScore(b.Name),
 				MVP = roundMVP,
 				MVPKills = roundKills,
+				Ace = roundStats and roundStats.AceBy or nil,
 			})
 			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
 			if not playFinalKillcam() then

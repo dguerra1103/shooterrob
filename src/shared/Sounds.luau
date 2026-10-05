@@ -205,12 +205,13 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 			Sounds.PlayGun("Mech", parent, layers.Mech[1], layers.Mech[2])
 		end
 		-- Cola: tus disparos dejan un eco grave y apagado que rebota en el mapa (capa "entorno").
-		-- Como mucho una cada 0,12 s: en ráfaga no se amontonan
+		-- Como mucho una cada 0,2 s: en ráfaga no se amontonan
 		local tail = Sounds.ShotTails[kind]
-		if tail and parent == nil and os.clock() - lastTail >= 0.12 then
+		if tail and parent == nil and os.clock() - lastTail >= 0.2 then
 			lastTail = os.clock()
 			task.delay(0.07, function()
-				local echo = Sounds.Play("Boom", nil, tail[1], tail[2])
+				-- (en el grupo de las armas: el volumen de armas también la baja)
+				local echo = Sounds.PlayGun("Boom", nil, tail[1], tail[2])
 				if echo then
 					pcall(function()
 						local eq = Instance.new("EqualizerSoundEffect")
