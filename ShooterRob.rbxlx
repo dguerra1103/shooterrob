@@ -33623,6 +33623,20 @@ local function onNotify(kind, text)
 		bigMessage(text)
 	elseif kind == "Round" then
 		roundResult(text)
+	elseif kind == "Unlock" and type(text) == "string" then
+		-- Algo nuevo: un arma tiene su propia presentación (rayos, confeti); lo demás, aviso dorado
+		local weaponName = string.match(text, "^¡Arma desbloqueada: (.+)!$")
+		if weaponName then
+			-- (con la pantalla final delante, celebrate solo echa confeti: el nombre va en el aviso)
+			local endScreen = refs.RoundEnd and refs.RoundEnd.Visible
+			if not celebrate("🔓 ¡ARMA NUEVA!", weaponName .. " · ya puedes equiparla en Armas (B)", Color3.fromRGB(255, 200, 60), true, true) or endScreen then
+				bigMessage("🔓 " .. text, Color3.fromRGB(255, 200, 60))
+			end
+		else
+			bigMessage("🔓 " .. text, Color3.fromRGB(255, 200, 60))
+			RewardFX.EdgeFlash(Color3.fromRGB(255, 200, 60), 0.4)
+			Sounds.Play("Kill", nil, 1.2, 0.7)
+		end
 	elseif kind == "Ace" then
 		-- ACE: alguien eliminó solo a todo el equipo rival en esta ronda
 		if text == player.Name then
