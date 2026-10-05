@@ -146,7 +146,9 @@ function ZoneName.Update(dt)
 	local phone = UI.IsPhone()
 	-- (en el móvil el botón de la tienda va siempre bajo el minimapa; en PC solo se ve fuera de combate
 	-- y entonces va arriba, no debajo)
-	local below = phone and 40 or 6
+	local UserInputService = game:GetService("UserInputService")
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local below = phone and 40 or (touchOnly and 50 or 6)
 	label.Position = UDim2.fromOffset(phone and 14 or 16, top + below)
 end
 

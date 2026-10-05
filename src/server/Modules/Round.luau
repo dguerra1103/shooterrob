@@ -1231,6 +1231,9 @@ local function eliminationRounds(s)
 					roundMVP, roundKills = name, kills
 				end
 			end
+			-- (si la ronda la cerró una baja: primero su repetición, como en Buscar y destruir; durante la
+			-- repetición el HUD no se ve, así que el resultado va después)
+			playFinalKillcam()
 			Remotes.Notify:FireAllClients("Round", {
 				Winner = winner and winner.Name or nil,
 				Number = number,
@@ -1240,8 +1243,8 @@ local function eliminationRounds(s)
 				MVPKills = roundKills,
 				Ace = roundStats and roundStats.AceBy or nil,
 			})
-			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
-			if not playFinalKillcam() then
+			-- (en la última ronda no hace falta esperar: ya sale la pantalla final)
+			if not roundOver then
 				task.wait(3)
 			end
 		end

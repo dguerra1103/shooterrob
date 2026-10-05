@@ -26305,6 +26305,9 @@ local function eliminationRounds(s)
 					roundMVP, roundKills = name, kills
 				end
 			end
+			-- (si la ronda la cerró una baja: primero su repetición, como en Buscar y destruir; durante la
+			-- repetición el HUD no se ve, así que el resultado va después)
+			playFinalKillcam()
 			Remotes.Notify:FireAllClients("Round", {
 				Winner = winner and winner.Name or nil,
 				Number = number,
@@ -26314,8 +26317,8 @@ local function eliminationRounds(s)
 				MVPKills = roundKills,
 				Ace = roundStats and roundStats.AceBy or nil,
 			})
-			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
-			if not playFinalKillcam() then
+			-- (en la última ronda no hace falta esperar: ya sale la pantalla final)
+			if not roundOver then
 				task.wait(3)
 			end
 		end
@@ -34500,7 +34503,7 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		hitFlash.Adornee = not radar and target or nil
 		hitFlash.FillColor = killed and Color3.fromRGB(255, 60, 60) or Color3.new(1, 1, 1)
 		hitFlash.FillTransparency = killed and 0.25 or 0.45
-		hitFlash.Enabled = true
+		hitFlash.Enabled = not radar
 		if hitFlashTween then
 			hitFlashTween:Cancel()
 		end
@@ -40276,7 +40279,10 @@ function Menu.Init()
 			local character = player.Character
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local fighting = playing and humanoid ~= nil and humanoid.Health > 0 and not ClientState.Dead
-			open.Visible = not ClientState.InMainMenu and (phone or not fighting)
+			-- (cualquier pantalla solo táctil, también tablets: sin teclas no hay otra forma de abrirlo)
+			local UIS = game:GetService("UserInputService")
+			local touchOnly = UIS.TouchEnabled and not UIS.KeyboardEnabled
+			open.Visible = not ClientState.InMainMenu and (phone or touchOnly or not fighting)
 			open.Position = UDim2.fromOffset(phone and 14 or 16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + (phone and 6 or 8) or 58)
 			task.wait(0.25)
 		end
@@ -46657,7 +46663,9 @@ function ZoneName.Update(dt)
 	local phone = UI.IsPhone()
 	-- (en el móvil el botón de la tienda va siempre bajo el minimapa; en PC solo se ve fuera de combate
 	-- y entonces va arriba, no debajo)
-	local below = phone and 40 or 6
+	local UserInputService = game:GetService("UserInputService")
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local below = phone and 40 or (touchOnly and 50 or 6)
 	label.Position = UDim2.fromOffset(phone and 14 or 16, top + below)
 end
 

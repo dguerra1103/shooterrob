@@ -1435,7 +1435,7 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		hitFlash.Adornee = not radar and target or nil
 		hitFlash.FillColor = killed and Color3.fromRGB(255, 60, 60) or Color3.new(1, 1, 1)
 		hitFlash.FillTransparency = killed and 0.25 or 0.45
-		hitFlash.Enabled = true
+		hitFlash.Enabled = not radar
 		if hitFlashTween then
 			hitFlashTween:Cancel()
 		end
