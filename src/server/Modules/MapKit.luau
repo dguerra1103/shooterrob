@@ -1052,9 +1052,12 @@ function Kit.spawnArea(team, cf, style)
 	local teamColor = team.Color.Color
 	local light = teamColor:Lerp(Color3.new(1, 1, 1), 0.55)
 	local floorColor = style.Floor or light
-	block(team.Name .. "SpawnFloor", V(30, 0.4, 70), cf * CFrame.new(0, 0.2, 0), floorColor, style.FloorMaterial or Enum.Material.SmoothPlastic)
+	-- (los colores del equipo se quedan puros, también en el estilo realista: así casan con los neones
+	-- y las zonas de aparición y se reconoce de un vistazo de qué equipo es la base)
+	local floor = block(team.Name .. "SpawnFloor", V(30, 0.4, 70), cf * CFrame.new(0, 0.2, 0), floorColor, style.FloorMaterial or Enum.Material.SmoothPlastic)
+	floor.Color = floorColor
 	for z = -30, 30, 10 do
-		deco("FloorLine", V(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic)
+		deco("FloorLine", V(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic).Color = teamColor
 	end
 	local roofColor = style.Roof or RGB(235, 235, 240)
 	local roof = block(team.Name .. "SpawnRoof", V(30, 1, 70), cf * CFrame.new(0, 16, 0), roofColor, style.RoofMaterial or Enum.Material.Concrete)
@@ -1063,6 +1066,7 @@ function Kit.spawnArea(team, cf, style)
 	roof.CanCollide = false
 	deco("RoofTrim", V(0.6, 0.5, 70.2), cf * CFrame.new(15, 15.4, 0), teamColor, Enum.Material.Neon)
 	local banner = block("TeamBanner", V(0.6, 4, 28), cf * CFrame.new(15.2, 18.6, 0), teamColor, Enum.Material.SmoothPlastic)
+	banner.Color = teamColor
 	sign(banner, Enum.NormalId.Right, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
 	sign(banner, Enum.NormalId.Left, "EQUIPO " .. string.upper(team.Name), Color3.new(1, 1, 1))
 	for _, z in { -34, 34 } do
@@ -1070,7 +1074,7 @@ function Kit.spawnArea(team, cf, style)
 		deco("PillarStripe", V(2.1, 1, 2.1), cf * CFrame.new(14, 12, z), teamColor, Enum.Material.Neon)
 	end
 	for _, z in { -24, 0, 24 } do
-		block("Cover", V(2, 4, 10), cf * CFrame.new(14, 2, z), teamColor, Enum.Material.SmoothPlastic)
+		block("Cover", V(2, 4, 10), cf * CFrame.new(14, 2, z), teamColor, Enum.Material.SmoothPlastic).Color = teamColor
 		deco("CoverTop", V(2.1, 0.3, 10.1), cf * CFrame.new(14, 4.05, z), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
 	end
 	for i, z in { -24, -8, 8, 24 } do
@@ -1334,48 +1338,87 @@ local function cartoonize(preset)
 end
 
 -- Estilo realista en mapas pensados para Cartoon: luz más contrastada (sombras más oscuras y nítidas),
--- color natural (sin tonos pastel en el ambiente ni en la neblina), neblina y brillo del sol de verdad,
--- y hierba, tierra y nieve de colores naturales. La hora y el ambiente de cada mapa se mantienen.
+-- color natural (menos tono pastel en el ambiente y la neblina), neblina y brillo del sol de verdad,
+-- y hierba y tierra de colores naturales. Se respeta el carácter de cada mapa: la hora, las sombras
+-- azuladas de la nieve, el aire limpio de la Luna, los pétalos rosas, la nieve blanca y el brillo de
+-- los neones de noche (que además se aclara un poco para que se vea bien en el móvil).
 local function neutralize(color, amount)
 	local h, s, v = color:ToHSV()
 	return Color3.fromHSV(h, s * (1 - amount), v)
 end
 
+-- Que el color tenga al menos este brillo (el canal más alto), sin cambiar su tono
+local function atLeast(color, minimum)
+	local top = math.max(color.R, color.G, color.B) * 255
+	if top >= minimum or top <= 0 then
+		return color
+	end
+	local k = minimum / top
+	return Color3.new(math.min(1, color.R * k), math.min(1, color.G * k), math.min(1, color.B * k))
+end
+
+local SNOWY = { Snow = true, Ice = true, Glacier = true }
+
 local function realize(preset)
 	local p = table.clone(preset)
 	local clock = p.ClockTime or 14
-	local night = clock < 6 or clock > 18.6
-	p.Ambient = neutralize(p.Ambient or RGB(60, 62, 72), 0.6):Lerp(night and RGB(30, 32, 46) or RGB(70, 72, 82), 0.45)
-	p.OutdoorAmbient = neutralize(p.OutdoorAmbient or RGB(125, 128, 140), 0.6)
-		:Lerp(night and RGB(55, 58, 82) or RGB(120, 122, 132), 0.4)
+	-- (el atardecer y el anochecer cuentan como noche: sin brillo del sol forzado)
+	local night = clock < 6.2 or clock > 17.8
+	p.Ambient = neutralize(p.Ambient or RGB(60, 62, 72), 0.35)
+		:Lerp(night and RGB(44, 46, 60) or RGB(70, 72, 82), night and 0.25 or 0.3)
+	p.OutdoorAmbient = neutralize(p.OutdoorAmbient or RGB(125, 128, 140), 0.35)
+		:Lerp(night and RGB(70, 74, 98) or RGB(120, 122, 132), night and 0.25 or 0.3)
+	if night then
+		p.Ambient = atLeast(p.Ambient, 50)
+		p.OutdoorAmbient = atLeast(p.OutdoorAmbient, 80)
+	end
 	p.ShadowSoftness = math.min(p.ShadowSoftness or 0.12, 0.15)
 	local a = table.clone(p.Atmosphere or {})
-	a.Density = math.max(a.Density or 0.3, 0.3)
-	a.Haze = math.max(a.Haze or 1.4, 1.2)
-	a.Glare = night and (a.Glare or 0) or math.max(a.Glare or 0.3, 0.25)
+	-- (si el mapa pide un aire muy limpio, como la Luna, se respeta)
+	local thin = (a.Density or 0.3) < 0.2
+	if not thin then
+		a.Density = math.max(a.Density or 0.3, 0.3)
+		a.Haze = math.max(a.Haze or 1.4, 1.2)
+	end
+	a.Glare = (night or thin) and (a.Glare or 0) or math.max(a.Glare or 0.3, 0.25)
 	if a.Color then
-		a.Color = neutralize(a.Color, 0.5)
+		a.Color = neutralize(a.Color, 0.4)
 	end
 	if a.Decay then
-		a.Decay = neutralize(a.Decay, 0.5)
+		a.Decay = neutralize(a.Decay, 0.4)
 	end
 	p.Atmosphere = a
 	local c = table.clone(p.Color or {})
-	c.Saturation = math.min(c.Saturation or 0.05, 0.05)
+	c.Saturation = math.min(c.Saturation or 0.05, night and 0.12 or 0.05)
 	c.Contrast = math.max(c.Contrast or 0.12, 0.12)
 	c.Brightness = math.min(c.Brightness or 0, 0.02)
 	if c.Tint then
-		c.Tint = neutralize(c.Tint, 0.6)
+		c.Tint = neutralize(c.Tint, 0.5)
 	end
 	p.Color = c
+	-- Brillo: de día contenido (el sol no deslumbra como en un dibujo); de noche se deja que los
+	-- neones brillen
 	local b = table.clone(p.Bloom or {})
-	b.Intensity = math.min(b.Intensity or 0.6, 0.6)
-	b.Threshold = math.max(b.Threshold or 1.6, 1.6)
+	b.Intensity = math.min(b.Intensity or 0.6, night and 0.9 or 0.6)
+	b.Threshold = math.max(b.Threshold or 1.6, night and 1.35 or 1.6)
 	p.Bloom = b
+	-- Terreno: los verdes muy vivos van hacia el tono natural; lo demás pensado a propósito (pétalos,
+	-- arena, roca) solo se apaga un poco, y la nieve y el hielo se quedan como están
 	local terrain = {}
 	for name, color in TERRAIN_DEFAULTS do
 		local custom = p.TerrainColors and p.TerrainColors[name]
-		terrain[name] = custom and neutralize(custom, 0.45):Lerp(color, 0.35) or color
+		if not custom then
+			terrain[name] = color
+		elseif SNOWY[name] then
+			terrain[name] = custom
+		else
+			local h, sat = custom:ToHSV()
+			if sat > 0.25 and h > 0.12 and h < 0.45 then
+				terrain[name] = neutralize(custom, 0.3):Lerp(color, 0.35)
+			else
+				terrain[name] = Kit.natural(custom)
+			end
+		end
 	end
 	p.TerrainColors = terrain
 	return p
