@@ -11,6 +11,7 @@ local Teams = game:GetService("Teams")
 
 local Effects = require(script.Parent.Effects)
 local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
 local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 
@@ -115,7 +116,7 @@ local function applyStyle(character, isTeammate, isSelf, color)
 			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 			highlight.Parent = character
 		end
-		highlight.OutlineColor = color
+		highlight.OutlineColor = UI.teamTint(color, true) -- (el azul puro casi no se ve: más claro)
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
 	else
 		if highlight then
