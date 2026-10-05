@@ -3,6 +3,7 @@
 -- cobertura, montañas nevadas de fondo y nieve cayendo.
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
 local Kit = require(script.Parent.Parent.MapKit)
+local Variants = require(script.Parent.Parent.LightingVariants)
 
 local Map = {
 	Id = "FrostStation",
@@ -32,6 +33,8 @@ Map.Lighting = {
 		Rock = Color3.fromRGB(95, 105, 120),
 	},
 }
+-- A veces sale con otra luz o con mal tiempo (ver LightingVariants)
+Map.LightingVariants = { Variants.Blizzard(0.3) }
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -76,7 +79,9 @@ end
 function Map.Build()
 	local folder = Kit.Begin(Map.Name)
 	folder:SetAttribute("Ambience", "Snow") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local block, deco = Kit.block, Kit.deco
 	local teams = GameConfig.Teams
 
@@ -258,6 +263,13 @@ function Map.Build()
 	snow.WindAffectsDrag = true
 	snow.RotSpeed = NumberRange.new(-60, 60)
 	snow.Rate = 140
+	-- (con ventisca: mucha más nieve, más rápida y de lado)
+	if Kit.Weather == "Snowstorm" then
+		snow.Rate = 420
+		snow.Speed = NumberRange.new(12, 18)
+		snow.Lifetime = NumberRange.new(4, 6)
+		snow.Acceleration = V(6, 0, 2.5)
+	end
 	snow.EmissionDirection = Enum.NormalId.Bottom
 	snow.Parent = sky
 
@@ -342,7 +354,7 @@ function Map.Build()
 	blow.EmissionDirection = Enum.NormalId.Right
 	blow.Shape = Enum.ParticleEmitterShape.Box
 	blow.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	blow.Rate = 18
+	blow.Rate = Kit.Weather == "Snowstorm" and 45 or 18
 	blow.Parent = drift
 	return folder
 end

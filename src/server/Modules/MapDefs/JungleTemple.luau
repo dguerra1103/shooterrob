@@ -3,6 +3,7 @@
 -- enredaderas, cabezas de piedra gigantes, antorchas, árboles enormes y cascadas al fondo.
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
 local Kit = require(script.Parent.Parent.MapKit)
+local Variants = require(script.Parent.Parent.LightingVariants)
 
 local Map = {
 	Id = "JungleTemple",
@@ -33,6 +34,8 @@ Map.Lighting = {
 		Rock = Color3.fromRGB(120, 116, 100),
 	},
 }
+-- A veces sale con otra luz o con mal tiempo (ver LightingVariants)
+Map.LightingVariants = { Variants.Storm(0.3), Variants.Fog(0.25) }
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -89,7 +92,9 @@ end
 function Map.Build()
 	local folder = Kit.Begin(Map.Name)
 	folder:SetAttribute("Ambience", "Jungle") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local block, deco = Kit.block, Kit.deco
 	local teams = GameConfig.Teams
 

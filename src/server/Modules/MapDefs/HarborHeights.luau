@@ -2,6 +2,7 @@
 -- de los puentes), torre de control en el puente central, azoteas en cada lado y el mar de fondo.
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
 local Kit = require(script.Parent.Parent.MapKit)
+local Variants = require(script.Parent.Parent.LightingVariants)
 
 local Map = {
 	Id = "HarborHeights",
@@ -27,6 +28,8 @@ Map.Lighting = {
 	Latitude = 38,
 	Bloom = { Intensity = 0.5, Size = 24, Threshold = 2 },
 }
+-- A veces sale con otra luz o con mal tiempo (ver LightingVariants)
+Map.LightingVariants = { Variants.Sunset(0.25), Variants.Storm(0.25), Variants.Fog(0.15) }
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -42,7 +45,9 @@ local WATER_Y = -8.5
 function Map.Build()
 	local folder = Kit.Begin(Map.Name)
 	folder:SetAttribute("Ambience", "Coast") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local block, deco = Kit.block, Kit.deco
 	local teams = GameConfig.Teams
 

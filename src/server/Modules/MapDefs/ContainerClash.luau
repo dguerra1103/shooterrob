@@ -2,6 +2,7 @@
 -- pasillos laterales entre contenedores, pasarelas elevadas y almacenes como zonas de salida.
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
 local Kit = require(script.Parent.Parent.MapKit)
+local Variants = require(script.Parent.Parent.LightingVariants)
 
 local Map = {
 	Id = "ContainerClash",
@@ -27,6 +28,8 @@ Map.Lighting = {
 	SunSize = 30, -- sol grande de atardecer
 	Water = { Color = Color3.fromRGB(25, 70, 105), Reflectance = 1, Transparency = 0.3, WaveSize = 0.2, WaveSpeed = 9 },
 }
+-- A veces sale con otra luz o con mal tiempo (ver LightingVariants)
+Map.LightingVariants = { Variants.Storm(0.25), Variants.Fog(0.2) }
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -49,7 +52,9 @@ end
 function Map.Build()
 	local folder = Kit.Begin(Map.Name)
 	folder:SetAttribute("Ambience", "Coast") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	folder:SetAttribute("Variant", Kit.Variant)
+	folder:SetAttribute("Weather", Kit.Weather)
 	local block, deco = Kit.block, Kit.deco
 	local teams = GameConfig.Teams
 

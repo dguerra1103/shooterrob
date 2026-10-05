@@ -1,6 +1,7 @@
 -- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
 local Kit = require(script.Parent.Parent.MapKit)
+local Variants = require(script.Parent.Parent.LightingVariants)
 
 local Map = {
 	Id = "Downtown",
@@ -478,11 +479,15 @@ Map.Lighting = {
 	Bloom = { Intensity = 0.7, Size = 24, Threshold = 1.6 },
 	SunRays = 0.08,
 }
+-- A veces sale con otra luz o con mal tiempo (ver LightingVariants)
+Map.LightingVariants = { Variants.Storm(0.25), Variants.Fog(0.15) }
 
 function Map.Build()
 	mapFolder = Kit.Begin(Map.Name)
 	mapFolder:SetAttribute("Ambience", "Breeze") -- (sonido ambiente: ver Ambience en el cliente)
-	Kit.applyLighting(Map.Lighting)
+	Kit.applyLighting(Kit.pickLighting(Map))
+	mapFolder:SetAttribute("Variant", Kit.Variant)
+	mapFolder:SetAttribute("Weather", Kit.Weather)
 
 	-- Suelo: asfalto, aceras y plaza central
 	block("Floor", Vector3.new(LENGTH + 40, 2, WIDTH + 40), CFrame.new(0, -1, 0), C.Asphalt, Enum.Material.Asphalt)

@@ -1380,7 +1380,9 @@ local function realize(preset)
 		a.Density = math.max(a.Density or 0.3, 0.3)
 		a.Haze = math.max(a.Haze or 1.4, 1.2)
 	end
-	a.Glare = (night or thin) and (a.Glare or 0) or math.max(a.Glare or 0.3, 0.25)
+	-- (de noche, sin aire o con el cielo cubierto —tormenta, niebla— no hay brillo de sol)
+	local overcast = (p.Clouds or 0) >= 0.85
+	a.Glare = (night or thin or overcast) and (a.Glare or 0) or math.max(a.Glare or 0.3, 0.25)
 	if a.Color then
 		a.Color = neutralize(a.Color, 0.4)
 	end
