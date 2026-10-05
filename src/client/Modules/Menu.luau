@@ -1027,6 +1027,45 @@ end
 -- Pestaña: Armas
 ---------------------------------------------------------------------------
 
+-- Estadísticas de un arma en barras de 0 a 1, comparadas con la mejor del juego en cada cosa:
+-- { { nombre, fracción, color } }. nil si no se comparan así (lanzacohetes, arcos explosivos...)
+local STAT_RED, STAT_YELLOW, STAT_BLUE = Color3.fromRGB(255, 90, 70), Color3.fromRGB(255, 200, 60), Color3.fromRGB(80, 180, 255)
+local statMax = nil
+local function statRows(def)
+	if def.Explosive then
+		return nil
+	end
+	if not statMax then
+		statMax = { Damage = 1, Rate = 1, Recoil = 1, Melee = 1, MeleeRate = 1, Range = 1 }
+		for _, other in Weapons.List do
+			if other.Type == "Gun" and not other.Explosive then
+				statMax.Damage = math.max(statMax.Damage, (other.Damage or 0) * (other.Pellets or 1))
+				statMax.Rate = math.max(statMax.Rate, other.FireRate or 0)
+				statMax.Recoil = math.max(statMax.Recoil, other.Recoil or 0)
+			elseif other.Type == "Melee" then
+				statMax.Melee = math.max(statMax.Melee, other.Damage or 0)
+				statMax.MeleeRate = math.max(statMax.MeleeRate, 1 / math.max(other.Cooldown or 1, 0.05))
+				statMax.Range = math.max(statMax.Range, other.Range or 0)
+			end
+		end
+	end
+	if def.Type == "Melee" then
+		return {
+			{ "DAÑO", (def.Damage or 0) / statMax.Melee, STAT_RED },
+			{ "VELOCIDAD", (1 / math.max(def.Cooldown or 1, 0.05)) / statMax.MeleeRate, STAT_YELLOW },
+			{ "ALCANCE", (def.Range or 0) / statMax.Range, STAT_BLUE },
+		}
+	elseif def.Type == "Gun" then
+		return {
+			{ "DAÑO", (def.Damage or 0) * (def.Pellets or 1) / statMax.Damage, STAT_RED },
+			{ "CADENCIA", (def.FireRate or 0) / statMax.Rate, STAT_YELLOW },
+			-- (control: lo contrario del retroceso; ningún arma se queda a cero)
+			{ "CONTROL", 1 - 0.85 * (def.Recoil or 0) / statMax.Recoil, STAT_BLUE },
+		}
+	end
+	return nil
+end
+
 local function buildWeaponsPage(data)
 	local scroll = scroller(UI.new("UIGridLayout", {
 		CellSize = UDim2.fromOffset(205, 282),
@@ -1063,13 +1102,31 @@ local function buildWeaponsPage(data)
 			local damage = def.Pellets > 1 and (def.Damage .. "x" .. def.Pellets) or tostring(def.Damage)
 			stats = string.format("Daño %s · %d/s · %d balas", damage, math.floor(def.FireRate + 0.5), def.MagSize)
 		end
-		UI.label({ Position = UDim2.fromOffset(0, 128), Size = UDim2.new(1, 0, 0, 18), Text = stats, TextSize = 14, Parent = card })
+		-- Barras de estadísticas (comparables entre armas); las explosivas, en texto
+		local rows = statRows(def)
+		if rows then
+			for i, row in rows do
+				local y = 128 + (i - 1) * 12
+				UI.label({
+					Position = UDim2.fromOffset(10, y),
+					Size = UDim2.fromOffset(62, 10),
+					Text = row[1],
+					TextSize = 11,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextColor3 = Color3.fromRGB(190, 195, 220),
+					Parent = card,
+				})
+				progressBar(card, UDim2.fromOffset(74, y + 1), UDim2.new(1, -84, 0, 8), row[2], row[3])
+			end
+		else
+			UI.label({ Position = UDim2.fromOffset(0, 128), Size = UDim2.new(1, 0, 0, 18), Text = stats, TextSize = 14, Parent = card })
+		end
 		UI.label({
-			Position = UDim2.fromOffset(8, 148),
-			Size = UDim2.new(1, -16, 0, 32),
+			Position = UDim2.fromOffset(8, 164),
+			Size = UDim2.new(1, -16, 0, 16),
 			Text = def.Description or "",
-			TextSize = 13,
-			TextWrapped = true,
+			TextSize = 12,
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextColor3 = Color3.fromRGB(190, 195, 220),
 			Font = UI.FontBody,
 			TextStrokeTransparency = 1,
