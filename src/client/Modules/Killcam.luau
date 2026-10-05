@@ -36,6 +36,7 @@ local gui: any = nil
 local refs: { [string]: any } = {}
 local losParams = RaycastParams.new()
 losParams.FilterType = Enum.RaycastFilterType.Exclude
+losParams.IgnoreWater = true -- (una baja a través del agua también se ve)
 
 local function headPosition(model)
 	local head = model:FindFirstChild("Head")
@@ -156,16 +157,40 @@ function Killcam.ClearLine(from, to)
 end
 
 -- Durante la repetición: la víctima se ve (aunque sea tu propio cuerpo, que la primera persona deja
--- invisible) y quien hizo la baja no (la cámara está en su cabeza: se vería por dentro)
-local function setModelLook(model, modifier)
-	if not model then
-		return
+-- invisible) y quien hizo la baja no (la cámara está en su cabeza: se vería por dentro). Las piezas
+-- se buscan una vez al empezar, no en cada fotograma
+local function lookParts(model)
+	local list = {}
+	if model then
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") or d:IsA("Decal") then
+				table.insert(list, d)
+			end
+		end
 	end
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") or part:IsA("Decal") then
+	return list
+end
+
+local function setLook(list, modifier)
+	for _, part in list do
+		if part.Parent then
 			part.LocalTransparencyModifier = modifier
 		end
 	end
+end
+
+-- (las partículas de la skin del arma de quien hizo la baja se verían en la lente: se apagan un rato)
+local function muteEmitters(model)
+	local muted = {}
+	if model then
+		for _, d in model:GetDescendants() do
+			if (d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam")) and d.Enabled then
+				d.Enabled = false
+				table.insert(muted, d)
+			end
+		end
+	end
+	return muted
 end
 
 function Killcam.Active()
@@ -187,9 +212,12 @@ function Killcam.Stop(runOnEnd)
 	if k.Effect then
 		k.Effect:Destroy()
 	end
-	if k.Killer and k.Killer.Parent then
-		-- (si eras tú, la primera persona vuelve a esconderte sola)
-		setModelLook(k.Killer, 0)
+	-- (si eras tú, la primera persona vuelve a esconderte sola)
+	setLook(k.KillerParts, 0)
+	for _, emitter in k.Muted do
+		if emitter.Parent then
+			emitter.Enabled = true
+		end
 	end
 	if refs.Frame then
 		refs.Frame.Visible = false
@@ -229,8 +257,8 @@ local function step()
 		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
 	end
 	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
-	setModelLook(k.Killer, 1)
-	setModelLook(k.Victim, 0)
+	setLook(k.KillerParts, 1)
+	setLook(k.VictimParts, 0)
 end
 
 -- Empieza una repetición; devuelve false si no hay con qué (poca historia, o sin línea de visión).
@@ -272,6 +300,9 @@ function Killcam.Play(opts)
 		VictimTrack = table.clone(victimTrack),
 		Killer = opts.Killer,
 		Victim = opts.Victim,
+		KillerParts = lookParts(opts.Killer),
+		VictimParts = lookParts(opts.Victim),
+		Muted = muteEmitters(opts.Killer),
 		Fov = camera.FieldOfView,
 		CameraBefore = camera.CFrame,
 		Effect = effect,

@@ -188,13 +188,17 @@ function GrenadeController.Init()
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)
 		if typeof(position) == "Vector3" then
-			Effects.Explosion(position, type(radius) == "number" and radius or 14)
-			-- Sonido en el punto de la explosión (se oye más fuerte cuanto más cerca)
+			-- Sonido en el punto de la explosión (se oye más fuerte cuanto más cerca). Antes del efecto: si
+			-- te aturde, el estampido se oye entero y luego todo se apaga
 			local spot = Instance.new("Attachment")
 			spot.WorldPosition = position
 			spot.Parent = workspace.Terrain
-			Sounds.Play("ShotHeavy", spot, 0.45, 1.6)
+			local bang = Sounds.Play("ShotHeavy", spot, 0.45, 1.6)
+			if bang then
+				bang.SoundGroup = nil
+			end
 			Debris:AddItem(spot, 5)
+			Effects.Explosion(position, type(radius) == "number" and radius or 14)
 		end
 	end)
 

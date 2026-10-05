@@ -102,19 +102,11 @@ function CombatFX.Concussion(strength)
 	if ring then
 		ring:Destroy()
 	end
+	-- (un único pitido agudo que se apaga solo: en bucle sonaría a pitidos seguidos)
 	ring = Sounds.Play("Tinnitus", nil, 1, 0.4 + 0.6 * strength)
 	if ring then
 		ring.Name = "Tinnitus"
 		ring.SoundGroup = nil
-		ring.Looped = true
-		local fade = 1.4 + 2.2 * strength
-		TweenService:Create(ring, TweenInfo.new(fade), { Volume = 0 }):Play()
-		local sound = ring
-		task.delay(fade + 0.1, function()
-			if sound.Parent then
-				sound:Destroy()
-			end
-		end)
 	end
 	ClientState.ConcussedUntil = muffleUntil
 end

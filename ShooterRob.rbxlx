@@ -497,8 +497,8 @@ GameConfig.SoldierUniform = true
 -- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
 GameConfig.RealisticBlood = false
 -- Tamaño del arma que lleva el personaje en el mundo (la que ven los demás). 1 = como la de primera
--- persona (enorme al lado del cuerpo); 0,7 = a escala de una persona, como en los shooters realistas
-GameConfig.WorldWeaponScale = 0.7
+-- persona (enorme al lado del cuerpo); 0,65 = a escala de una persona, como en los shooters realistas
+GameConfig.WorldWeaponScale = 0.65
 -- Los personajes (bots y demás jugadores) sujetan el arma de fuego con las dos manos: culata al hombro
 -- y la otra mano en el guardamanos (IKControl, solo en cada cliente). false = la pose de Roblox
 GameConfig.TwoHandedPose = true
@@ -2675,8 +2675,8 @@ local Sounds = {
 	Unsheath = { Id = "rbxassetid://12222225", Volume = 0.4, Pitch = 1.3 }, -- sacar el arma cuerpo a cuerpo
 	Whiz = { Id = "rbxassetid://12222095", Volume = 0.45, Pitch = 2.6 }, -- bala que pasa rozando
 	LowAmmo = { Id = "rbxassetid://15675032796", Volume = 0.35, Pitch = 1.4 }, -- quedan pocas balas
-	-- Pitido en los oídos tras una explosión cercana (el "ping" muy agudo y en bucle, que se apaga)
-	Tinnitus = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 2.8 },
+	-- Pitido en los oídos tras una explosión cercana (un "ping" muy agudo que se apaga solo)
+	Tinnitus = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 2.4 },
 }
 
 -- Mezcla de las armas: grupo con compresor (más pegada), graves realzados y una cola de eco
@@ -27208,6 +27208,7 @@ local function startRain()
 	rainSound.Looped = true
 	rainSound.Volume = 0.22
 	rainSound.PlaybackSpeed = 1.45 -- (el viento acelerado suena como lluvia)
+	rainSound.SoundGroup = ensureGroup()
 	rainSound.Parent = SoundService
 	rainSound:Play()
 	rainConnection = RunService.Heartbeat:Connect(function()
@@ -27524,6 +27525,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
+local Sounds = require(ReplicatedStorage:WaitForChild("Shared").Sounds)
 
 local player = Players.LocalPlayer
 
@@ -27555,6 +27557,7 @@ local function beep(timer)
 	sound.Volume = 0.55
 	sound.PlaybackSpeed = 1.9
 	sound.RollOffMaxDistance = 140
+	sound.SoundGroup = Sounds.GetWorldGroup() -- (así también se oye apagado tras una explosión)
 	sound.Parent = light
 	sound:Play()
 	task.delay(1.5, function()
@@ -27784,6 +27787,7 @@ return BoostHUD
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Sounds = require(ReplicatedStorage:WaitForChild("Shared").Sounds)
 
 local BotFootsteps = {}
 
@@ -27816,6 +27820,7 @@ local function soundFor(model, root)
 	sound.RollOffMode = Enum.RollOffMode.InverseTapered
 	sound.RollOffMinDistance = 6
 	sound.RollOffMaxDistance = MAX_DISTANCE
+	sound.SoundGroup = Sounds.GetWorldGroup() -- (así también se oye apagado tras una explosión)
 	sound.Parent = root
 	sounds[model] = sound
 	return sound
@@ -28150,19 +28155,11 @@ function CombatFX.Concussion(strength)
 	if ring then
 		ring:Destroy()
 	end
+	-- (un único pitido agudo que se apaga solo: en bucle sonaría a pitidos seguidos)
 	ring = Sounds.Play("Tinnitus", nil, 1, 0.4 + 0.6 * strength)
 	if ring then
 		ring.Name = "Tinnitus"
 		ring.SoundGroup = nil
-		ring.Looped = true
-		local fade = 1.4 + 2.2 * strength
-		TweenService:Create(ring, TweenInfo.new(fade), { Volume = 0 }):Play()
-		local sound = ring
-		task.delay(fade + 0.1, function()
-			if sound.Parent then
-				sound:Destroy()
-			end
-		end)
 	end
 	ClientState.ConcussedUntil = muffleUntil
 end
@@ -29301,6 +29298,9 @@ end
 -- del cañón, un núcleo casi blanco de un fotograma, un cono de llama hacia delante), un golpe de luz
 -- cálida y un humo gris que se queda flotando un momento
 local FLASH_WARM = Color3.fromRGB(255, 190, 105)
+-- (piezas reutilizadas: en un tiroteo serían decenas de piezas nuevas por segundo)
+local flashRing, flashBallRing = partRing(60), partRing(16)
+local flashLight, flashLightToken = nil, 0
 local function realisticFlash(cf, remote)
 	local scale = 0.7 + math.random() * 0.55
 	local spin = math.random() * math.pi * 2
@@ -29308,37 +29308,52 @@ local function realisticFlash(cf, remote)
 	for i = 1, prongs do
 		local angle = spin + (i + (math.random() - 0.5) * 0.4) * (math.pi * 2 / prongs)
 		local length = (0.22 + math.random() * 0.3) * scale
-		local prong = fxPart({
+		local _, index, token = ringPart(flashRing, {
 			Color = FLASH_WARM:Lerp(Color3.new(1, 1, 1), 0.3),
 			Size = Vector3.new(0.045 * scale, length, 0.1 * scale),
 			CFrame = cf * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, 0, angle) * CFrame.new(0, length / 2, 0),
 			Transparency = 0.1 + math.random() * 0.3,
 		})
-		Debris:AddItem(prong, 0.035)
+		hideLater(flashRing, index, token, 0.035)
 	end
 	local flameLength = (0.35 + math.random() * 0.35) * scale
-	local flame = fxPart({
+	local _, flameIndex, flameToken = ringPart(flashRing, {
 		Color = FLASH_WARM,
 		Size = Vector3.new(0.13 * scale, 0.13 * scale, flameLength),
 		CFrame = cf * CFrame.new(0, 0, -0.08 - flameLength / 2),
 		Transparency = 0.2 + math.random() * 0.2,
 	})
-	Debris:AddItem(flame, 0.035)
-	local core = fxPart({
+	hideLater(flashRing, flameIndex, flameToken, 0.035)
+	local _, coreIndex, coreToken = ringPart(flashBallRing, {
 		Color = Color3.fromRGB(255, 244, 214),
 		Size = Vector3.one * (0.2 + math.random() * 0.1) * scale,
 		Shape = Enum.PartType.Ball,
 		CFrame = cf * CFrame.new(0, 0, -0.1),
 		Transparency = 0.05,
 	})
+	hideLater(flashBallRing, coreIndex, coreToken, 0.045)
+	-- Golpe de luz (solo los tuyos): una sola luz que se mueve al cañón y se apaga enseguida
 	if not remote then
-		local light = Instance.new("PointLight")
-		light.Color = FLASH_WARM
-		light.Range = 13 + math.random() * 5
-		light.Brightness = 5
-		light.Parent = core
+		local holderPart = flashLight and flashLight.Parent
+		if not holderPart or not holderPart.Parent then
+			local holder = fxPart({ Name = "FlashLight", Size = Vector3.one * 0.1, Transparency = 1 })
+			flashLight = Instance.new("PointLight")
+			flashLight.Color = FLASH_WARM
+			flashLight.Brightness = 5
+			flashLight.Parent = holder
+		end
+		local holder = flashLight.Parent :: BasePart
+		holder.CFrame = cf * CFrame.new(0, 0, -0.15)
+		flashLight.Range = 13 + math.random() * 5
+		flashLight.Enabled = true
+		flashLightToken += 1
+		local token = flashLightToken
+		task.delay(0.045, function()
+			if flashLightToken == token and flashLight then
+				flashLight.Enabled = false
+			end
+		end)
 	end
-	Debris:AddItem(core, 0.045)
 
 	local anchor = pooledAnchor(cf.Position, cf.LookVector)
 	emitPooled(anchor, "MuzzleFireReal", {
@@ -29827,7 +29842,8 @@ function Effects.Explosion(position, radius, color)
 	if camera then
 		local distance = (camera.CFrame.Position - position).Magnitude
 		local strength = math.clamp(1 - distance / (radius * 4), 0, 1)
-		if strength > 0 then
+		-- (muerto u observando, la cámara no tiembla: la sacudida se quedaría para la vida siguiente)
+		if strength > 0 and not ClientState.Dead then
 			ClientState.Shake = math.max(ClientState.Shake or 0, strength)
 		end
 		-- Muy cerca: aturdimiento (pitido, sonido apagado, destello y desenfoque; ver CombatFX)
@@ -29857,25 +29873,30 @@ function Effects.Explosion(position, radius, color)
 	local realistic = realisticMap()
 	local anchor = emitterAnchor(position, Vector3.yAxis, 3)
 	if realistic then
-		-- Onda expansiva de verdad: una ola de polvo y tierra que sale a ras de suelo
-		emit(anchor, {
-			Texture = TEX.Smoke,
-			Color = ColorSequence.new(Color3.fromRGB(150, 138, 118), Color3.fromRGB(110, 102, 90)),
-			LightInfluence = 1,
-			Size = seq(1.5, 5),
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.35),
-				NumberSequenceKeypoint.new(0.5, 0.6),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-			Lifetime = NumberRange.new(0.8, 1.4),
-			Speed = NumberRange.new(radius * 1.6, radius * 2.4),
-			SpreadAngle = Vector2.new(88, 88),
-			Drag = 4,
-			Acceleration = Vector3.new(0, -4, 0),
-			Rotation = NumberRange.new(0, 360),
-			RotSpeed = NumberRange.new(-40, 40),
-		}, 22)
+		-- Onda expansiva de verdad: una ola de polvo y tierra que sale a ras de suelo en todas direcciones
+		-- (8 chorros horizontales: un anillo, no una cúpula)
+		for i = 0, 7 do
+			local angle = i * math.pi / 4
+			local ground = emitterAnchor(position + Vector3.new(0, 0.4, 0), Vector3.new(math.cos(angle), 0, math.sin(angle)), 2)
+			emit(ground, {
+				Texture = TEX.Smoke,
+				Color = ColorSequence.new(Color3.fromRGB(150, 138, 118), Color3.fromRGB(110, 102, 90)),
+				LightInfluence = 1,
+				Size = seq(1.5, 5),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.35),
+					NumberSequenceKeypoint.new(0.5, 0.6),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.8, 1.4),
+				Speed = NumberRange.new(radius * 1.6, radius * 2.4),
+				SpreadAngle = Vector2.new(22, 22),
+				Drag = 4,
+				Acceleration = Vector3.new(0, -2, 0),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-40, 40),
+			}, 3)
+		end
 	else
 		-- Onda expansiva en el suelo
 		local ring = fxPart({
@@ -31375,13 +31396,17 @@ function GrenadeController.Init()
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)
 		if typeof(position) == "Vector3" then
-			Effects.Explosion(position, type(radius) == "number" and radius or 14)
-			-- Sonido en el punto de la explosión (se oye más fuerte cuanto más cerca)
+			-- Sonido en el punto de la explosión (se oye más fuerte cuanto más cerca). Antes del efecto: si
+			-- te aturde, el estampido se oye entero y luego todo se apaga
 			local spot = Instance.new("Attachment")
 			spot.WorldPosition = position
 			spot.Parent = workspace.Terrain
-			Sounds.Play("ShotHeavy", spot, 0.45, 1.6)
+			local bang = Sounds.Play("ShotHeavy", spot, 0.45, 1.6)
+			if bang then
+				bang.SoundGroup = nil
+			end
 			Debris:AddItem(spot, 5)
+			Effects.Explosion(position, type(radius) == "number" and radius or 14)
 		end
 	end)
 
@@ -33949,6 +33974,7 @@ local gui: any = nil
 local refs: { [string]: any } = {}
 local losParams = RaycastParams.new()
 losParams.FilterType = Enum.RaycastFilterType.Exclude
+losParams.IgnoreWater = true -- (una baja a través del agua también se ve)
 
 local function headPosition(model)
 	local head = model:FindFirstChild("Head")
@@ -34069,16 +34095,40 @@ function Killcam.ClearLine(from, to)
 end
 
 -- Durante la repetición: la víctima se ve (aunque sea tu propio cuerpo, que la primera persona deja
--- invisible) y quien hizo la baja no (la cámara está en su cabeza: se vería por dentro)
-local function setModelLook(model, modifier)
-	if not model then
-		return
+-- invisible) y quien hizo la baja no (la cámara está en su cabeza: se vería por dentro). Las piezas
+-- se buscan una vez al empezar, no en cada fotograma
+local function lookParts(model)
+	local list = {}
+	if model then
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") or d:IsA("Decal") then
+				table.insert(list, d)
+			end
+		end
 	end
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") or part:IsA("Decal") then
+	return list
+end
+
+local function setLook(list, modifier)
+	for _, part in list do
+		if part.Parent then
 			part.LocalTransparencyModifier = modifier
 		end
 	end
+end
+
+-- (las partículas de la skin del arma de quien hizo la baja se verían en la lente: se apagan un rato)
+local function muteEmitters(model)
+	local muted = {}
+	if model then
+		for _, d in model:GetDescendants() do
+			if (d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam")) and d.Enabled then
+				d.Enabled = false
+				table.insert(muted, d)
+			end
+		end
+	end
+	return muted
 end
 
 function Killcam.Active()
@@ -34100,9 +34150,12 @@ function Killcam.Stop(runOnEnd)
 	if k.Effect then
 		k.Effect:Destroy()
 	end
-	if k.Killer and k.Killer.Parent then
-		-- (si eras tú, la primera persona vuelve a esconderte sola)
-		setModelLook(k.Killer, 0)
+	-- (si eras tú, la primera persona vuelve a esconderte sola)
+	setLook(k.KillerParts, 0)
+	for _, emitter in k.Muted do
+		if emitter.Parent then
+			emitter.Enabled = true
+		end
 	end
 	if refs.Frame then
 		refs.Frame.Visible = false
@@ -34142,8 +34195,8 @@ local function step()
 		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
 	end
 	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
-	setModelLook(k.Killer, 1)
-	setModelLook(k.Victim, 0)
+	setLook(k.KillerParts, 1)
+	setLook(k.VictimParts, 0)
 end
 
 -- Empieza una repetición; devuelve false si no hay con qué (poca historia, o sin línea de visión).
@@ -34185,6 +34238,9 @@ function Killcam.Play(opts)
 		VictimTrack = table.clone(victimTrack),
 		Killer = opts.Killer,
 		Victim = opts.Victim,
+		KillerParts = lookParts(opts.Killer),
+		VictimParts = lookParts(opts.Victim),
+		Muted = muteEmitters(opts.Killer),
 		Fov = camera.FieldOfView,
 		CameraBefore = camera.CFrame,
 		Effect = effect,
@@ -40375,10 +40431,12 @@ local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local RiflePose = {}
 
 -- Medidas respecto al pecho (UpperTorso: X a la derecha, Y arriba, -Z hacia delante)
-RiflePose.ButtAt = Vector3.new(0.3, 0.45, -0.3) -- dónde apoya la culata (hombro derecho)
-RiflePose.PistolGrip = Vector3.new(0.05, 0.45, -1.8) -- empuñadura de la pistola, brazos estirados
+RiflePose.ButtAt = Vector3.new(0.15, 0.45, -0.2) -- dónde apoya la culata (en el pecho, hacia el hombro derecho)
+RiflePose.PistolGrip = Vector3.new(0.1, 0.45, -1.5) -- empuñadura de la pistola, brazos estirados
 local LEFT_SHOULDER = Vector3.new(-1, 0.56, 0)
-local REACH = 2.3 -- lo que llega el brazo (del hombro al centro de la mano)
+-- Lo que llega el brazo (del hombro al agarre de la mano) en un R15 normal; cada personaje usa el suyo
+-- (IKControl:GetChainLength)
+RiflePose.Reach = 1.85
 local POLE_RIGHT = Vector3.new(2.2, -1.6, 0.6) -- el codo derecho, abajo y hacia fuera
 local POLE_LEFT = Vector3.new(-1.6, -1.8, -0.4) -- el codo izquierdo, abajo
 
@@ -40407,7 +40465,7 @@ RiflePose.MaxPitch = 0.9 -- (unos 50°: más inclinado el arma se metería en la
 
 -- Dónde van la mano derecha (con su giro: el arma mira hacia delante) y la izquierda, respecto al pecho.
 -- Devuelve CFrame de la empuñadura y Vector3 de la mano izquierda, o nil si no es un arma de fuego
-function RiflePose.Targets(weaponName, scale, pitch)
+function RiflePose.Targets(weaponName, scale, pitch, reach)
 	local def = weaponName and Weapons.Get(weaponName)
 	if not def or def.Type ~= "Gun" or not def.RightHand then
 		return nil
@@ -40425,12 +40483,14 @@ function RiflePose.Targets(weaponName, scale, pitch)
 	end
 	local grip = CFrame.new(handle + right)
 	local hand = handle + left
-	-- Si el guardamanos queda demasiado lejos para el brazo izquierdo, la mano se agarra más atrás
+	-- Si el guardamanos queda demasiado lejos para el brazo izquierdo, la mano se agarra más atrás (en el
+	-- brocal del cargador, como hacen muchos tiradores)
+	reach = reach or RiflePose.Reach
 	local offset = hand - LEFT_SHOULDER
-	if offset.Magnitude > REACH then
+	if offset.Magnitude > reach then
 		local side = offset.X * offset.X + offset.Y * offset.Y
-		if side < REACH * REACH then
-			hand = Vector3.new(hand.X, hand.Y, LEFT_SHOULDER.Z - math.sqrt(REACH * REACH - side))
+		if side < reach * reach then
+			hand = Vector3.new(hand.X, hand.Y, LEFT_SHOULDER.Z - math.sqrt(reach * reach - side))
 		end
 	end
 	-- Apuntando arriba o abajo: todo gira alrededor del pecho
@@ -40476,7 +40536,7 @@ local function update(model)
 	local tool = heldGun(model)
 	local grip, hand
 	if tool and humanoid and humanoid.Health > 0 then
-		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1, model:GetAttribute("AimPitch"))
+		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1, model:GetAttribute("AimPitch"), rig.Reach)
 	end
 	if grip and hand then
 		rig.Grip.CFrame = grip
@@ -40551,7 +40611,13 @@ function RiflePose.Setup(model)
 	left.Enabled = false
 	left.Parent = humanoid
 
+	-- (lo que llega de verdad el brazo izquierdo de este personaje; si no se puede medir, lo normal)
+	local okLength, chain = pcall(function()
+		return left:GetChainLength()
+	end)
+	local reach = (okLength and type(chain) == "number" and chain > 1 and chain < 4) and chain * 0.97 or RiflePose.Reach
 	local rig = {
+		Reach = reach,
 		Right = right,
 		Left = left,
 		Grip = grip,
@@ -42323,7 +42389,11 @@ local camKick, camYaw = 0, 0
 local kickVel, rotVel = 0, 0
 local recoilSide, sideVel = 0, 0
 local sprayCount = 0 -- disparos seguidos de la ráfaga actual
-local smokeShots = 0 -- disparos de la ráfaga que calientan el cañón (humo al soltar; Effects.BarrelSmoke)
+-- Calor del cañón: cada disparo lo calienta (las escopetas y los francotiradores mucho más) y se enfría
+-- solo; al dejar de disparar con el cañón caliente sale humo (Effects.BarrelSmoke)
+local barrelHeat = 0
+local HEAT_SMOKE = 7 -- calor mínimo para que humee
+local NO_SMOKE = { Crossbow = true, SplatX = true } -- (la ballesta y la de pintura no humean)
 local debtPitch, debtYaw = 0, 0
 local RECOVER = 0.65 -- parte del retroceso que la mira recupera sola al soltar
 local swayX, swayY = 0, 0
@@ -42651,7 +42721,8 @@ local function setViewmodelHidden(hidden)
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
 		elseif part:IsA("ParticleEmitter") then
-			part.Enabled = not hidden
+			-- (el humo del cañón no se vuelve a encender al mostrar el arma: lo enciende el calor)
+			part.Enabled = not hidden and part.Name ~= "BarrelSmoke"
 		elseif part:IsA("SurfaceGui") or part:IsA("PointLight") then
 			part.Enabled = not hidden
 		end
@@ -42669,7 +42740,7 @@ local function onUnequipped()
 	end
 	destroyViewmodel()
 	equippedTool, def = nil, nil
-	smokeShots = 0
+	barrelHeat = 0
 	triggerHeld = false
 	reloadStart = nil
 	ClientState.CurrentTool = nil
@@ -42916,8 +42987,8 @@ local function fire()
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	Effects.MuzzleFlash(muzzle)
-	if not def.Explosive then
-		smokeShots += 1
+	if not def.Explosive and not NO_SMOKE[equippedTool:GetAttribute("Weapon") or ""] then
+		barrelHeat = math.min(30, barrelHeat + ((def.Pellets > 1 or def.Damage >= 60) and 4 or 1))
 		Effects.StopBarrelSmoke(muzzle)
 	end
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
@@ -43156,14 +43227,15 @@ local function renderStep(dt)
 		if swayPitch ~= 0 or swayYaw ~= 0 then
 			camera.CFrame = camera.CFrame * CFrame.Angles(swayPitch, swayYaw, 0)
 		end
-		-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
-		if smokeShots > 0 and os.clock() - lastShot > 0.3 then
-			local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
-			local shots = heavy and smokeShots * 4 or smokeShots
-			if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
-				Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+		-- Tras una ráfaga larga (o varios tiros seguidos de escopeta/francotirador), sale humo del cañón
+		if barrelHeat > 0 and os.clock() - lastShot > 0.3 then
+			if barrelHeat >= HEAT_SMOKE and viewmodel and viewmodel.PrimaryPart and not viewmodelHidden then
+				Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, barrelHeat / 24))
+				barrelHeat = 0
+			else
+				-- (se enfría poco a poco: así los tiros lentos del francotirador también calientan)
+				barrelHeat = math.max(0, barrelHeat - dt * 1.5)
 			end
-			smokeShots = 0
 		end
 
 		-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
@@ -43623,6 +43695,9 @@ local function onCharacter(newCharacter)
 	recoilKick, recoilRot, recoilSide = 0, 0, 0
 	kickVel, rotVel, sideVel = 0, 0, 0
 	sprayCount = 0
+	-- (un temblor o un golpe de aterrizaje pendientes de antes de morir no siguen en la vida nueva)
+	ClientState.Shake = 0
+	ClientState.LandKick = 0
 	updateRayFilter()
 
 	table.insert(characterConnections, newCharacter.ChildAdded:Connect(function(child)

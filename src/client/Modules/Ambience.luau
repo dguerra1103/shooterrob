@@ -137,6 +137,7 @@ local function startRain()
 	rainSound.Looped = true
 	rainSound.Volume = 0.22
 	rainSound.PlaybackSpeed = 1.45 -- (el viento acelerado suena como lluvia)
+	rainSound.SoundGroup = ensureGroup()
 	rainSound.Parent = SoundService
 	rainSound:Play()
 	rainConnection = RunService.Heartbeat:Connect(function()

@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
+local Sounds = require(ReplicatedStorage:WaitForChild("Shared").Sounds)
 
 local player = Players.LocalPlayer
 
@@ -36,6 +37,7 @@ local function beep(timer)
 	sound.Volume = 0.55
 	sound.PlaybackSpeed = 1.9
 	sound.RollOffMaxDistance = 140
+	sound.SoundGroup = Sounds.GetWorldGroup() -- (así también se oye apagado tras una explosión)
 	sound.Parent = light
 	sound:Play()
 	task.delay(1.5, function()

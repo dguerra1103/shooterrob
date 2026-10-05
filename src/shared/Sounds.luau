@@ -24,8 +24,8 @@ local Sounds = {
 	Unsheath = { Id = "rbxassetid://12222225", Volume = 0.4, Pitch = 1.3 }, -- sacar el arma cuerpo a cuerpo
 	Whiz = { Id = "rbxassetid://12222095", Volume = 0.45, Pitch = 2.6 }, -- bala que pasa rozando
 	LowAmmo = { Id = "rbxassetid://15675032796", Volume = 0.35, Pitch = 1.4 }, -- quedan pocas balas
-	-- Pitido en los oídos tras una explosión cercana (el "ping" muy agudo y en bucle, que se apaga)
-	Tinnitus = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 2.8 },
+	-- Pitido en los oídos tras una explosión cercana (un "ping" muy agudo que se apaga solo)
+	Tinnitus = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 2.4 },
 }
 
 -- Mezcla de las armas: grupo con compresor (más pegada), graves realzados y una cola de eco

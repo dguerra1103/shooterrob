@@ -50,8 +50,8 @@ GameConfig.SoldierUniform = true
 -- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
 GameConfig.RealisticBlood = false
 -- Tamaño del arma que lleva el personaje en el mundo (la que ven los demás). 1 = como la de primera
--- persona (enorme al lado del cuerpo); 0,7 = a escala de una persona, como en los shooters realistas
-GameConfig.WorldWeaponScale = 0.7
+-- persona (enorme al lado del cuerpo); 0,65 = a escala de una persona, como en los shooters realistas
+GameConfig.WorldWeaponScale = 0.65
 -- Los personajes (bots y demás jugadores) sujetan el arma de fuego con las dos manos: culata al hombro
 -- y la otra mano en el guardamanos (IKControl, solo en cada cliente). false = la pose de Roblox
 GameConfig.TwoHandedPose = true

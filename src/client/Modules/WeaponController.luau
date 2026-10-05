@@ -57,7 +57,11 @@ local camKick, camYaw = 0, 0
 local kickVel, rotVel = 0, 0
 local recoilSide, sideVel = 0, 0
 local sprayCount = 0 -- disparos seguidos de la ráfaga actual
-local smokeShots = 0 -- disparos de la ráfaga que calientan el cañón (humo al soltar; Effects.BarrelSmoke)
+-- Calor del cañón: cada disparo lo calienta (las escopetas y los francotiradores mucho más) y se enfría
+-- solo; al dejar de disparar con el cañón caliente sale humo (Effects.BarrelSmoke)
+local barrelHeat = 0
+local HEAT_SMOKE = 7 -- calor mínimo para que humee
+local NO_SMOKE = { Crossbow = true, SplatX = true } -- (la ballesta y la de pintura no humean)
 local debtPitch, debtYaw = 0, 0
 local RECOVER = 0.65 -- parte del retroceso que la mira recupera sola al soltar
 local swayX, swayY = 0, 0
@@ -385,7 +389,8 @@ local function setViewmodelHidden(hidden)
 		if part:IsA("BasePart") then
 			part.LocalTransparencyModifier = hidden and 1 or 0
 		elseif part:IsA("ParticleEmitter") then
-			part.Enabled = not hidden
+			-- (el humo del cañón no se vuelve a encender al mostrar el arma: lo enciende el calor)
+			part.Enabled = not hidden and part.Name ~= "BarrelSmoke"
 		elseif part:IsA("SurfaceGui") or part:IsA("PointLight") then
 			part.Enabled = not hidden
 		end
@@ -403,7 +408,7 @@ local function onUnequipped()
 	end
 	destroyViewmodel()
 	equippedTool, def = nil, nil
-	smokeShots = 0
+	barrelHeat = 0
 	triggerHeld = false
 	reloadStart = nil
 	ClientState.CurrentTool = nil
@@ -650,8 +655,8 @@ local function fire()
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	Effects.MuzzleFlash(muzzle)
-	if not def.Explosive then
-		smokeShots += 1
+	if not def.Explosive and not NO_SMOKE[equippedTool:GetAttribute("Weapon") or ""] then
+		barrelHeat = math.min(30, barrelHeat + ((def.Pellets > 1 or def.Damage >= 60) and 4 or 1))
 		Effects.StopBarrelSmoke(muzzle)
 	end
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
@@ -890,14 +895,15 @@ local function renderStep(dt)
 		if swayPitch ~= 0 or swayYaw ~= 0 then
 			camera.CFrame = camera.CFrame * CFrame.Angles(swayPitch, swayYaw, 0)
 		end
-		-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
-		if smokeShots > 0 and os.clock() - lastShot > 0.3 then
-			local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
-			local shots = heavy and smokeShots * 4 or smokeShots
-			if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
-				Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+		-- Tras una ráfaga larga (o varios tiros seguidos de escopeta/francotirador), sale humo del cañón
+		if barrelHeat > 0 and os.clock() - lastShot > 0.3 then
+			if barrelHeat >= HEAT_SMOKE and viewmodel and viewmodel.PrimaryPart and not viewmodelHidden then
+				Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, barrelHeat / 24))
+				barrelHeat = 0
+			else
+				-- (se enfría poco a poco: así los tiros lentos del francotirador también calientan)
+				barrelHeat = math.max(0, barrelHeat - dt * 1.5)
 			end
-			smokeShots = 0
 		end
 
 		-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
@@ -1357,6 +1363,9 @@ local function onCharacter(newCharacter)
 	recoilKick, recoilRot, recoilSide = 0, 0, 0
 	kickVel, rotVel, sideVel = 0, 0, 0
 	sprayCount = 0
+	-- (un temblor o un golpe de aterrizaje pendientes de antes de morir no siguen en la vida nueva)
+	ClientState.Shake = 0
+	ClientState.LandKick = 0
 	updateRayFilter()
 
 	table.insert(characterConnections, newCharacter.ChildAdded:Connect(function(child)

@@ -13,10 +13,12 @@ local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local RiflePose = {}
 
 -- Medidas respecto al pecho (UpperTorso: X a la derecha, Y arriba, -Z hacia delante)
-RiflePose.ButtAt = Vector3.new(0.3, 0.45, -0.3) -- dónde apoya la culata (hombro derecho)
-RiflePose.PistolGrip = Vector3.new(0.05, 0.45, -1.8) -- empuñadura de la pistola, brazos estirados
+RiflePose.ButtAt = Vector3.new(0.15, 0.45, -0.2) -- dónde apoya la culata (en el pecho, hacia el hombro derecho)
+RiflePose.PistolGrip = Vector3.new(0.1, 0.45, -1.5) -- empuñadura de la pistola, brazos estirados
 local LEFT_SHOULDER = Vector3.new(-1, 0.56, 0)
-local REACH = 2.3 -- lo que llega el brazo (del hombro al centro de la mano)
+-- Lo que llega el brazo (del hombro al agarre de la mano) en un R15 normal; cada personaje usa el suyo
+-- (IKControl:GetChainLength)
+RiflePose.Reach = 1.85
 local POLE_RIGHT = Vector3.new(2.2, -1.6, 0.6) -- el codo derecho, abajo y hacia fuera
 local POLE_LEFT = Vector3.new(-1.6, -1.8, -0.4) -- el codo izquierdo, abajo
 
@@ -45,7 +47,7 @@ RiflePose.MaxPitch = 0.9 -- (unos 50°: más inclinado el arma se metería en la
 
 -- Dónde van la mano derecha (con su giro: el arma mira hacia delante) y la izquierda, respecto al pecho.
 -- Devuelve CFrame de la empuñadura y Vector3 de la mano izquierda, o nil si no es un arma de fuego
-function RiflePose.Targets(weaponName, scale, pitch)
+function RiflePose.Targets(weaponName, scale, pitch, reach)
 	local def = weaponName and Weapons.Get(weaponName)
 	if not def or def.Type ~= "Gun" or not def.RightHand then
 		return nil
@@ -63,12 +65,14 @@ function RiflePose.Targets(weaponName, scale, pitch)
 	end
 	local grip = CFrame.new(handle + right)
 	local hand = handle + left
-	-- Si el guardamanos queda demasiado lejos para el brazo izquierdo, la mano se agarra más atrás
+	-- Si el guardamanos queda demasiado lejos para el brazo izquierdo, la mano se agarra más atrás (en el
+	-- brocal del cargador, como hacen muchos tiradores)
+	reach = reach or RiflePose.Reach
 	local offset = hand - LEFT_SHOULDER
-	if offset.Magnitude > REACH then
+	if offset.Magnitude > reach then
 		local side = offset.X * offset.X + offset.Y * offset.Y
-		if side < REACH * REACH then
-			hand = Vector3.new(hand.X, hand.Y, LEFT_SHOULDER.Z - math.sqrt(REACH * REACH - side))
+		if side < reach * reach then
+			hand = Vector3.new(hand.X, hand.Y, LEFT_SHOULDER.Z - math.sqrt(reach * reach - side))
 		end
 	end
 	-- Apuntando arriba o abajo: todo gira alrededor del pecho
@@ -114,7 +118,7 @@ local function update(model)
 	local tool = heldGun(model)
 	local grip, hand
 	if tool and humanoid and humanoid.Health > 0 then
-		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1, model:GetAttribute("AimPitch"))
+		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1, model:GetAttribute("AimPitch"), rig.Reach)
 	end
 	if grip and hand then
 		rig.Grip.CFrame = grip
@@ -189,7 +193,13 @@ function RiflePose.Setup(model)
 	left.Enabled = false
 	left.Parent = humanoid
 
+	-- (lo que llega de verdad el brazo izquierdo de este personaje; si no se puede medir, lo normal)
+	local okLength, chain = pcall(function()
+		return left:GetChainLength()
+	end)
+	local reach = (okLength and type(chain) == "number" and chain > 1 and chain < 4) and chain * 0.97 or RiflePose.Reach
 	local rig = {
+		Reach = reach,
 		Right = right,
 		Left = left,
 		Grip = grip,

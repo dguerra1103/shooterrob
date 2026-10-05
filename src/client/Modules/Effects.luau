@@ -226,6 +226,9 @@ end
 -- del cañón, un núcleo casi blanco de un fotograma, un cono de llama hacia delante), un golpe de luz
 -- cálida y un humo gris que se queda flotando un momento
 local FLASH_WARM = Color3.fromRGB(255, 190, 105)
+-- (piezas reutilizadas: en un tiroteo serían decenas de piezas nuevas por segundo)
+local flashRing, flashBallRing = partRing(60), partRing(16)
+local flashLight, flashLightToken = nil, 0
 local function realisticFlash(cf, remote)
 	local scale = 0.7 + math.random() * 0.55
 	local spin = math.random() * math.pi * 2
@@ -233,37 +236,52 @@ local function realisticFlash(cf, remote)
 	for i = 1, prongs do
 		local angle = spin + (i + (math.random() - 0.5) * 0.4) * (math.pi * 2 / prongs)
 		local length = (0.22 + math.random() * 0.3) * scale
-		local prong = fxPart({
+		local _, index, token = ringPart(flashRing, {
 			Color = FLASH_WARM:Lerp(Color3.new(1, 1, 1), 0.3),
 			Size = Vector3.new(0.045 * scale, length, 0.1 * scale),
 			CFrame = cf * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, 0, angle) * CFrame.new(0, length / 2, 0),
 			Transparency = 0.1 + math.random() * 0.3,
 		})
-		Debris:AddItem(prong, 0.035)
+		hideLater(flashRing, index, token, 0.035)
 	end
 	local flameLength = (0.35 + math.random() * 0.35) * scale
-	local flame = fxPart({
+	local _, flameIndex, flameToken = ringPart(flashRing, {
 		Color = FLASH_WARM,
 		Size = Vector3.new(0.13 * scale, 0.13 * scale, flameLength),
 		CFrame = cf * CFrame.new(0, 0, -0.08 - flameLength / 2),
 		Transparency = 0.2 + math.random() * 0.2,
 	})
-	Debris:AddItem(flame, 0.035)
-	local core = fxPart({
+	hideLater(flashRing, flameIndex, flameToken, 0.035)
+	local _, coreIndex, coreToken = ringPart(flashBallRing, {
 		Color = Color3.fromRGB(255, 244, 214),
 		Size = Vector3.one * (0.2 + math.random() * 0.1) * scale,
 		Shape = Enum.PartType.Ball,
 		CFrame = cf * CFrame.new(0, 0, -0.1),
 		Transparency = 0.05,
 	})
+	hideLater(flashBallRing, coreIndex, coreToken, 0.045)
+	-- Golpe de luz (solo los tuyos): una sola luz que se mueve al cañón y se apaga enseguida
 	if not remote then
-		local light = Instance.new("PointLight")
-		light.Color = FLASH_WARM
-		light.Range = 13 + math.random() * 5
-		light.Brightness = 5
-		light.Parent = core
+		local holderPart = flashLight and flashLight.Parent
+		if not holderPart or not holderPart.Parent then
+			local holder = fxPart({ Name = "FlashLight", Size = Vector3.one * 0.1, Transparency = 1 })
+			flashLight = Instance.new("PointLight")
+			flashLight.Color = FLASH_WARM
+			flashLight.Brightness = 5
+			flashLight.Parent = holder
+		end
+		local holder = flashLight.Parent :: BasePart
+		holder.CFrame = cf * CFrame.new(0, 0, -0.15)
+		flashLight.Range = 13 + math.random() * 5
+		flashLight.Enabled = true
+		flashLightToken += 1
+		local token = flashLightToken
+		task.delay(0.045, function()
+			if flashLightToken == token and flashLight then
+				flashLight.Enabled = false
+			end
+		end)
 	end
-	Debris:AddItem(core, 0.045)
 
 	local anchor = pooledAnchor(cf.Position, cf.LookVector)
 	emitPooled(anchor, "MuzzleFireReal", {
@@ -752,7 +770,8 @@ function Effects.Explosion(position, radius, color)
 	if camera then
 		local distance = (camera.CFrame.Position - position).Magnitude
 		local strength = math.clamp(1 - distance / (radius * 4), 0, 1)
-		if strength > 0 then
+		-- (muerto u observando, la cámara no tiembla: la sacudida se quedaría para la vida siguiente)
+		if strength > 0 and not ClientState.Dead then
 			ClientState.Shake = math.max(ClientState.Shake or 0, strength)
 		end
 		-- Muy cerca: aturdimiento (pitido, sonido apagado, destello y desenfoque; ver CombatFX)
@@ -782,25 +801,30 @@ function Effects.Explosion(position, radius, color)
 	local realistic = realisticMap()
 	local anchor = emitterAnchor(position, Vector3.yAxis, 3)
 	if realistic then
-		-- Onda expansiva de verdad: una ola de polvo y tierra que sale a ras de suelo
-		emit(anchor, {
-			Texture = TEX.Smoke,
-			Color = ColorSequence.new(Color3.fromRGB(150, 138, 118), Color3.fromRGB(110, 102, 90)),
-			LightInfluence = 1,
-			Size = seq(1.5, 5),
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.35),
-				NumberSequenceKeypoint.new(0.5, 0.6),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-			Lifetime = NumberRange.new(0.8, 1.4),
-			Speed = NumberRange.new(radius * 1.6, radius * 2.4),
-			SpreadAngle = Vector2.new(88, 88),
-			Drag = 4,
-			Acceleration = Vector3.new(0, -4, 0),
-			Rotation = NumberRange.new(0, 360),
-			RotSpeed = NumberRange.new(-40, 40),
-		}, 22)
+		-- Onda expansiva de verdad: una ola de polvo y tierra que sale a ras de suelo en todas direcciones
+		-- (8 chorros horizontales: un anillo, no una cúpula)
+		for i = 0, 7 do
+			local angle = i * math.pi / 4
+			local ground = emitterAnchor(position + Vector3.new(0, 0.4, 0), Vector3.new(math.cos(angle), 0, math.sin(angle)), 2)
+			emit(ground, {
+				Texture = TEX.Smoke,
+				Color = ColorSequence.new(Color3.fromRGB(150, 138, 118), Color3.fromRGB(110, 102, 90)),
+				LightInfluence = 1,
+				Size = seq(1.5, 5),
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 0.35),
+					NumberSequenceKeypoint.new(0.5, 0.6),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Lifetime = NumberRange.new(0.8, 1.4),
+				Speed = NumberRange.new(radius * 1.6, radius * 2.4),
+				SpreadAngle = Vector2.new(22, 22),
+				Drag = 4,
+				Acceleration = Vector3.new(0, -2, 0),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-40, 40),
+			}, 3)
+		end
 	else
 		-- Onda expansiva en el suelo
 		local ring = fxPart({

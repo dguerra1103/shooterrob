@@ -5,6 +5,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Sounds = require(ReplicatedStorage:WaitForChild("Shared").Sounds)
 
 local BotFootsteps = {}
 
@@ -37,6 +38,7 @@ local function soundFor(model, root)
 	sound.RollOffMode = Enum.RollOffMode.InverseTapered
 	sound.RollOffMinDistance = 6
 	sound.RollOffMaxDistance = MAX_DISTANCE
+	sound.SoundGroup = Sounds.GetWorldGroup() -- (así también se oye apagado tras una explosión)
 	sound.Parent = root
 	sounds[model] = sound
 	return sound
