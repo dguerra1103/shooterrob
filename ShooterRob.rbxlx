@@ -490,6 +490,8 @@ GameConfig.ModeSettings = {
 	-- contrario, y si la recoge un compañero del caído la baja no cuenta
 	CAL = { Name = "Calabazas", ScoreToWin = 30, RoundTime = 8 * 60, Teams = true },
 }
+-- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
+GameConfig.SoldierUniform = true
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
@@ -767,7 +769,7 @@ GameConfig.Movement = {
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Perk = 0 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -776,6 +778,7 @@ GameConfig.SettingsLimits = {
 	CrossSize = { 0.6, 2 },
 	AutoFire = { 0, 2 },
 	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
+	Uniform = { 0, 1 }, -- 1 = uniforme militar en los mapas realistas si no llevas traje; 0 = tu avatar
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
@@ -11745,6 +11748,7 @@ local Weapons = require(Shared.Weapons)
 local WeaponModels = require(Shared.WeaponModels)
 local Remotes = require(Shared.Remotes)
 local Outfits = require(Shared.Outfits)
+local GameConfig = require(Shared.GameConfig)
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -11783,6 +11787,20 @@ function Loadout.MakeTool(weaponName, skinId, charmId)
 	return tool
 end
 
+-- Sin traje comprado, en los mapas realistas: uniforme militar con el color del equipo en el
+-- brazalete (como los bots), salvo que el jugador prefiera su avatar (Ajustes → Uniforme). nil = nada
+function Loadout.UniformFor(player, data)
+	local map = workspace:FindFirstChild("Map")
+	if GameConfig.SoldierUniform == false or not map or map:GetAttribute("Realistic") ~= true then
+		return nil
+	end
+	local settings = data and data.Settings
+	if type(settings) == "table" and settings.Uniform == 0 then
+		return nil
+	end
+	return Outfits.Soldier(player.Team and player.Team.TeamColor.Color or nil)
+end
+
 local function giveLoadout(player, character)
 	local data = PlayerData.WaitFor(player, 15)
 	if player.Character ~= character then
@@ -11794,7 +11812,13 @@ local function giveLoadout(player, character)
 	-- (los zombis de la Infección no llevan traje: taparía la piel verde y los ojos)
 	local zombie = ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team ~= nil
 		and player.Team.Name == ReplicatedStorage:GetAttribute("TeamB")
+	local outfit = nil
 	if data and data.EquippedOutfit ~= "Default" and not zombie then
+		outfit = data.EquippedOutfit
+	elseif not zombie then
+		outfit = Loadout.UniformFor(player, data)
+	end
+	if outfit then
 		character:WaitForChild("UpperTorso", 5)
 		-- Espera a que cargue la ropa del avatar: si no, sus BodyColors y camisa taparían el traje
 		local started = os.clock()
@@ -11804,7 +11828,7 @@ local function giveLoadout(player, character)
 		if player.Character ~= character then
 			return
 		end
-		Outfits.Apply(character, data.EquippedOutfit)
+		Outfits.Apply(character, outfit)
 	end
 
 	Loadout.Give(player, list)
@@ -11860,8 +11884,14 @@ local function onOutfitChanged(player, outfitId)
 	local character = player.Character
 	if character then
 		if outfitId == "Default" then
-			-- Para quitar el traje del todo hay que reaparecer (recupera la ropa original)
-			Outfits.Remove(character)
+			-- Para quitar el traje del todo hay que reaparecer (recupera la ropa original); en los mapas
+			-- realistas, en su lugar el uniforme
+			local uniform = Loadout.UniformFor(player, PlayerData.Get(player))
+			if uniform then
+				Outfits.Apply(character, uniform)
+			else
+				Outfits.Remove(character)
+			end
 		else
 			Outfits.Apply(character, outfitId)
 		end
@@ -35698,8 +35728,27 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Uniforme militar en los mapas realistas (si no llevas un traje)
+	local uniform = section(8, "🪖 Sin traje: uniforme militar o tu avatar (al reaparecer)", 92)
+	local uniformMode = math.floor((current.Uniform == nil and 1 or current.Uniform) + 0.5)
+	for i, info in { { 1, "Uniforme" }, { 0, "Mi avatar" } } do
+		local selected = uniformMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = uniform,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("Uniform", info[1])
+			refresh()
+		end)
+	end
 	-- Ventaja (una, gratis)
-	local perkSection = section(8, "🎖️ Ventaja", 130)
+	local perkSection = section(9, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
 		Position = UDim2.fromOffset(16, 86),

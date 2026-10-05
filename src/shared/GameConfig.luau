@@ -43,6 +43,8 @@ GameConfig.ModeSettings = {
 	-- contrario, y si la recoge un compañero del caído la baja no cuenta
 	CAL = { Name = "Calabazas", ScoreToWin = 30, RoundTime = 8 * 60, Teams = true },
 }
+-- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
+GameConfig.SoldierUniform = true
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
@@ -320,7 +322,7 @@ GameConfig.Movement = {
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Perk = 0 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -329,6 +331,7 @@ GameConfig.SettingsLimits = {
 	CrossSize = { 0.6, 2 },
 	AutoFire = { 0, 2 },
 	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
+	Uniform = { 0, 1 }, -- 1 = uniforme militar en los mapas realistas si no llevas traje; 0 = tu avatar
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es

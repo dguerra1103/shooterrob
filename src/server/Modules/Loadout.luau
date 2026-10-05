@@ -7,6 +7,7 @@ local Weapons = require(Shared.Weapons)
 local WeaponModels = require(Shared.WeaponModels)
 local Remotes = require(Shared.Remotes)
 local Outfits = require(Shared.Outfits)
+local GameConfig = require(Shared.GameConfig)
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -45,6 +46,20 @@ function Loadout.MakeTool(weaponName, skinId, charmId)
 	return tool
 end
 
+-- Sin traje comprado, en los mapas realistas: uniforme militar con el color del equipo en el
+-- brazalete (como los bots), salvo que el jugador prefiera su avatar (Ajustes → Uniforme). nil = nada
+function Loadout.UniformFor(player, data)
+	local map = workspace:FindFirstChild("Map")
+	if GameConfig.SoldierUniform == false or not map or map:GetAttribute("Realistic") ~= true then
+		return nil
+	end
+	local settings = data and data.Settings
+	if type(settings) == "table" and settings.Uniform == 0 then
+		return nil
+	end
+	return Outfits.Soldier(player.Team and player.Team.TeamColor.Color or nil)
+end
+
 local function giveLoadout(player, character)
 	local data = PlayerData.WaitFor(player, 15)
 	if player.Character ~= character then
@@ -56,7 +71,13 @@ local function giveLoadout(player, character)
 	-- (los zombis de la Infección no llevan traje: taparía la piel verde y los ojos)
 	local zombie = ReplicatedStorage:GetAttribute("Infection") == "On" and player.Team ~= nil
 		and player.Team.Name == ReplicatedStorage:GetAttribute("TeamB")
+	local outfit = nil
 	if data and data.EquippedOutfit ~= "Default" and not zombie then
+		outfit = data.EquippedOutfit
+	elseif not zombie then
+		outfit = Loadout.UniformFor(player, data)
+	end
+	if outfit then
 		character:WaitForChild("UpperTorso", 5)
 		-- Espera a que cargue la ropa del avatar: si no, sus BodyColors y camisa taparían el traje
 		local started = os.clock()
@@ -66,7 +87,7 @@ local function giveLoadout(player, character)
 		if player.Character ~= character then
 			return
 		end
-		Outfits.Apply(character, data.EquippedOutfit)
+		Outfits.Apply(character, outfit)
 	end
 
 	Loadout.Give(player, list)
@@ -122,8 +143,14 @@ local function onOutfitChanged(player, outfitId)
 	local character = player.Character
 	if character then
 		if outfitId == "Default" then
-			-- Para quitar el traje del todo hay que reaparecer (recupera la ropa original)
-			Outfits.Remove(character)
+			-- Para quitar el traje del todo hay que reaparecer (recupera la ropa original); en los mapas
+			-- realistas, en su lugar el uniforme
+			local uniform = Loadout.UniformFor(player, PlayerData.Get(player))
+			if uniform then
+				Outfits.Apply(character, uniform)
+			else
+				Outfits.Remove(character)
+			end
 		else
 			Outfits.Apply(character, outfitId)
 		end

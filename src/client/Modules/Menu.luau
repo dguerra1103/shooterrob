@@ -1498,8 +1498,27 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Uniforme militar en los mapas realistas (si no llevas un traje)
+	local uniform = section(8, "🪖 Sin traje: uniforme militar o tu avatar (al reaparecer)", 92)
+	local uniformMode = math.floor((current.Uniform == nil and 1 or current.Uniform) + 0.5)
+	for i, info in { { 1, "Uniforme" }, { 0, "Mi avatar" } } do
+		local selected = uniformMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = uniform,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("Uniform", info[1])
+			refresh()
+		end)
+	end
 	-- Ventaja (una, gratis)
-	local perkSection = section(8, "🎖️ Ventaja", 130)
+	local perkSection = section(9, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
 		Position = UDim2.fromOffset(16, 86),
