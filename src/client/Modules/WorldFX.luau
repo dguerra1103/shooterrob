@@ -94,7 +94,12 @@ end
 -- Jugadores
 ---------------------------------------------------------------------------
 
-local ENEMY_COLOR = Color3.fromRGB(255, 64, 52)
+-- Color del contorno de enemigos: el que elija el jugador en Ajustes (rojo por defecto)
+local function enemyColor()
+	local settings = ClientState.Settings or GameConfig.DefaultSettings
+	local entry = GameConfig.EnemyColors[math.floor(settings.EnemyColor or 1)]
+	return entry and entry.Color or Color3.fromRGB(255, 64, 52)
+end
 
 local function teamColorOf(other)
 	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
@@ -137,7 +142,7 @@ local function applyStyle(character, isTeammate, isSelf, color)
 			outline.Name = "EnemyOutline"
 			outline.FillTransparency = 1
 			outline.OutlineTransparency = 0.45
-			outline.OutlineColor = ENEMY_COLOR
+			outline.OutlineColor = enemyColor()
 			outline.DepthMode = Enum.HighlightDepthMode.Occluded
 			outline.Parent = character
 			-- (al caer se quita: un cuerpo ya no es una amenaza)
@@ -149,6 +154,9 @@ local function applyStyle(character, isTeammate, isSelf, color)
 		end
 	elseif outline then
 		outline:Destroy()
+	end
+	if enemy and outline then
+		outline.OutlineColor = enemyColor()
 	end
 end
 
@@ -197,6 +205,11 @@ local function restyleAll()
 	end
 end
 
+-- (al cambiar el color de los enemigos en Ajustes)
+function WorldFX.Restyle()
+	restyleAll()
+end
+
 function WorldFX.Init()
 	-- Animaciones del mapa
 	for _, inst in workspace:GetDescendants() do
@@ -211,6 +224,7 @@ function WorldFX.Init()
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
+	ClientState.SettingsChanged.Event:Connect(restyleAll)
 	task.spawn(function()
 		local bots = workspace:WaitForChild("Bots", 30)
 		if not bots then

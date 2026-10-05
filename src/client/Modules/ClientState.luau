@@ -43,6 +43,7 @@ local ClientState = {
 	Spread = 0, -- dispersión actual (grados)
 
 	DataChanged = Instance.new("BindableEvent"),
+	SettingsChanged = Instance.new("BindableEvent"), -- (Ajustes: se cambió algo que otros módulos aplican)
 	WeaponChanged = Instance.new("BindableEvent"),
 	ShotFired = Instance.new("BindableEvent"),
 }

@@ -506,6 +506,13 @@ GameConfig.TwoHandedPose = true
 -- Contorno rojo fino en los enemigos (solo donde ya se les ve: no atraviesa paredes), para leerlos al
 -- momento contra cualquier fondo, como en los shooters competitivos de Roblox. false = sin contorno
 GameConfig.EnemyOutline = true
+-- Colores que puede elegir el jugador para ese contorno (Ajustes): rojo, amarillo (daltonismo
+-- rojo-verde) y magenta (se distingue de casi todos los fondos)
+GameConfig.EnemyColors = {
+	{ Name = "Rojo", Color = Color3.fromRGB(255, 64, 52) },
+	{ Name = "Amarillo", Color = Color3.fromRGB(255, 220, 40) },
+	{ Name = "Magenta", Color = Color3.fromRGB(255, 60, 220) },
+}
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
@@ -789,7 +796,7 @@ GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
 -- ScreenFX: efectos de pantalla (1 = normales; 0 = reducidos: sin desenfoques, destellos ni temblores,
 -- para quien se marea; ver CombatFX, AimFX y WeaponController)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, Perk = 0 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, EnemyColor = 1, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -800,6 +807,7 @@ GameConfig.SettingsLimits = {
 	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
 	Uniform = { 0, 1 }, -- 1 = uniforme militar en los mapas realistas si no llevas traje; 0 = tu avatar
 	ScreenFX = { 0, 1 }, -- 1 = efectos de pantalla normales; 0 = reducidos
+	EnemyColor = { 1, 3 }, -- color del contorno de los enemigos (GameConfig.EnemyColors): accesibilidad
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
@@ -28638,6 +28646,7 @@ local ClientState = {
 	Spread = 0, -- dispersión actual (grados)
 
 	DataChanged = Instance.new("BindableEvent"),
+	SettingsChanged = Instance.new("BindableEvent"), -- (Ajustes: se cambió algo que otros módulos aplican)
 	WeaponChanged = Instance.new("BindableEvent"),
 	ShotFired = Instance.new("BindableEvent"),
 }
@@ -38480,7 +38489,7 @@ local function buildSettingsPage()
 		end)
 	end
 	-- Efectos de pantalla (accesibilidad: hay a quien el desenfoque y los temblores le marean)
-	local screenFx = section(9, "👁 Efectos de pantalla (desenfoque, destellos, temblor)", 92)
+	local screenFx = section(9, "👁 Efectos de pantalla (desenfoque, destellos, temblor)", 150)
 	local fxMode = math.floor((current.ScreenFX == nil and 1 or current.ScreenFX) + 0.5)
 	for i, info in { { 1, "Normales" }, { 0, "Reducidos" } } do
 		local selected = fxMode == info[1]
@@ -38495,6 +38504,34 @@ local function buildSettingsPage()
 		button.Activated:Connect(function()
 			Sounds.Play("Click")
 			Settings.Set("ScreenFX", info[1])
+			refresh()
+		end)
+	end
+	-- Color del contorno de los enemigos (accesibilidad: daltonismo)
+	UI.label({
+		Position = UDim2.fromOffset(16, 88),
+		Size = UDim2.new(1, -32, 0, 20),
+		Text = "Contorno de los enemigos",
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Parent = screenFx,
+	})
+	local enemyNow = math.floor(current.EnemyColor or 1)
+	for i, entry in GameConfig.EnemyColors do
+		local selected = enemyNow == i
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 108),
+			Size = UDim2.fromOffset(140, 34),
+			Text = (selected and "✔ " or "") .. entry.Name,
+			TextSize = 17,
+			BackgroundColor3 = selected and entry.Color:Lerp(Color3.new(0, 0, 0), 0.35) or BLUE,
+			Parent = screenFx,
+		}, { UI.gloss(), UI.stroke(entry.Color, 2, 0) })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("EnemyColor", i)
+			ClientState.SettingsChanged:Fire("EnemyColor")
 			refresh()
 		end)
 	end
@@ -45720,7 +45757,12 @@ end
 -- Jugadores
 ---------------------------------------------------------------------------
 
-local ENEMY_COLOR = Color3.fromRGB(255, 64, 52)
+-- Color del contorno de enemigos: el que elija el jugador en Ajustes (rojo por defecto)
+local function enemyColor()
+	local settings = ClientState.Settings or GameConfig.DefaultSettings
+	local entry = GameConfig.EnemyColors[math.floor(settings.EnemyColor or 1)]
+	return entry and entry.Color or Color3.fromRGB(255, 64, 52)
+end
 
 local function teamColorOf(other)
 	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
@@ -45763,7 +45805,7 @@ local function applyStyle(character, isTeammate, isSelf, color)
 			outline.Name = "EnemyOutline"
 			outline.FillTransparency = 1
 			outline.OutlineTransparency = 0.45
-			outline.OutlineColor = ENEMY_COLOR
+			outline.OutlineColor = enemyColor()
 			outline.DepthMode = Enum.HighlightDepthMode.Occluded
 			outline.Parent = character
 			-- (al caer se quita: un cuerpo ya no es una amenaza)
@@ -45775,6 +45817,9 @@ local function applyStyle(character, isTeammate, isSelf, color)
 		end
 	elseif outline then
 		outline:Destroy()
+	end
+	if enemy and outline then
+		outline.OutlineColor = enemyColor()
 	end
 end
 
@@ -45823,6 +45868,11 @@ local function restyleAll()
 	end
 end
 
+-- (al cambiar el color de los enemigos en Ajustes)
+function WorldFX.Restyle()
+	restyleAll()
+end
+
 function WorldFX.Init()
 	-- Animaciones del mapa
 	for _, inst in workspace:GetDescendants() do
@@ -45837,6 +45887,7 @@ function WorldFX.Init()
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
+	ClientState.SettingsChanged.Event:Connect(restyleAll)
 	task.spawn(function()
 		local bots = workspace:WaitForChild("Bots", 30)
 		if not bots then

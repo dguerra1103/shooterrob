@@ -59,6 +59,13 @@ GameConfig.TwoHandedPose = true
 -- Contorno rojo fino en los enemigos (solo donde ya se les ve: no atraviesa paredes), para leerlos al
 -- momento contra cualquier fondo, como en los shooters competitivos de Roblox. false = sin contorno
 GameConfig.EnemyOutline = true
+-- Colores que puede elegir el jugador para ese contorno (Ajustes): rojo, amarillo (daltonismo
+-- rojo-verde) y magenta (se distingue de casi todos los fondos)
+GameConfig.EnemyColors = {
+	{ Name = "Rojo", Color = Color3.fromRGB(255, 64, 52) },
+	{ Name = "Amarillo", Color = Color3.fromRGB(255, 220, 40) },
+	{ Name = "Magenta", Color = Color3.fromRGB(255, 60, 220) },
+}
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
@@ -342,7 +349,7 @@ GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
 -- ScreenFX: efectos de pantalla (1 = normales; 0 = reducidos: sin desenfoques, destellos ni temblores,
 -- para quien se marea; ver CombatFX, AimFX y WeaponController)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, Perk = 0 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, EnemyColor = 1, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -353,6 +360,7 @@ GameConfig.SettingsLimits = {
 	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
 	Uniform = { 0, 1 }, -- 1 = uniforme militar en los mapas realistas si no llevas traje; 0 = tu avatar
 	ScreenFX = { 0, 1 }, -- 1 = efectos de pantalla normales; 0 = reducidos
+	EnemyColor = { 1, 3 }, -- color del contorno de los enemigos (GameConfig.EnemyColors): accesibilidad
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es

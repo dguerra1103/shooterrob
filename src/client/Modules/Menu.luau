@@ -1577,7 +1577,7 @@ local function buildSettingsPage()
 		end)
 	end
 	-- Efectos de pantalla (accesibilidad: hay a quien el desenfoque y los temblores le marean)
-	local screenFx = section(9, "👁 Efectos de pantalla (desenfoque, destellos, temblor)", 92)
+	local screenFx = section(9, "👁 Efectos de pantalla (desenfoque, destellos, temblor)", 150)
 	local fxMode = math.floor((current.ScreenFX == nil and 1 or current.ScreenFX) + 0.5)
 	for i, info in { { 1, "Normales" }, { 0, "Reducidos" } } do
 		local selected = fxMode == info[1]
@@ -1592,6 +1592,34 @@ local function buildSettingsPage()
 		button.Activated:Connect(function()
 			Sounds.Play("Click")
 			Settings.Set("ScreenFX", info[1])
+			refresh()
+		end)
+	end
+	-- Color del contorno de los enemigos (accesibilidad: daltonismo)
+	UI.label({
+		Position = UDim2.fromOffset(16, 88),
+		Size = UDim2.new(1, -32, 0, 20),
+		Text = "Contorno de los enemigos",
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 195, 220),
+		Parent = screenFx,
+	})
+	local enemyNow = math.floor(current.EnemyColor or 1)
+	for i, entry in GameConfig.EnemyColors do
+		local selected = enemyNow == i
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 108),
+			Size = UDim2.fromOffset(140, 34),
+			Text = (selected and "✔ " or "") .. entry.Name,
+			TextSize = 17,
+			BackgroundColor3 = selected and entry.Color:Lerp(Color3.new(0, 0, 0), 0.35) or BLUE,
+			Parent = screenFx,
+		}, { UI.gloss(), UI.stroke(entry.Color, 2, 0) })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("EnemyColor", i)
+			ClientState.SettingsChanged:Fire("EnemyColor")
 			refresh()
 		end)
 	end
