@@ -2077,7 +2077,7 @@ local function buildShopPage(data)
 	-- Recompensa diaria
 	local daily = UI.new("Frame", {
 		LayoutOrder = 1,
-		Size = UDim2.new(1, -10, 0, 70),
+		Size = UDim2.new(1, -10, 0, 118),
 		BackgroundColor3 = Color3.fromRGB(40, 60, 40),
 		Parent = scroll,
 	}, { UI.corner(12), UI.stroke(Color3.fromRGB(90, 230, 110), 2, 0) })
@@ -2085,7 +2085,7 @@ local function buildShopPage(data)
 	local nextDay = data.DailyAvailable and ((streak % #Shop.DailyRewards) + 1) or streak
 	UI.label({
 		Position = UDim2.fromOffset(16, 0),
-		Size = UDim2.new(1, -260, 1, 0),
+		Size = UDim2.new(1, -260, 0, 56),
 		Text = "🎁 Recompensa diaria · Día " .. tostring(nextDay) .. "/" .. #Shop.DailyRewards .. "  (día 7: caja gratis)"
 			.. ((GameConfig.CurrentEvent() and (GameConfig.EventDailyBonus or 0) > 0) and ("  + " .. GameConfig.EventDailyBonus .. " " .. (GameConfig.CurrentEvent().ItemIcon or GameConfig.CurrentEvent().Icon)) or ""),
 		TextSize = 20,
@@ -2103,6 +2103,39 @@ local function buildShopPage(data)
 	claim.Activated:Connect(function()
 		Menu.ClaimDaily()
 	end)
+	-- Tira de los 7 días: los recogidos con ✓, el de hoy destacado (da ganas de no romper la racha)
+	local strip = UI.new("Frame", {
+		Position = UDim2.fromOffset(16, 58),
+		Size = UDim2.new(1, -260, 0, 50),
+		BackgroundTransparency = 1,
+		Parent = daily,
+	}, {
+		UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	for day, coins in Shop.DailyRewards do
+		local claimed = day < nextDay or (not data.DailyAvailable and day <= streak)
+		local today = data.DailyAvailable and day == nextDay
+		local cell = UI.new("Frame", {
+			LayoutOrder = day,
+			Size = UDim2.new(1 / #Shop.DailyRewards, -6, 1, 0), -- (se reparten el ancho: caben en el móvil)
+			BackgroundColor3 = claimed and Color3.fromRGB(40, 110, 60) or (today and Color3.fromRGB(110, 90, 20) or Color3.fromRGB(30, 40, 30)),
+			Parent = strip,
+		}, { UI.corner(8), UI.stroke(today and GOLD or Color3.fromRGB(80, 120, 80), today and 3 or 1, 0) })
+		UI.label({ Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 3), Text = claimed and "✓" or ("Día " .. day), TextSize = 14, Parent = cell })
+		UI.label({
+			Size = UDim2.new(1, 0, 0, 22),
+			Position = UDim2.fromOffset(0, 24),
+			Text = (day == Shop.DailyCrateDay and "🎁" or "🪙") .. coins,
+			TextSize = 14,
+			TextColor3 = GOLD,
+			Parent = cell,
+		})
+		if today then
+			-- (el de hoy late)
+			local pulse = UI.new("UIScale", { Parent = cell })
+			TweenService:Create(pulse, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.08 }):Play()
+		end
+	end
 
 	-- Ofertas del día
 	sectionTitle(scroll, "🔥 Ofertas de hoy (-" .. math.floor(Shop.OfferDiscount * 100) .. "%)", 2)
@@ -2559,6 +2592,7 @@ function Menu.ClaimDaily()
 	if ok and success and type(result) == "table" then
 		Sounds.Play("Kill")
 		showToast("Día " .. result.Streak .. ": +" .. result.Coins .. " monedas" .. (result.Crate and " y una caja gratis 🎁" or ""), GOLD)
+		RewardFX.Celebrate("🎁 ¡DÍA " .. tostring(result.Streak) .. "!", "+" .. tostring(result.Coins) .. " 🪙" .. (result.Crate and "  y una caja gratis" or "") .. "  ·  ¡Vuelve mañana!", GOLD, result.Crate == true)
 		return true
 	end
 	showToast("Ya la has recogido hoy. ¡Vuelve mañana!")
