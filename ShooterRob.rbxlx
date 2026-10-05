@@ -42271,6 +42271,9 @@ local Scoreboard = {}
 local gui, panel, title, columns
 local visible = false
 local ROW_HEIGHT = 30
+-- Columnas de números (bajas, asistencias, muertes y la del modo): ancho de cada una y dónde empiezan
+local COL_W = 64
+local COLS_X = 4 * COL_W + 12
 local MAX_ROWS = 10
 
 -- Una fila por jugador o bot: { Name, Team, Kills, Deaths, Score, Captures, IsBot, IsMe }
@@ -42294,6 +42297,7 @@ local function collect()
 			Team = p.Team,
 			Kills = kills and kills.Value or 0,
 			Deaths = deaths and deaths.Value or 0,
+			Assists = p:GetAttribute("MatchAssists") or 0,
 			Score = p:GetAttribute("Score") or 0,
 			Captures = p:GetAttribute("Captures") or 0,
 			InMenu = p:GetAttribute("InMenu") == true,
@@ -42310,6 +42314,7 @@ local function collect()
 				Team = team,
 				Kills = entry:GetAttribute("Kills") or 0,
 				Deaths = entry:GetAttribute("Deaths") or 0,
+				Assists = entry:GetAttribute("Assists") or 0,
 				Score = entry:GetAttribute("Score") or 0,
 				Captures = 0,
 				IsBot = true,
@@ -42344,10 +42349,10 @@ local function columnTitles(parent, y, third)
 		BackgroundTransparency = 1,
 		Parent = parent,
 	})
-	for i, text in { "JUGADOR", "BAJAS", "MUERTES", third } do
+	for i, text in { "JUGADOR", "BAJAS", "ASIST.", "MUERTES", third } do
 		UI.label({
-			Position = i == 1 and UDim2.fromOffset(12, 0) or UDim2.new(1, -230 + (i - 2) * 76, 0, 0),
-			Size = UDim2.fromOffset(i == 1 and 200 or 76, 22),
+			Position = i == 1 and UDim2.fromOffset(12, 0) or UDim2.new(1, -COLS_X + (i - 2) * COL_W, 0, 0),
+			Size = UDim2.fromOffset(i == 1 and 200 or COL_W, 22),
 			Text = text,
 			TextSize = 14,
 			TextColor3 = Color3.fromRGB(200, 200, 220),
@@ -42367,7 +42372,7 @@ local function rowFrame(parent, y, row, thirdValue, color)
 	}, { UI.corner(6) })
 	UI.label({
 		Position = UDim2.fromOffset(12, 0),
-		Size = UDim2.new(1, -250, 1, 0),
+		Size = UDim2.new(1, -(COLS_X + 12), 1, 0),
 		Text = row.Name .. (row.InMenu and "  💤" or ""),
 		RichText = true,
 		TextSize = 18,
@@ -42376,10 +42381,10 @@ local function rowFrame(parent, y, row, thirdValue, color)
 		TextColor3 = row.IsBot and Color3.fromRGB(215, 215, 230) or Color3.new(1, 1, 1),
 		Parent = frame,
 	})
-	for i, value in { row.Kills, row.Deaths, thirdValue } do
+	for i, value in { row.Kills, row.Assists or 0, row.Deaths, thirdValue } do
 		UI.label({
-			Position = UDim2.new(1, -230 + (i - 1) * 76, 0, 0),
-			Size = UDim2.fromOffset(76, ROW_HEIGHT - 2),
+			Position = UDim2.new(1, -COLS_X + (i - 1) * COL_W, 0, 0),
+			Size = UDim2.fromOffset(COL_W, ROW_HEIGHT - 2),
 			Text = tostring(value),
 			TextSize = 19,
 			Parent = frame,
@@ -42425,7 +42430,7 @@ local function refresh()
 	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
 	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
 	for _, row in rows do
-		table.insert(parts, string.format("%s/%s/%d/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
+		table.insert(parts, string.format("%s/%s/%d/%d/%d/%d/%d/%s", row.Name, tostring(row.Team), row.Kills, row.Assists or 0, row.Deaths, row.Score, row.Captures, tostring(row.InMenu)))
 	end
 	for _, teamName in { ReplicatedStorage:GetAttribute("TeamA"), ReplicatedStorage:GetAttribute("TeamB") } do
 		table.insert(parts, tostring(teamName and ReplicatedStorage:GetAttribute("Score_" .. teamName)))
