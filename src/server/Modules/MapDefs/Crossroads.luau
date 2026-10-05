@@ -353,6 +353,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-162, 0, 0))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-162, 0, 0))
 	Kit.bounds(LENGTH, WIDTH, 70)
+	-- Nombres de las zonas (los edificios con cartel ya dan el suyo)
+	Kit.callout("AVENIDA", CFrame.new(0, 12, 0), V(LENGTH, 36, 40))
+	Kit.callout("CRUCE", CFrame.new(0, 12, 0), V(26, 36, WIDTH))
+	Kit.callout("MONUMENTO", CFrame.new(0, 10, 0), V(32, 24, 32))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CALLEJÓN DEL MERCADO", m * CFrame.new(-96, 14, 88), V(172, 44, 80))
+		Kit.callout("OBRAS", m * CFrame.new(-96, 14, -88), V(172, 44, 80))
+	end
 
 	-- Polvo en el aire y humo a lo lejos (ciudad en guerra)
 	Kit.dustMotes(CFrame.new(0, 8, 0), V(360, 14, 220), RGB(230, 205, 165), 35)

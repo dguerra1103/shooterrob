@@ -351,6 +351,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-160, 0, 0))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-160, 0, 0))
 	Kit.bounds(LENGTH, WIDTH, 70)
+	-- Nombres de las zonas (los edificios con cartel ya dan el suyo)
+	Kit.callout("CARRETERA", CFrame.new(0, 12, 0), V(LENGTH, 36, 40))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("TELEFÉRICO", m * CFrame.new(-96, 14, 88), V(172, 44, 80))
+		Kit.callout("RADAR", m * CFrame.new(-96, 14, -88), V(172, 44, 80))
+		Kit.callout("CABAÑAS", m * CFrame.new(-96, 12, 34), V(172, 36, 22))
+		Kit.callout("DEPÓSITOS", m * CFrame.new(-96, 12, -34), V(172, 36, 22))
+	end
 
 	-- Montañas nevadas alrededor y nieve cayendo
 	for _, spec in { { V(-320, 0, 230), 120 }, { V(320, 0, -230), 120 }, { V(40, 0, 320), 130 }, { V(-40, 0, -320), 130 }, { V(-350, 0, -140), 100 }, { V(350, 0, 140), 100 } } do

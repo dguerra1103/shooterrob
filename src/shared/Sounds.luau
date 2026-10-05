@@ -140,6 +140,17 @@ Sounds.ShotLayers = {
 	Bow = {},
 }
 
+-- Cola de tus disparos (eco del entorno): { tono, volumen } del estampido grave, ya filtrado
+Sounds.ShotTails = {
+	Light = { 0.9, 0.05 },
+	Rifle = { 0.75, 0.09 },
+	Heavy = { 0.65, 0.12 },
+	Sniper = { 0.5, 0.2 },
+	Shotgun = { 0.55, 0.16 },
+	Launcher = { 0.45, 0.14 },
+}
+local lastTail = 0
+
 local function shotType(weaponName, def)
 	local profile = weaponName and Sounds.WeaponShots[weaponName]
 	if profile and profile[4] then
@@ -173,6 +184,7 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 		distance = (parent.Position - listener).Magnitude
 	end
 	local far = distance > 140
+	local kind = shotType(weaponName, def)
 	local function play()
 		local body = Sounds.PlayGun(name, parent, pitch, volume)
 		if far and body then
@@ -191,6 +203,24 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 		-- El clic del mecanismo solo se oye de cerca
 		if layers.Mech and distance < 60 then
 			Sounds.PlayGun("Mech", parent, layers.Mech[1], layers.Mech[2])
+		end
+		-- Cola: tus disparos dejan un eco grave y apagado que rebota en el mapa (capa "entorno").
+		-- Como mucho una cada 0,12 s: en ráfaga no se amontonan
+		local tail = Sounds.ShotTails[kind]
+		if tail and parent == nil and os.clock() - lastTail >= 0.12 then
+			lastTail = os.clock()
+			task.delay(0.07, function()
+				local echo = Sounds.Play("Boom", nil, tail[1], tail[2])
+				if echo then
+					pcall(function()
+						local eq = Instance.new("EqualizerSoundEffect")
+						eq.HighGain = -24
+						eq.MidGain = -8
+						eq.LowGain = 0
+						eq.Parent = echo
+					end)
+				end
+			end)
 		end
 		return body
 	end

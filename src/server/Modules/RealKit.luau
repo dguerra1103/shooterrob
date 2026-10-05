@@ -180,6 +180,10 @@ function RealKit.building(cf, sx, sz, opts)
 	deco("Plinth", V(sx + 0.4, 1, sz + 0.4), cf * CFrame.new(0, 0.5, 0), RealKit.PALETTE.Trim, M.Limestone).CanCollide = false
 	-- Suelo interior de baldosas
 	deco("InteriorFloor", V(sx - 2 * WALL_T, 0.1, sz - 2 * WALL_T), cf * CFrame.new(0, 0.06, 0), RGB(150, 132, 112), M.CeramicTiles)
+	-- (un edificio con cartel en el que se entra da nombre a su zona: «estoy en el HOTEL CENTRAL»)
+	if type(opts.Sign) == "string" and opts.Sign ~= "" then
+		Kit.callout(opts.Sign, cf * CFrame.new(0, height / 2, 0), V(sx, height + 2, sz))
+	end
 	local inner = sx - 2 * WALL_T
 	local innerZ = sz - 2 * WALL_T
 	if floors >= 2 then

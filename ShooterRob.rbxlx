@@ -2801,6 +2801,17 @@ Sounds.ShotLayers = {
 	Bow = {},
 }
 
+-- Cola de tus disparos (eco del entorno): { tono, volumen } del estampido grave, ya filtrado
+Sounds.ShotTails = {
+	Light = { 0.9, 0.05 },
+	Rifle = { 0.75, 0.09 },
+	Heavy = { 0.65, 0.12 },
+	Sniper = { 0.5, 0.2 },
+	Shotgun = { 0.55, 0.16 },
+	Launcher = { 0.45, 0.14 },
+}
+local lastTail = 0
+
 local function shotType(weaponName, def)
 	local profile = weaponName and Sounds.WeaponShots[weaponName]
 	if profile and profile[4] then
@@ -2834,6 +2845,7 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 		distance = (parent.Position - listener).Magnitude
 	end
 	local far = distance > 140
+	local kind = shotType(weaponName, def)
 	local function play()
 		local body = Sounds.PlayGun(name, parent, pitch, volume)
 		if far and body then
@@ -2852,6 +2864,24 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 		-- El clic del mecanismo solo se oye de cerca
 		if layers.Mech and distance < 60 then
 			Sounds.PlayGun("Mech", parent, layers.Mech[1], layers.Mech[2])
+		end
+		-- Cola: tus disparos dejan un eco grave y apagado que rebota en el mapa (capa "entorno").
+		-- Como mucho una cada 0,12 s: en ráfaga no se amontonan
+		local tail = Sounds.ShotTails[kind]
+		if tail and parent == nil and os.clock() - lastTail >= 0.12 then
+			lastTail = os.clock()
+			task.delay(0.07, function()
+				local echo = Sounds.Play("Boom", nil, tail[1], tail[2])
+				if echo then
+					pcall(function()
+						local eq = Instance.new("EqualizerSoundEffect")
+						eq.HighGain = -24
+						eq.MidGain = -8
+						eq.LowGain = 0
+						eq.Parent = echo
+					end)
+				end
+			end)
 		end
 		return body
 	end
@@ -14404,6 +14434,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-162, 0, 0))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-162, 0, 0))
 	Kit.bounds(LENGTH, WIDTH, 70)
+	-- Nombres de las zonas (los edificios con cartel ya dan el suyo)
+	Kit.callout("AVENIDA", CFrame.new(0, 12, 0), V(LENGTH, 36, 40))
+	Kit.callout("CRUCE", CFrame.new(0, 12, 0), V(26, 36, WIDTH))
+	Kit.callout("MONUMENTO", CFrame.new(0, 10, 0), V(32, 24, 32))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CALLEJÓN DEL MERCADO", m * CFrame.new(-96, 14, 88), V(172, 44, 80))
+		Kit.callout("OBRAS", m * CFrame.new(-96, 14, -88), V(172, 44, 80))
+	end
 
 	-- Polvo en el aire y humo a lo lejos (ciudad en guerra)
 	Kit.dustMotes(CFrame.new(0, 8, 0), V(360, 14, 220), RGB(230, 205, 165), 35)
@@ -17028,6 +17066,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-160, 0, 0))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-160, 0, 0))
 	Kit.bounds(LENGTH, WIDTH, 70)
+	-- Nombres de las zonas (los edificios con cartel ya dan el suyo)
+	Kit.callout("GALERÍA DE TIRO", CFrame.new(0, 12, 0), V(LENGTH, 36, 40))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("HANGAR", m * CFrame.new(-96, 14, 88), V(172, 44, 80))
+		Kit.callout("TRINCHERAS", m * CFrame.new(-96, 14, -88), V(172, 44, 80))
+		Kit.callout("CASETAS", m * CFrame.new(-96, 12, 34), V(172, 36, 22))
+		Kit.callout("ALMACÉN", m * CFrame.new(-96, 12, -34), V(172, 36, 22))
+	end
 
 	-- Pinos de verde oscuro natural (el pino del kit es de colores de dibujo animado)
 	for _, part in folder:GetDescendants() do
@@ -18751,6 +18797,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-160, 0, 0))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-160, 0, 0))
 	Kit.bounds(LENGTH, WIDTH, 70)
+	-- Nombres de las zonas (los edificios con cartel ya dan el suyo)
+	Kit.callout("CARRETERA", CFrame.new(0, 12, 0), V(LENGTH, 36, 40))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("TELEFÉRICO", m * CFrame.new(-96, 14, 88), V(172, 44, 80))
+		Kit.callout("RADAR", m * CFrame.new(-96, 14, -88), V(172, 44, 80))
+		Kit.callout("CABAÑAS", m * CFrame.new(-96, 12, 34), V(172, 36, 22))
+		Kit.callout("DEPÓSITOS", m * CFrame.new(-96, 12, -34), V(172, 36, 22))
+	end
 
 	-- Montañas nevadas alrededor y nieve cayendo
 	for _, spec in { { V(-320, 0, 230), 120 }, { V(320, 0, -230), 120 }, { V(40, 0, 320), 130 }, { V(-40, 0, -320), 130 }, { V(-350, 0, -140), 100 }, { V(350, 0, 140), 100 } } do
@@ -20737,6 +20791,9 @@ function Kit.spawnArea(team, cf, style)
 	-- (los colores del equipo se quedan puros, también en el estilo realista: así casan con los neones
 	-- y las zonas de aparición y se reconoce de un vistazo de qué equipo es la base)
 	local floor = block(team.Name .. "SpawnFloor", V(30, 0.4, 70), cf * CFrame.new(0, 0.2, 0), floorColor, style.FloorMaterial or Enum.Material.SmoothPlastic)
+	-- (zona con nombre: «BASE ROJO»; un poco más grande que el tejado)
+	-- («base» es femenino: ROJO → ROJA; AZUL se queda igual)
+	Kit.callout("BASE " .. (string.gsub(string.upper(team.Name), "O$", "A")), cf * CFrame.new(0, 12, 0), V(44, 30, 84))
 	floor.Color = floorColor
 	for z = -30, 30, 10 do
 		deco("FloorLine", V(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic).Color = teamColor
@@ -20927,6 +20984,31 @@ function Kit.zone(position, radius, order)
 	z:SetAttribute("Order", order)
 	z:SetAttribute("Radius", radius)
 	return z
+end
+
+-- Nombre de una zona del mapa (callout, como en los shooters por equipos): una caja invisible; el
+-- cliente dice en el HUD en qué zona estás («HOTEL CENTRAL», «AVENIDA»). Si varias se solapan, gana
+-- la más pequeña (un edificio dentro de un carril). cf: centro de la caja; size: su tamaño
+function Kit.callout(name, cf, size)
+	local folder = Kit.folder:FindFirstChild("Callouts")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Callouts"
+		folder.Parent = Kit.folder
+	end
+	local box = Instance.new("Part")
+	box.Name = "Callout"
+	box.Anchored = true
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CastShadow = false
+	box.Transparency = 1
+	box.Size = size
+	box.CFrame = typeof(cf) == "Vector3" and CFrame.new(cf) or cf
+	box:SetAttribute("Callout", name)
+	box.Parent = folder
+	return box
 end
 
 -- Muros exteriores invisibles (y techo) para que nadie se salga
@@ -23870,6 +23952,10 @@ function RealKit.building(cf, sx, sz, opts)
 	deco("Plinth", V(sx + 0.4, 1, sz + 0.4), cf * CFrame.new(0, 0.5, 0), RealKit.PALETTE.Trim, M.Limestone).CanCollide = false
 	-- Suelo interior de baldosas
 	deco("InteriorFloor", V(sx - 2 * WALL_T, 0.1, sz - 2 * WALL_T), cf * CFrame.new(0, 0.06, 0), RGB(150, 132, 112), M.CeramicTiles)
+	-- (un edificio con cartel en el que se entra da nombre a su zona: «estoy en el HOTEL CENTRAL»)
+	if type(opts.Sign) == "string" and opts.Sign ~= "" then
+		Kit.callout(opts.Sign, cf * CFrame.new(0, height / 2, 0), V(sx, height + 2, sz))
+	end
 	local inner = sx - 2 * WALL_T
 	local innerZ = sz - 2 * WALL_T
 	if floors >= 2 then
@@ -26416,6 +26502,7 @@ local AimPitch = require(Modules.AimPitch)
 local EnemySounds = require(Modules.EnemySounds)
 local Flashlights = require(Modules.Flashlights)
 local Callouts = require(Modules.Callouts)
+local ZoneName = require(Modules.ZoneName)
 local BodyView = require(Modules.BodyView)
 local Effects = require(Modules.Effects)
 
@@ -26457,6 +26544,7 @@ start("AimPitch", AimPitch.Init)
 start("EnemySounds", EnemySounds.Init)
 start("Flashlights", Flashlights.Init)
 start("Callouts", Callouts.Init)
+start("ZoneName", ZoneName.Init)
 start("BodyView", BodyView.Init)
 start("CombatFX", function()
 	CombatFX.Init()
@@ -45480,23 +45568,189 @@ return WorldFX
 ]]></string>
             </Properties>
           </Item>
+          <Item class="ModuleScript" referent="142">
+            <Properties>
+              <string name="Name">ZoneName</string>
+              <string name="Source"><![CDATA[-- Dónde estás (como en los shooters por equipos): debajo del minimapa, el nombre de la zona del mapa
+-- («HOTEL CENTRAL», «AVENIDA», «BASE AZUL»). Las zonas con nombre las pone cada mapa (Kit.callout, y
+-- los edificios con cartel); en el resto del mapa se dice la parte: «NORTE · LADO AZUL», «CENTRO».
+-- Así un jugador puede decir «estoy en las obras» y todos saben dónde es. Solo en este cliente.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local ZoneName = {}
+
+ZoneName.Interval = 0.25
+
+local player = Players.LocalPlayer
+local gui, label, scale
+local clock = 0
+local shown = nil
+local mapInfo = nil -- { Map, Boxes = { { CFrame, Half, Volume, Name } }, Length, Width, Bases = { { Name, X } } }
+
+-- Lo que se sabe del mapa (se calcula una vez por mapa)
+local function readMap(map)
+	local info = { Map = map, Boxes = {}, Bases = {} }
+	local folder = map:FindFirstChild("Callouts")
+	if folder then
+		for _, box in folder:GetChildren() do
+			local name = box:GetAttribute("Callout")
+			if box:IsA("BasePart") and type(name) == "string" then
+				table.insert(info.Boxes, {
+					CFrame = box.CFrame,
+					Half = box.Size / 2,
+					Volume = box.Size.X * box.Size.Y * box.Size.Z,
+					Name = name,
+				})
+			end
+		end
+	end
+	-- Tamaño del mapa: por los muros invisibles del borde
+	local boundary = map:FindFirstChild("Boundary")
+	if boundary then
+		local maxX, maxZ = 0, 0
+		for _, wall in boundary:GetChildren() do
+			if wall:IsA("BasePart") and wall.Size.Y > 4 then
+				maxX = math.max(maxX, math.abs(wall.Position.X) - wall.Size.X / 2)
+				maxZ = math.max(maxZ, math.abs(wall.Position.Z) - wall.Size.Z / 2)
+			end
+		end
+		info.Length, info.Width = maxX * 2, maxZ * 2
+	end
+	-- Lado de cada equipo: por dónde está su zona de salida
+	for _, d in map:GetDescendants() do
+		if d:IsA("BasePart") and string.sub(d.Name, -10) == "SpawnFloor" then
+			table.insert(info.Bases, { Name = string.upper(string.sub(d.Name, 1, -11)), X = d.Position.X })
+		end
+	end
+	return info
+end
+
+-- Nombre de la zona en este punto del mapa (nil si no se sabe)
+function ZoneName.At(position, info)
+	local best = nil
+	for _, box in info.Boxes do
+		local p = box.CFrame:PointToObjectSpace(position)
+		if math.abs(p.X) <= box.Half.X and math.abs(p.Y) <= box.Half.Y and math.abs(p.Z) <= box.Half.Z then
+			if not best or box.Volume < best.Volume then
+				best = box
+			end
+		end
+	end
+	if best then
+		return best.Name
+	end
+	-- Sin zona con nombre: la parte del mapa (norte/centro/sur y de qué lado)
+	local length, width = info.Length, info.Width
+	if not length or not width or length < 40 or width < 40 then
+		return nil
+	end
+	local band = position.Z > width / 6 and "NORTE" or (position.Z < -width / 6 and "SUR" or "CENTRO")
+	if math.abs(position.X) < length / 6 or #info.Bases < 2 then
+		return band
+	end
+	local closest, gap = nil, math.huge
+	for _, base in info.Bases do
+		local d = math.abs(base.X - position.X)
+		if d < gap then
+			closest, gap = base, d
+		end
+	end
+	return closest and (band .. " · LADO " .. closest.Name) or band
+end
+
+local function setText(name)
+	if name == shown then
+		return
+	end
+	shown = name
+	label.Text = name and ("📍 " .. name) or ""
+	if name then
+		-- (al cambiar de zona, el nombre entra con un pequeño salto)
+		scale.Scale = 1.15
+		TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	end
+end
+
+function ZoneName.Update(dt)
+	clock += dt or 0
+	if clock < ZoneName.Interval then
+		return
+	end
+	clock = 0
+	local map = workspace:FindFirstChild("Map")
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local visible = map ~= nil and root ~= nil and not ClientState.InMainMenu and not ClientState.Dead
+		and not ClientState.KillcamActive
+	gui.Enabled = visible
+	if not visible or not map or not root then
+		return
+	end
+	if not mapInfo or mapInfo.Map ~= map then
+		mapInfo = readMap(map)
+	end
+	setText(ZoneName.At(root.Position, mapInfo))
+	-- Debajo del minimapa (y del botón de la tienda cuando se ve)
+	local top = ClientState.MinimapBottom or 200
+	local phone = UI.IsPhone()
+	local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
+	local below = (phone or not playing) and (phone and 40 or 54) or 6
+	label.Position = UDim2.fromOffset(phone and 14 or 16, top + below)
+end
+
+function ZoneName.Init()
+	gui = UI.new("ScreenGui", {
+		Name = "ZoneName",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		Enabled = false,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	label = UI.label({
+		Position = UDim2.fromOffset(16, 200),
+		Size = UDim2.fromOffset(230, 22),
+		Text = "",
+		TextSize = 15,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(235, 240, 250),
+		TextStrokeTransparency = 0.35,
+		Parent = gui,
+	})
+	scale = UI.new("UIScale", { Parent = label })
+	RunService.Heartbeat:Connect(function(dt)
+		local ok, err = pcall(ZoneName.Update, dt)
+		if not ok then
+			warn("[ZoneName]", err)
+		end
+	end)
+end
+
+return ZoneName
+]]></string>
+            </Properties>
+          </Item>
         </Item>
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="142">
+  <Item class="Teams" referent="143">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="143">
+  <Item class="Workspace" referent="144">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="144">
+    <Item class="Terrain" referent="145">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

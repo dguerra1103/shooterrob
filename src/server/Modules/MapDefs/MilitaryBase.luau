@@ -488,6 +488,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-160, 0, 0))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-160, 0, 0))
 	Kit.bounds(LENGTH, WIDTH, 70)
+	-- Nombres de las zonas (los edificios con cartel ya dan el suyo)
+	Kit.callout("GALERÍA DE TIRO", CFrame.new(0, 12, 0), V(LENGTH, 36, 40))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("HANGAR", m * CFrame.new(-96, 14, 88), V(172, 44, 80))
+		Kit.callout("TRINCHERAS", m * CFrame.new(-96, 14, -88), V(172, 44, 80))
+		Kit.callout("CASETAS", m * CFrame.new(-96, 12, 34), V(172, 36, 22))
+		Kit.callout("ALMACÉN", m * CFrame.new(-96, 12, -34), V(172, 36, 22))
+	end
 
 	-- Pinos de verde oscuro natural (el pino del kit es de colores de dibujo animado)
 	for _, part in folder:GetDescendants() do

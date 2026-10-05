@@ -1059,6 +1059,9 @@ function Kit.spawnArea(team, cf, style)
 	-- (los colores del equipo se quedan puros, también en el estilo realista: así casan con los neones
 	-- y las zonas de aparición y se reconoce de un vistazo de qué equipo es la base)
 	local floor = block(team.Name .. "SpawnFloor", V(30, 0.4, 70), cf * CFrame.new(0, 0.2, 0), floorColor, style.FloorMaterial or Enum.Material.SmoothPlastic)
+	-- (zona con nombre: «BASE ROJO»; un poco más grande que el tejado)
+	-- («base» es femenino: ROJO → ROJA; AZUL se queda igual)
+	Kit.callout("BASE " .. (string.gsub(string.upper(team.Name), "O$", "A")), cf * CFrame.new(0, 12, 0), V(44, 30, 84))
 	floor.Color = floorColor
 	for z = -30, 30, 10 do
 		deco("FloorLine", V(30, 0.05, 0.3), cf * CFrame.new(0, 0.42, z), teamColor, Enum.Material.SmoothPlastic).Color = teamColor
@@ -1249,6 +1252,31 @@ function Kit.zone(position, radius, order)
 	z:SetAttribute("Order", order)
 	z:SetAttribute("Radius", radius)
 	return z
+end
+
+-- Nombre de una zona del mapa (callout, como en los shooters por equipos): una caja invisible; el
+-- cliente dice en el HUD en qué zona estás («HOTEL CENTRAL», «AVENIDA»). Si varias se solapan, gana
+-- la más pequeña (un edificio dentro de un carril). cf: centro de la caja; size: su tamaño
+function Kit.callout(name, cf, size)
+	local folder = Kit.folder:FindFirstChild("Callouts")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Callouts"
+		folder.Parent = Kit.folder
+	end
+	local box = Instance.new("Part")
+	box.Name = "Callout"
+	box.Anchored = true
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CastShadow = false
+	box.Transparency = 1
+	box.Size = size
+	box.CFrame = typeof(cf) == "Vector3" and CFrame.new(cf) or cf
+	box:SetAttribute("Callout", name)
+	box.Parent = folder
+	return box
 end
 
 -- Muros exteriores invisibles (y techo) para que nadie se salga
