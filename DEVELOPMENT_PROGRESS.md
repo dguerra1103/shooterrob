@@ -38,6 +38,10 @@ Estado del pase "Stylized Tactical Roblox" (shooter 5v5). Corto a propósito: si
 - Revisión de código del pase (9 hallazgos, todos arreglados) y batería completa: 110 pruebas + 10 modos OK.
 - Asistencias en resumen y marcador, barras de estadísticas de armas, color de enemigo elegible,
   sitios de bomba con nombre, desbloqueos con presentación, aviso de baja adaptado al teléfono.
+- Mapa 5v5 nuevo **Puesto del Desierto** (arena + turquesa) con SND probado con bots.
+- Pool de sonidos 2D (armas aparte de la interfaz), luz de relleno del arma de noche.
+- Justicia: en Cumbre y Base Militar el edificio central tiene una puerta para cada equipo.
+- Tres revisiones de código del pase: todos los hallazgos arreglados.
 
 ## EN PROGRESO
 - Revisión de los cambios del pase y bucle de pulido.
