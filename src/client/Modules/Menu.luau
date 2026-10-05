@@ -1517,8 +1517,27 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Efectos de pantalla (accesibilidad: hay a quien el desenfoque y los temblores le marean)
+	local screenFx = section(9, "👁 Efectos de pantalla (desenfoque, destellos, temblor)", 92)
+	local fxMode = math.floor((current.ScreenFX == nil and 1 or current.ScreenFX) + 0.5)
+	for i, info in { { 1, "Normales" }, { 0, "Reducidos" } } do
+		local selected = fxMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = screenFx,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("ScreenFX", info[1])
+			refresh()
+		end)
+	end
 	-- Ventaja (una, gratis)
-	local perkSection = section(9, "🎖️ Ventaja", 130)
+	local perkSection = section(10, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
 		Position = UDim2.fromOffset(16, 86),

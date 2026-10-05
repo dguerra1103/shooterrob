@@ -54,6 +54,12 @@ function ClientState.IsBlocked()
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
+-- Ajustes → Efectos de pantalla «Reducidos»: sin desenfoques, destellos ni temblores (accesibilidad)
+function ClientState.ReducedFX()
+	local settings = ClientState.Settings
+	return settings ~= nil and settings.ScreenFX == 0
+end
+
 function ClientState.Frozen()
 	return game:GetService("ReplicatedStorage"):GetAttribute("Frozen") == true
 end

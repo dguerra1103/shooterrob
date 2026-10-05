@@ -85,7 +85,7 @@ function CombatFX.Concussion(strength)
 		return
 	end
 	ensureEffects()
-	if not lowQuality() and blur and flash then
+	if not lowQuality() and not ClientState.ReducedFX() and blur and flash then
 		blur.Size = 18 * strength
 		blurTarget = 0
 		flash.Brightness = 0.45 * strength
@@ -118,7 +118,7 @@ function CombatFX.Suppress(amount)
 		return
 	end
 	ensureEffects()
-	if not lowQuality() and blur and flash then
+	if not lowQuality() and not ClientState.ReducedFX() and blur and flash then
 		blur.Size = math.max(blur.Size, 5 * amount)
 		blurTarget = 0
 		-- (sin pisar el destello de una explosión que aún se está yendo)

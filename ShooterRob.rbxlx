@@ -783,7 +783,9 @@ GameConfig.Movement = {
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, Perk = 0 }
+-- ScreenFX: efectos de pantalla (1 = normales; 0 = reducidos: sin desenfoques, destellos ni temblores,
+-- para quien se marea; ver CombatFX, AimFX y WeaponController)
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -793,6 +795,7 @@ GameConfig.SettingsLimits = {
 	AutoFire = { 0, 2 },
 	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
 	Uniform = { 0, 1 }, -- 1 = uniforme militar en los mapas realistas si no llevas traje; 0 = tu avatar
+	ScreenFX = { 0, 1 }, -- 1 = efectos de pantalla normales; 0 = reducidos
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
@@ -26985,6 +26988,7 @@ function AimFX.Update(dt)
 	-- (con el visor de francotirador puesto lo tapa todo el visor)
 	local scoped = def ~= nil and def.Scope == true and alpha > 0.85
 	local active = alpha > 0.02 and not scoped and not ClientState.InMainMenu and not ClientState.Dead
+		and not ClientState.ReducedFX()
 	local low = ClientState.EffectiveQuality == "Baja"
 
 	-- Viñeta: bordes algo más oscuros al apuntar
@@ -28117,6 +28121,12 @@ function ClientState.IsBlocked()
 end
 
 -- Cuenta atrás de Eliminación: quietos y sin disparar (lo decide el servidor)
+-- Ajustes → Efectos de pantalla «Reducidos»: sin desenfoques, destellos ni temblores (accesibilidad)
+function ClientState.ReducedFX()
+	local settings = ClientState.Settings
+	return settings ~= nil and settings.ScreenFX == 0
+end
+
 function ClientState.Frozen()
 	return game:GetService("ReplicatedStorage"):GetAttribute("Frozen") == true
 end
@@ -28248,7 +28258,7 @@ function CombatFX.Concussion(strength)
 		return
 	end
 	ensureEffects()
-	if not lowQuality() and blur and flash then
+	if not lowQuality() and not ClientState.ReducedFX() and blur and flash then
 		blur.Size = 18 * strength
 		blurTarget = 0
 		flash.Brightness = 0.45 * strength
@@ -28281,7 +28291,7 @@ function CombatFX.Suppress(amount)
 		return
 	end
 	ensureEffects()
-	if not lowQuality() and blur and flash then
+	if not lowQuality() and not ClientState.ReducedFX() and blur and flash then
 		blur.Size = math.max(blur.Size, 5 * amount)
 		blurTarget = 0
 		-- (sin pisar el destello de una explosión que aún se está yendo)
@@ -37680,8 +37690,27 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Efectos de pantalla (accesibilidad: hay a quien el desenfoque y los temblores le marean)
+	local screenFx = section(9, "👁 Efectos de pantalla (desenfoque, destellos, temblor)", 92)
+	local fxMode = math.floor((current.ScreenFX == nil and 1 or current.ScreenFX) + 0.5)
+	for i, info in { { 1, "Normales" }, { 0, "Reducidos" } } do
+		local selected = fxMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = screenFx,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("ScreenFX", info[1])
+			refresh()
+		end)
+	end
 	-- Ventaja (una, gratis)
-	local perkSection = section(9, "🎖️ Ventaja", 130)
+	local perkSection = section(10, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
 		Position = UDim2.fromOffset(16, 86),

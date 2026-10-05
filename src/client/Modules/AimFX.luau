@@ -137,6 +137,7 @@ function AimFX.Update(dt)
 	-- (con el visor de francotirador puesto lo tapa todo el visor)
 	local scoped = def ~= nil and def.Scope == true and alpha > 0.85
 	local active = alpha > 0.02 and not scoped and not ClientState.InMainMenu and not ClientState.Dead
+		and not ClientState.ReducedFX()
 	local low = ClientState.EffectiveQuality == "Baja"
 
 	-- Viñeta: bordes algo más oscuros al apuntar
