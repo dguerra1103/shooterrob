@@ -32184,7 +32184,7 @@ local COLOR = Color3.fromRGB(255, 244, 226)
 local OFFSET = CFrame.new(0.45, -0.45, -1.2) -- (de donde va el arma)
 
 local player = Players.LocalPlayer
-local holder, light
+local holder, light, fill
 local remoteLights = setmetatable({}, { __mode = "k" }) -- [Tool] = SpotLight
 local remoteClock = 0
 
@@ -32215,6 +32215,16 @@ local function ensureLocal()
 	light.Color = COLOR
 	light.Enabled = false
 	light.Parent = holder
+	-- Luz de relleno muy suave y de poco alcance sobre el arma en primera persona: de noche el arma se
+	-- veía negra (no ilumina el mundo: 3 studs)
+	fill = Instance.new("PointLight")
+	fill.Name = "ViewmodelFill"
+	fill.Range = 3
+	fill.Brightness = 0.5
+	fill.Color = Color3.fromRGB(255, 236, 214)
+	fill.Shadows = false
+	fill.Enabled = false
+	fill.Parent = holder
 	holder.Parent = workspace.CurrentCamera
 end
 
@@ -32293,7 +32303,12 @@ function Flashlights.Update(dt)
 	local mine = active and Flashlights.On and def ~= nil and def.Type == "Gun"
 		and not ClientState.Dead and not ClientState.KillcamActive and camera ~= nil
 	light.Enabled = mine
-	if mine and camera then
+	local wantFill = Flashlights.IsNight() and not ClientState.InMainMenu and def ~= nil and not ClientState.Dead
+		and not ClientState.KillcamActive and camera ~= nil
+	if fill then
+		fill.Enabled = wantFill
+	end
+	if (mine or wantFill) and camera then
 		holder.CFrame = camera.CFrame * OFFSET
 		light.Shadows = ClientState.EffectiveQuality ~= "Baja"
 	end
