@@ -106,6 +106,13 @@ local function refresh(data)
 		-- Solo celebra si lo hemos visto pasar de pendiente a hecho (no al cargar)
 		if row.Done == false and entry.Done then
 			celebrate(row)
+		elseif row.Progress and progress > row.Progress and not entry.Done then
+			-- Cada paso del reto se nota: el contador da un salto y la barra destella
+			local scale = row.Count:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = row.Count })
+			scale.Scale = 1.5
+			TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+			row.Fill.BackgroundColor3 = Color3.new(1, 1, 1)
+			TweenService:Create(row.Fill, TweenInfo.new(0.4), { BackgroundColor3 = Color3.fromRGB(70, 170, 255) }):Play()
 		end
 		row.Done = entry.Done == true
 		row.Progress = progress
