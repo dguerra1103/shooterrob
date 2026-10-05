@@ -211,10 +211,13 @@ function WeaponModels.CharmPoint(def)
 end
 
 -- charmId (opcional): colgante (Charms) para las armas de fuego
-function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
+-- scale (opcional): tamaño del modelo (1 = el de primera persona; el arma que lleva el personaje en el
+-- mundo es más pequeña, a escala de una persona: GameConfig.WorldWeaponScale)
+function WeaponModels.Build(weaponName, skinId, withEffects, charmId, scale)
 	local def = Weapons.Get(weaponName)
 	assert(def, "Arma desconocida: " .. tostring(weaponName))
 	local pal = WeaponModels.GetPalette(weaponName, skinId)
+	scale = scale or 1
 
 	local model = Instance.new("Model")
 	model.Name = weaponName
@@ -224,7 +227,7 @@ function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
 	for _, spec in def.Parts do
 		local part = Instance.new("Part")
 		part.Name = spec.Name
-		part.Size = spec.Size
+		part.Size = spec.Size * scale
 		if spec.Shape == "Cylinder" then
 			part.Shape = Enum.PartType.Cylinder
 		elseif spec.Shape == "Ball" then
@@ -251,7 +254,8 @@ function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
 
 	-- Coloca y suelda cada pieza al Handle (que está en el origen del diseño)
 	for _, entry in created do
-		entry.Part.CFrame = entry.Spec.CFrame
+		local cf = entry.Spec.CFrame
+		entry.Part.CFrame = scale == 1 and cf or (cf - cf.Position + cf.Position * scale)
 		if entry.Part ~= handle then
 			local weld = Instance.new("WeldConstraint")
 			weld.Part0 = handle
@@ -262,7 +266,7 @@ function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
 	local function attach(name, position)
 		local a = Instance.new("Attachment")
 		a.Name = name
-		a.Position = position
+		a.Position = position * scale
 		a.Parent = handle
 		return a
 	end
@@ -276,7 +280,8 @@ function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
 
 	-- Colgante (cuelga del lateral; en el arma en primera persona se balancea, ver WeaponController)
 	if charmId and charmId ~= "Default" and def.Type == "Gun" and handle then
-		for _, piece in Charms.Build(charmId, handle.CFrame * WeaponModels.CharmPoint(def)) do
+		local point = WeaponModels.CharmPoint(def)
+		for _, piece in Charms.Build(charmId, handle.CFrame * (point - point.Position + point.Position * scale)) do
 			local weld = Instance.new("WeldConstraint")
 			weld.Part0 = handle
 			weld.Part1 = piece
@@ -286,6 +291,7 @@ function WeaponModels.Build(weaponName, skinId, withEffects, charmId)
 	end
 
 	model:SetAttribute("Weapon", weaponName)
+	model:SetAttribute("Scale", scale)
 	model.PrimaryPart = handle
 	if withEffects ~= false then
 		applyEffects(model, pal)

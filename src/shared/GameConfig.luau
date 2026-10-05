@@ -49,6 +49,12 @@ GameConfig.SoldierUniform = true
 -- (polvo y fibras de la ropa). true: una nube rojo oscuro y gotitas. OJO: en el cuestionario de
 -- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
 GameConfig.RealisticBlood = false
+-- Tamaño del arma que lleva el personaje en el mundo (la que ven los demás). 1 = como la de primera
+-- persona (enorme al lado del cuerpo); 0,7 = a escala de una persona, como en los shooters realistas
+GameConfig.WorldWeaponScale = 0.7
+-- Los personajes (bots y demás jugadores) sujetan el arma de fuego con las dos manos: culata al hombro
+-- y la otra mano en el guardamanos (IKControl, solo en cada cliente). false = la pose de Roblox
+GameConfig.TwoHandedPose = true
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true

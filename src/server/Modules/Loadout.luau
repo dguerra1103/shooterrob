@@ -23,8 +23,11 @@ function Loadout.MakeTool(weaponName, skinId, charmId)
 	tool.ToolTip = def.DisplayName
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	-- La mano derecha agarra la empuñadura del arma
-	tool.Grip = CFrame.new(def.RightHand or Vector3.zero)
+	-- La mano derecha agarra la empuñadura del arma. El arma del mundo va a escala de una persona (la de
+	-- primera persona, el viewmodel, se construye aparte a tamaño completo)
+	local scale = GameConfig.WorldWeaponScale or 1
+	tool.Grip = CFrame.new((def.RightHand or Vector3.zero) * scale)
+	tool:SetAttribute("WorldScale", scale)
 	tool:SetAttribute("Weapon", weaponName)
 	tool:SetAttribute("Skin", skinId)
 	tool:SetAttribute("Slot", def.Slot)
@@ -37,7 +40,7 @@ function Loadout.MakeTool(weaponName, skinId, charmId)
 		end)
 	end
 
-	local model = WeaponModels.Build(weaponName, skinId, nil, charmId)
+	local model = WeaponModels.Build(weaponName, skinId, nil, charmId, scale)
 	tool:SetAttribute("Charm", charmId or "Default")
 	for _, child in model:GetChildren() do
 		child.Parent = tool
