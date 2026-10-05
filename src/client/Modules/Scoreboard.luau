@@ -10,6 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
 local ClientState = require(script.Parent.ClientState)
+local TouchLayout = require(script.Parent.TouchLayout)
 local UI = require(script.Parent.UI)
 
 local player = Players.LocalPlayer
@@ -305,7 +306,7 @@ function Scoreboard.Init()
 		end
 	end)
 	ContextActionService:SetTitle("Scoreboard", "📋")
-	ContextActionService:SetPosition("Scoreboard", UDim2.new(1, -60, 0, 70))
+	TouchLayout.Set("Scoreboard", UDim2.new(1, -60, 0, 70))
 
 	task.spawn(function()
 		while true do

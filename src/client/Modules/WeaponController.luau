@@ -13,6 +13,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
+local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
 local Outfits = require(Shared.Outfits)
@@ -21,6 +22,10 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local WeaponController = {}
+
+-- Teléfono (UI.IsPhone): el arma de cadera se aparta un poco (se decide al arrancar)
+local PHONE_HIP = CFrame.new(0.1, -0.12, 0.18)
+local phoneScreen = false
 
 -- Hombros del viewmodel (espacio de cámara, fuera de pantalla)
 local RIGHT_SHOULDER = Vector3.new(1.1, -1.5, 0.4)
@@ -1007,11 +1012,14 @@ local function renderStep(dt)
 	local recoilCF = CFrame.new(recoilSide * 0.4, 0, recoilKick) * CFrame.Angles(recoilRot, recoilSide * 0.6, recoilSide * 1.5)
 
 	-- Cadera -> mira
-	local base = def.ViewOffset
+	-- (en el teléfono, el arma de cadera algo más abajo, a la derecha y lejos: en una pantalla
+	-- pequeña tapaba media pantalla y los botones táctiles)
+	local hipOffset = phoneScreen and def.ViewOffset * PHONE_HIP or def.ViewOffset
+	local base = hipOffset
 	if def.AimPoint then
 		local a = def.AimPoint
 		local aimCF = CFrame.new(-a.X, -a.Y, -def.AimDistance - a.Z)
-		base = def.ViewOffset:Lerp(aimCF, aimAlpha)
+		base = hipOffset:Lerp(aimCF, aimAlpha)
 	end
 
 	-- Correr
@@ -1421,6 +1429,14 @@ end
 
 function WeaponController.Init()
 	UserInputService.MouseIconEnabled = false
+	-- (teléfono o no: se mira cuando se sabe el tamaño de pantalla y al girarla)
+	task.spawn(function()
+		UI.WaitViewport()
+		phoneScreen = UI.IsPhone()
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+			phoneScreen = UI.IsPhone()
+		end)
+	end)
 	bindActions()
 	player.CharacterAdded:Connect(onCharacter)
 	if player.Character then
