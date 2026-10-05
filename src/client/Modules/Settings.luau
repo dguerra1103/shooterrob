@@ -123,7 +123,7 @@ local function applyQuality()
 			dof.Name = "QualityDOF"
 			dof.FarIntensity = 0.12
 			dof.FocusDistance = 70
-			dof.InFocusRadius = 90
+			dof.InFocusRadius = 50 -- (el máximo que admite)
 			dof.NearIntensity = 0
 			dof.Parent = Lighting
 		end

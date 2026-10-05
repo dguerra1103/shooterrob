@@ -24,10 +24,13 @@ AimAssist.SnapCone = 12
 AimAssist.SnapPull = 9
 AimAssist.SnapTime = 0.2
 
+AimAssist.SnapCooldown = 0.8 -- (apuntar y desapuntar sin parar no vuelve a dar el salto)
+
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 local lastAds = 0
 local snapUntil = 0
+local lastSnap = -10
 
 local GAMEPAD = {}
 for i = 1, 8 do
@@ -101,6 +104,46 @@ local function candidates()
 	return list
 end
 
+-- Lo que no tapa la vista: tú, la cámara, los efectos y las barandillas invisibles del mapa (lo
+-- mismo que atraviesan las balas)
+local function updateIgnore(camera)
+	local ignore = { camera }
+	if player.Character then
+		table.insert(ignore, player.Character)
+	end
+	local fx = workspace:FindFirstChild("ClientFX")
+	if fx then
+		table.insert(ignore, fx)
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	params.FilterDescendantsInstances = ignore
+end
+
+-- Punto del cuerpo al que tirar: el de su eje (de la cadera a la cabeza) a la altura por la que pasa
+-- la mira. Si ya apuntas a la cabeza, se queda en la cabeza (no te la baja al pecho); si apuntas por
+-- encima o por debajo, lo más cercano del cuerpo.
+local function aimPoint(model, origin, look)
+	local center = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso") or model:FindFirstChild("HumanoidRootPart")
+	if not center or not center:IsA("BasePart") then
+		return nil
+	end
+	local head = model:FindFirstChild("Head")
+	local top = (head and head:IsA("BasePart")) and head.Position.Y or center.Position.Y + 1.5
+	local bottom = center.Position.Y - 1.2
+	local position = center.Position
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	local flatDistance = Vector3.new(position.X - origin.X, 0, position.Z - origin.Z).Magnitude
+	if flatLook.Magnitude < 0.05 then
+		return position
+	end
+	local rayHeight = origin.Y + look.Y / flatLook.Magnitude * flatDistance
+	return Vector3.new(position.X, math.clamp(rayHeight, math.min(bottom, top), top), position.Z)
+end
+
 -- Mejor objetivo dentro del cono: { Model, Point, Angle } o nil
 function AimAssist.FindTarget(camera, coneDegrees, range)
 	local cf = camera.CFrame
@@ -108,24 +151,24 @@ function AimAssist.FindTarget(camera, coneDegrees, range)
 	local look = cf.LookVector
 	local cone = math.rad(coneDegrees)
 	local best
+	local ignoreReady = false
 	for _, model in candidates() do
 		if isEnemy(model) then
-			local part = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso") or model:FindFirstChild("HumanoidRootPart")
-			if part and part:IsA("BasePart") then
-				local offset = part.Position - origin
+			local point = aimPoint(model, origin, look)
+			if point then
+				local offset = point - origin
 				local distance = offset.Magnitude
 				if distance > 1 and distance <= range then
 					local angle = math.acos(math.clamp(look:Dot(offset / distance), -1, 1))
 					if angle < cone and (not best or angle < best.Angle) then
 						-- (que se vea: nada de imanes a través de las paredes)
-						local ignore = { camera }
-						if player.Character then
-							table.insert(ignore, player.Character)
+						if not ignoreReady then
+							updateIgnore(camera)
+							ignoreReady = true
 						end
-						params.FilterDescendantsInstances = ignore
 						local hit = workspace:Raycast(origin, offset, params)
 						if not hit or hit.Instance:IsDescendantOf(model) then
-							best = { Model = model, Point = part.Position, Angle = angle }
+							best = { Model = model, Point = point, Angle = angle }
 						end
 					end
 				end
@@ -135,15 +178,19 @@ function AimAssist.FindTarget(camera, coneDegrees, range)
 	return best
 end
 
--- Gira la cámara una fracción hacia el punto (en su propio espacio: arriba/abajo e izquierda/derecha)
+-- Gira la cámara una fracción hacia el punto (en su propio espacio: arriba/abajo e izquierda/derecha).
+-- Devuelve el giro aplicado (cabeceo, guiñada; positivo = arriba / izquierda)
 local function turnToward(camera, point, fraction)
 	local direction = (point - camera.CFrame.Position).Unit
 	local localDir = camera.CFrame:VectorToObjectSpace(direction)
 	local yaw = math.atan2(-localDir.X, -localDir.Z)
 	local pitch = math.atan2(localDir.Y, math.sqrt(localDir.X * localDir.X + localDir.Z * localDir.Z))
 	camera.CFrame = camera.CFrame * CFrame.Angles(pitch * fraction, yaw * fraction, 0)
+	return pitch * fraction, yaw * fraction
 end
 
+-- Devuelve el objetivo (o nil) y el giro aplicado (cabeceo, guiñada): WeaponController lo descuenta de
+-- la recuperación del retroceso (si no, al soltar la mira bajaría de más)
 function AimAssist.Update(dt)
 	local camera = workspace.CurrentCamera
 	local def = ClientState.CurrentDef
@@ -152,28 +199,34 @@ function AimAssist.Update(dt)
 	local startedAiming = ads > 0.1 and lastAds <= 0.1
 	lastAds = ads
 	if not camera or strength <= 0 or not def or def.Type ~= "Gun" or ClientState.Dead or ClientState.IsBlocked() then
-		return nil
+		return nil, 0, 0
+	end
+	-- (bailando un emote, la cámara es de tercera persona; corriendo no se apunta)
+	if ClientState.Emoting or ClientState.Sprinting then
+		return nil, 0, 0
 	end
 	if not AimAssist.UsingAssistInput() then
-		return nil
+		return nil, 0, 0
 	end
 	local scale = strength == 1 and 0.5 or 1
 	local range = def.Range or 300
-	if startedAiming then
-		snapUntil = os.clock() + AimAssist.SnapTime
+	local now = os.clock()
+	if startedAiming and now - lastSnap >= AimAssist.SnapCooldown then
+		snapUntil = now + AimAssist.SnapTime
+		lastSnap = now
 	end
 	local snapping = os.clock() < snapUntil
 	local cone = snapping and AimAssist.SnapCone or (AimAssist.HipCone + (AimAssist.AdsCone - AimAssist.HipCone) * ads)
 	local target = AimAssist.FindTarget(camera, cone, range)
 	if not target then
-		return nil
+		return nil, 0, 0
 	end
 	local pull = snapping and AimAssist.SnapPull or (AimAssist.HipPull + (AimAssist.AdsPull - AimAssist.HipPull) * ads)
 	-- (más fuerte cuanto más cerca de la mira; en el borde del cono casi nada)
 	local closeness = 1 - target.Angle / math.rad(cone)
 	local fraction = math.clamp(pull * scale * closeness * dt, 0, 0.5)
-	turnToward(camera, target.Point, fraction)
-	return target
+	local pitch, yaw = turnToward(camera, target.Point, fraction)
+	return target, pitch, yaw
 end
 
 return AimAssist

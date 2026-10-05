@@ -492,6 +492,10 @@ GameConfig.ModeSettings = {
 }
 -- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
 GameConfig.SoldierUniform = true
+-- Sangre en los impactos y bajas (mapas realistas). false (por defecto): impactos realistas sin sangre
+-- (polvo y fibras de la ropa). true: una nube rojo oscuro y gotitas. OJO: en el cuestionario de
+-- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
+GameConfig.RealisticBlood = false
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
@@ -26298,10 +26302,13 @@ AimAssist.SnapCone = 12
 AimAssist.SnapPull = 9
 AimAssist.SnapTime = 0.2
 
+AimAssist.SnapCooldown = 0.8 -- (apuntar y desapuntar sin parar no vuelve a dar el salto)
+
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 local lastAds = 0
 local snapUntil = 0
+local lastSnap = -10
 
 local GAMEPAD = {}
 for i = 1, 8 do
@@ -26375,6 +26382,46 @@ local function candidates()
 	return list
 end
 
+-- Lo que no tapa la vista: tú, la cámara, los efectos y las barandillas invisibles del mapa (lo
+-- mismo que atraviesan las balas)
+local function updateIgnore(camera)
+	local ignore = { camera }
+	if player.Character then
+		table.insert(ignore, player.Character)
+	end
+	local fx = workspace:FindFirstChild("ClientFX")
+	if fx then
+		table.insert(ignore, fx)
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	params.FilterDescendantsInstances = ignore
+end
+
+-- Punto del cuerpo al que tirar: el de su eje (de la cadera a la cabeza) a la altura por la que pasa
+-- la mira. Si ya apuntas a la cabeza, se queda en la cabeza (no te la baja al pecho); si apuntas por
+-- encima o por debajo, lo más cercano del cuerpo.
+local function aimPoint(model, origin, look)
+	local center = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso") or model:FindFirstChild("HumanoidRootPart")
+	if not center or not center:IsA("BasePart") then
+		return nil
+	end
+	local head = model:FindFirstChild("Head")
+	local top = (head and head:IsA("BasePart")) and head.Position.Y or center.Position.Y + 1.5
+	local bottom = center.Position.Y - 1.2
+	local position = center.Position
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	local flatDistance = Vector3.new(position.X - origin.X, 0, position.Z - origin.Z).Magnitude
+	if flatLook.Magnitude < 0.05 then
+		return position
+	end
+	local rayHeight = origin.Y + look.Y / flatLook.Magnitude * flatDistance
+	return Vector3.new(position.X, math.clamp(rayHeight, math.min(bottom, top), top), position.Z)
+end
+
 -- Mejor objetivo dentro del cono: { Model, Point, Angle } o nil
 function AimAssist.FindTarget(camera, coneDegrees, range)
 	local cf = camera.CFrame
@@ -26382,24 +26429,24 @@ function AimAssist.FindTarget(camera, coneDegrees, range)
 	local look = cf.LookVector
 	local cone = math.rad(coneDegrees)
 	local best
+	local ignoreReady = false
 	for _, model in candidates() do
 		if isEnemy(model) then
-			local part = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso") or model:FindFirstChild("HumanoidRootPart")
-			if part and part:IsA("BasePart") then
-				local offset = part.Position - origin
+			local point = aimPoint(model, origin, look)
+			if point then
+				local offset = point - origin
 				local distance = offset.Magnitude
 				if distance > 1 and distance <= range then
 					local angle = math.acos(math.clamp(look:Dot(offset / distance), -1, 1))
 					if angle < cone and (not best or angle < best.Angle) then
 						-- (que se vea: nada de imanes a través de las paredes)
-						local ignore = { camera }
-						if player.Character then
-							table.insert(ignore, player.Character)
+						if not ignoreReady then
+							updateIgnore(camera)
+							ignoreReady = true
 						end
-						params.FilterDescendantsInstances = ignore
 						local hit = workspace:Raycast(origin, offset, params)
 						if not hit or hit.Instance:IsDescendantOf(model) then
-							best = { Model = model, Point = part.Position, Angle = angle }
+							best = { Model = model, Point = point, Angle = angle }
 						end
 					end
 				end
@@ -26409,15 +26456,19 @@ function AimAssist.FindTarget(camera, coneDegrees, range)
 	return best
 end
 
--- Gira la cámara una fracción hacia el punto (en su propio espacio: arriba/abajo e izquierda/derecha)
+-- Gira la cámara una fracción hacia el punto (en su propio espacio: arriba/abajo e izquierda/derecha).
+-- Devuelve el giro aplicado (cabeceo, guiñada; positivo = arriba / izquierda)
 local function turnToward(camera, point, fraction)
 	local direction = (point - camera.CFrame.Position).Unit
 	local localDir = camera.CFrame:VectorToObjectSpace(direction)
 	local yaw = math.atan2(-localDir.X, -localDir.Z)
 	local pitch = math.atan2(localDir.Y, math.sqrt(localDir.X * localDir.X + localDir.Z * localDir.Z))
 	camera.CFrame = camera.CFrame * CFrame.Angles(pitch * fraction, yaw * fraction, 0)
+	return pitch * fraction, yaw * fraction
 end
 
+-- Devuelve el objetivo (o nil) y el giro aplicado (cabeceo, guiñada): WeaponController lo descuenta de
+-- la recuperación del retroceso (si no, al soltar la mira bajaría de más)
 function AimAssist.Update(dt)
 	local camera = workspace.CurrentCamera
 	local def = ClientState.CurrentDef
@@ -26426,28 +26477,34 @@ function AimAssist.Update(dt)
 	local startedAiming = ads > 0.1 and lastAds <= 0.1
 	lastAds = ads
 	if not camera or strength <= 0 or not def or def.Type ~= "Gun" or ClientState.Dead or ClientState.IsBlocked() then
-		return nil
+		return nil, 0, 0
+	end
+	-- (bailando un emote, la cámara es de tercera persona; corriendo no se apunta)
+	if ClientState.Emoting or ClientState.Sprinting then
+		return nil, 0, 0
 	end
 	if not AimAssist.UsingAssistInput() then
-		return nil
+		return nil, 0, 0
 	end
 	local scale = strength == 1 and 0.5 or 1
 	local range = def.Range or 300
-	if startedAiming then
-		snapUntil = os.clock() + AimAssist.SnapTime
+	local now = os.clock()
+	if startedAiming and now - lastSnap >= AimAssist.SnapCooldown then
+		snapUntil = now + AimAssist.SnapTime
+		lastSnap = now
 	end
 	local snapping = os.clock() < snapUntil
 	local cone = snapping and AimAssist.SnapCone or (AimAssist.HipCone + (AimAssist.AdsCone - AimAssist.HipCone) * ads)
 	local target = AimAssist.FindTarget(camera, cone, range)
 	if not target then
-		return nil
+		return nil, 0, 0
 	end
 	local pull = snapping and AimAssist.SnapPull or (AimAssist.HipPull + (AimAssist.AdsPull - AimAssist.HipPull) * ads)
 	-- (más fuerte cuanto más cerca de la mira; en el borde del cono casi nada)
 	local closeness = 1 - target.Angle / math.rad(cone)
 	local fraction = math.clamp(pull * scale * closeness * dt, 0, 0.5)
-	turnToward(camera, target.Point, fraction)
-	return target
+	local pitch, yaw = turnToward(camera, target.Point, fraction)
+	return target, pitch, yaw
 end
 
 return AimAssist
@@ -26463,12 +26520,17 @@ return AimAssist
 -- puesta no hace falta (la tapa el visor) y en calidad Baja no se usa (cuesta en móviles modestos).
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 
 local ClientState = require(script.Parent.ClientState)
 
 local AimFX = {}
 
-local MAX_BLUR = 0.22 -- desenfoque del fondo con la mira del todo puesta (0 = nada, 1 = mucho)
+-- desenfoque del fondo con la mira del todo puesta (0 = nada, 1 = mucho). Por debajo de 0,22: ahí el
+-- desenfoque de Roblox da un salto brusco (y aparecería de golpe en vez de poco a poco)
+local MAX_BLUR = 0.2
+local MAX_FOCUS = 200 -- (lo máximo que admite FocusDistance)
+local MAX_RADIUS = 50 -- (lo máximo que admite InFocusRadius)
 local MAX_VIGNETTE = 0.38 -- oscuridad de los bordes
 
 local dof, gui
@@ -26476,6 +26538,56 @@ local edges = {}
 local focus = 60
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
+local pausedQualityDof = nil -- el desenfoque lejano de calidad Ultra, apagado mientras se apunta
+
+-- Distancia a lo que hay bajo la mira. No cuentan las barandillas invisibles del mapa (las balas las
+-- atraviesan) ni los cristales: se enfoca a lo que hay detrás
+local function focusTarget(camera)
+	local ignore = { camera }
+	local character = Players.LocalPlayer.Character
+	if character then
+		table.insert(ignore, character)
+	end
+	local fx = workspace:FindFirstChild("ClientFX")
+	if fx then
+		table.insert(ignore, fx)
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	local origin = camera.CFrame.Position
+	local direction = camera.CFrame.LookVector * 300
+	for _ = 1, 3 do
+		params.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(origin, direction, params)
+		if not hit then
+			return MAX_FOCUS
+		end
+		if hit.Instance.Transparency < 0.3 then
+			return (hit.Position - origin).Magnitude
+		end
+		table.insert(ignore, hit.Instance)
+	end
+	return MAX_FOCUS
+end
+
+-- Dos desenfoques a la vez no: mientras se apunta, el de calidad Ultra se apaga
+local function pauseQualityDof(pause)
+	if pause then
+		local quality = Lighting:FindFirstChild("QualityDOF")
+		if quality and quality:IsA("DepthOfFieldEffect") and quality.Enabled then
+			quality.Enabled = false
+			pausedQualityDof = quality
+		end
+	elseif pausedQualityDof then
+		if pausedQualityDof.Parent and ClientState.EffectiveQuality == "Ultra" then
+			pausedQualityDof.Enabled = true
+		end
+		pausedQualityDof = nil
+	end
+end
 
 local function buildVignette()
 	gui = Instance.new("ScreenGui")
@@ -26552,22 +26664,16 @@ function AimFX.Update(dt)
 	local effect = ensureDof(camera)
 	if not active or low then
 		effect.Enabled = false
+		pauseQualityDof(false)
 		return
 	end
 	-- Enfoque a lo que hay bajo la mira (suave, como el ojo)
-	local ignore = { camera }
-	local character = Players.LocalPlayer.Character
-	if character then
-		table.insert(ignore, character)
-	end
-	params.FilterDescendantsInstances = ignore
-	local origin = camera.CFrame.Position
-	local hit = workspace:Raycast(origin, camera.CFrame.LookVector * 300, params)
-	local target = math.clamp(hit and hit.Distance or 250, 6, 250)
+	local target = math.clamp(focusTarget(camera), 6, MAX_FOCUS)
 	focus += (target - focus) * math.min(1, dt * 8)
+	pauseQualityDof(true)
 	effect.Enabled = true
-	effect.FocusDistance = focus
-	effect.InFocusRadius = math.max(10, focus * 0.45)
+	effect.FocusDistance = math.min(focus, MAX_FOCUS)
+	effect.InFocusRadius = math.clamp(focus * 0.45, 10, MAX_RADIUS)
 	effect.FarIntensity = MAX_BLUR * alpha
 	effect.NearIntensity = 0
 end
@@ -27322,6 +27428,7 @@ local ClientState = {
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
 	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
 	Dead = false, -- pantalla de muerte abierta (la rellena DeathScreen)
+	KillcamActive = false, -- la killcam se está viendo (DeathScreen; el HUD oculta su «ELIMINADO POR»)
 	Emoting = false, -- haciendo un emote (cámara en tercera persona, arma oculta)
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
@@ -27496,7 +27603,8 @@ end
 -- strength: 0..1 (1 = la explosión casi encima)
 function CombatFX.Concussion(strength)
 	strength = math.clamp(strength or 0, 0, 1)
-	if strength < 0.2 or ClientState.InMainMenu then
+	-- (muerto: la cámara es la de la killcam o la de observar, no tus oídos)
+	if strength < 0.2 or ClientState.InMainMenu or ClientState.Dead then
 		return
 	end
 	ensureEffects()
@@ -27537,6 +27645,9 @@ end
 -- Bala que pasa rozando: un instante de desenfoque y la imagen se oscurece un poco (te "encoges")
 function CombatFX.Suppress(amount)
 	amount = math.clamp(amount or 0.5, 0, 1)
+	if ClientState.Dead or ClientState.InMainMenu then
+		return
+	end
 	ensureEffects()
 	if not lowQuality() and blur and flash then
 		blur.Size = math.max(blur.Size, 5 * amount)
@@ -27931,7 +28042,9 @@ end
 -- Killcam (como en los shooters): al morir, unos segundos desde los ojos del que te eliminó, mirando
 -- hacia donde estabas, un poco a cámara lenta y sin color. Para eso se guardan, varias veces por
 -- segundo, las posiciones de las cabezas de todos (jugadores y bots) durante los últimos segundos.
--- Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic: saltarla.
+-- Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic o toque: saltarla.
+-- No hay killcam en los modos de una sola vida (enseñaría en directo dónde está el enemigo) ni con
+-- granadas o ataques aéreos, ni si al morir no había línea de visión (se vería una pared).
 ---------------------------------------------------------------------------
 local HISTORY_TIME = 3.2
 local SAMPLE_TIME = 0.05
@@ -27942,6 +28055,55 @@ DeathScreen.KillcamEnabled = true
 local history = {} -- [Model] = { { tiempo, posición } }
 local killcam = nil -- la repetición en curso
 local sampleClock = 0
+local losParams = RaycastParams.new()
+losParams.FilterType = Enum.RaycastFilterType.Exclude
+
+-- ¿Se veían? (del ojo del que te eliminó a ti; las personas, los efectos, las barandillas invisibles
+-- y los cristales no tapan)
+local function clearLine(from, to)
+	local ignore = { camera }
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(ignore, p.Character)
+		end
+	end
+	for _, name in { "Bots", "ClientFX" } do
+		local folder = workspace:FindFirstChild(name)
+		if folder then
+			table.insert(ignore, folder)
+		end
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	for _ = 1, 4 do
+		losParams.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(from, to - from, losParams)
+		if not hit then
+			return true
+		end
+		if hit.Instance.Transparency < 0.3 then
+			return false
+		end
+		table.insert(ignore, hit.Instance)
+	end
+	return true
+end
+
+-- Durante la killcam: tu cuerpo se ve (la cámara de primera persona lo deja invisible) y el del que
+-- te eliminó no (la cámara está en su cabeza: se vería por dentro)
+local function setModelLook(model, modifier)
+	if not model then
+		return
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") or part:IsA("Decal") then
+			part.LocalTransparencyModifier = modifier
+		end
+	end
+end
 
 local function headPosition(model)
 	local head = model:FindFirstChild("Head")
@@ -28019,11 +28181,15 @@ local function endKillcam(thenSpectate)
 		return
 	end
 	killcam = nil
+	ClientState.KillcamActive = false
 	pcall(function()
 		RunService:UnbindFromRenderStep("Killcam")
 	end)
 	if k.Effect then
 		k.Effect:Destroy()
+	end
+	if k.KillerModel and k.KillerModel.Parent then
+		setModelLook(k.KillerModel, 0)
 	end
 	refs.Killcam.Visible = false
 	camera.FieldOfView = k.Fov
@@ -28052,16 +28218,24 @@ local function stepKillcam()
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.FieldOfView = 60
+	-- (si los dos puntos casi coinciden, se mantiene hacia donde se miraba)
 	if (victim - eye).Magnitude > 0.5 then
-		camera.CFrame = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
+		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
 	end
+	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
+	setModelLook(k.KillerModel, 1)
+	setModelLook(k.MyModel, 0)
 end
 
 -- Empieza la repetición si hay suficiente historia del que te eliminó; si no, devuelve false
 local function startKillcam(target, weaponName)
-	if not DeathScreen.KillcamEnabled or not target then
+	if not DeathScreen.KillcamEnabled or not target or noRespawn() then
 		return false
 	end
+	if weaponName == "Grenade" or weaponName == "Airstrike" then
+		return false
+	end
+	endKillcam(false) -- (nunca dos a la vez)
 	local killerModel = characterOf(target)
 	local myModel = player.Character
 	if not killerModel or not myModel or killerModel == myModel then
@@ -28073,6 +28247,10 @@ local function startKillcam(target, weaponName)
 	end
 	local available = deathTime - killerTrack[1][1]
 	if available < 0.6 then
+		return false
+	end
+	local eyeAtDeath, meAtDeath = sampleAt(killerTrack, deathTime), sampleAt(victimTrack, deathTime)
+	if not eyeAtDeath or not meAtDeath or not clearLine(eyeAtDeath, meAtDeath) then
 		return false
 	end
 	local span = math.min(DeathScreen.KillcamLength, available)
@@ -28091,7 +28269,11 @@ local function startKillcam(target, weaponName)
 		VictimTrack = table.clone(victimTrack),
 		Fov = camera.FieldOfView,
 		Effect = effect,
+		KillerModel = killerModel,
+		MyModel = myModel,
+		Look = nil :: CFrame?,
 	}
+	ClientState.KillcamActive = true
 	local name = target:IsA("Player") and target.DisplayName or target.Name
 	local weapon = type(weaponName) == "string" and Weapons.List[weaponName]
 	local weaponText = weapon and weapon.DisplayName or weaponName
@@ -28451,7 +28633,15 @@ function DeathScreen.Init()
 			return
 		end
 		local isClick = input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2
+			or input.UserInputType == Enum.UserInputType.Touch
 		if isClick and processed then
+			return
+		end
+		-- (en el móvil, tocar la pantalla salta la killcam)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			if killcam then
+				endKillcam(true)
+			end
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then
@@ -28612,8 +28802,10 @@ return DominationHUD
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientState = require(script.Parent.ClientState)
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 
 local Effects = {}
 
@@ -29073,9 +29265,39 @@ function Effects.Impact(position, normal, hitPart, material, style)
 		return
 	end
 
+	if isCharacter and realisticMap() and not GameConfig.RealisticBlood then
+		-- Impacto realista sin sangre: golpe seco de polvo y fibras de la ropa que saltan y caen
+		emitPooled(anchor, "HitPuff", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(176, 168, 150), Color3.fromRGB(120, 114, 100)),
+			LightInfluence = 1,
+			Size = seq(0.3, 1.3),
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.3),
+				NumberSequenceKeypoint.new(0.4, 0.6),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Lifetime = NumberRange.new(0.25, 0.45),
+			Speed = NumberRange.new(2, 5),
+			SpreadAngle = Vector2.new(40, 40),
+			Drag = 6,
+			Rotation = NumberRange.new(0, 360),
+		}, 3)
+		emitPooled(anchor, "HitFibers", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(70, 66, 58)),
+			LightInfluence = 1,
+			Size = seq(0.1, 0.04),
+			Lifetime = NumberRange.new(0.3, 0.5),
+			Speed = NumberRange.new(7, 12),
+			SpreadAngle = Vector2.new(30, 30),
+			Acceleration = Vector3.new(0, -50, 0),
+		}, 4)
+		return
+	end
 	if isCharacter and realisticMap() then
-		-- Impacto realista: una nube rojo oscuro que se abre y se desvanece enseguida, unas gotitas
-		-- que caen y polvo de la ropa (sin charcos ni marcas)
+		-- Impacto realista con sangre (GameConfig.RealisticBlood): una nube rojo oscuro que se abre y
+		-- se desvanece enseguida, unas gotitas que caen y polvo de la ropa (sin charcos ni marcas)
 		emitPooled(anchor, "HitMist", {
 			Texture = TEX.Smoke,
 			Color = ColorSequence.new(Color3.fromRGB(125, 12, 14), Color3.fromRGB(70, 8, 10)),
@@ -29978,7 +30200,8 @@ KILL_FX.Rodadora = function(position)
 end
 
 -- Baja normal en un mapa realista: sin estallido de colores, solo el polvo que levanta el cuerpo al
--- caer y una nube rojo oscuro que se desvanece (el cuerpo cae como un muñeco de trapo, ver Ragdoll)
+-- caer (y, con GameConfig.RealisticBlood, una nube rojo oscuro que se desvanece). El cuerpo cae como
+-- un muñeco de trapo (ver Ragdoll)
 function Effects.DeathPuff(position)
 	local anchor = emitterAnchor(position - Vector3.new(0, 1.5, 0), Vector3.yAxis, 2)
 	emit(anchor, {
@@ -29993,6 +30216,9 @@ function Effects.DeathPuff(position)
 		Drag = 3,
 		Acceleration = Vector3.new(0, 1, 0),
 	}, 7)
+	if not GameConfig.RealisticBlood then
+		return
+	end
 	local mist = emitterAnchor(position, Vector3.yAxis, 1)
 	emit(mist, {
 		Texture = TEX.Smoke,
@@ -32863,6 +33089,12 @@ local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
 	if ClientState.InMainMenu then
 		return -- en la pantalla de inicio no se dibuja el HUD
+	end
+	-- Durante la killcam, su propio rótulo dice quién te eliminó y con qué (no se pisan)
+	local showDeath = not ClientState.KillcamActive
+	if refs.DeathText.Visible ~= showDeath then
+		refs.DeathText.Visible = showDeath
+		refs.DeathIcon.Visible = showDeath
 	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -39904,7 +40136,7 @@ local function applyQuality()
 			dof.Name = "QualityDOF"
 			dof.FarIntensity = 0.12
 			dof.FocusDistance = 70
-			dof.InFocusRadius = 90
+			dof.InFocusRadius = 50 -- (el máximo que admite)
 			dof.NearIntensity = 0
 			dof.Parent = Lighting
 		end
@@ -41689,80 +41921,90 @@ local function renderStep(dt)
 	ClientState.AimAlpha = aimAlpha
 	sprintAlpha = lerp(sprintAlpha, (ClientState.Sprinting and not reloadStart) and 1 or 0, math.min(1, dt * 10))
 
-	-- Retroceso de cámara
-	local applyPitch = camKick * math.min(1, dt * 22)
-	local applyYaw = camYaw * math.min(1, dt * 22)
-	camKick -= applyPitch
-	camYaw -= applyYaw
-	if applyPitch ~= 0 or applyYaw ~= 0 then
-		camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
-	end
-	-- Recuperación: al dejar de disparar, la mira baja sola parte de lo que subió. Si mientras
-	-- disparabas ya tirabas del ratón hacia abajo, eso cuenta y no baja de más.
-	local mouseDown = UserInputService:GetMouseDelta().Y
-	if mouseDown > 0 and debtPitch > 0 then
-		debtPitch = math.max(0, debtPitch - mouseDown * 0.0025)
-	end
-	if os.clock() - lastShot > 0.12 and math.abs(camKick) < 0.002 and (debtPitch > 0.0005 or math.abs(debtYaw) > 0.0005) then
-		local r = math.min(1, dt * 7)
-		local backPitch, backYaw = debtPitch * r, debtYaw * r
-		debtPitch -= backPitch
-		debtYaw -= backYaw
-		camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
-	end
-	-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano
-	AimAssist.Update(dt)
-	-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
-	if smokeShots > 0 and os.clock() - lastShot > 0.3 then
-		local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
-		local shots = heavy and smokeShots * 4 or smokeShots
-		if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
-			Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+	-- Muerto (o en la killcam) la cámara ya no es tuya: nada de retroceso, balanceo ni temblores
+	if not ClientState.Dead and humanoid.Health > 0 then
+		-- Retroceso de cámara
+		local applyPitch = camKick * math.min(1, dt * 22)
+		local applyYaw = camYaw * math.min(1, dt * 22)
+		camKick -= applyPitch
+		camYaw -= applyYaw
+		if applyPitch ~= 0 or applyYaw ~= 0 then
+			camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
 		end
-		smokeShots = 0
-	end
+		-- Recuperación: al dejar de disparar, la mira baja sola parte de lo que subió. Si mientras
+		-- disparabas ya tirabas del ratón hacia abajo, eso cuenta y no baja de más.
+		local mouseDown = UserInputService:GetMouseDelta().Y
+		if mouseDown > 0 and debtPitch > 0 then
+			debtPitch = math.max(0, debtPitch - mouseDown * 0.0025)
+		end
+		if os.clock() - lastShot > 0.12 and math.abs(camKick) < 0.002 and (debtPitch > 0.0005 or math.abs(debtYaw) > 0.0005) then
+			local r = math.min(1, dt * 7)
+			local backPitch, backYaw = debtPitch * r, debtYaw * r
+			debtPitch -= backPitch
+			debtYaw -= backYaw
+			camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
+		end
+		-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano. Lo que ya
+		-- corrigió hacia abajo (o al lado contrario del retroceso) no se recupera otra vez al soltar
+		local _, assistPitch, assistYaw = AimAssist.Update(dt)
+		if assistPitch < 0 and debtPitch > 0 then
+			debtPitch = math.max(0, debtPitch + assistPitch)
+		end
+		if assistYaw * debtYaw < 0 then
+			debtYaw = math.sign(debtYaw) * math.max(0, math.abs(debtYaw) - math.abs(assistYaw))
+		end
+		-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
+		if smokeShots > 0 and os.clock() - lastShot > 0.3 then
+			local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
+			local shots = heavy and smokeShots * 4 or smokeShots
+			if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
+				Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+			end
+			smokeShots = 0
+		end
 
-	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
-	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
-	if rootPart then
-		local velocity = rootPart.AssemblyLinearVelocity
-		local side = velocity:Dot(camera.CFrame.RightVector)
-		strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
-	end
-	shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
-	camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
-	-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
-	local shake = ClientState.Shake or 0
-	if shake > 0.01 then
-		local t = os.clock() * 40
-		camera.CFrame = camera.CFrame
-			* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
-		ClientState.Shake = math.max(0, shake - dt * 1.6)
-	end
-	-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
-	-- posición y el alabeo (no hacia dónde se mira), así que no desvía la puntería ni se acumula.
-	local moveConfig = GameConfig.Movement
-	if rootPart and humanoid and moveConfig then
-		local v = rootPart.AssemblyLinearVelocity
-		local flatSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
-		local onGround = humanoid.FloorMaterial ~= Enum.Material.Air and not ClientState.Sliding
-		if onGround then
-			headBobTime += dt * math.min(flatSpeed, 32) * 0.42
+		-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
+		-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
+		if rootPart then
+			local velocity = rootPart.AssemblyLinearVelocity
+			local side = velocity:Dot(camera.CFrame.RightVector)
+			strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
 		end
-		headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
-		local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
-		if amount > 0.001 and not ClientState.InMainMenu then
-			local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
-			local roll = math.sin(headBobTime) * math.rad(0.4) * amount
-			camera.CFrame = camera.CFrame * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, roll)
+		shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+		-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
+		local shake = ClientState.Shake or 0
+		if shake > 0.01 then
+			local t = os.clock() * 40
+			camera.CFrame = camera.CFrame
+				* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
+			ClientState.Shake = math.max(0, shake - dt * 1.6)
 		end
-	end
-	local land = ClientState.LandKick or 0
-	if land > 0.01 then
-		camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
-		ClientState.LandKick = land * math.max(0, 1 - dt * 7)
-	else
-		ClientState.LandKick = 0
+		-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
+		-- posición y el alabeo (no hacia dónde se mira), así que no desvía la puntería ni se acumula.
+		local moveConfig = GameConfig.Movement
+		if rootPart and humanoid and moveConfig then
+			local v = rootPart.AssemblyLinearVelocity
+			local flatSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
+			local onGround = humanoid.FloorMaterial ~= Enum.Material.Air and not ClientState.Sliding
+			if onGround then
+				headBobTime += dt * math.min(flatSpeed, 32) * 0.42
+			end
+			headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
+			local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
+			if amount > 0.001 and not ClientState.InMainMenu then
+				local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
+				local roll = math.sin(headBobTime) * math.rad(0.4) * amount
+				camera.CFrame = camera.CFrame * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, roll)
+			end
+		end
+		local land = ClientState.LandKick or 0
+		if land > 0.01 then
+			camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
+			ClientState.LandKick = land * math.max(0, 1 - dt * 7)
+		else
+			ClientState.LandKick = 0
+		end
 	end
 
 	-- Latido de las skins míticas
@@ -42198,6 +42440,11 @@ local function onCharacter(newCharacter)
 	table.insert(characterConnections, humanoid.Died:Connect(function()
 		onUnequipped()
 		triggerHeld = false
+		-- (lo pendiente de retroceso y temblores no se aplica a la cámara de la muerte)
+		camKick, camYaw = 0, 0
+		debtPitch, debtYaw = 0, 0
+		ClientState.Shake = 0
+		ClientState.LandKick = 0
 	end))
 end
 

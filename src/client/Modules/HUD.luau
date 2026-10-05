@@ -1941,6 +1941,12 @@ local function render(dt)
 	if ClientState.InMainMenu then
 		return -- en la pantalla de inicio no se dibuja el HUD
 	end
+	-- Durante la killcam, su propio rótulo dice quién te eliminó y con qué (no se pisan)
+	local showDeath = not ClientState.KillcamActive
+	if refs.DeathText.Visible ~= showDeath then
+		refs.DeathText.Visible = showDeath
+		refs.DeathIcon.Visible = showDeath
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 

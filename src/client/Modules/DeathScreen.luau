@@ -143,7 +143,9 @@ end
 -- Killcam (como en los shooters): al morir, unos segundos desde los ojos del que te eliminó, mirando
 -- hacia donde estabas, un poco a cámara lenta y sin color. Para eso se guardan, varias veces por
 -- segundo, las posiciones de las cabezas de todos (jugadores y bots) durante los últimos segundos.
--- Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic: saltarla.
+-- Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic o toque: saltarla.
+-- No hay killcam en los modos de una sola vida (enseñaría en directo dónde está el enemigo) ni con
+-- granadas o ataques aéreos, ni si al morir no había línea de visión (se vería una pared).
 ---------------------------------------------------------------------------
 local HISTORY_TIME = 3.2
 local SAMPLE_TIME = 0.05
@@ -154,6 +156,55 @@ DeathScreen.KillcamEnabled = true
 local history = {} -- [Model] = { { tiempo, posición } }
 local killcam = nil -- la repetición en curso
 local sampleClock = 0
+local losParams = RaycastParams.new()
+losParams.FilterType = Enum.RaycastFilterType.Exclude
+
+-- ¿Se veían? (del ojo del que te eliminó a ti; las personas, los efectos, las barandillas invisibles
+-- y los cristales no tapan)
+local function clearLine(from, to)
+	local ignore = { camera }
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(ignore, p.Character)
+		end
+	end
+	for _, name in { "Bots", "ClientFX" } do
+		local folder = workspace:FindFirstChild(name)
+		if folder then
+			table.insert(ignore, folder)
+		end
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	for _ = 1, 4 do
+		losParams.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(from, to - from, losParams)
+		if not hit then
+			return true
+		end
+		if hit.Instance.Transparency < 0.3 then
+			return false
+		end
+		table.insert(ignore, hit.Instance)
+	end
+	return true
+end
+
+-- Durante la killcam: tu cuerpo se ve (la cámara de primera persona lo deja invisible) y el del que
+-- te eliminó no (la cámara está en su cabeza: se vería por dentro)
+local function setModelLook(model, modifier)
+	if not model then
+		return
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") or part:IsA("Decal") then
+			part.LocalTransparencyModifier = modifier
+		end
+	end
+end
 
 local function headPosition(model)
 	local head = model:FindFirstChild("Head")
@@ -231,11 +282,15 @@ local function endKillcam(thenSpectate)
 		return
 	end
 	killcam = nil
+	ClientState.KillcamActive = false
 	pcall(function()
 		RunService:UnbindFromRenderStep("Killcam")
 	end)
 	if k.Effect then
 		k.Effect:Destroy()
+	end
+	if k.KillerModel and k.KillerModel.Parent then
+		setModelLook(k.KillerModel, 0)
 	end
 	refs.Killcam.Visible = false
 	camera.FieldOfView = k.Fov
@@ -264,16 +319,24 @@ local function stepKillcam()
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.FieldOfView = 60
+	-- (si los dos puntos casi coinciden, se mantiene hacia donde se miraba)
 	if (victim - eye).Magnitude > 0.5 then
-		camera.CFrame = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
+		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
 	end
+	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
+	setModelLook(k.KillerModel, 1)
+	setModelLook(k.MyModel, 0)
 end
 
 -- Empieza la repetición si hay suficiente historia del que te eliminó; si no, devuelve false
 local function startKillcam(target, weaponName)
-	if not DeathScreen.KillcamEnabled or not target then
+	if not DeathScreen.KillcamEnabled or not target or noRespawn() then
 		return false
 	end
+	if weaponName == "Grenade" or weaponName == "Airstrike" then
+		return false
+	end
+	endKillcam(false) -- (nunca dos a la vez)
 	local killerModel = characterOf(target)
 	local myModel = player.Character
 	if not killerModel or not myModel or killerModel == myModel then
@@ -285,6 +348,10 @@ local function startKillcam(target, weaponName)
 	end
 	local available = deathTime - killerTrack[1][1]
 	if available < 0.6 then
+		return false
+	end
+	local eyeAtDeath, meAtDeath = sampleAt(killerTrack, deathTime), sampleAt(victimTrack, deathTime)
+	if not eyeAtDeath or not meAtDeath or not clearLine(eyeAtDeath, meAtDeath) then
 		return false
 	end
 	local span = math.min(DeathScreen.KillcamLength, available)
@@ -303,7 +370,11 @@ local function startKillcam(target, weaponName)
 		VictimTrack = table.clone(victimTrack),
 		Fov = camera.FieldOfView,
 		Effect = effect,
+		KillerModel = killerModel,
+		MyModel = myModel,
+		Look = nil :: CFrame?,
 	}
+	ClientState.KillcamActive = true
 	local name = target:IsA("Player") and target.DisplayName or target.Name
 	local weapon = type(weaponName) == "string" and Weapons.List[weaponName]
 	local weaponText = weapon and weapon.DisplayName or weaponName
@@ -663,7 +734,15 @@ function DeathScreen.Init()
 			return
 		end
 		local isClick = input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2
+			or input.UserInputType == Enum.UserInputType.Touch
 		if isClick and processed then
+			return
+		end
+		-- (en el móvil, tocar la pantalla salta la killcam)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			if killcam then
+				endKillcam(true)
+			end
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.ButtonY then

@@ -852,80 +852,90 @@ local function renderStep(dt)
 	ClientState.AimAlpha = aimAlpha
 	sprintAlpha = lerp(sprintAlpha, (ClientState.Sprinting and not reloadStart) and 1 or 0, math.min(1, dt * 10))
 
-	-- Retroceso de cámara
-	local applyPitch = camKick * math.min(1, dt * 22)
-	local applyYaw = camYaw * math.min(1, dt * 22)
-	camKick -= applyPitch
-	camYaw -= applyYaw
-	if applyPitch ~= 0 or applyYaw ~= 0 then
-		camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
-	end
-	-- Recuperación: al dejar de disparar, la mira baja sola parte de lo que subió. Si mientras
-	-- disparabas ya tirabas del ratón hacia abajo, eso cuenta y no baja de más.
-	local mouseDown = UserInputService:GetMouseDelta().Y
-	if mouseDown > 0 and debtPitch > 0 then
-		debtPitch = math.max(0, debtPitch - mouseDown * 0.0025)
-	end
-	if os.clock() - lastShot > 0.12 and math.abs(camKick) < 0.002 and (debtPitch > 0.0005 or math.abs(debtYaw) > 0.0005) then
-		local r = math.min(1, dt * 7)
-		local backPitch, backYaw = debtPitch * r, debtYaw * r
-		debtPitch -= backPitch
-		debtYaw -= backYaw
-		camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
-	end
-	-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano
-	AimAssist.Update(dt)
-	-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
-	if smokeShots > 0 and os.clock() - lastShot > 0.3 then
-		local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
-		local shots = heavy and smokeShots * 4 or smokeShots
-		if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
-			Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+	-- Muerto (o en la killcam) la cámara ya no es tuya: nada de retroceso, balanceo ni temblores
+	if not ClientState.Dead and humanoid.Health > 0 then
+		-- Retroceso de cámara
+		local applyPitch = camKick * math.min(1, dt * 22)
+		local applyYaw = camYaw * math.min(1, dt * 22)
+		camKick -= applyPitch
+		camYaw -= applyYaw
+		if applyPitch ~= 0 or applyYaw ~= 0 then
+			camera.CFrame = camera.CFrame * CFrame.Angles(applyPitch, applyYaw, 0)
 		end
-		smokeShots = 0
-	end
+		-- Recuperación: al dejar de disparar, la mira baja sola parte de lo que subió. Si mientras
+		-- disparabas ya tirabas del ratón hacia abajo, eso cuenta y no baja de más.
+		local mouseDown = UserInputService:GetMouseDelta().Y
+		if mouseDown > 0 and debtPitch > 0 then
+			debtPitch = math.max(0, debtPitch - mouseDown * 0.0025)
+		end
+		if os.clock() - lastShot > 0.12 and math.abs(camKick) < 0.002 and (debtPitch > 0.0005 or math.abs(debtYaw) > 0.0005) then
+			local r = math.min(1, dt * 7)
+			local backPitch, backYaw = debtPitch * r, debtYaw * r
+			debtPitch -= backPitch
+			debtYaw -= backYaw
+			camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
+		end
+		-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano. Lo que ya
+		-- corrigió hacia abajo (o al lado contrario del retroceso) no se recupera otra vez al soltar
+		local _, assistPitch, assistYaw = AimAssist.Update(dt)
+		if assistPitch < 0 and debtPitch > 0 then
+			debtPitch = math.max(0, debtPitch + assistPitch)
+		end
+		if assistYaw * debtYaw < 0 then
+			debtYaw = math.sign(debtYaw) * math.max(0, math.abs(debtYaw) - math.abs(assistYaw))
+		end
+		-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
+		if smokeShots > 0 and os.clock() - lastShot > 0.3 then
+			local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
+			local shots = heavy and smokeShots * 4 or smokeShots
+			if shots >= 7 and viewmodel and viewmodel.PrimaryPart then
+				Effects.BarrelSmoke(viewmodel.PrimaryPart:FindFirstChild("Muzzle"), math.min(1, shots / 24))
+			end
+			smokeShots = 0
+		end
 
-	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
-	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
-	if rootPart then
-		local velocity = rootPart.AssemblyLinearVelocity
-		local side = velocity:Dot(camera.CFrame.RightVector)
-		strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
-	end
-	shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
-	camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
-	-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
-	local shake = ClientState.Shake or 0
-	if shake > 0.01 then
-		local t = os.clock() * 40
-		camera.CFrame = camera.CFrame
-			* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
-		ClientState.Shake = math.max(0, shake - dt * 1.6)
-	end
-	-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
-	-- posición y el alabeo (no hacia dónde se mira), así que no desvía la puntería ni se acumula.
-	local moveConfig = GameConfig.Movement
-	if rootPart and humanoid and moveConfig then
-		local v = rootPart.AssemblyLinearVelocity
-		local flatSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
-		local onGround = humanoid.FloorMaterial ~= Enum.Material.Air and not ClientState.Sliding
-		if onGround then
-			headBobTime += dt * math.min(flatSpeed, 32) * 0.42
+		-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
+		-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
+		if rootPart then
+			local velocity = rootPart.AssemblyLinearVelocity
+			local side = velocity:Dot(camera.CFrame.RightVector)
+			strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
 		end
-		headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
-		local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
-		if amount > 0.001 and not ClientState.InMainMenu then
-			local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
-			local roll = math.sin(headBobTime) * math.rad(0.4) * amount
-			camera.CFrame = camera.CFrame * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, roll)
+		shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+		-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
+		local shake = ClientState.Shake or 0
+		if shake > 0.01 then
+			local t = os.clock() * 40
+			camera.CFrame = camera.CFrame
+				* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
+			ClientState.Shake = math.max(0, shake - dt * 1.6)
 		end
-	end
-	local land = ClientState.LandKick or 0
-	if land > 0.01 then
-		camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
-		ClientState.LandKick = land * math.max(0, 1 - dt * 7)
-	else
-		ClientState.LandKick = 0
+		-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
+		-- posición y el alabeo (no hacia dónde se mira), así que no desvía la puntería ni se acumula.
+		local moveConfig = GameConfig.Movement
+		if rootPart and humanoid and moveConfig then
+			local v = rootPart.AssemblyLinearVelocity
+			local flatSpeed = Vector3.new(v.X, 0, v.Z).Magnitude
+			local onGround = humanoid.FloorMaterial ~= Enum.Material.Air and not ClientState.Sliding
+			if onGround then
+				headBobTime += dt * math.min(flatSpeed, 32) * 0.42
+			end
+			headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
+			local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
+			if amount > 0.001 and not ClientState.InMainMenu then
+				local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
+				local roll = math.sin(headBobTime) * math.rad(0.4) * amount
+				camera.CFrame = camera.CFrame * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, roll)
+			end
+		end
+		local land = ClientState.LandKick or 0
+		if land > 0.01 then
+			camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
+			ClientState.LandKick = land * math.max(0, 1 - dt * 7)
+		else
+			ClientState.LandKick = 0
+		end
 	end
 
 	-- Latido de las skins míticas
@@ -1361,6 +1371,11 @@ local function onCharacter(newCharacter)
 	table.insert(characterConnections, humanoid.Died:Connect(function()
 		onUnequipped()
 		triggerHeld = false
+		-- (lo pendiente de retroceso y temblores no se aplica a la cámara de la muerte)
+		camKick, camYaw = 0, 0
+		debtPitch, debtYaw = 0, 0
+		ClientState.Shake = 0
+		ClientState.LandKick = 0
 	end))
 end
 

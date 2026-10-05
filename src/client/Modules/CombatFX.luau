@@ -80,7 +80,8 @@ end
 -- strength: 0..1 (1 = la explosión casi encima)
 function CombatFX.Concussion(strength)
 	strength = math.clamp(strength or 0, 0, 1)
-	if strength < 0.2 or ClientState.InMainMenu then
+	-- (muerto: la cámara es la de la killcam o la de observar, no tus oídos)
+	if strength < 0.2 or ClientState.InMainMenu or ClientState.Dead then
 		return
 	end
 	ensureEffects()
@@ -121,6 +122,9 @@ end
 -- Bala que pasa rozando: un instante de desenfoque y la imagen se oscurece un poco (te "encoges")
 function CombatFX.Suppress(amount)
 	amount = math.clamp(amount or 0.5, 0, 1)
+	if ClientState.Dead or ClientState.InMainMenu then
+		return
+	end
 	ensureEffects()
 	if not lowQuality() and blur and flash then
 		blur.Size = math.max(blur.Size, 5 * amount)

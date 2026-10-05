@@ -45,6 +45,10 @@ GameConfig.ModeSettings = {
 }
 -- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
 GameConfig.SoldierUniform = true
+-- Sangre en los impactos y bajas (mapas realistas). false (por defecto): impactos realistas sin sangre
+-- (polvo y fibras de la ropa). true: una nube rojo oscuro y gotitas. OJO: en el cuestionario de
+-- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
+GameConfig.RealisticBlood = false
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true

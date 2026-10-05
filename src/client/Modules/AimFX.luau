@@ -4,12 +4,17 @@
 -- puesta no hace falta (la tapa el visor) y en calidad Baja no se usa (cuesta en móviles modestos).
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 
 local ClientState = require(script.Parent.ClientState)
 
 local AimFX = {}
 
-local MAX_BLUR = 0.22 -- desenfoque del fondo con la mira del todo puesta (0 = nada, 1 = mucho)
+-- desenfoque del fondo con la mira del todo puesta (0 = nada, 1 = mucho). Por debajo de 0,22: ahí el
+-- desenfoque de Roblox da un salto brusco (y aparecería de golpe en vez de poco a poco)
+local MAX_BLUR = 0.2
+local MAX_FOCUS = 200 -- (lo máximo que admite FocusDistance)
+local MAX_RADIUS = 50 -- (lo máximo que admite InFocusRadius)
 local MAX_VIGNETTE = 0.38 -- oscuridad de los bordes
 
 local dof, gui
@@ -17,6 +22,56 @@ local edges = {}
 local focus = 60
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
+local pausedQualityDof = nil -- el desenfoque lejano de calidad Ultra, apagado mientras se apunta
+
+-- Distancia a lo que hay bajo la mira. No cuentan las barandillas invisibles del mapa (las balas las
+-- atraviesan) ni los cristales: se enfoca a lo que hay detrás
+local function focusTarget(camera)
+	local ignore = { camera }
+	local character = Players.LocalPlayer.Character
+	if character then
+		table.insert(ignore, character)
+	end
+	local fx = workspace:FindFirstChild("ClientFX")
+	if fx then
+		table.insert(ignore, fx)
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	local origin = camera.CFrame.Position
+	local direction = camera.CFrame.LookVector * 300
+	for _ = 1, 3 do
+		params.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(origin, direction, params)
+		if not hit then
+			return MAX_FOCUS
+		end
+		if hit.Instance.Transparency < 0.3 then
+			return (hit.Position - origin).Magnitude
+		end
+		table.insert(ignore, hit.Instance)
+	end
+	return MAX_FOCUS
+end
+
+-- Dos desenfoques a la vez no: mientras se apunta, el de calidad Ultra se apaga
+local function pauseQualityDof(pause)
+	if pause then
+		local quality = Lighting:FindFirstChild("QualityDOF")
+		if quality and quality:IsA("DepthOfFieldEffect") and quality.Enabled then
+			quality.Enabled = false
+			pausedQualityDof = quality
+		end
+	elseif pausedQualityDof then
+		if pausedQualityDof.Parent and ClientState.EffectiveQuality == "Ultra" then
+			pausedQualityDof.Enabled = true
+		end
+		pausedQualityDof = nil
+	end
+end
 
 local function buildVignette()
 	gui = Instance.new("ScreenGui")
@@ -93,22 +148,16 @@ function AimFX.Update(dt)
 	local effect = ensureDof(camera)
 	if not active or low then
 		effect.Enabled = false
+		pauseQualityDof(false)
 		return
 	end
 	-- Enfoque a lo que hay bajo la mira (suave, como el ojo)
-	local ignore = { camera }
-	local character = Players.LocalPlayer.Character
-	if character then
-		table.insert(ignore, character)
-	end
-	params.FilterDescendantsInstances = ignore
-	local origin = camera.CFrame.Position
-	local hit = workspace:Raycast(origin, camera.CFrame.LookVector * 300, params)
-	local target = math.clamp(hit and hit.Distance or 250, 6, 250)
+	local target = math.clamp(focusTarget(camera), 6, MAX_FOCUS)
 	focus += (target - focus) * math.min(1, dt * 8)
+	pauseQualityDof(true)
 	effect.Enabled = true
-	effect.FocusDistance = focus
-	effect.InFocusRadius = math.max(10, focus * 0.45)
+	effect.FocusDistance = math.min(focus, MAX_FOCUS)
+	effect.InFocusRadius = math.clamp(focus * 0.45, 10, MAX_RADIUS)
 	effect.FarIntensity = MAX_BLUR * alpha
 	effect.NearIntensity = 0
 end

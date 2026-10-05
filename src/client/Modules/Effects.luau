@@ -1,8 +1,10 @@
 -- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientState = require(script.Parent.ClientState)
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 
 local Effects = {}
 
@@ -462,9 +464,39 @@ function Effects.Impact(position, normal, hitPart, material, style)
 		return
 	end
 
+	if isCharacter and realisticMap() and not GameConfig.RealisticBlood then
+		-- Impacto realista sin sangre: golpe seco de polvo y fibras de la ropa que saltan y caen
+		emitPooled(anchor, "HitPuff", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(176, 168, 150), Color3.fromRGB(120, 114, 100)),
+			LightInfluence = 1,
+			Size = seq(0.3, 1.3),
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.3),
+				NumberSequenceKeypoint.new(0.4, 0.6),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Lifetime = NumberRange.new(0.25, 0.45),
+			Speed = NumberRange.new(2, 5),
+			SpreadAngle = Vector2.new(40, 40),
+			Drag = 6,
+			Rotation = NumberRange.new(0, 360),
+		}, 3)
+		emitPooled(anchor, "HitFibers", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(70, 66, 58)),
+			LightInfluence = 1,
+			Size = seq(0.1, 0.04),
+			Lifetime = NumberRange.new(0.3, 0.5),
+			Speed = NumberRange.new(7, 12),
+			SpreadAngle = Vector2.new(30, 30),
+			Acceleration = Vector3.new(0, -50, 0),
+		}, 4)
+		return
+	end
 	if isCharacter and realisticMap() then
-		-- Impacto realista: una nube rojo oscuro que se abre y se desvanece enseguida, unas gotitas
-		-- que caen y polvo de la ropa (sin charcos ni marcas)
+		-- Impacto realista con sangre (GameConfig.RealisticBlood): una nube rojo oscuro que se abre y
+		-- se desvanece enseguida, unas gotitas que caen y polvo de la ropa (sin charcos ni marcas)
 		emitPooled(anchor, "HitMist", {
 			Texture = TEX.Smoke,
 			Color = ColorSequence.new(Color3.fromRGB(125, 12, 14), Color3.fromRGB(70, 8, 10)),
@@ -1367,7 +1399,8 @@ KILL_FX.Rodadora = function(position)
 end
 
 -- Baja normal en un mapa realista: sin estallido de colores, solo el polvo que levanta el cuerpo al
--- caer y una nube rojo oscuro que se desvanece (el cuerpo cae como un muñeco de trapo, ver Ragdoll)
+-- caer (y, con GameConfig.RealisticBlood, una nube rojo oscuro que se desvanece). El cuerpo cae como
+-- un muñeco de trapo (ver Ragdoll)
 function Effects.DeathPuff(position)
 	local anchor = emitterAnchor(position - Vector3.new(0, 1.5, 0), Vector3.yAxis, 2)
 	emit(anchor, {
@@ -1382,6 +1415,9 @@ function Effects.DeathPuff(position)
 		Drag = 3,
 		Acceleration = Vector3.new(0, 1, 0),
 	}, 7)
+	if not GameConfig.RealisticBlood then
+		return
+	end
 	local mist = emitterAnchor(position, Vector3.yAxis, 1)
 	emit(mist, {
 		Texture = TEX.Smoke,

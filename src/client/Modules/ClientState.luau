@@ -4,6 +4,7 @@ local ClientState = {
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
 	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
 	Dead = false, -- pantalla de muerte abierta (la rellena DeathScreen)
+	KillcamActive = false, -- la killcam se está viendo (DeathScreen; el HUD oculta su «ELIMINADO POR»)
 	Emoting = false, -- haciendo un emote (cámara en tercera persona, arma oculta)
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
