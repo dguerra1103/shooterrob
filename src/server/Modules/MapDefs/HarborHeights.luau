@@ -231,6 +231,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-118, 0, 12))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-118, 0, 12))
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas
+	Kit.callout("CANAL", CFrame.new(0, 2, 0), V(CANAL_HALF * 2, 30, 220))
+	Kit.callout("TORRE", CFrame.new(0, 12, 0), V(20, 34, 20))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("MERCADO", m * CFrame.new(-40, 8, 24), V(30, 20, 36))
+		Kit.callout("AZOTEAS", m * CFrame.new(-80, 10, 64), V(80, 30, 40))
+		Kit.callout("CASAS DEL MUELLE", m * CFrame.new(-100, 10, -66), V(80, 30, 44))
+	end
 
 	-- Malecón con barandilla hacia el mar (lado +Z) y fachadas al otro lado (lado -Z)
 	block("SeaWall", V(320, 3, 3), CFrame.new(0, 1.5, 111.5), STONE_DARK, Enum.Material.Limestone)

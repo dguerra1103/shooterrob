@@ -171,6 +171,13 @@ function Map.Build()
 
 	-- Límites: muros de fábrica alrededor y chimeneas de fondo
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas
+	Kit.callout("HORNO", CFrame.new(0, 12, 0), V(48, 34, 48))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CANAL DE LAVA", m * CFrame.new(-LAVA_X, 8, 0), V(18, 26, 220))
+		Kit.callout("CINTA", m * CFrame.new(-62, 10, -60), V(24, 30, 60))
+		Kit.callout("FÁBRICA", m * CFrame.new(-95, 10, 75), V(44, 30, 40))
+	end
 	for x = -150, 150, 30 do
 		for _, z in { -1, 1 } do
 			local h = 26 + (math.abs(x) % 3) * 6

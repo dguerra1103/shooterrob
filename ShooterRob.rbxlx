@@ -13998,6 +13998,13 @@ function Map.Build()
 
 	-- Muro perimetral de contenedores (2 alturas) y límites
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas (la base de cada equipo es su almacén)
+	Kit.callout("PILA CENTRAL", CFrame.new(0, 10, 0), V(24, 30, 40))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("PASILLO DE CONTENEDORES", m * CFrame.new(-60, 10, -62), V(110, 30, 40))
+		Kit.callout("PASARELA", m * CFrame.new(-118, 12, 0), V(14, 30, 110))
+		Kit.callout("CARRETILLA", m * CFrame.new(-60, 10, 50), V(70, 30, 40))
+	end
 	for x = -150, 150, 21 do
 		for _, z in { -114, 114 } do
 			lite(CFrame.new(x, 0, z), COLORS[(math.abs(x) // 21 + (z > 0 and 1 or 0)) % #COLORS + 1])
@@ -15931,6 +15938,14 @@ function Map.Build()
 	Kit.flagBase(teams[1], CFrame.new(-118, 0, 12))
 	Kit.flagBase(teams[2], Kit.MIRROR * CFrame.new(-118, 0, 12))
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas
+	Kit.callout("CANAL", CFrame.new(0, 2, 0), V(CANAL_HALF * 2, 30, 220))
+	Kit.callout("TORRE", CFrame.new(0, 12, 0), V(20, 34, 20))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("MERCADO", m * CFrame.new(-40, 8, 24), V(30, 20, 36))
+		Kit.callout("AZOTEAS", m * CFrame.new(-80, 10, 64), V(80, 30, 40))
+		Kit.callout("CASAS DEL MUELLE", m * CFrame.new(-100, 10, -66), V(80, 30, 44))
+	end
 
 	-- Malecón con barandilla hacia el mar (lado +Z) y fachadas al otro lado (lado -Z)
 	block("SeaWall", V(320, 3, 3), CFrame.new(0, 1.5, 111.5), STONE_DARK, Enum.Material.Limestone)
@@ -17561,6 +17576,13 @@ function Map.Build()
 
 	-- Límites: muros de fábrica alrededor y chimeneas de fondo
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas
+	Kit.callout("HORNO", CFrame.new(0, 12, 0), V(48, 34, 48))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CANAL DE LAVA", m * CFrame.new(-LAVA_X, 8, 0), V(18, 26, 220))
+		Kit.callout("CINTA", m * CFrame.new(-62, 10, -60), V(24, 30, 60))
+		Kit.callout("FÁBRICA", m * CFrame.new(-95, 10, 75), V(44, 30, 40))
+	end
 	for x = -150, 150, 30 do
 		for _, z in { -1, 1 } do
 			local h = 26 + (math.abs(x) % 3) * 6

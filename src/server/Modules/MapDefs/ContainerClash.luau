@@ -165,6 +165,13 @@ function Map.Build()
 
 	-- Muro perimetral de contenedores (2 alturas) y límites
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas (la base de cada equipo es su almacén)
+	Kit.callout("PILA CENTRAL", CFrame.new(0, 10, 0), V(24, 30, 40))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("PASILLO DE CONTENEDORES", m * CFrame.new(-60, 10, -62), V(110, 30, 40))
+		Kit.callout("PASARELA", m * CFrame.new(-118, 12, 0), V(14, 30, 110))
+		Kit.callout("CARRETILLA", m * CFrame.new(-60, 10, 50), V(70, 30, 40))
+	end
 	for x = -150, 150, 21 do
 		for _, z in { -114, 114 } do
 			lite(CFrame.new(x, 0, z), COLORS[(math.abs(x) // 21 + (z > 0 and 1 or 0)) % #COLORS + 1])
