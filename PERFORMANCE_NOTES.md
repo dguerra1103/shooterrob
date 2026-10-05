@@ -20,6 +20,9 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
   último valor; granada: un solo `GrenadePin` por lanzamiento.
 
 ## Problemas detectados / vigilar
+- **Sonidos 2D**: cada disparo propio crea 2-4 `Sound` (cuerpo, estampido, mecanismo y, como mucho cada
+  0,2 s, la cola). Roblox lo aguanta bien, pero si el MicroProfiler marca `Sound` en ráfagas largas, el
+  siguiente paso es un pool por nombre en `Sounds.Play` (reiniciando grupo, efectos y volumen al reusar).
 - **HUD.luau (2.2k líneas) y Menu.luau (2.8k)**: muchos elementos; el HUD ya escribe textos solo cuando
   cambian (`hudCache`). Vigilar el coste de `UIStroke`/`UIGradient` en móviles.
 - **Iconos 3D del killfeed** (`WeaponIcon`, ViewportFrame por entrada): desactivados en Rendimiento.

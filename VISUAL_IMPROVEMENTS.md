@@ -13,8 +13,8 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 ## Legibilidad en combate
 | Qué | Por qué | Dónde |
 |---|---|---|
-| **Contorno rojo fino** en enemigos (Highlight `Occluded`, borde semitransparente, sin relleno). Se quita al morir y se recalcula si cambia de bando. | Ver al enemigo al instante contra cualquier fondo, sin dar información a través de paredes. | `client/Modules/WorldFX.luau`, `GameConfig.EnemyOutline` |
-| **Nombres de zona**: «📍 HOTEL CENTRAL», «AVENIDA», «BASE AZUL» bajo el minimapa; en mapas sin nombres, «NORTE · LADO AZUL». | 5v5: poder decir dónde estás («en las obras») y orientarse. | `client/Modules/ZoneName.luau`, `Kit.callout`, `RealKit.building` (los edificios con cartel se nombran solos) |
+| **Contorno rojo fino** en enemigos (Highlight `Occluded`, borde semitransparente, sin relleno). Se quita al morir, se recalcula si cambia de bando y cede el sitio al radar y al destello de impacto (un resaltado por modelo). | Ver al enemigo al instante contra cualquier fondo, sin dar información a través de paredes. | `client/Modules/WorldFX.luau`, `GameConfig.EnemyOutline` |
+| **Nombres de zona**: «📍 HOTEL CENTRAL», «AVENIDA», «BASE AZUL» bajo el minimapa; con nombres propios en Encrucijada, Base Militar, Cumbre, Puerto, Contenedores y Fundición; en el resto, «NORTE · LADO AZUL». | 5v5: poder decir dónde estás («en las obras») y orientarse. | `client/Modules/ZoneName.luau`, `Kit.callout`, `RealKit.building` (los edificios con cartel se nombran solos) |
 | HUD de combate limpio: retos y barra del evento salen solo un rato (al aparecer y al progresar); el botón de tienda se oculta en PC mientras luchas (tecla B); «Racha x0» no se muestra. | Menos ruido en pantalla durante el tiroteo. | `QuestTracker.luau`, `EventHUD.luau`, `Menu.luau`, `HUD.luau` |
 | Botones de habilidades en PC compactos (oscuros con el color en el borde); en móvil siguen grandes. | Jerarquía: las habilidades no compiten con la mira. | `client/Modules/Abilities.luau` |
 
@@ -24,12 +24,17 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | **ACE**: eliminar tú solo a todo el equipo rival (3+) en una ronda → celebración, aviso a todos y +250 XP. | Momento fuerte de los shooters por rondas. | `server/Modules/Round.luau`, `HUD.luau` (`Notify "Ace"`) |
 | **Resultado de ronda**: RONDA GANADA / PERDIDA según tu equipo, marcador y el mejor de la ronda (3 s). | "¿Ganamos?" se responde al instante; no bloquea. | `Round.luau` (`Notify "Round"`), `HUD.luau` `roundResult` |
 | **¡REMONTADA!** en la pantalla final si el ganador llegó a ir perdiendo por un 30 % de la meta. | Recompensa emocional al volver de atrás. | `Round.luau` (`maxDeficit`), `HUD.luau` |
-| Botones con respuesta: crecen al pasar el ratón, se hunden al pulsar y vuelven con rebote. | Microinteracción en toda la interfaz desde un solo sitio. | `client/Modules/UI.luau` → `UI.pressFeel` |
+| Botones con respuesta: crecen al pasar el ratón, se hunden al pulsar y vuelven con rebote (en móvil se sueltan aunque el dedo salga del botón). | Microinteracción en toda la interfaz desde un solo sitio. | `client/Modules/UI.luau` → `UI.pressFeel` |
+| Aviso de baja con placa oscura y franja de color (rojo; dorado a la cabeza o en multibaja) que entra deslizando. | Confirmación de baja más "premium" sin agrandar la UI. | `HUD.luau` (`KillPlate`, `KillAccent`) |
+| Hitmarker con tres lecturas: normal (corto, blanco), cabeza (largo, dorado, con «tin» agudo extra), baja (grueso, rojo, gira). | "¿Le pegué? ¿A la cabeza? ¿Lo maté?" sin pensar. | `HUD.luau` `onHitConfirm` |
+| Colores de equipo legibles: el rojo/azul puros se suavizan en marcador, killfeed y contorno de compañeros (el azul tira a celeste). | El azul puro casi no se leía sobre fondo oscuro. | `UI.teamTint` |
+| Resumen de partida y marcador (Tab) con **asistencias** (bajas / asist. / muertes). | Lectura K/A/D de los shooters competitivos. | `Round.luau` (`MatchAssists`), `HUD.luau`, `Scoreboard.luau` |
+| Armas: **barras de estadísticas** (daño, cadencia, control; en cuerpo a cuerpo daño, velocidad, alcance) comparadas con la mejor del juego. | Elegir arma de un vistazo, como en un loadout. | `Menu.luau` `statRows` |
 
 ## Gun feel y cámara
 | Qué | Por qué | Dónde |
 |---|---|---|
-| Capa de **cola** en tus disparos (eco grave filtrado, 1 cada 0,12 s como mucho). | El disparo suena con cuerpo y entorno, sin saturar en ráfaga. | `shared/Sounds.luau` → `ShotTails` |
+| Capa de **cola** en tus disparos (eco grave filtrado en el grupo de armas, 1 cada 0,2 s como mucho). | El disparo suena con cuerpo y entorno, sin saturar en ráfaga. | `shared/Sounds.luau` → `ShotTails` |
 | Temblor/alabeo de cámara un 60 % menor al apuntar y casi nulo con "Efectos reducidos". | Competitivo > cinemático. | `WeaponController.luau` |
 | Reacción al recibir daño: alabeo corto (≤ 1,5°) y tirón del arma; no mueve la mira. | Sentir el impacto sin perder el control. | `WeaponController.luau` |
 
