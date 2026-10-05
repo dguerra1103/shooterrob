@@ -1327,12 +1327,14 @@ end
 ---------------------------------------------------------------------------
 
 local QUALITY_INFO = {
-	Auto = "Se elige sola: Baja en móviles, Media en PC",
-	Baja = "Máximo rendimiento (móviles): sin sombras ni efectos",
-	Media = "Sombras y brillo, menos partículas",
-	Alta = "Todo como está diseñado",
-	Ultra = "Además desenfoque de distancia y más partículas",
+	Auto = "Se elige sola: Rendimiento en móviles, Equilibrada en PC",
+	Baja = "Máximo rendimiento (móviles modestos): sin sombras ni partículas del mapa. Lo del combate se ve igual",
+	Media = "Recomendada: sombras, brillo y algo de ambiente",
+	Alta = "Todo como está diseñado: rayos de sol, focos con sombra y todo el ambiente",
+	Ultra = "Además horizonte suavizado y más partículas",
 }
+-- Nombre de cada calidad en pantalla (los valores guardados siguen siendo Baja/Media/Alta/Ultra)
+local QUALITY_NAMES = { Auto = "Auto", Baja = "Rendimiento", Media = "Equilibrada", Alta = "Alta", Ultra = "Ultra" }
 
 local function buildSettingsPage()
 	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }))
@@ -1363,8 +1365,8 @@ local function buildSettingsPage()
 		local button = UI.button({
 			Position = UDim2.fromOffset(16 + (i - 1) * 118, 42),
 			Size = UDim2.fromOffset(110, 36),
-			Text = level,
-			TextSize = 18,
+			Text = QUALITY_NAMES[level] or level,
+			TextSize = 16,
 			BackgroundColor3 = selected and BLUE or GREY,
 			Parent = quality,
 		}, { UI.gloss() })

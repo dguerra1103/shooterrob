@@ -559,6 +559,18 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 	refs.BigFit = UI.new("UITextSizeConstraint", { MaxTextSize = 54, Parent = refs.BigText })
+	-- Línea pequeña debajo del aviso grande (resultado de cada ronda: marcador y mejor de la ronda)
+	refs.BigSub = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, phone and 0.2 or 0.3, phone and 26 or 40),
+		Size = UDim2.new(0.8, 0, 0, phone and 22 or 28),
+		Text = "",
+		TextSize = phone and 17 or 22,
+		RichText = true,
+		TextStrokeTransparency = 0.3,
+		Visible = false,
+		Parent = gui,
+	})
 
 	refs.Banner = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -979,6 +991,49 @@ local function bigMessage(text, color)
 	end)
 end
 
+-- Resultado de una ronda (Eliminación, Buscar y destruir): RONDA GANADA / PERDIDA, el marcador y
+-- quién fue el mejor de la ronda. Corto: a los 3 s ya se prepara la siguiente
+local function roundResult(info)
+	if type(info) ~= "table" then
+		return
+	end
+	local mine = player.Team and player.Team.Name
+	local won = info.Winner ~= nil and info.Winner == mine
+	if info.Winner == nil then
+		bigMessage("RONDA EMPATADA", Color3.new(1, 1, 1))
+	elseif mine then
+		bigMessage(won and "RONDA GANADA" or "RONDA PERDIDA", won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 70))
+	else
+		bigMessage("RONDA PARA " .. string.upper(tostring(info.Winner)))
+	end
+	if won then
+		RewardFX.EdgeFlash(Color3.fromRGB(255, 210, 60), 0.45)
+		Sounds.Play("Kill", nil, 1.25, 0.8)
+	elseif info.Winner ~= nil and mine then
+		Sounds.Play("Boom", nil, 0.85, 0.25)
+	end
+	local teamA = ReplicatedStorage:GetAttribute("TeamA") or "Rojo"
+	local teamB = ReplicatedStorage:GetAttribute("TeamB") or "Azul"
+	local colorA = refs.ScoreABox.BackgroundColor3
+	local colorB = refs.ScoreBBox.BackgroundColor3
+	local line = string.format('<font color="%s">%s %d</font>  –  <font color="%s">%d %s</font>',
+		UI.hex(colorA), teamA, tonumber(info.ScoreA) or 0, UI.hex(colorB), tonumber(info.ScoreB) or 0, teamB)
+	if type(info.MVP) == "string" and (tonumber(info.MVPKills) or 0) > 0 then
+		line ..= string.format('   ·   ⭐ %s <font color="#C8C8D2">(%d)</font>', info.MVP, tonumber(info.MVPKills) or 0)
+	end
+	refs.BigSub.Text = line
+	refs.BigSub.TextTransparency = 0
+	refs.BigSub.TextStrokeTransparency = 0.3
+	refs.BigSub.Visible = true
+	local token = {}
+	refs.BigSubToken = token
+	task.delay(2.8, function()
+		if refs.BigSubToken == token then
+			tween(refs.BigSub, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		end
+	end)
+end
+
 local function timedLabel(label, text, duration)
 	label.Text = text
 	label.Visible = true
@@ -1017,6 +1072,8 @@ local function onNotify(kind, text)
 		showMedal(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Round" then
+		roundResult(text)
 	elseif kind == "Ace" then
 		-- ACE: alguien eliminó solo a todo el equipo rival en esta ronda
 		if text == player.Name then

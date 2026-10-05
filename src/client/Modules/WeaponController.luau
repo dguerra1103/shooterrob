@@ -914,13 +914,16 @@ local function renderStep(dt)
 			strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
 		end
 		shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
-		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+		-- (competitivo: apuntando tiembla mucho menos, y con «Efectos de pantalla: Reducidos» casi nada)
+		local calm = (ClientState.ReducedFX() and 0.3 or 1) * (1 - 0.6 * aimAlpha)
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, (strafeRoll + shakeRoll) * calm)
 		-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
 		local shake = ClientState.Shake or 0
 		if shake > 0.01 then
 			local t = os.clock() * 40
+			local amount = shake * calm
 			camera.CFrame = camera.CFrame
-				* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
+				* CFrame.Angles(math.noise(t, 1) * amount * 0.05, math.noise(t, 2) * amount * 0.05, math.noise(t, 3) * amount * 0.03)
 			ClientState.Shake = math.max(0, shake - dt * 1.6)
 		end
 		-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la

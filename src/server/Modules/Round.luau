@@ -1207,14 +1207,27 @@ local function eliminationRounds(s)
 			task.wait(0.25)
 		end
 		Bomb.Stop()
+		local roundStats = aceRound
 		aceRound = nil
 		if decided then
 			if winner then
 				addScore(winner, 1)
-				Remotes.Notify:FireAllClients("Big", "¡RONDA PARA " .. string.upper(winner.Name) .. "!")
-			else
-				Remotes.Notify:FireAllClients("Big", "RONDA EMPATADA")
 			end
+			-- Resultado de la ronda: cada cliente dice GANADA/PERDIDA, con el marcador y el mejor de la ronda
+			local roundMVP, roundKills = nil, 0
+			for name, kills in (roundStats and roundStats.Kills) or {} do
+				if kills > roundKills then
+					roundMVP, roundKills = name, kills
+				end
+			end
+			Remotes.Notify:FireAllClients("Round", {
+				Winner = winner and winner.Name or nil,
+				Number = number,
+				ScoreA = getScore(a.Name),
+				ScoreB = getScore(b.Name),
+				MVP = roundMVP,
+				MVPKills = roundKills,
+			})
 			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
 			if not playFinalKillcam() then
 				task.wait(3)

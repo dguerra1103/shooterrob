@@ -25717,14 +25717,27 @@ local function eliminationRounds(s)
 			task.wait(0.25)
 		end
 		Bomb.Stop()
+		local roundStats = aceRound
 		aceRound = nil
 		if decided then
 			if winner then
 				addScore(winner, 1)
-				Remotes.Notify:FireAllClients("Big", "¡RONDA PARA " .. string.upper(winner.Name) .. "!")
-			else
-				Remotes.Notify:FireAllClients("Big", "RONDA EMPATADA")
 			end
+			-- Resultado de la ronda: cada cliente dice GANADA/PERDIDA, con el marcador y el mejor de la ronda
+			local roundMVP, roundKills = nil, 0
+			for name, kills in (roundStats and roundStats.Kills) or {} do
+				if kills > roundKills then
+					roundMVP, roundKills = name, kills
+				end
+			end
+			Remotes.Notify:FireAllClients("Round", {
+				Winner = winner and winner.Name or nil,
+				Number = number,
+				ScoreA = getScore(a.Name),
+				ScoreB = getScore(b.Name),
+				MVP = roundMVP,
+				MVPKills = roundKills,
+			})
 			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
 			if not playFinalKillcam() then
 				task.wait(3)
@@ -33017,6 +33030,18 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 	refs.BigFit = UI.new("UITextSizeConstraint", { MaxTextSize = 54, Parent = refs.BigText })
+	-- Línea pequeña debajo del aviso grande (resultado de cada ronda: marcador y mejor de la ronda)
+	refs.BigSub = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, phone and 0.2 or 0.3, phone and 26 or 40),
+		Size = UDim2.new(0.8, 0, 0, phone and 22 or 28),
+		Text = "",
+		TextSize = phone and 17 or 22,
+		RichText = true,
+		TextStrokeTransparency = 0.3,
+		Visible = false,
+		Parent = gui,
+	})
 
 	refs.Banner = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -33437,6 +33462,49 @@ local function bigMessage(text, color)
 	end)
 end
 
+-- Resultado de una ronda (Eliminación, Buscar y destruir): RONDA GANADA / PERDIDA, el marcador y
+-- quién fue el mejor de la ronda. Corto: a los 3 s ya se prepara la siguiente
+local function roundResult(info)
+	if type(info) ~= "table" then
+		return
+	end
+	local mine = player.Team and player.Team.Name
+	local won = info.Winner ~= nil and info.Winner == mine
+	if info.Winner == nil then
+		bigMessage("RONDA EMPATADA", Color3.new(1, 1, 1))
+	elseif mine then
+		bigMessage(won and "RONDA GANADA" or "RONDA PERDIDA", won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 70))
+	else
+		bigMessage("RONDA PARA " .. string.upper(tostring(info.Winner)))
+	end
+	if won then
+		RewardFX.EdgeFlash(Color3.fromRGB(255, 210, 60), 0.45)
+		Sounds.Play("Kill", nil, 1.25, 0.8)
+	elseif info.Winner ~= nil and mine then
+		Sounds.Play("Boom", nil, 0.85, 0.25)
+	end
+	local teamA = ReplicatedStorage:GetAttribute("TeamA") or "Rojo"
+	local teamB = ReplicatedStorage:GetAttribute("TeamB") or "Azul"
+	local colorA = refs.ScoreABox.BackgroundColor3
+	local colorB = refs.ScoreBBox.BackgroundColor3
+	local line = string.format('<font color="%s">%s %d</font>  –  <font color="%s">%d %s</font>',
+		UI.hex(colorA), teamA, tonumber(info.ScoreA) or 0, UI.hex(colorB), tonumber(info.ScoreB) or 0, teamB)
+	if type(info.MVP) == "string" and (tonumber(info.MVPKills) or 0) > 0 then
+		line ..= string.format('   ·   ⭐ %s <font color="#C8C8D2">(%d)</font>', info.MVP, tonumber(info.MVPKills) or 0)
+	end
+	refs.BigSub.Text = line
+	refs.BigSub.TextTransparency = 0
+	refs.BigSub.TextStrokeTransparency = 0.3
+	refs.BigSub.Visible = true
+	local token = {}
+	refs.BigSubToken = token
+	task.delay(2.8, function()
+		if refs.BigSubToken == token then
+			tween(refs.BigSub, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		end
+	end)
+end
+
 local function timedLabel(label, text, duration)
 	label.Text = text
 	label.Visible = true
@@ -33475,6 +33543,8 @@ local function onNotify(kind, text)
 		showMedal(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Round" then
+		roundResult(text)
 	elseif kind == "Ace" then
 		-- ACE: alguien eliminó solo a todo el equipo rival en esta ronda
 		if text == player.Name then
@@ -38058,12 +38128,14 @@ end
 ---------------------------------------------------------------------------
 
 local QUALITY_INFO = {
-	Auto = "Se elige sola: Baja en móviles, Media en PC",
-	Baja = "Máximo rendimiento (móviles): sin sombras ni efectos",
-	Media = "Sombras y brillo, menos partículas",
-	Alta = "Todo como está diseñado",
-	Ultra = "Además desenfoque de distancia y más partículas",
+	Auto = "Se elige sola: Rendimiento en móviles, Equilibrada en PC",
+	Baja = "Máximo rendimiento (móviles modestos): sin sombras ni partículas del mapa. Lo del combate se ve igual",
+	Media = "Recomendada: sombras, brillo y algo de ambiente",
+	Alta = "Todo como está diseñado: rayos de sol, focos con sombra y todo el ambiente",
+	Ultra = "Además horizonte suavizado y más partículas",
 }
+-- Nombre de cada calidad en pantalla (los valores guardados siguen siendo Baja/Media/Alta/Ultra)
+local QUALITY_NAMES = { Auto = "Auto", Baja = "Rendimiento", Media = "Equilibrada", Alta = "Alta", Ultra = "Ultra" }
 
 local function buildSettingsPage()
 	local scroll = scroller(UI.new("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }))
@@ -38094,8 +38166,8 @@ local function buildSettingsPage()
 		local button = UI.button({
 			Position = UDim2.fromOffset(16 + (i - 1) * 118, 42),
 			Size = UDim2.fromOffset(110, 36),
-			Text = level,
-			TextSize = 18,
+			Text = QUALITY_NAMES[level] or level,
+			TextSize = 16,
 			BackgroundColor3 = selected and BLUE or GREY,
 			Parent = quality,
 		}, { UI.gloss() })
@@ -44373,13 +44445,16 @@ local function renderStep(dt)
 			strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
 		end
 		shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
-		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, strafeRoll + shakeRoll)
+		-- (competitivo: apuntando tiembla mucho menos, y con «Efectos de pantalla: Reducidos» casi nada)
+		local calm = (ClientState.ReducedFX() and 0.3 or 1) * (1 - 0.6 * aimAlpha)
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, (strafeRoll + shakeRoll) * calm)
 		-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
 		local shake = ClientState.Shake or 0
 		if shake > 0.01 then
 			local t = os.clock() * 40
+			local amount = shake * calm
 			camera.CFrame = camera.CFrame
-				* CFrame.Angles(math.noise(t, 1) * shake * 0.05, math.noise(t, 2) * shake * 0.05, math.noise(t, 3) * shake * 0.03)
+				* CFrame.Angles(math.noise(t, 1) * amount * 0.05, math.noise(t, 2) * amount * 0.05, math.noise(t, 3) * amount * 0.03)
 			ClientState.Shake = math.max(0, shake - dt * 1.6)
 		end
 		-- Balanceo de cabeza al andar y correr, y golpe al aterrizar desde alto. Solo se mueve la
