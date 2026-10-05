@@ -89,6 +89,14 @@ function UI.formatTime(seconds)
 	return string.format("%02d:%02d", seconds // 60, seconds % 60)
 end
 
+-- Mayúsculas que respetan las tildes (string.upper solo cambia las letras sin acento: «Mítico» saldría
+-- «MíTICO»)
+local ACCENTS = { ["á"] = "Á", ["é"] = "É", ["í"] = "Í", ["ó"] = "Ó", ["ú"] = "Ú", ["ñ"] = "Ñ", ["ü"] = "Ü" }
+function UI.upper(text)
+	local upper = string.upper(tostring(text))
+	return (string.gsub(upper, "\195[\161\169\173\179\186\177\188]", ACCENTS))
+end
+
 function UI.hex(color)
 	return "#" .. color:ToHex()
 end

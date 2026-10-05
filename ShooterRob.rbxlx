@@ -11986,21 +11986,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local PlayerData = require(script.Parent.PlayerData)
 
 local Loot = {}
 
-Loot.Chance = 0.12 -- probabilidad de que una baja a otro jugador suelte botín
-Loot.BotChance = 0.07 -- (contra bots, menos: que no salga a cuenta "granjear" bots)
+Loot.Chance = 0.1 -- probabilidad de que una baja a otro jugador suelte botín
+Loot.BotChance = 0.06 -- (contra bots, menos, y con los premios a la mitad: que no salga a cuenta "granjear" bots)
 Loot.LIFETIME = 15
 local RADIUS = 5
 
 -- Rarezas: peso (probabilidad relativa), monedas, XP y color del rayo
 Loot.Tiers = {
-	{ Name = "Común", Weight = 62, Coins = 15, XP = 0, Color = Color3.fromRGB(200, 200, 200) },
-	{ Name = "Raro", Weight = 26, Coins = 40, XP = 0, Color = Color3.fromRGB(70, 160, 255) },
-	{ Name = "Épico", Weight = 10, Coins = 100, XP = 100, Color = Color3.fromRGB(190, 80, 255) },
-	{ Name = "Legendario", Weight = 2, Coins = 300, XP = 250, Color = Color3.fromRGB(255, 180, 30) },
+-- (de media, unas 23 monedas por paquete: un extra, no una segunda fuente de ingresos)
+	{ Name = "Común", Weight = 62, Coins = 10, XP = 0, Color = Color3.fromRGB(200, 200, 200) },
+	{ Name = "Raro", Weight = 26, Coins = 25, XP = 0, Color = Color3.fromRGB(70, 160, 255) },
+	{ Name = "Épico", Weight = 10, Coins = 60, XP = 100, Color = Color3.fromRGB(190, 80, 255) },
+	{ Name = "Legendario", Weight = 2, Coins = 200, XP = 250, Color = Color3.fromRGB(255, 180, 30) },
 }
 
 local active = {} -- { Model, Position, Owner, Tier, Expires }
@@ -12091,11 +12093,13 @@ end
 
 local function collect(entry, player)
 	local tier = entry.Tier
-	local coins = PlayerData.AddCoins(player, tier.Coins)
-	if tier.XP > 0 then
-		PlayerData.AddXP(player, tier.XP, "Botín " .. tier.Name)
+	local scale = entry.Scale or 1
+	local coins = PlayerData.AddCoins(player, math.max(1, math.floor(tier.Coins * scale)))
+	local xp = math.floor(tier.XP * scale)
+	if xp > 0 then
+		PlayerData.AddXP(player, xp, "Botín " .. tier.Name)
 	end
-	Remotes.Notify:FireClient(player, "Loot", { Rarity = tier.Name, Coins = coins, XP = tier.XP, Color = tier.Color })
+	Remotes.Notify:FireClient(player, "Loot", { Rarity = tier.Name, Coins = coins, XP = xp, Color = tier.Color })
 end
 
 local function step()
@@ -12155,7 +12159,9 @@ function Loot.MaybeDrop(position, killer, againstBot, roll)
 	local model = build(ground, tier)
 	model:SetAttribute("Owner", killer.UserId)
 	model.Parent = folder
-	table.insert(active, { Model = model, Position = ground, Owner = killer, Tier = tier, Expires = os.clock() + Loot.LIFETIME })
+	-- (contra bots, el premio se escala como las bajas a bots: GameConfig.Bots.RewardScale)
+	local scale = againstBot and (GameConfig.Bots and GameConfig.Bots.RewardScale or 0.5) or 1
+	table.insert(active, { Model = model, Position = ground, Owner = killer, Tier = tier, Scale = scale, Expires = os.clock() + Loot.LIFETIME })
 	ensureLoop()
 	-- Solo quien lo ha ganado ve el aviso
 	Remotes.Notify:FireClient(killer, "LootDrop", tier.Name)
@@ -24390,7 +24396,8 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Headshot = headshot,
 	})
 	-- Botín: a veces el caído suelta un paquete para quien le eliminó (no en Calabazas: ya sueltan algo)
-	if playing and currentMode ~= "CAL" and killer and killer ~= victim and typeof(position) == "Vector3" then
+	-- (solo bajas a jugadores o bots de verdad: los muñecos de práctica no cuentan)
+	if playing and currentMode ~= "CAL" and killer and killer ~= victim and (victim or victimBot) and typeof(position) == "Vector3" then
 		Loot.MaybeDrop(position, killer, victimBot ~= nil)
 	end
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo
@@ -30874,7 +30881,8 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 
 	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
 	-- reutiliza, y sin verse a través de las paredes
-	local target = os.clock() - ClientState.LastHitTime < 0.6 and ClientState.LastHitModel
+	-- (solo si el último disparo propio fue hace muy poco: una granada no hace destellar a otro)
+	local target = os.clock() - ClientState.LastHitTime < 0.35 and ClientState.LastHitModel
 	if target and target.Parent then
 		if not hitFlash or not hitFlash.Parent then
 			hitFlash = Instance.new("Highlight")
@@ -31048,7 +31056,7 @@ local function onMatchSummary(summary)
 		elseif delta < 0 then
 			deltaText = '  <font color="#FF6E6E">' .. delta .. " RP</font>"
 		end
-		return string.format('%s <font color="%s"><b>%s</b></font>%s', tier.Icon, UI.hex(tier.Color), string.upper(tier.Name), deltaText)
+		return string.format('%s <font color="%s"><b>%s</b></font>%s', tier.Icon, UI.hex(tier.Color), UI.upper(tier.Name), deltaText)
 	end
 	refs.SummaryRank.Text = rankText(startRank, 0)
 	task.spawn(function()
@@ -31076,7 +31084,9 @@ local function onMatchSummary(summary)
 		if levels == 0 and token == summaryToken and not refs.SummaryLevelUp.Visible then
 			local missing = perLevel - (summary.LevelXP or 0)
 			local nextTier = GameConfig.BattlePass[level + 1]
-			local prize = nextTier and (describeReward(nextTier.Free) or (nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)))
+			local owned = ClientState.Data and ClientState.Data.Premium == true
+			local premiumShown = GameConfig.PremiumPassId ~= 0 or owned
+			local prize = nextTier and (describeReward(nextTier.Free) or (premiumShown and nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)) or nil)
 			if missing > 0 then
 				refs.SummaryLevelUp.Text = "Solo te faltan " .. missing .. " XP para el nivel " .. (level + 1) .. (prize and ("  ·  " .. prize) or "")
 				refs.SummaryLevelUp.TextColor3 = Color3.fromRGB(150, 220, 255)
@@ -31097,6 +31107,10 @@ local function onMatchSummary(summary)
 			local t = i / steps
 			refs.SummaryXP.Text = "+" .. math.floor(summary.XP * t) .. " XP"
 			refs.SummaryCoins.Text = "+" .. math.floor((summary.Coins or 0) * t) .. " 🪙"
+			-- (tic-tic mientras cuenta, cada vez más agudo)
+			if i % 3 == 0 then
+				Sounds.Play("Click", nil, 1 + t * 0.6, 0.4)
+			end
 			task.wait(0.05)
 		end
 		Sounds.Play("Kill")
@@ -31115,11 +31129,11 @@ local function onMatchSummary(summary)
 					return
 				end
 				local tier = Ranks.Get(endRank)
-				refs.SummaryLevelUp.Text = tier.Icon .. " ¡ASCIENDES A " .. string.upper(tier.Name) .. "!"
+				refs.SummaryLevelUp.Text = tier.Icon .. " ¡ASCIENDES A " .. UI.upper(tier.Name) .. "!"
 				refs.SummaryLevelUp.TextColor3 = tier.Color
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
-				RewardFX.Celebrate(tier.Icon .. " ¡" .. string.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
+				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
 			end
 		end
 	end)
@@ -31212,6 +31226,12 @@ local function onRoundEnd(info)
 		mvpText ..= ")"
 	end
 	refs.RoundMVP.Text = mvpText
+	-- ¡Eres el MVP!
+	if info.MVP == player.Name then
+		task.delay(0.8, function()
+			RewardFX.Celebrate("⭐ ¡ERES EL MVP!", tostring(info.MVPKills or 0) .. " bajas", Color3.fromRGB(255, 215, 80), false)
+		end)
+	end
 	refs.RoundEnd.Visible = true
 	task.delay(7, function()
 		refs.RoundEnd.Visible = false
@@ -31441,7 +31461,9 @@ local function updateData(data)
 	local per = data.XPPerLevel or 1000
 	-- Con el próximo premio del pase a la vista: siempre hay algo "a punto" de caer
 	local nextTier = GameConfig.BattlePass[(data.Level or 1) + 1]
-	local nextText = nextTier and (describeReward(nextTier.Free) or (nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)))
+	-- (el premio premium solo si el pase se puede comprar o ya lo tiene)
+	local premiumShown = GameConfig.PremiumPassId ~= 0 or data.Premium == true
+	local nextText = nextTier and (describeReward(nextTier.Free) or (premiumShown and nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)) or nil)
 	refs.LevelText.Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. "/" .. per .. " XP" .. (nextText and ("  ·  Próximo: " .. nextText) or "")
 	tween(refs.XPFill, 0.3, { Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1) })
 	-- Al ganar XP la barra destella y da un saltito
@@ -31524,8 +31546,10 @@ local function render(dt)
 		if type(hudCache.Streak) == "number" and streak > hudCache.Streak then
 			refs.StreakScale.Scale = 1.35
 			tween(refs.StreakScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
-			if streak >= 10 and streak % 5 == 0 then
-				bigMessage("🔥 ¡RACHA DE " .. streak .. "!", Color3.fromRGB(255, 120, 40))
+			-- (también si una granada la hace saltar de 9 a 11)
+			local milestone = math.floor(streak / 5) * 5
+			if milestone >= 10 and milestone > hudCache.Streak then
+				bigMessage("🔥 ¡RACHA DE " .. milestone .. "!", Color3.fromRGB(255, 120, 40))
 				RewardFX.EdgeFlash(Color3.fromRGB(255, 120, 40), 0.55)
 				RewardFX.Fanfare(false)
 			end
@@ -32156,7 +32180,7 @@ local gui, panel, title, tip
 local shown = false
 
 local function show(mapName)
-	title.Text = string.upper(tostring(mapName))
+	title.Text = UI.upper(tostring(mapName))
 	tip.Text = "💡 " .. TIPS[math.random(1, #TIPS)]
 	gui.Enabled = true
 	if not shown then
@@ -32373,7 +32397,7 @@ local function refreshInfo()
 		local points = data.RankPoints or 0
 		local tier = Ranks.Get(points)
 		local fraction, nextTier = Ranks.Progress(points)
-		rankCard.Title.Text = string.format('%s <font color="%s"><b>%s</b></font>  ·  %d RP', tier.Icon, UI.hex(tier.Color), string.upper(tier.Name), points)
+		rankCard.Title.Text = string.format('%s <font color="%s"><b>%s</b></font>  ·  %d RP', tier.Icon, UI.hex(tier.Color), UI.upper(tier.Name), points)
 		rankCard.Fill.Size = UDim2.fromScale(fraction, 1)
 		rankCard.Fill.BackgroundColor3 = tier.Color
 		if nextTier then
@@ -32760,7 +32784,7 @@ function MainMenu.Init()
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
 		-- (empieza por el evento de temporada si hay uno en marcha)
-		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. string.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
+		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. UI.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
 			.. "🧟 Infección · 🎃 Modo Calabazas · 🤠 Pueblo Vaquero · 🏴‍☠️ Bahía Pirata",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),
@@ -33076,9 +33100,9 @@ local function refresh()
 		local teamA, teamB = Teams:FindFirstChild(nameA), Teams:FindFirstChild(nameB)
 		local colorA = teamA and teamA:IsA("Team") and teamA.TeamColor.Color or Color3.fromRGB(220, 50, 50)
 		local colorB = teamB and teamB:IsA("Team") and teamB.TeamColor.Color or Color3.fromRGB(50, 110, 230)
-		columns.Left.Header.Text = "EQUIPO " .. string.upper(nameA)
+		columns.Left.Header.Text = "EQUIPO " .. UI.upper(nameA)
 		columns.Left.Bar.BackgroundColor3 = colorA
-		columns.Right.Header.Text = "EQUIPO " .. string.upper(nameB)
+		columns.Right.Header.Text = "EQUIPO " .. UI.upper(nameB)
 		columns.Right.Bar.BackgroundColor3 = colorB
 		fillColumn(columns.Left.List, byTeam[nameA] or {}, colorA)
 		fillColumn(columns.Right.List, byTeam[nameB] or {}, colorB)
@@ -33105,7 +33129,7 @@ function MatchIntro.Show()
 	end
 	showToken += 1
 	local token = showToken
-	title.Text = string.upper(ReplicatedStorage:GetAttribute("MapName") or "")
+	title.Text = UI.upper(ReplicatedStorage:GetAttribute("MapName") or "")
 	-- (con la versión de luz del mapa si ha tocado una: "Atardecer", "Niebla"...)
 	local map = workspace:FindFirstChild("Map")
 	local variant = map and map:GetAttribute("Variant")
@@ -33715,7 +33739,7 @@ local function buildProfilePage(data)
 	UI.label({
 		Position = UDim2.fromOffset(120, 12),
 		Size = UDim2.new(1, -140, 0, 34),
-		Text = string.upper(tier.Name) .. "   ·   " .. points .. " RP",
+		Text = UI.upper(tier.Name) .. "   ·   " .. points .. " RP",
 		TextSize = 30,
 		TextColor3 = tier.Color,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -34171,7 +34195,7 @@ local function buildChallengesPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 8),
 			Size = UDim2.new(1, -32, 0, 28),
-			Text = icon .. " EVENTO DE " .. string.upper(event.Name) .. "  ·  " .. itemIcon .. " " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " " .. items,
+			Text = icon .. " EVENTO DE " .. UI.upper(event.Name) .. "  ·  " .. itemIcon .. " " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " " .. items,
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(255, 170, 60),
@@ -35076,7 +35100,7 @@ local function crateAnimation(result)
 	-- Épico o mejor (y nuevo): ¡celebración! Si no, un destello del color de la rareza
 	local rare = rarity == "Épico" or rarity == "Legendario" or rarity == "Mítico"
 	if rare and not result.Duplicate then
-		RewardFX.Celebrate("¡" .. string.upper(rarity) .. "!", name, rarityColor(rarity), rarity ~= "Épico")
+		RewardFX.Celebrate("¡" .. UI.upper(rarity) .. "!", name, rarityColor(rarity), rarity ~= "Épico")
 	else
 		RewardFX.EdgeFlash(rarityColor(rarity), 0.45)
 	end
@@ -35688,7 +35712,7 @@ function refresh()
 	-- Y en Tienda si hay algo gratis esperando (premio diario o cajas gratis): da ganas de entrar
 	if tabButtons.Tienda and data then
 		local free = (data.DailyAvailable and 1 or 0) + (data.FreeCrates or 0)
-		tabButtons.Tienda.Text = free > 0 and ("Tienda 🔴" .. free) or "Tienda"
+		tabButtons.Tienda.Text = free > 0 and ("🛒 Tienda 🔴" .. free) or "🛒 Tienda"
 	end
 	if not data then
 		scrollToCoins = false
@@ -37339,6 +37363,7 @@ local edges = {}
 local pulseCC
 local scoreLabel, scoreScale
 local scoreTotal, scoreShown, scoreToken = 0, 0, nil
+local scoreFade -- el desvanecimiento en curso (se cancela si llegan más puntos)
 local celebrating = false
 local queue = {} -- celebraciones esperando turno (p. ej. récord y subir de rango a la vez)
 local MAX_QUEUE = 2
@@ -37473,6 +37498,10 @@ function RewardFX.AddScore(amount)
 		scoreTotal, scoreShown = 0, 0
 		scoreLabel.Text = "+0"
 	end
+	if scoreFade then
+		scoreFade:Cancel()
+		scoreFade = nil
+	end
 	scoreTotal += amount
 	scoreLabel.Visible = true
 	scoreLabel.TextTransparency = 0
@@ -37487,7 +37516,7 @@ function RewardFX.AddScore(amount)
 		if scoreToken ~= token then
 			return
 		end
-		tween(scoreLabel, 0.35, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		scoreFade = tween(scoreLabel, 0.35, { TextTransparency = 1, TextStrokeTransparency = 1 })
 		task.wait(0.35)
 		if scoreToken == token then
 			scoreLabel.Visible = false
@@ -37662,10 +37691,15 @@ function RewardFX.Celebrate(title, subtitle, color, big)
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
 	label.Position = UDim2.fromScale(0.5, 0.33)
-	label.Size = UDim2.fromOffset(900, 80)
+	-- (ancho relativo y texto que se encoge: en un móvil en horizontal cabe entero)
+	label.Size = UDim2.new(0.92, 0, 0, 80)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBlack
 	label.TextSize = 64
+	label.TextScaled = true
+	local fit = Instance.new("UITextSizeConstraint")
+	fit.MaxTextSize = 64
+	fit.Parent = label
 	label.TextColor3 = color
 	label.TextStrokeTransparency = 0
 	label.Text = tostring(title)
@@ -37680,10 +37714,14 @@ function RewardFX.Celebrate(title, subtitle, color, big)
 		sub = Instance.new("TextLabel")
 		sub.AnchorPoint = Vector2.new(0.5, 0)
 		sub.Position = UDim2.new(0.5, 0, 0.33, 44)
-		sub.Size = UDim2.fromOffset(800, 34)
+		sub.Size = UDim2.new(0.9, 0, 0, 34)
 		sub.BackgroundTransparency = 1
 		sub.Font = Enum.Font.GothamBold
 		sub.TextSize = 26
+		sub.TextScaled = true
+		local subFit = Instance.new("UITextSizeConstraint")
+		subFit.MaxTextSize = 26
+		subFit.Parent = sub
 		sub.TextColor3 = Color3.new(1, 1, 1)
 		sub.TextStrokeTransparency = 0.2
 		sub.TextTransparency = 1
@@ -38027,7 +38065,7 @@ local function refresh()
 	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
 	local modeName = ReplicatedStorage:GetAttribute("ModeName") or ""
-	title.Text = string.upper(modeName) .. "  ·  " .. mapName .. "  ·  " .. UI.formatTime(ReplicatedStorage:GetAttribute("TimeLeft") or 0)
+	title.Text = UI.upper(modeName) .. "  ·  " .. mapName .. "  ·  " .. UI.formatTime(ReplicatedStorage:GetAttribute("TimeLeft") or 0)
 	local rows = collect()
 	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
 	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
@@ -38075,7 +38113,7 @@ local function refresh()
 			table.sort(list, byKills)
 			local color = team and team:IsA("Team") and team.TeamColor.Color or Color3.fromRGB(80, 80, 100)
 			local score = teamName and (ReplicatedStorage:GetAttribute("Score_" .. teamName) or 0) or 0
-			local text = string.format("<b>%s</b>   %d", string.upper(teamName or "?"), score)
+			local text = string.format("<b>%s</b>   %d", UI.upper(teamName or "?"), score)
 			buildColumn((i - 1) * 472, 440, text, color, list, thirdTitle, thirdOf)
 		end
 		panel.Size = UDim2.fromOffset(940, 56 + 60 + MAX_ROWS * ROW_HEIGHT + 16)
@@ -38787,6 +38825,14 @@ end
 function UI.formatTime(seconds)
 	seconds = math.max(0, math.floor(seconds))
 	return string.format("%02d:%02d", seconds // 60, seconds % 60)
+end
+
+-- Mayúsculas que respetan las tildes (string.upper solo cambia las letras sin acento: «Mítico» saldría
+-- «MíTICO»)
+local ACCENTS = { ["á"] = "Á", ["é"] = "É", ["í"] = "Í", ["ó"] = "Ó", ["ú"] = "Ú", ["ñ"] = "Ñ", ["ü"] = "Ü" }
+function UI.upper(text)
+	local upper = string.upper(tostring(text))
+	return (string.gsub(upper, "\195[\161\169\173\179\186\177\188]", ACCENTS))
 end
 
 function UI.hex(color)

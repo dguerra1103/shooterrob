@@ -1181,7 +1181,8 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 
 	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
 	-- reutiliza, y sin verse a través de las paredes
-	local target = os.clock() - ClientState.LastHitTime < 0.6 and ClientState.LastHitModel
+	-- (solo si el último disparo propio fue hace muy poco: una granada no hace destellar a otro)
+	local target = os.clock() - ClientState.LastHitTime < 0.35 and ClientState.LastHitModel
 	if target and target.Parent then
 		if not hitFlash or not hitFlash.Parent then
 			hitFlash = Instance.new("Highlight")
@@ -1355,7 +1356,7 @@ local function onMatchSummary(summary)
 		elseif delta < 0 then
 			deltaText = '  <font color="#FF6E6E">' .. delta .. " RP</font>"
 		end
-		return string.format('%s <font color="%s"><b>%s</b></font>%s', tier.Icon, UI.hex(tier.Color), string.upper(tier.Name), deltaText)
+		return string.format('%s <font color="%s"><b>%s</b></font>%s', tier.Icon, UI.hex(tier.Color), UI.upper(tier.Name), deltaText)
 	end
 	refs.SummaryRank.Text = rankText(startRank, 0)
 	task.spawn(function()
@@ -1383,7 +1384,9 @@ local function onMatchSummary(summary)
 		if levels == 0 and token == summaryToken and not refs.SummaryLevelUp.Visible then
 			local missing = perLevel - (summary.LevelXP or 0)
 			local nextTier = GameConfig.BattlePass[level + 1]
-			local prize = nextTier and (describeReward(nextTier.Free) or (nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)))
+			local owned = ClientState.Data and ClientState.Data.Premium == true
+			local premiumShown = GameConfig.PremiumPassId ~= 0 or owned
+			local prize = nextTier and (describeReward(nextTier.Free) or (premiumShown and nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)) or nil)
 			if missing > 0 then
 				refs.SummaryLevelUp.Text = "Solo te faltan " .. missing .. " XP para el nivel " .. (level + 1) .. (prize and ("  ·  " .. prize) or "")
 				refs.SummaryLevelUp.TextColor3 = Color3.fromRGB(150, 220, 255)
@@ -1404,6 +1407,10 @@ local function onMatchSummary(summary)
 			local t = i / steps
 			refs.SummaryXP.Text = "+" .. math.floor(summary.XP * t) .. " XP"
 			refs.SummaryCoins.Text = "+" .. math.floor((summary.Coins or 0) * t) .. " 🪙"
+			-- (tic-tic mientras cuenta, cada vez más agudo)
+			if i % 3 == 0 then
+				Sounds.Play("Click", nil, 1 + t * 0.6, 0.4)
+			end
 			task.wait(0.05)
 		end
 		Sounds.Play("Kill")
@@ -1422,11 +1429,11 @@ local function onMatchSummary(summary)
 					return
 				end
 				local tier = Ranks.Get(endRank)
-				refs.SummaryLevelUp.Text = tier.Icon .. " ¡ASCIENDES A " .. string.upper(tier.Name) .. "!"
+				refs.SummaryLevelUp.Text = tier.Icon .. " ¡ASCIENDES A " .. UI.upper(tier.Name) .. "!"
 				refs.SummaryLevelUp.TextColor3 = tier.Color
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
-				RewardFX.Celebrate(tier.Icon .. " ¡" .. string.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
+				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
 			end
 		end
 	end)
@@ -1519,6 +1526,12 @@ local function onRoundEnd(info)
 		mvpText ..= ")"
 	end
 	refs.RoundMVP.Text = mvpText
+	-- ¡Eres el MVP!
+	if info.MVP == player.Name then
+		task.delay(0.8, function()
+			RewardFX.Celebrate("⭐ ¡ERES EL MVP!", tostring(info.MVPKills or 0) .. " bajas", Color3.fromRGB(255, 215, 80), false)
+		end)
+	end
 	refs.RoundEnd.Visible = true
 	task.delay(7, function()
 		refs.RoundEnd.Visible = false
@@ -1748,7 +1761,9 @@ local function updateData(data)
 	local per = data.XPPerLevel or 1000
 	-- Con el próximo premio del pase a la vista: siempre hay algo "a punto" de caer
 	local nextTier = GameConfig.BattlePass[(data.Level or 1) + 1]
-	local nextText = nextTier and (describeReward(nextTier.Free) or (nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)))
+	-- (el premio premium solo si el pase se puede comprar o ya lo tiene)
+	local premiumShown = GameConfig.PremiumPassId ~= 0 or data.Premium == true
+	local nextText = nextTier and (describeReward(nextTier.Free) or (premiumShown and nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)) or nil)
 	refs.LevelText.Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. "/" .. per .. " XP" .. (nextText and ("  ·  Próximo: " .. nextText) or "")
 	tween(refs.XPFill, 0.3, { Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1) })
 	-- Al ganar XP la barra destella y da un saltito
@@ -1831,8 +1846,10 @@ local function render(dt)
 		if type(hudCache.Streak) == "number" and streak > hudCache.Streak then
 			refs.StreakScale.Scale = 1.35
 			tween(refs.StreakScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
-			if streak >= 10 and streak % 5 == 0 then
-				bigMessage("🔥 ¡RACHA DE " .. streak .. "!", Color3.fromRGB(255, 120, 40))
+			-- (también si una granada la hace saltar de 9 a 11)
+			local milestone = math.floor(streak / 5) * 5
+			if milestone >= 10 and milestone > hudCache.Streak then
+				bigMessage("🔥 ¡RACHA DE " .. milestone .. "!", Color3.fromRGB(255, 120, 40))
 				RewardFX.EdgeFlash(Color3.fromRGB(255, 120, 40), 0.55)
 				RewardFX.Fanfare(false)
 			end

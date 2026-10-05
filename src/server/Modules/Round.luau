@@ -529,7 +529,8 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Headshot = headshot,
 	})
 	-- Botín: a veces el caído suelta un paquete para quien le eliminó (no en Calabazas: ya sueltan algo)
-	if playing and currentMode ~= "CAL" and killer and killer ~= victim and typeof(position) == "Vector3" then
+	-- (solo bajas a jugadores o bots de verdad: los muñecos de práctica no cuentan)
+	if playing and currentMode ~= "CAL" and killer and killer ~= victim and (victim or victimBot) and typeof(position) == "Vector3" then
 		Loot.MaybeDrop(position, killer, victimBot ~= nil)
 	end
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo

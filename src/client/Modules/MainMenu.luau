@@ -127,7 +127,7 @@ local function refreshInfo()
 		local points = data.RankPoints or 0
 		local tier = Ranks.Get(points)
 		local fraction, nextTier = Ranks.Progress(points)
-		rankCard.Title.Text = string.format('%s <font color="%s"><b>%s</b></font>  ·  %d RP', tier.Icon, UI.hex(tier.Color), string.upper(tier.Name), points)
+		rankCard.Title.Text = string.format('%s <font color="%s"><b>%s</b></font>  ·  %d RP', tier.Icon, UI.hex(tier.Color), UI.upper(tier.Name), points)
 		rankCard.Fill.Size = UDim2.fromScale(fraction, 1)
 		rankCard.Fill.BackgroundColor3 = tier.Color
 		if nextTier then
@@ -514,7 +514,7 @@ function MainMenu.Init()
 		Position = UDim2.fromOffset(4, 142),
 		Size = UDim2.new(1, 0, 0, 26),
 		-- (empieza por el evento de temporada si hay uno en marcha)
-		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. string.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
+		Text = (GameConfig.CurrentEvent() and (GameConfig.CurrentEvent().Icon .. " " .. UI.upper(GameConfig.CurrentEvent().Name) .. " · ") or "")
 			.. "🧟 Infección · 🎃 Modo Calabazas · 🤠 Pueblo Vaquero · 🏴‍☠️ Bahía Pirata",
 		TextSize = 19,
 		TextColor3 = Color3.fromRGB(255, 225, 90),

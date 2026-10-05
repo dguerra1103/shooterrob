@@ -168,7 +168,7 @@ local function refresh()
 	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
 	local modeName = ReplicatedStorage:GetAttribute("ModeName") or ""
-	title.Text = string.upper(modeName) .. "  ·  " .. mapName .. "  ·  " .. UI.formatTime(ReplicatedStorage:GetAttribute("TimeLeft") or 0)
+	title.Text = UI.upper(modeName) .. "  ·  " .. mapName .. "  ·  " .. UI.formatTime(ReplicatedStorage:GetAttribute("TimeLeft") or 0)
 	local rows = collect()
 	-- Solo se reconstruye si ha cambiado algo (si no, cada medio segundo se crearían ~150 objetos)
 	local parts = { tostring(mode), tostring(ReplicatedStorage:GetAttribute("TeamMode")), tostring(ReplicatedStorage:GetAttribute("LeaderName")) }
@@ -216,7 +216,7 @@ local function refresh()
 			table.sort(list, byKills)
 			local color = team and team:IsA("Team") and team.TeamColor.Color or Color3.fromRGB(80, 80, 100)
 			local score = teamName and (ReplicatedStorage:GetAttribute("Score_" .. teamName) or 0) or 0
-			local text = string.format("<b>%s</b>   %d", string.upper(teamName or "?"), score)
+			local text = string.format("<b>%s</b>   %d", UI.upper(teamName or "?"), score)
 			buildColumn((i - 1) * 472, 440, text, color, list, thirdTitle, thirdOf)
 		end
 		panel.Size = UDim2.fromOffset(940, 56 + 60 + MAX_ROWS * ROW_HEIGHT + 16)

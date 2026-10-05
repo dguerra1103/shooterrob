@@ -28,7 +28,7 @@ local gui, panel, title, tip
 local shown = false
 
 local function show(mapName)
-	title.Text = string.upper(tostring(mapName))
+	title.Text = UI.upper(tostring(mapName))
 	tip.Text = "💡 " .. TIPS[math.random(1, #TIPS)]
 	gui.Enabled = true
 	if not shown then

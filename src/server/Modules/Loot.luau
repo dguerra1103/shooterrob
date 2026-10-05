@@ -7,21 +7,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local PlayerData = require(script.Parent.PlayerData)
 
 local Loot = {}
 
-Loot.Chance = 0.12 -- probabilidad de que una baja a otro jugador suelte botín
-Loot.BotChance = 0.07 -- (contra bots, menos: que no salga a cuenta "granjear" bots)
+Loot.Chance = 0.1 -- probabilidad de que una baja a otro jugador suelte botín
+Loot.BotChance = 0.06 -- (contra bots, menos, y con los premios a la mitad: que no salga a cuenta "granjear" bots)
 Loot.LIFETIME = 15
 local RADIUS = 5
 
 -- Rarezas: peso (probabilidad relativa), monedas, XP y color del rayo
 Loot.Tiers = {
-	{ Name = "Común", Weight = 62, Coins = 15, XP = 0, Color = Color3.fromRGB(200, 200, 200) },
-	{ Name = "Raro", Weight = 26, Coins = 40, XP = 0, Color = Color3.fromRGB(70, 160, 255) },
-	{ Name = "Épico", Weight = 10, Coins = 100, XP = 100, Color = Color3.fromRGB(190, 80, 255) },
-	{ Name = "Legendario", Weight = 2, Coins = 300, XP = 250, Color = Color3.fromRGB(255, 180, 30) },
+-- (de media, unas 23 monedas por paquete: un extra, no una segunda fuente de ingresos)
+	{ Name = "Común", Weight = 62, Coins = 10, XP = 0, Color = Color3.fromRGB(200, 200, 200) },
+	{ Name = "Raro", Weight = 26, Coins = 25, XP = 0, Color = Color3.fromRGB(70, 160, 255) },
+	{ Name = "Épico", Weight = 10, Coins = 60, XP = 100, Color = Color3.fromRGB(190, 80, 255) },
+	{ Name = "Legendario", Weight = 2, Coins = 200, XP = 250, Color = Color3.fromRGB(255, 180, 30) },
 }
 
 local active = {} -- { Model, Position, Owner, Tier, Expires }
@@ -112,11 +114,13 @@ end
 
 local function collect(entry, player)
 	local tier = entry.Tier
-	local coins = PlayerData.AddCoins(player, tier.Coins)
-	if tier.XP > 0 then
-		PlayerData.AddXP(player, tier.XP, "Botín " .. tier.Name)
+	local scale = entry.Scale or 1
+	local coins = PlayerData.AddCoins(player, math.max(1, math.floor(tier.Coins * scale)))
+	local xp = math.floor(tier.XP * scale)
+	if xp > 0 then
+		PlayerData.AddXP(player, xp, "Botín " .. tier.Name)
 	end
-	Remotes.Notify:FireClient(player, "Loot", { Rarity = tier.Name, Coins = coins, XP = tier.XP, Color = tier.Color })
+	Remotes.Notify:FireClient(player, "Loot", { Rarity = tier.Name, Coins = coins, XP = xp, Color = tier.Color })
 end
 
 local function step()
@@ -176,7 +180,9 @@ function Loot.MaybeDrop(position, killer, againstBot, roll)
 	local model = build(ground, tier)
 	model:SetAttribute("Owner", killer.UserId)
 	model.Parent = folder
-	table.insert(active, { Model = model, Position = ground, Owner = killer, Tier = tier, Expires = os.clock() + Loot.LIFETIME })
+	-- (contra bots, el premio se escala como las bajas a bots: GameConfig.Bots.RewardScale)
+	local scale = againstBot and (GameConfig.Bots and GameConfig.Bots.RewardScale or 0.5) or 1
+	table.insert(active, { Model = model, Position = ground, Owner = killer, Tier = tier, Scale = scale, Expires = os.clock() + Loot.LIFETIME })
 	ensureLoop()
 	-- Solo quien lo ha ganado ve el aviso
 	Remotes.Notify:FireClient(killer, "LootDrop", tier.Name)

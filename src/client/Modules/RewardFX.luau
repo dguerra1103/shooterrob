@@ -34,6 +34,7 @@ local edges = {}
 local pulseCC
 local scoreLabel, scoreScale
 local scoreTotal, scoreShown, scoreToken = 0, 0, nil
+local scoreFade -- el desvanecimiento en curso (se cancela si llegan más puntos)
 local celebrating = false
 local queue = {} -- celebraciones esperando turno (p. ej. récord y subir de rango a la vez)
 local MAX_QUEUE = 2
@@ -168,6 +169,10 @@ function RewardFX.AddScore(amount)
 		scoreTotal, scoreShown = 0, 0
 		scoreLabel.Text = "+0"
 	end
+	if scoreFade then
+		scoreFade:Cancel()
+		scoreFade = nil
+	end
 	scoreTotal += amount
 	scoreLabel.Visible = true
 	scoreLabel.TextTransparency = 0
@@ -182,7 +187,7 @@ function RewardFX.AddScore(amount)
 		if scoreToken ~= token then
 			return
 		end
-		tween(scoreLabel, 0.35, { TextTransparency = 1, TextStrokeTransparency = 1 })
+		scoreFade = tween(scoreLabel, 0.35, { TextTransparency = 1, TextStrokeTransparency = 1 })
 		task.wait(0.35)
 		if scoreToken == token then
 			scoreLabel.Visible = false
@@ -357,10 +362,15 @@ function RewardFX.Celebrate(title, subtitle, color, big)
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
 	label.Position = UDim2.fromScale(0.5, 0.33)
-	label.Size = UDim2.fromOffset(900, 80)
+	-- (ancho relativo y texto que se encoge: en un móvil en horizontal cabe entero)
+	label.Size = UDim2.new(0.92, 0, 0, 80)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBlack
 	label.TextSize = 64
+	label.TextScaled = true
+	local fit = Instance.new("UITextSizeConstraint")
+	fit.MaxTextSize = 64
+	fit.Parent = label
 	label.TextColor3 = color
 	label.TextStrokeTransparency = 0
 	label.Text = tostring(title)
@@ -375,10 +385,14 @@ function RewardFX.Celebrate(title, subtitle, color, big)
 		sub = Instance.new("TextLabel")
 		sub.AnchorPoint = Vector2.new(0.5, 0)
 		sub.Position = UDim2.new(0.5, 0, 0.33, 44)
-		sub.Size = UDim2.fromOffset(800, 34)
+		sub.Size = UDim2.new(0.9, 0, 0, 34)
 		sub.BackgroundTransparency = 1
 		sub.Font = Enum.Font.GothamBold
 		sub.TextSize = 26
+		sub.TextScaled = true
+		local subFit = Instance.new("UITextSizeConstraint")
+		subFit.MaxTextSize = 26
+		subFit.Parent = sub
 		sub.TextColor3 = Color3.new(1, 1, 1)
 		sub.TextStrokeTransparency = 0.2
 		sub.TextTransparency = 1

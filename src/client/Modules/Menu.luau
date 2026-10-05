@@ -481,7 +481,7 @@ local function buildProfilePage(data)
 	UI.label({
 		Position = UDim2.fromOffset(120, 12),
 		Size = UDim2.new(1, -140, 0, 34),
-		Text = string.upper(tier.Name) .. "   ·   " .. points .. " RP",
+		Text = UI.upper(tier.Name) .. "   ·   " .. points .. " RP",
 		TextSize = 30,
 		TextColor3 = tier.Color,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -937,7 +937,7 @@ local function buildChallengesPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(16, 8),
 			Size = UDim2.new(1, -32, 0, 28),
-			Text = icon .. " EVENTO DE " .. string.upper(event.Name) .. "  ·  " .. itemIcon .. " " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " " .. items,
+			Text = icon .. " EVENTO DE " .. UI.upper(event.Name) .. "  ·  " .. itemIcon .. " " .. math.min(candy, event.Goal) .. " / " .. event.Goal .. " " .. items,
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = Color3.fromRGB(255, 170, 60),
@@ -1842,7 +1842,7 @@ local function crateAnimation(result)
 	-- Épico o mejor (y nuevo): ¡celebración! Si no, un destello del color de la rareza
 	local rare = rarity == "Épico" or rarity == "Legendario" or rarity == "Mítico"
 	if rare and not result.Duplicate then
-		RewardFX.Celebrate("¡" .. string.upper(rarity) .. "!", name, rarityColor(rarity), rarity ~= "Épico")
+		RewardFX.Celebrate("¡" .. UI.upper(rarity) .. "!", name, rarityColor(rarity), rarity ~= "Épico")
 	else
 		RewardFX.EdgeFlash(rarityColor(rarity), 0.45)
 	end
@@ -2454,7 +2454,7 @@ function refresh()
 	-- Y en Tienda si hay algo gratis esperando (premio diario o cajas gratis): da ganas de entrar
 	if tabButtons.Tienda and data then
 		local free = (data.DailyAvailable and 1 or 0) + (data.FreeCrates or 0)
-		tabButtons.Tienda.Text = free > 0 and ("Tienda 🔴" .. free) or "Tienda"
+		tabButtons.Tienda.Text = free > 0 and ("🛒 Tienda 🔴" .. free) or "🛒 Tienda"
 	end
 	if not data then
 		scrollToCoins = false

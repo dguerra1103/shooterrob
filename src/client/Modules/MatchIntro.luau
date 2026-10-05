@@ -83,9 +83,9 @@ local function refresh()
 		local teamA, teamB = Teams:FindFirstChild(nameA), Teams:FindFirstChild(nameB)
 		local colorA = teamA and teamA:IsA("Team") and teamA.TeamColor.Color or Color3.fromRGB(220, 50, 50)
 		local colorB = teamB and teamB:IsA("Team") and teamB.TeamColor.Color or Color3.fromRGB(50, 110, 230)
-		columns.Left.Header.Text = "EQUIPO " .. string.upper(nameA)
+		columns.Left.Header.Text = "EQUIPO " .. UI.upper(nameA)
 		columns.Left.Bar.BackgroundColor3 = colorA
-		columns.Right.Header.Text = "EQUIPO " .. string.upper(nameB)
+		columns.Right.Header.Text = "EQUIPO " .. UI.upper(nameB)
 		columns.Right.Bar.BackgroundColor3 = colorB
 		fillColumn(columns.Left.List, byTeam[nameA] or {}, colorA)
 		fillColumn(columns.Right.List, byTeam[nameB] or {}, colorB)
@@ -112,7 +112,7 @@ function MatchIntro.Show()
 	end
 	showToken += 1
 	local token = showToken
-	title.Text = string.upper(ReplicatedStorage:GetAttribute("MapName") or "")
+	title.Text = UI.upper(ReplicatedStorage:GetAttribute("MapName") or "")
 	-- (con la versión de luz del mapa si ha tocado una: "Atardecer", "Niebla"...)
 	local map = workspace:FindFirstChild("Map")
 	local variant = map and map:GetAttribute("Variant")
