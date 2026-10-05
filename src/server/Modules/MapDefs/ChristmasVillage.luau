@@ -224,6 +224,13 @@ function Map.Build()
 
 	-- Fondo: pinos y colinas nevadas
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Nombres de las zonas
+	Kit.callout("ÁRBOL GIGANTE", CFrame.new(0, 10, 0), V(32, 30, 32))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CASITAS", m * CFrame.new(-48, 8, 47), V(40, 20, 18))
+		Kit.callout("MERCADILLO", m * CFrame.new(-31, 8, -40), V(28, 18, 14))
+		Kit.callout("PISTA DE HIELO", m * CFrame.new(-30, 6, 20), V(28, 14, 18))
+	end
 	local rng = Random.new(12)
 	for x = -130, 130, 20 do
 		for _, z in { -1, 1 } do

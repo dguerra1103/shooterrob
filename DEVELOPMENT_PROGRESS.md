@@ -43,7 +43,7 @@ Estado del pase "Stylized Tactical Roblox" (shooter 5v5). Corto a propósito: si
 - Justicia: en Cumbre y Base Militar el edificio central tiene una puerta para cada equipo.
 - Cuatro revisiones de código del pase (la última, de integración de todo): sin fallos graves;
   todos los hallazgos arreglados (p. ej. el resultado de ronda ahora sale tras la killcam).
-- Nombres de zona en 15 mapas; Puesto del Desierto con molino de aspas y ventilador animados.
+- Nombres de zona en 17 mapas; Puesto del Desierto con molino de aspas y ventilador animados.
 
 ## EN PROGRESO
 - Bucle de pulido (cambios pequeños y probados).

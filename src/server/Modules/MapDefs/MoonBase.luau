@@ -220,6 +220,13 @@ function Map.Build()
 
 	-- Fondo: colinas de roca lunar, antenas y la Tierra
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Nombres de las zonas
+	Kit.callout("COHETE", CFrame.new(0, 10, 0), V(28, 30, 28))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CÚPULA GRANDE", m * CFrame.new(-50, 8, 32), V(22, 20, 22))
+		Kit.callout("CÚPULA PEQUEÑA", m * CFrame.new(-34, 8, -38), V(18, 18, 18))
+		Kit.callout("ATERRIZAJE", m * CFrame.new(-60, 8, -(WIDTH / 2 - 10)), V(22, 20, 16))
+	end
 	for x = -200, 200, 60 do
 		for _, z in { -1, 1 } do
 			Kit.naturalHill(V(x, -16, z * 140), 42, Enum.Material.Rock, { Inward = V(0, 0, -z), Top = Enum.Material.Basalt, RockCount = 2 })
