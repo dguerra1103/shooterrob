@@ -1162,6 +1162,13 @@ function PlayerData.AddWeaponKill(player, weaponName)
 			PlayerData.OnSkinChanged(player)
 		end
 		sendUpdate(player)
+	else
+		-- "¡Ya casi!": con 3 bajas o menos para el siguiente camuflaje, un aviso en cada baja
+		local nextTier = Mastery.Tiers[newLevel + 1]
+		local left = nextTier and nextTier.Kills - after
+		if left and left > 0 and left <= 3 then
+			Remotes.Notify:FireClient(player, "XP", "🎯 " .. Weapons.List[weaponName].DisplayName .. ": " .. (left == 1 and "¡1 baja" or ("¡" .. left .. " bajas")) .. " para el camuflaje " .. nextTier.Name .. "!")
+		end
 	end
 end
 
