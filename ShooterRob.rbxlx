@@ -37339,12 +37339,14 @@ end
 local function buildScore()
 	scoreLabel = Instance.new("TextLabel")
 	scoreLabel.Name = "ScoreTotal"
-	scoreLabel.AnchorPoint = Vector2.new(0.5, 1)
-	scoreLabel.Position = UDim2.new(0.5, 0, 0.58, -4)
-	scoreLabel.Size = UDim2.fromOffset(220, 44)
+	-- (a la derecha y algo por debajo de la mira, como en los shooters: al crecer no la tapa)
+	scoreLabel.AnchorPoint = Vector2.new(0, 0.5)
+	scoreLabel.Position = UDim2.new(0.5, 36, 0.5, 30)
+	scoreLabel.TextXAlignment = Enum.TextXAlignment.Left
+	scoreLabel.Size = UDim2.fromOffset(220, 36)
 	scoreLabel.BackgroundTransparency = 1
 	scoreLabel.Font = Enum.Font.GothamBlack
-	scoreLabel.TextSize = 38
+	scoreLabel.TextSize = 32
 	scoreLabel.TextColor3 = GOLD
 	scoreLabel.TextStrokeTransparency = 0.2
 	scoreLabel.Text = ""
