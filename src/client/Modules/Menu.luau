@@ -2624,12 +2624,15 @@ function Menu.Init()
 	})
 
 	-- Botón superior (útil en móvil)
+	-- (en el teléfono, pequeño: debajo del minimapa y sin tapar nada)
+	UI.WaitViewport()
+	local phone = UI.IsPhone()
 	local open = UI.button({
 		Position = UDim2.fromOffset(16, 58),
-		Size = UDim2.fromOffset(210, 38),
-		Text = "⭐ PASE · TIENDA",
+		Size = phone and UDim2.fromOffset(96, 28) or UDim2.fromOffset(210, 38),
+		Text = phone and "⭐ TIENDA" or "⭐ PASE · TIENDA",
 		BackgroundColor3 = Color3.fromRGB(255, 120, 30),
-		TextSize = 18,
+		TextSize = phone and 14 or 18,
 		Parent = gui,
 	}, { UI.stroke(Color3.new(0, 0, 0), 2, 0.3), UI.gloss() })
 	open.Activated:Connect(Menu.Toggle)
@@ -2639,7 +2642,7 @@ function Menu.Init()
 			open.Visible = not ClientState.InMainMenu
 			-- Debajo del minimapa durante la partida
 			local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
-			open.Position = UDim2.fromOffset(16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + 8 or 58)
+			open.Position = UDim2.fromOffset(phone and 14 or 16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + (phone and 6 or 8) or 58)
 			task.wait(0.25)
 		end
 	end)

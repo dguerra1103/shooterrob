@@ -1204,7 +1204,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-	ContextActionService:SetTitle("Fire", "Disparar")
+	ContextActionService:SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
 	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
 	ContextActionService:BindAction("Aim", function(_, state, input)
@@ -1223,7 +1223,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
-	ContextActionService:SetTitle("Aim", "Apuntar")
+	ContextActionService:SetTitle("Aim", "🎯")
 	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
 	ContextActionService:BindAction("Reload", function(_, state)
@@ -1232,7 +1232,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
-	ContextActionService:SetTitle("Reload", "R")
+	ContextActionService:SetTitle("Reload", "🔄")
 	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
 	ContextActionService:BindAction("Melee", function(_, state)
@@ -1241,7 +1241,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
-	ContextActionService:SetTitle("Melee", "F")
+	ContextActionService:SetTitle("Melee", "🔪")
 	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)

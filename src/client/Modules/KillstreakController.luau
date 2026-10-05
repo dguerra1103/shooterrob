@@ -4,6 +4,7 @@
 --  * Marcas rojas en el suelo antes de que caigan las bombas
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -91,7 +92,9 @@ end
 
 local function updateWidget()
 	local charges = player:GetAttribute("Airstrikes") or 0
+	-- (con pantalla táctil, el botón ✈ de Roblox ya lo dice; el cartel quedaba encima de los botones)
 	strikeWidget.Visible = charges > 0 and not ClientState.InMainMenu
+		and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	strikeLabel.Text = "✈ T" .. (charges > 1 and (" ×" .. charges) or "")
 end
 

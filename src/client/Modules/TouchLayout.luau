@@ -15,6 +15,24 @@ local function isLarge()
 	return math.min(size.X, size.Y) > 500
 end
 
+-- El texto del botón se encoge para caber (si no, «Disparar» salía partido en «Dispar / ar»)
+local function styleTitle(actionName)
+	pcall(function()
+		local button = ContextActionService:GetButton(actionName)
+		local title = button and button:FindFirstChild("ActionTitle")
+		if title and title:IsA("TextLabel") then
+			title.TextScaled = true
+			title.TextWrapped = false
+			if not title:FindFirstChildOfClass("UITextSizeConstraint") then
+				local fit = Instance.new("UITextSizeConstraint")
+				fit.MaxTextSize = 22
+				fit.MinTextSize = 8
+				fit.Parent = title
+			end
+		end
+	end)
+end
+
 local function apply(actionName, position)
 	if isLarge() and position.X.Scale == 1 and position.Y.Scale == 1 then
 		position = UDim2.new(1, position.X.Offset + TABLET_SHIFT_X, 1, position.Y.Offset)
@@ -22,6 +40,7 @@ local function apply(actionName, position)
 	pcall(function()
 		ContextActionService:SetPosition(actionName, position)
 	end)
+	styleTitle(actionName)
 end
 
 -- Igual que ContextActionService:SetPosition, pero se ajusta en tablet (y al girar la pantalla)

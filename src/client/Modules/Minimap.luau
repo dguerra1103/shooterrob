@@ -4,6 +4,7 @@
 -- Radar de la racha, todos los enemigos. También la zona de control y las banderas.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
 
@@ -316,8 +317,16 @@ local function onShot(tool)
 end
 
 function Minimap.Init()
+	-- (se espera a saber el tamaño de la pantalla: al arrancar puede valer 0 y en el móvil salía
+	-- el minimapa grande del ordenador)
+	UI.WaitViewport()
 	local viewport = camera.ViewportSize
-	size = (viewport.Y > 0 and viewport.Y < 500) and 112 or 160
+	local phone = UI.IsPhone()
+	size = phone and 96 or ((viewport.Y > 0 and viewport.Y < 500) and 112 or 160)
+	-- (debajo de los botones de Roblox de arriba a la izquierda, que si no lo tapaban)
+	-- (en pantallas táctiles; en el ordenador, arriba del todo como siempre)
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local top = touchOnly and UI.TopbarBottom() or 14
 	scale = size / RANGE
 	gui = UI.new("ScreenGui", {
 		Name = "Minimap",
@@ -328,7 +337,7 @@ function Minimap.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	frame = UI.new("Frame", {
-		Position = UDim2.fromOffset(14, 14),
+		Position = UDim2.fromOffset(14, top),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundColor3 = Color3.fromRGB(22, 26, 30),
 		BackgroundTransparency = 0.3,
@@ -364,7 +373,7 @@ function Minimap.Init()
 		Parent = frame,
 	})
 	-- (el botón de PASE · TIENDA y lo demás de la izquierda van debajo)
-	ClientState.MinimapBottom = 14 + size
+	ClientState.MinimapBottom = top + size
 	Remotes.ShotFX.OnClientEvent:Connect(onShot)
 	local accumulator = 0
 	RunService.Heartbeat:Connect(function(dt)

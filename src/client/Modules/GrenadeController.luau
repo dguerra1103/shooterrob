@@ -1,6 +1,7 @@
 -- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +24,7 @@ local GrenadeController = {}
 local DEF = Weapons.Grenade
 
 local widget, label, fill
+local touchOnly = false
 
 local function readyAt()
 	return player:GetAttribute("GrenadeReadyAt") or 0
@@ -61,6 +63,12 @@ local function updateWidget()
 		return
 	end
 	lastKey = key
+	-- (en pantallas táctiles el botón 💣 es el de Roblox: la cuenta atrás va en su texto)
+	if touchOnly then
+		pcall(function()
+			ContextActionService:SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
+		end)
+	end
 	if left <= 0 then
 		label.Text = "💣 G"
 		label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -82,10 +90,13 @@ function GrenadeController.Init()
 		DisplayOrder = 2,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	-- (con pantalla táctil no se ve: quedaba encima de los botones; ahí está el botón 💣)
+	touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	widget = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -150),
 		Size = UDim2.fromOffset(84, 34),
+		Visible = not touchOnly,
 		BackgroundColor3 = Color3.fromRGB(20, 22, 34),
 		BackgroundTransparency = 0.25,
 		Parent = gui,

@@ -29135,10 +29135,13 @@ function EventHUD.Init()
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	UI.WaitViewport()
+	local phone = UI.IsPhone()
 	local frame = UI.new("Frame", {
-		-- En móvil: estrecho, debajo del regalo (a su derecha están los retos)
-		Position = compact and UDim2.fromOffset(10, 174) or UDim2.new(0, 66, 0.38, 176),
-		Size = compact and UDim2.fromOffset(52, 40) or UDim2.fromOffset(230, 34),
+		-- En móvil: estrecho, debajo del regalo (teléfono: los dos a la derecha del minimapa)
+		Position = compact and UDim2.fromOffset(14 + (phone and 96 or 160) + 6, UI.TopbarBottom() + (phone and 60 or 70))
+			or UDim2.new(0, 66, 0.38, 176),
+		Size = phone and UDim2.fromOffset(44, 34) or (compact and UDim2.fromOffset(52, 40) or UDim2.fromOffset(230, 34)),
 		BackgroundColor3 = Color3.fromRGB(60, 25, 80),
 		BackgroundTransparency = 0.15,
 		Parent = gui,
@@ -29462,6 +29465,7 @@ return Graffiti
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -29484,6 +29488,7 @@ local GrenadeController = {}
 local DEF = Weapons.Grenade
 
 local widget, label, fill
+local touchOnly = false
 
 local function readyAt()
 	return player:GetAttribute("GrenadeReadyAt") or 0
@@ -29522,6 +29527,12 @@ local function updateWidget()
 		return
 	end
 	lastKey = key
+	-- (en pantallas táctiles el botón 💣 es el de Roblox: la cuenta atrás va en su texto)
+	if touchOnly then
+		pcall(function()
+			ContextActionService:SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
+		end)
+	end
 	if left <= 0 then
 		label.Text = "💣 G"
 		label.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -29543,10 +29554,13 @@ function GrenadeController.Init()
 		DisplayOrder = 2,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	-- (con pantalla táctil no se ve: quedaba encima de los botones; ahí está el botón 💣)
+	touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	widget = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -150),
 		Size = UDim2.fromOffset(84, 34),
+		Visible = not touchOnly,
 		BackgroundColor3 = Color3.fromRGB(20, 22, 34),
 		BackgroundTransparency = 0.25,
 		Parent = gui,
@@ -29732,6 +29746,10 @@ local HUD = {}
 
 local gui
 local refs = {}
+-- Teléfono (táctil y pantalla baja, ver UI.IsPhone): disposición propia para que nada pise los
+-- botones táctiles, el joystick ni la mira (en tablet y ordenador, como siempre). Se decide en Init.
+local phone = false
+local killBaseScale = 1
 local thumbnails = {}
 
 local function tween(inst, time, props, style)
@@ -29946,34 +29964,37 @@ end
 
 local function buildWeaponPanel()
 	-- Munición (abajo a la derecha)
+	-- (en el teléfono, compacta y en el centro, encima de las habilidades: a la derecha están los
+	-- botones táctiles)
+	local align = phone and Enum.TextXAlignment.Center or Enum.TextXAlignment.Right
 	local panel = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -24, 1, -20),
-		Size = UDim2.fromOffset(260, 104),
+		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(1, 1),
+		Position = phone and UDim2.new(0.5, 0, 1, -122) or UDim2.new(1, -24, 1, -20),
+		Size = phone and UDim2.fromOffset(160, 46) or UDim2.fromOffset(260, 104),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
 	refs.WeaponName = UI.label({
-		Size = UDim2.new(1, 0, 0, 24),
+		Size = UDim2.new(1, 0, 0, phone and 14 or 24),
 		Text = "",
-		TextSize = 20,
-		TextXAlignment = Enum.TextXAlignment.Right,
+		TextSize = phone and 13 or 20,
+		TextXAlignment = align,
 		Parent = panel,
 	})
 	refs.Ammo = UI.label({
-		Position = UDim2.fromOffset(0, 24),
-		Size = UDim2.new(1, 0, 0, 50),
+		Position = UDim2.fromOffset(0, phone and 13 or 24),
+		Size = UDim2.new(1, 0, 0, phone and 26 or 50),
 		Text = "",
-		TextSize = 46,
+		TextSize = phone and 24 or 46,
 		RichText = true,
-		TextXAlignment = Enum.TextXAlignment.Right,
+		TextXAlignment = align,
 		Parent = panel,
 	})
 	-- Barra del cargador
 	local ammoBar = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0, 76),
-		Size = UDim2.fromOffset(170, 6),
+		AnchorPoint = phone and Vector2.new(0.5, 0) or Vector2.new(1, 0),
+		Position = phone and UDim2.new(0.5, 0, 0, 41) or UDim2.new(1, 0, 0, 76),
+		Size = UDim2.fromOffset(phone and 110 or 170, phone and 4 or 6),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		BackgroundTransparency = 0.3,
 		Parent = panel,
@@ -29987,21 +30008,23 @@ local function buildWeaponPanel()
 	}, { UI.corner(3) })
 	refs.AmmoBar = ammoBar
 	refs.ReloadHint = UI.label({
-		Position = UDim2.fromOffset(0, 85),
-		Size = UDim2.new(1, 0, 0, 18),
+		Position = phone and UDim2.fromOffset(0, -14) or UDim2.fromOffset(0, 85),
+		Size = UDim2.new(1, 0, 0, phone and 14 or 18),
 		Text = "",
-		TextSize = 16,
+		TextSize = phone and 13 or 16,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
-		TextXAlignment = Enum.TextXAlignment.Right,
+		TextXAlignment = align,
 		Parent = panel,
 	})
 
 	-- Ranuras de armas (derecha) con icono 3D del arma
+	-- (en el teléfono no se ven: ahí están los botones táctiles; se cambia de arma con ⇄)
 	local slots = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -20, 0.6, 0),
 		Size = UDim2.fromOffset(230, 196),
 		BackgroundTransparency = 1,
+		Visible = not phone,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
@@ -30104,10 +30127,11 @@ end
 
 local function buildPlayerPanel()
 	-- Vida (abajo a la izquierda)
+	-- (en el teléfono, abajo en el centro, bajo las habilidades: a la izquierda está el joystick)
 	local health = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 56, 1, -24),
-		Size = UDim2.fromOffset(250, 26),
+		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(0, 1),
+		Position = phone and UDim2.new(0.5, 10, 1, -14) or UDim2.new(0, 56, 1, -24),
+		Size = phone and UDim2.fromOffset(190, 18) or UDim2.fromOffset(250, 26),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
 	}, { UI.corner(13), UI.stroke(Color3.new(0, 0, 0), 3, 0) })
@@ -30122,13 +30146,13 @@ local function buildPlayerPanel()
 		BackgroundColor3 = Color3.fromRGB(70, 220, 90),
 		Parent = health,
 	}, { UI.corner(13), UI.gloss() })
-	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 18, Parent = health })
+	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = phone and 14 or 18, Parent = health })
 	UI.label({
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(0, -6, 0.5, 0),
-		Size = UDim2.fromOffset(28, 28),
+		Size = UDim2.fromOffset(phone and 20 or 28, phone and 20 or 28),
 		Text = "✚",
-		TextSize = 28,
+		TextSize = phone and 20 or 28,
 		TextColor3 = Color3.fromRGB(90, 230, 110),
 		TextStrokeTransparency = 0,
 		Parent = health,
@@ -30154,22 +30178,24 @@ local function buildPlayerPanel()
 	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	streakBar.Visible = not touchOnly
 	refs.StreakText = UI.label({
-		AnchorPoint = Vector2.new(0, touchOnly and 1 or 0),
-		Position = touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126),
-		Size = UDim2.fromOffset(200, 22),
+		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(0, touchOnly and 1 or 0),
+		-- (teléfono: entre las habilidades y la vida, centrado)
+		Position = phone and UDim2.new(0.5, 0, 1, -34) or (touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126)),
+		Size = UDim2.fromOffset(200, phone and 16 or 22),
 		Text = "Racha x0",
-		TextSize = 18,
+		TextSize = phone and 14 or 18,
+		TextXAlignment = phone and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
-		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = gui,
 	})
 	refs.StreakScale = UI.new("UIScale", { Parent = refs.StreakText })
 
 	-- Nivel / XP (abajo al centro)
+	-- (teléfono: una línea fina abajo del todo, sin el texto del nivel, que ya sale en el menú)
 	local level = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -10),
-		Size = UDim2.fromOffset(320, 10),
+		Position = phone and UDim2.new(0.5, 0, 1, -3) or UDim2.new(0.5, 0, 1, -10),
+		Size = phone and UDim2.fromOffset(230, 5) or UDim2.fromOffset(320, 10),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
 	}, { UI.corner(5) })
@@ -30185,24 +30211,16 @@ local function buildPlayerPanel()
 		Size = UDim2.fromOffset(520, 18),
 		Text = "Nivel 1",
 		TextSize = 15,
+		Visible = not phone,
 		Parent = level,
 	})
 end
 
--- Teléfono (pantalla táctil y baja): los avisos del centro se colocan y encogen para no pisar los
--- botones de habilidades ni la mira (en tablet y ordenador, como siempre)
-local function isPhone()
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and workspace.CurrentCamera.ViewportSize.Y < 500
-end
-local phone = false
-local killBaseScale = 1
-
 local function buildFeedsAndOverlays()
-	phone = isPhone()
-	killBaseScale = phone and 0.7 or 1
 	refs.KillFeed = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -16, 0, 60),
+		-- (teléfono: más pequeño y a la izquierda del botón del marcador)
+		Position = phone and UDim2.new(1, -80, 0, 46) or UDim2.new(1, -16, 0, 60),
 		Size = UDim2.fromOffset(380, 220),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -30213,17 +30231,21 @@ local function buildFeedsAndOverlays()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
+	if phone then
+		UI.new("UIScale", { Scale = 0.6, Parent = refs.KillFeed })
+	end
 
+	-- (teléfono: a la izquierda de la mira, por debajo; en el centro están la munición y las habilidades)
 	refs.Popups = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = phone and UDim2.new(0.5, 0, 0.5, 22) or UDim2.new(0.5, 0, 0.58, 0),
-		Size = UDim2.fromOffset(400, 140),
+		AnchorPoint = phone and Vector2.new(1, 0) or Vector2.new(0.5, 0),
+		Position = phone and UDim2.new(0.5, -90, 0.5, 24) or UDim2.new(0.5, 0, 0.58, 0),
+		Size = UDim2.fromOffset(phone and 260 or 400, 140),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
 			Padding = UDim.new(0, 2),
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			HorizontalAlignment = phone and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Center,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
@@ -30601,8 +30623,9 @@ local function popup(text, color)
 		end
 	end
 	local label = UI.label({
-		Size = UDim2.fromOffset(400, phone and 20 or 26),
+		Size = UDim2.fromOffset(phone and 260 or 400, phone and 20 or 26),
 		Text = text,
+		TextXAlignment = phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center,
 		TextSize = 22,
 		TextScaled = true, -- (los avisos largos se encogen en vez de salirse)
 		TextColor3 = color or Color3.fromRGB(255, 230, 120),
@@ -30891,7 +30914,7 @@ local function onKillFeed(info)
 			table.insert(entries, child)
 		end
 	end
-	if #entries > 6 then
+	if #entries > (phone and 3 or 6) then
 		table.sort(entries, function(a, b)
 			return a.LayoutOrder < b.LayoutOrder
 		end)
@@ -31716,9 +31739,10 @@ local function render(dt)
 			if ClientState.Ammo ~= hudCache.Ammo or reserve ~= hudCache.Reserve or low ~= hudCache.Low then
 				hudCache.Ammo, hudCache.Reserve, hudCache.Low = ClientState.Ammo, reserve, low
 				refs.Ammo.Text = string.format(
-					'<font color="%s">%d</font><font size="28" color="#C8C8C8"> | %d</font>',
+					'<font color="%s">%d</font><font size="%d" color="#C8C8C8"> | %d</font>',
 					low and "#FF5050" or "#FFFFFF",
 					ClientState.Ammo,
+					phone and 15 or 28, -- (la reserva, más pequeña; en el teléfono todo es más pequeño)
 					reserve
 				)
 			end
@@ -31819,6 +31843,9 @@ end
 
 function HUD.Init()
 	task.spawn(disableCoreGui)
+	UI.WaitViewport()
+	phone = UI.IsPhone()
+	killBaseScale = phone and 0.7 or 1
 
 	gui = UI.new("ScreenGui", {
 		Name = "HUD",
@@ -32059,6 +32086,7 @@ return JumpPads
 --  * Marcas rojas en el suelo antes de que caigan las bombas
 local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -32146,7 +32174,9 @@ end
 
 local function updateWidget()
 	local charges = player:GetAttribute("Airstrikes") or 0
+	-- (con pantalla táctil, el botón ✈ de Roblox ya lo dice; el cartel quedaba encima de los botones)
 	strikeWidget.Visible = charges > 0 and not ClientState.InMainMenu
+		and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	strikeLabel.Text = "✈ T" .. (charges > 1 and (" ×" .. charges) or "")
 end
 
@@ -36028,12 +36058,15 @@ function Menu.Init()
 	})
 
 	-- Botón superior (útil en móvil)
+	-- (en el teléfono, pequeño: debajo del minimapa y sin tapar nada)
+	UI.WaitViewport()
+	local phone = UI.IsPhone()
 	local open = UI.button({
 		Position = UDim2.fromOffset(16, 58),
-		Size = UDim2.fromOffset(210, 38),
-		Text = "⭐ PASE · TIENDA",
+		Size = phone and UDim2.fromOffset(96, 28) or UDim2.fromOffset(210, 38),
+		Text = phone and "⭐ TIENDA" or "⭐ PASE · TIENDA",
 		BackgroundColor3 = Color3.fromRGB(255, 120, 30),
-		TextSize = 18,
+		TextSize = phone and 14 or 18,
 		Parent = gui,
 	}, { UI.stroke(Color3.new(0, 0, 0), 2, 0.3), UI.gloss() })
 	open.Activated:Connect(Menu.Toggle)
@@ -36043,7 +36076,7 @@ function Menu.Init()
 			open.Visible = not ClientState.InMainMenu
 			-- Debajo del minimapa durante la partida
 			local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
-			open.Position = UDim2.fromOffset(16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + 8 or 58)
+			open.Position = UDim2.fromOffset(phone and 14 or 16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + (phone and 6 or 8) or 58)
 			task.wait(0.25)
 		end
 	end)
@@ -36209,6 +36242,7 @@ return Menu
 -- Radar de la racha, todos los enemigos. También la zona de control y las banderas.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
 
@@ -36521,8 +36555,16 @@ local function onShot(tool)
 end
 
 function Minimap.Init()
+	-- (se espera a saber el tamaño de la pantalla: al arrancar puede valer 0 y en el móvil salía
+	-- el minimapa grande del ordenador)
+	UI.WaitViewport()
 	local viewport = camera.ViewportSize
-	size = (viewport.Y > 0 and viewport.Y < 500) and 112 or 160
+	local phone = UI.IsPhone()
+	size = phone and 96 or ((viewport.Y > 0 and viewport.Y < 500) and 112 or 160)
+	-- (debajo de los botones de Roblox de arriba a la izquierda, que si no lo tapaban)
+	-- (en pantallas táctiles; en el ordenador, arriba del todo como siempre)
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local top = touchOnly and UI.TopbarBottom() or 14
 	scale = size / RANGE
 	gui = UI.new("ScreenGui", {
 		Name = "Minimap",
@@ -36533,7 +36575,7 @@ function Minimap.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	frame = UI.new("Frame", {
-		Position = UDim2.fromOffset(14, 14),
+		Position = UDim2.fromOffset(14, top),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundColor3 = Color3.fromRGB(22, 26, 30),
 		BackgroundTransparency = 0.3,
@@ -36569,7 +36611,7 @@ function Minimap.Init()
 		Parent = frame,
 	})
 	-- (el botón de PASE · TIENDA y lo demás de la izquierda van debajo)
-	ClientState.MinimapBottom = 14 + size
+	ClientState.MinimapBottom = top + size
 	Remotes.ShotFX.OnClientEvent:Connect(onShot)
 	local accumulator = 0
 	RunService.Heartbeat:Connect(function(dt)
@@ -37008,7 +37050,7 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
-	ContextActionService:SetTitle("Sprint", "Correr")
+	ContextActionService:SetTitle("Sprint", "🏃")
 	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	-- C: corriendo te deslizas; si no, te agachas o te levantas (como en los shooters de móvil)
@@ -37024,7 +37066,7 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
-	ContextActionService:SetTitle("Slide", "Agachar")
+	ContextActionService:SetTitle("Slide", "⬇")
 	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr
@@ -37278,10 +37320,15 @@ function PlaytimeGifts.Init()
 	})
 	-- En móvil: botón pequeño arriba a la izquierda (abajo está el joystick y los retos ocupan el centro)
 	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	UI.WaitViewport()
+	-- (teléfono: a la derecha del minimapa, pequeño; tablet: debajo del botón de la tienda)
+	local phone = UI.IsPhone()
 	button = UI.button({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = compact and UDim2.fromOffset(10, 104) or UDim2.new(0, 66, 0.38, 112), -- (en móvil, debajo del botón de la tienda)
-		Size = compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56),
+		-- (táctil: a la derecha del minimapa, que mide 96 en el teléfono y 160 en la tablet)
+		Position = compact and UDim2.fromOffset(14 + (phone and 96 or 160) + 6, UI.TopbarBottom())
+			or UDim2.new(0, 66, 0.38, 112),
+		Size = phone and UDim2.fromOffset(44, 54) or (compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56)),
 		Text = "",
 		BackgroundColor3 = WAITING,
 		BackgroundTransparency = 0.1,
@@ -37314,10 +37361,11 @@ function PlaytimeGifts.Init()
 	})
 	if compact then
 		-- Icono arriba y el tiempo debajo, sin la línea del premio
-		icon.Position, icon.Size, icon.TextSize = UDim2.fromOffset(0, 2), UDim2.new(1, 0, 0, 38), 30
-		label.Position, label.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 20)
+		local small = phone
+		icon.Position, icon.Size, icon.TextSize = UDim2.fromOffset(0, 2), UDim2.new(1, 0, 0, small and 30 or 38), small and 24 or 30
+		label.Position, label.Size = UDim2.fromOffset(0, small and 32 or 40), UDim2.new(1, 0, 0, small and 18 or 20)
 		label.TextXAlignment = Enum.TextXAlignment.Center
-		label.TextSize = 15
+		label.TextSize = small and 12 or 15
 		sub.Visible = false
 	end
 	button.Activated:Connect(claim)
@@ -37360,6 +37408,7 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local QuestTracker = {}
+local phone = false
 
 local gui, panel
 local rows = {} -- [índice] = { Frame, Text, Fill, Count, Check, Done, Progress }
@@ -37471,6 +37520,8 @@ local function refresh(data)
 end
 
 function QuestTracker.Init()
+	UI.WaitViewport()
+	phone = UI.IsPhone()
 	gui = UI.new("ScreenGui", {
 		Name = "QuestTracker",
 		ResetOnSpawn = false,
@@ -37513,6 +37564,7 @@ function QuestTracker.Init()
 	RunService.Heartbeat:Connect(function()
 		gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
 			and ReplicatedStorage:GetAttribute("State") ~= "Ended" -- (no encima del resumen de la partida)
+			and not phone -- (en el teléfono no cabe: los retos se ven en el menú y avisan al completarse)
 	end)
 end
 
@@ -38797,6 +38849,24 @@ local function isLarge()
 	return math.min(size.X, size.Y) > 500
 end
 
+-- El texto del botón se encoge para caber (si no, «Disparar» salía partido en «Dispar / ar»)
+local function styleTitle(actionName)
+	pcall(function()
+		local button = ContextActionService:GetButton(actionName)
+		local title = button and button:FindFirstChild("ActionTitle")
+		if title and title:IsA("TextLabel") then
+			title.TextScaled = true
+			title.TextWrapped = false
+			if not title:FindFirstChildOfClass("UITextSizeConstraint") then
+				local fit = Instance.new("UITextSizeConstraint")
+				fit.MaxTextSize = 22
+				fit.MinTextSize = 8
+				fit.Parent = title
+			end
+		end
+	end)
+end
+
 local function apply(actionName, position)
 	if isLarge() and position.X.Scale == 1 and position.Y.Scale == 1 then
 		position = UDim2.new(1, position.X.Offset + TABLET_SHIFT_X, 1, position.Y.Offset)
@@ -38804,6 +38874,7 @@ local function apply(actionName, position)
 	pcall(function()
 		ContextActionService:SetPosition(actionName, position)
 	end)
+	styleTitle(actionName)
 end
 
 -- Igual que ContextActionService:SetPosition, pero se ajusta en tablet (y al girar la pantalla)
@@ -39078,6 +39149,40 @@ end
 function UI.formatTime(seconds)
 	seconds = math.max(0, math.floor(seconds))
 	return string.format("%02d:%02d", seconds // 60, seconds % 60)
+end
+
+-- Espera a que la cámara sepa el tamaño de la pantalla (al arrancar puede valer 0 un instante y el
+-- móvil se confundía con un ordenador: minimapa y paneles salían a tamaño de escritorio)
+function UI.WaitViewport(timeout)
+	local deadline = os.clock() + (timeout or 2)
+	while os.clock() < deadline do
+		local camera = workspace.CurrentCamera
+		local size = camera and camera.ViewportSize
+		if typeof(size) == "Vector2" and size.Y > 2 then
+			return
+		end
+		task.wait(0.05)
+	end
+end
+
+-- ¿Teléfono? (táctil, sin teclado y pantalla baja; las tablets usan la disposición normal)
+function UI.IsPhone()
+	local UserInputService = game:GetService("UserInputService")
+	local camera = workspace.CurrentCamera
+	local size = camera and camera.ViewportSize
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and typeof(size) == "Vector2" and size.Y > 2 and size.Y < 500
+end
+
+-- Dónde acaba la barra de botones de Roblox (menú, chat...) arriba a la izquierda: lo nuestro de esa
+-- esquina va debajo para no quedar tapado
+function UI.TopbarBottom()
+	local ok, inset = pcall(function()
+		return game:GetService("GuiService").TopbarInset
+	end)
+	if ok and typeof(inset) == "Rect" and inset.Height > 0 then
+		return math.floor(inset.Max.Y) + 6
+	end
+	return 60
 end
 
 -- Mayúsculas que respetan las tildes (string.upper solo cambia las letras sin acento: «Mítico» saldría
@@ -40499,7 +40604,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-	ContextActionService:SetTitle("Fire", "Disparar")
+	ContextActionService:SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
 	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
 	ContextActionService:BindAction("Aim", function(_, state, input)
@@ -40518,7 +40623,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
-	ContextActionService:SetTitle("Aim", "Apuntar")
+	ContextActionService:SetTitle("Aim", "🎯")
 	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
 	ContextActionService:BindAction("Reload", function(_, state)
@@ -40527,7 +40632,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
-	ContextActionService:SetTitle("Reload", "R")
+	ContextActionService:SetTitle("Reload", "🔄")
 	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
 	ContextActionService:BindAction("Melee", function(_, state)
@@ -40536,7 +40641,7 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
-	ContextActionService:SetTitle("Melee", "F")
+	ContextActionService:SetTitle("Melee", "🔪")
 	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)

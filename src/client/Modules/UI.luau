@@ -89,6 +89,40 @@ function UI.formatTime(seconds)
 	return string.format("%02d:%02d", seconds // 60, seconds % 60)
 end
 
+-- Espera a que la cámara sepa el tamaño de la pantalla (al arrancar puede valer 0 un instante y el
+-- móvil se confundía con un ordenador: minimapa y paneles salían a tamaño de escritorio)
+function UI.WaitViewport(timeout)
+	local deadline = os.clock() + (timeout or 2)
+	while os.clock() < deadline do
+		local camera = workspace.CurrentCamera
+		local size = camera and camera.ViewportSize
+		if typeof(size) == "Vector2" and size.Y > 2 then
+			return
+		end
+		task.wait(0.05)
+	end
+end
+
+-- ¿Teléfono? (táctil, sin teclado y pantalla baja; las tablets usan la disposición normal)
+function UI.IsPhone()
+	local UserInputService = game:GetService("UserInputService")
+	local camera = workspace.CurrentCamera
+	local size = camera and camera.ViewportSize
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and typeof(size) == "Vector2" and size.Y > 2 and size.Y < 500
+end
+
+-- Dónde acaba la barra de botones de Roblox (menú, chat...) arriba a la izquierda: lo nuestro de esa
+-- esquina va debajo para no quedar tapado
+function UI.TopbarBottom()
+	local ok, inset = pcall(function()
+		return game:GetService("GuiService").TopbarInset
+	end)
+	if ok and typeof(inset) == "Rect" and inset.Height > 0 then
+		return math.floor(inset.Max.Y) + 6
+	end
+	return 60
+end
+
 -- Mayúsculas que respetan las tildes (string.upper solo cambia las letras sin acento: «Mítico» saldría
 -- «MíTICO»)
 local ACCENTS = { ["á"] = "Á", ["é"] = "É", ["í"] = "Í", ["ó"] = "Ó", ["ú"] = "Ú", ["ñ"] = "Ñ", ["ü"] = "Ü" }

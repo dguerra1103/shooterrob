@@ -417,7 +417,7 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
-	ContextActionService:SetTitle("Sprint", "Correr")
+	ContextActionService:SetTitle("Sprint", "🏃")
 	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	-- C: corriendo te deslizas; si no, te agachas o te levantas (como en los shooters de móvil)
@@ -433,7 +433,7 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
-	ContextActionService:SetTitle("Slide", "Agachar")
+	ContextActionService:SetTitle("Slide", "⬇")
 	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr

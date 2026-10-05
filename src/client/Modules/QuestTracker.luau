@@ -14,6 +14,7 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local QuestTracker = {}
+local phone = false
 
 local gui, panel
 local rows = {} -- [índice] = { Frame, Text, Fill, Count, Check, Done, Progress }
@@ -125,6 +126,8 @@ local function refresh(data)
 end
 
 function QuestTracker.Init()
+	UI.WaitViewport()
+	phone = UI.IsPhone()
 	gui = UI.new("ScreenGui", {
 		Name = "QuestTracker",
 		ResetOnSpawn = false,
@@ -167,6 +170,7 @@ function QuestTracker.Init()
 	RunService.Heartbeat:Connect(function()
 		gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
 			and ReplicatedStorage:GetAttribute("State") ~= "Ended" -- (no encima del resumen de la partida)
+			and not phone -- (en el teléfono no cabe: los retos se ven en el menú y avisan al completarse)
 	end)
 end
 

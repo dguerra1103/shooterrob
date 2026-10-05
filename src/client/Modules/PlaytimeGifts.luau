@@ -103,10 +103,15 @@ function PlaytimeGifts.Init()
 	})
 	-- En móvil: botón pequeño arriba a la izquierda (abajo está el joystick y los retos ocupan el centro)
 	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	UI.WaitViewport()
+	-- (teléfono: a la derecha del minimapa, pequeño; tablet: debajo del botón de la tienda)
+	local phone = UI.IsPhone()
 	button = UI.button({
 		AnchorPoint = Vector2.new(0, 0),
-		Position = compact and UDim2.fromOffset(10, 104) or UDim2.new(0, 66, 0.38, 112), -- (en móvil, debajo del botón de la tienda)
-		Size = compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56),
+		-- (táctil: a la derecha del minimapa, que mide 96 en el teléfono y 160 en la tablet)
+		Position = compact and UDim2.fromOffset(14 + (phone and 96 or 160) + 6, UI.TopbarBottom())
+			or UDim2.new(0, 66, 0.38, 112),
+		Size = phone and UDim2.fromOffset(44, 54) or (compact and UDim2.fromOffset(52, 64) or UDim2.fromOffset(230, 56)),
 		Text = "",
 		BackgroundColor3 = WAITING,
 		BackgroundTransparency = 0.1,
@@ -139,10 +144,11 @@ function PlaytimeGifts.Init()
 	})
 	if compact then
 		-- Icono arriba y el tiempo debajo, sin la línea del premio
-		icon.Position, icon.Size, icon.TextSize = UDim2.fromOffset(0, 2), UDim2.new(1, 0, 0, 38), 30
-		label.Position, label.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 0, 20)
+		local small = phone
+		icon.Position, icon.Size, icon.TextSize = UDim2.fromOffset(0, 2), UDim2.new(1, 0, 0, small and 30 or 38), small and 24 or 30
+		label.Position, label.Size = UDim2.fromOffset(0, small and 32 or 40), UDim2.new(1, 0, 0, small and 18 or 20)
 		label.TextXAlignment = Enum.TextXAlignment.Center
-		label.TextSize = 15
+		label.TextSize = small and 12 or 15
 		sub.Visible = false
 	end
 	button.Activated:Connect(claim)

@@ -24,10 +24,13 @@ function EventHUD.Init()
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	UI.WaitViewport()
+	local phone = UI.IsPhone()
 	local frame = UI.new("Frame", {
-		-- En móvil: estrecho, debajo del regalo (a su derecha están los retos)
-		Position = compact and UDim2.fromOffset(10, 174) or UDim2.new(0, 66, 0.38, 176),
-		Size = compact and UDim2.fromOffset(52, 40) or UDim2.fromOffset(230, 34),
+		-- En móvil: estrecho, debajo del regalo (teléfono: los dos a la derecha del minimapa)
+		Position = compact and UDim2.fromOffset(14 + (phone and 96 or 160) + 6, UI.TopbarBottom() + (phone and 60 or 70))
+			or UDim2.new(0, 66, 0.38, 176),
+		Size = phone and UDim2.fromOffset(44, 34) or (compact and UDim2.fromOffset(52, 40) or UDim2.fromOffset(230, 34)),
 		BackgroundColor3 = Color3.fromRGB(60, 25, 80),
 		BackgroundTransparency = 0.15,
 		Parent = gui,

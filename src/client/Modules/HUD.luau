@@ -28,6 +28,10 @@ local HUD = {}
 
 local gui
 local refs = {}
+-- Teléfono (táctil y pantalla baja, ver UI.IsPhone): disposición propia para que nada pise los
+-- botones táctiles, el joystick ni la mira (en tablet y ordenador, como siempre). Se decide en Init.
+local phone = false
+local killBaseScale = 1
 local thumbnails = {}
 
 local function tween(inst, time, props, style)
@@ -242,34 +246,37 @@ end
 
 local function buildWeaponPanel()
 	-- Munición (abajo a la derecha)
+	-- (en el teléfono, compacta y en el centro, encima de las habilidades: a la derecha están los
+	-- botones táctiles)
+	local align = phone and Enum.TextXAlignment.Center or Enum.TextXAlignment.Right
 	local panel = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -24, 1, -20),
-		Size = UDim2.fromOffset(260, 104),
+		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(1, 1),
+		Position = phone and UDim2.new(0.5, 0, 1, -122) or UDim2.new(1, -24, 1, -20),
+		Size = phone and UDim2.fromOffset(160, 46) or UDim2.fromOffset(260, 104),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
 	refs.WeaponName = UI.label({
-		Size = UDim2.new(1, 0, 0, 24),
+		Size = UDim2.new(1, 0, 0, phone and 14 or 24),
 		Text = "",
-		TextSize = 20,
-		TextXAlignment = Enum.TextXAlignment.Right,
+		TextSize = phone and 13 or 20,
+		TextXAlignment = align,
 		Parent = panel,
 	})
 	refs.Ammo = UI.label({
-		Position = UDim2.fromOffset(0, 24),
-		Size = UDim2.new(1, 0, 0, 50),
+		Position = UDim2.fromOffset(0, phone and 13 or 24),
+		Size = UDim2.new(1, 0, 0, phone and 26 or 50),
 		Text = "",
-		TextSize = 46,
+		TextSize = phone and 24 or 46,
 		RichText = true,
-		TextXAlignment = Enum.TextXAlignment.Right,
+		TextXAlignment = align,
 		Parent = panel,
 	})
 	-- Barra del cargador
 	local ammoBar = UI.new("Frame", {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0, 76),
-		Size = UDim2.fromOffset(170, 6),
+		AnchorPoint = phone and Vector2.new(0.5, 0) or Vector2.new(1, 0),
+		Position = phone and UDim2.new(0.5, 0, 0, 41) or UDim2.new(1, 0, 0, 76),
+		Size = UDim2.fromOffset(phone and 110 or 170, phone and 4 or 6),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		BackgroundTransparency = 0.3,
 		Parent = panel,
@@ -283,21 +290,23 @@ local function buildWeaponPanel()
 	}, { UI.corner(3) })
 	refs.AmmoBar = ammoBar
 	refs.ReloadHint = UI.label({
-		Position = UDim2.fromOffset(0, 85),
-		Size = UDim2.new(1, 0, 0, 18),
+		Position = phone and UDim2.fromOffset(0, -14) or UDim2.fromOffset(0, 85),
+		Size = UDim2.new(1, 0, 0, phone and 14 or 18),
 		Text = "",
-		TextSize = 16,
+		TextSize = phone and 13 or 16,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
-		TextXAlignment = Enum.TextXAlignment.Right,
+		TextXAlignment = align,
 		Parent = panel,
 	})
 
 	-- Ranuras de armas (derecha) con icono 3D del arma
+	-- (en el teléfono no se ven: ahí están los botones táctiles; se cambia de arma con ⇄)
 	local slots = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -20, 0.6, 0),
 		Size = UDim2.fromOffset(230, 196),
 		BackgroundTransparency = 1,
+		Visible = not phone,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
@@ -400,10 +409,11 @@ end
 
 local function buildPlayerPanel()
 	-- Vida (abajo a la izquierda)
+	-- (en el teléfono, abajo en el centro, bajo las habilidades: a la izquierda está el joystick)
 	local health = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 56, 1, -24),
-		Size = UDim2.fromOffset(250, 26),
+		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(0, 1),
+		Position = phone and UDim2.new(0.5, 10, 1, -14) or UDim2.new(0, 56, 1, -24),
+		Size = phone and UDim2.fromOffset(190, 18) or UDim2.fromOffset(250, 26),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
 	}, { UI.corner(13), UI.stroke(Color3.new(0, 0, 0), 3, 0) })
@@ -418,13 +428,13 @@ local function buildPlayerPanel()
 		BackgroundColor3 = Color3.fromRGB(70, 220, 90),
 		Parent = health,
 	}, { UI.corner(13), UI.gloss() })
-	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = 18, Parent = health })
+	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = phone and 14 or 18, Parent = health })
 	UI.label({
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(0, -6, 0.5, 0),
-		Size = UDim2.fromOffset(28, 28),
+		Size = UDim2.fromOffset(phone and 20 or 28, phone and 20 or 28),
 		Text = "✚",
-		TextSize = 28,
+		TextSize = phone and 20 or 28,
 		TextColor3 = Color3.fromRGB(90, 230, 110),
 		TextStrokeTransparency = 0,
 		Parent = health,
@@ -450,22 +460,24 @@ local function buildPlayerPanel()
 	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	streakBar.Visible = not touchOnly
 	refs.StreakText = UI.label({
-		AnchorPoint = Vector2.new(0, touchOnly and 1 or 0),
-		Position = touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126),
-		Size = UDim2.fromOffset(200, 22),
+		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(0, touchOnly and 1 or 0),
+		-- (teléfono: entre las habilidades y la vida, centrado)
+		Position = phone and UDim2.new(0.5, 0, 1, -34) or (touchOnly and UDim2.new(0, 56, 1, -54) or UDim2.new(0, 14, 0.55, 126)),
+		Size = UDim2.fromOffset(200, phone and 16 or 22),
 		Text = "Racha x0",
-		TextSize = 18,
+		TextSize = phone and 14 or 18,
+		TextXAlignment = phone and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(255, 210, 80),
-		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = gui,
 	})
 	refs.StreakScale = UI.new("UIScale", { Parent = refs.StreakText })
 
 	-- Nivel / XP (abajo al centro)
+	-- (teléfono: una línea fina abajo del todo, sin el texto del nivel, que ya sale en el menú)
 	local level = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -10),
-		Size = UDim2.fromOffset(320, 10),
+		Position = phone and UDim2.new(0.5, 0, 1, -3) or UDim2.new(0.5, 0, 1, -10),
+		Size = phone and UDim2.fromOffset(230, 5) or UDim2.fromOffset(320, 10),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
 	}, { UI.corner(5) })
@@ -481,24 +493,16 @@ local function buildPlayerPanel()
 		Size = UDim2.fromOffset(520, 18),
 		Text = "Nivel 1",
 		TextSize = 15,
+		Visible = not phone,
 		Parent = level,
 	})
 end
 
--- Teléfono (pantalla táctil y baja): los avisos del centro se colocan y encogen para no pisar los
--- botones de habilidades ni la mira (en tablet y ordenador, como siempre)
-local function isPhone()
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and workspace.CurrentCamera.ViewportSize.Y < 500
-end
-local phone = false
-local killBaseScale = 1
-
 local function buildFeedsAndOverlays()
-	phone = isPhone()
-	killBaseScale = phone and 0.7 or 1
 	refs.KillFeed = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -16, 0, 60),
+		-- (teléfono: más pequeño y a la izquierda del botón del marcador)
+		Position = phone and UDim2.new(1, -80, 0, 46) or UDim2.new(1, -16, 0, 60),
 		Size = UDim2.fromOffset(380, 220),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -509,17 +513,21 @@ local function buildFeedsAndOverlays()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
+	if phone then
+		UI.new("UIScale", { Scale = 0.6, Parent = refs.KillFeed })
+	end
 
+	-- (teléfono: a la izquierda de la mira, por debajo; en el centro están la munición y las habilidades)
 	refs.Popups = UI.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = phone and UDim2.new(0.5, 0, 0.5, 22) or UDim2.new(0.5, 0, 0.58, 0),
-		Size = UDim2.fromOffset(400, 140),
+		AnchorPoint = phone and Vector2.new(1, 0) or Vector2.new(0.5, 0),
+		Position = phone and UDim2.new(0.5, -90, 0.5, 24) or UDim2.new(0.5, 0, 0.58, 0),
+		Size = UDim2.fromOffset(phone and 260 or 400, 140),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
 			Padding = UDim.new(0, 2),
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			HorizontalAlignment = phone and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Center,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
@@ -897,8 +905,9 @@ local function popup(text, color)
 		end
 	end
 	local label = UI.label({
-		Size = UDim2.fromOffset(400, phone and 20 or 26),
+		Size = UDim2.fromOffset(phone and 260 or 400, phone and 20 or 26),
 		Text = text,
+		TextXAlignment = phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center,
 		TextSize = 22,
 		TextScaled = true, -- (los avisos largos se encogen en vez de salirse)
 		TextColor3 = color or Color3.fromRGB(255, 230, 120),
@@ -1187,7 +1196,7 @@ local function onKillFeed(info)
 			table.insert(entries, child)
 		end
 	end
-	if #entries > 6 then
+	if #entries > (phone and 3 or 6) then
 		table.sort(entries, function(a, b)
 			return a.LayoutOrder < b.LayoutOrder
 		end)
@@ -2012,9 +2021,10 @@ local function render(dt)
 			if ClientState.Ammo ~= hudCache.Ammo or reserve ~= hudCache.Reserve or low ~= hudCache.Low then
 				hudCache.Ammo, hudCache.Reserve, hudCache.Low = ClientState.Ammo, reserve, low
 				refs.Ammo.Text = string.format(
-					'<font color="%s">%d</font><font size="28" color="#C8C8C8"> | %d</font>',
+					'<font color="%s">%d</font><font size="%d" color="#C8C8C8"> | %d</font>',
 					low and "#FF5050" or "#FFFFFF",
 					ClientState.Ammo,
+					phone and 15 or 28, -- (la reserva, más pequeña; en el teléfono todo es más pequeño)
 					reserve
 				)
 			end
@@ -2115,6 +2125,9 @@ end
 
 function HUD.Init()
 	task.spawn(disableCoreGui)
+	UI.WaitViewport()
+	phone = UI.IsPhone()
+	killBaseScale = phone and 0.7 or 1
 
 	gui = UI.new("ScreenGui", {
 		Name = "HUD",
