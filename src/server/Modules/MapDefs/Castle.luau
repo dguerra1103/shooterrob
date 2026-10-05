@@ -207,6 +207,14 @@ function Map.Build()
 
 	-- Fondo: colinas y pinos
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Nombres de las zonas
+	Kit.callout("TORRE DEL HOMENAJE", CFrame.new(0, 10, 0), V(KEEP * 2 + 4, 30, KEEP * 2 + 4))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("MURALLA", m * CFrame.new(-48, 8, 0), V(8, 22, WIDTH))
+		Kit.callout("PATIO", m * CFrame.new(-28, 8, 0), V(30, 22, WIDTH))
+		Kit.callout("POZO", m * CFrame.new(-28, 6, -24), V(10, 16, 10))
+		Kit.callout("MERCADO", m * CFrame.new(-26, 8, 27), V(18, 18, 16))
+	end
 	local rng = Random.new(53)
 	for x = -130, 130, 22 do
 		for _, z in { -1, 1 } do

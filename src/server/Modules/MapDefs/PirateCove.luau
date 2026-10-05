@@ -219,6 +219,13 @@ function Map.Build()
 
 	-- Fondo: barcos y un faro en el mar
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Nombres de las zonas
+	Kit.callout("CANAL", CFrame.new(0, 2, 0), V(CHANNEL * 2, 30, WIDTH))
+	Kit.callout("GALEÓN", CFrame.new(0, 8, 0), V(16, 30, 76))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("PUENTE", m * CFrame.new(0, 4, 52), V(CHANNEL * 2 + 6, 16, 10))
+		Kit.callout("ALMACÉN", m * CFrame.new(-58, 8, 36), V(22, 24, 18))
+	end
 	-- Los extremos del canal se cierran también por debajo del agua (los muros empiezan en y = 0)
 	local boundary = folder:FindFirstChild("Boundary")
 	for _, sz in { -1, 1 } do
