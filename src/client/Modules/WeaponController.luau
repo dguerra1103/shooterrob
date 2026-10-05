@@ -72,6 +72,8 @@ local pulseParts = {} -- piezas de neón que laten (skins míticas)
 local pulseSkin = nil
 local strafeRoll = 0
 local shakeRoll = 0
+-- Golpe al recibir daño: un alabeo corto de la cámara (no mueve la mira) y un tirón del arma
+local flinchRoll, flinchHealth = 0, nil
 local headBobTime = 0 -- balanceo de la cámara al andar (GameConfig.Movement.CameraBob)
 local headBobAmount = 0
 -- Animación del arma: inercia con muelle, arma contra la pared, saltos y golpes alternos
@@ -914,9 +916,20 @@ local function renderStep(dt)
 			strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
 		end
 		shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
+		-- Daño recibido: alabeo hacia un lado según cuánto (como mucho ~1,5°) y un tirón del arma
+		if humanoid then
+			local health = humanoid.Health
+			if flinchHealth and health < flinchHealth - 1 and health > 0 then
+				local hurt = math.min(flinchHealth - health, 40)
+				flinchRoll += (math.random() < 0.5 and -1 or 1) * math.rad(hurt * 0.035)
+				sideVel += (math.random() - 0.5) * hurt * 0.08
+			end
+			flinchHealth = health
+		end
+		flinchRoll = lerp(flinchRoll, 0, math.min(1, dt * 12))
 		-- (competitivo: apuntando tiembla mucho menos, y con «Efectos de pantalla: Reducidos» casi nada)
 		local calm = (ClientState.ReducedFX() and 0.3 or 1) * (1 - 0.6 * aimAlpha)
-		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, (strafeRoll + shakeRoll) * calm)
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, (strafeRoll + shakeRoll + flinchRoll) * calm)
 		-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
 		local shake = ClientState.Shake or 0
 		if shake > 0.01 then
@@ -1365,6 +1378,7 @@ local function onCharacter(newCharacter)
 	debtPitch, debtYaw = 0, 0
 	recoilKick, recoilRot, recoilSide = 0, 0, 0
 	kickVel, rotVel, sideVel = 0, 0, 0
+	flinchRoll, flinchHealth = 0, nil
 	sprayCount = 0
 	-- (un temblor o un golpe de aterrizaje pendientes de antes de morir no siguen en la vida nueva)
 	ClientState.Shake = 0

@@ -1503,7 +1503,7 @@ local function tacticalize(preset, designed)
 	p.Atmosphere = a
 	local c = table.clone(p.Color or {})
 	if designed then
-		c.Saturation = math.max(c.Saturation or 0.05, 0.06)
+		c.Saturation = math.max(c.Saturation or 0.05, 0.09) -- (ligeramente vivo: no un mapa gris)
 		c.Contrast = math.min(c.Contrast or 0.12, 0.16)
 	else
 		c.Saturation = math.clamp(c.Saturation or 0.1, 0.08, night and 0.14 or 0.16)
