@@ -265,9 +265,10 @@ function Map.Build()
 	snow.Rate = 140
 	-- (con ventisca: mucha más nieve, más rápida y de lado)
 	if Kit.Weather == "Snowstorm" then
-		snow.Rate = 420
+		snow.Rate = 300 -- (unas 1.400 partículas a la vez: los móviles con calidad baja ven la mitad, Ambience)
+		snow.Size = NumberSequence.new(0.26)
 		snow.Speed = NumberRange.new(12, 18)
-		snow.Lifetime = NumberRange.new(4, 6)
+		snow.Lifetime = NumberRange.new(4, 5.5)
 		snow.Acceleration = V(6, 0, 2.5)
 	end
 	snow.EmissionDirection = Enum.NormalId.Bottom

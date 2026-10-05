@@ -1836,6 +1836,7 @@ local EVENTS = {
 	"SaveSettings", -- cliente -> servidor: ajustes (calidad gráfica, FOV, sensibilidad)
 	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
 	"ThrowGrenade", -- cliente -> servidor: lanzar granada (dirección)
+	"GrenadePin", -- cliente -> servidor: quita la anilla (empieza a cocinar; el servidor mide cuánto)
 	"ExplosionFX", -- servidor -> clientes: explosión de granada (posición, radio)
 	"CallAirstrike", -- cliente -> servidor: pedir el ataque aéreo (punto objetivo)
 	"AirstrikeMark", -- servidor -> clientes: marcas rojas donde va a caer el ataque aéreo
@@ -9255,18 +9256,34 @@ local function onAimPitch(player, pitch)
 end
 
 -- Linterna del arma (de noche): los demás la ven si la llevas encendida
-local lastFlashlight = setmetatable({}, { __mode = "k" }) -- [player] = os.clock()
+local lastFlashlight = setmetatable({}, { __mode = "k" }) -- [player] = { At, Want, Pending }
 local function onFlashlight(player, on)
 	if type(on) ~= "boolean" then
 		return
 	end
-	local now = os.clock()
-	if now - (lastFlashlight[player] or 0) < 0.2 then
-		return
+	-- (como mucho 5 veces por segundo; si llega otra antes, se aplica la última un poco después:
+	-- así el servidor nunca se queda con una distinta de la del jugador)
+	local entry = lastFlashlight[player]
+	if not entry then
+		entry = { At = 0, Want = on, Pending = false }
+		lastFlashlight[player] = entry
 	end
-	lastFlashlight[player] = now
-	if player.Character then
-		player.Character:SetAttribute("Flashlight", on)
+	entry.Want = on
+	local function apply()
+		entry.At = os.clock()
+		if player.Character then
+			player.Character:SetAttribute("Flashlight", entry.Want)
+		end
+	end
+	local wait = 0.2 - (os.clock() - entry.At)
+	if wait <= 0 then
+		apply()
+	elseif not entry.Pending then
+		entry.Pending = true
+		task.delay(wait, function()
+			entry.Pending = false
+			apply()
+		end)
 	end
 end
 
@@ -10975,13 +10992,23 @@ local function makeGrenade(cf)
 	return ball, light
 end
 
+local pins = setmetatable({}, { __mode = "k" }) -- [Player] = now() al quitar la anilla
+
+local function pullPin(player)
+	pins[player] = now()
+end
+
 -- cook: segundos que el jugador la tuvo cocinándose en la mano (sale con menos mecha)
 local function throw(player, direction, cook)
 	if typeof(direction) ~= "Vector3" then
 		return
 	end
-	-- (como mucho hasta que le quede un pelín de mecha; también descarta NaN)
-	cook = (type(cook) == "number" and cook == cook) and math.clamp(cook, 0, DEF.Fuse - 0.2) or 0
+	-- (como mucho hasta que le quede un pelín de mecha; también descarta NaN). Y nunca más de lo que el
+	-- servidor vio que la tuvo sin anilla (más un poco por la latencia)
+	local pinAt = pins[player]
+	pins[player] = nil
+	local held = pinAt and (now() - pinAt + 0.15) or 0
+	cook = (type(cook) == "number" and cook == cook) and math.clamp(cook, 0, math.min(DEF.Fuse - 0.2, held)) or 0
 	local length = direction.Magnitude
 	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
@@ -11110,6 +11137,7 @@ function Grenades.Init()
 	folder.Name = "Grenades"
 	folder.Parent = workspace
 	Remotes.ThrowGrenade.OnServerEvent:Connect(throw)
+	Remotes.GrenadePin.OnServerEvent:Connect(pullPin)
 end
 
 -- Al empezar una ronda todos tienen la granada lista (reaparecer no la recarga: evita abusar)
@@ -15525,9 +15553,10 @@ function Map.Build()
 	snow.Rate = 140
 	-- (con ventisca: mucha más nieve, más rápida y de lado)
 	if Kit.Weather == "Snowstorm" then
-		snow.Rate = 420
+		snow.Rate = 300 -- (unas 1.400 partículas a la vez: los móviles con calidad baja ven la mitad, Ambience)
+		snow.Size = NumberSequence.new(0.26)
 		snow.Speed = NumberRange.new(12, 18)
-		snow.Lifetime = NumberRange.new(4, 6)
+		snow.Lifetime = NumberRange.new(4, 5.5)
 		snow.Acceleration = V(6, 0, 2.5)
 	end
 	snow.EmissionDirection = Enum.NormalId.Bottom
@@ -24369,6 +24398,7 @@ end
 local streakVictims = {} -- [player] = { [UserId] = true }
 local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
 local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para la killcam final)
+local decidingKill = nil -- la baja que cerró la partida (desde ahí todo queda congelado hasta su repetición)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -24583,6 +24613,7 @@ local function resetStats()
 	Grenades.Reset()
 	firstBlood = false
 	lastKill = nil
+	decidingKill = nil
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -24667,6 +24698,7 @@ local function awardMedals(killer, victimName, victimStreak, weaponName, positio
 end
 
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
+	local wasOver = roundOver
 	local bounty = 0
 	-- (la racha que llevaba el caído, antes de ponerla a 0: para la medalla Cazarrachas)
 	local victimStreak = (victim and victim:GetAttribute("Streak")) or (victimBot and victimBot.Streak) or 0
@@ -24829,6 +24861,12 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	local killerName = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
 	if killerName and victimName and killerName ~= victimName then
 		lastKill = { Killer = killerName, Victim = victimName, Weapon = weaponName, Time = os.clock() }
+		-- (si esta baja cierra la partida, se guarda tal cual y se congela todo ya: ninguna baja de
+		-- después, hasta que la ronda se dé cuenta, la sustituye en la repetición)
+		if roundOver and not wasOver and not decidingKill and GameConfig.FinalKillcam ~= false then
+			decidingKill = lastKill
+			ReplicatedStorage:SetAttribute("Frozen", true)
+		end
 	end
 	local weapon = weaponName and Weapons.Get(weaponName)
 	Remotes.KillFeed:FireAllClients({
@@ -25327,9 +25365,18 @@ end
 -- ven la repetición desde los ojos de quien la hizo. Mientras, todo queda congelado (nadie dispara
 -- ni se mueven los bots). Devuelve true si la hubo.
 local function playFinalKillcam()
-	local kill = lastKill
+	-- La que cerró la partida; si no la hubo (p. ej. la ronda la decidió quién quedaba vivo), la última
+	-- baja solo si fue justo antes (si se acabó el tiempo o por puntos de zona, no hay repetición)
+	local kill = decidingKill
+	if not kill and lastKill and os.clock() - lastKill.Time <= 1.2 then
+		kill = lastKill
+	end
+	decidingKill = nil
 	lastKill = nil
-	if GameConfig.FinalKillcam == false or not kill or os.clock() - kill.Time > 3 then
+	if GameConfig.FinalKillcam == false or not kill or os.clock() - kill.Time > 4 then
+		if kill then
+			ReplicatedStorage:SetAttribute("Frozen", false)
+		end
 		return false
 	end
 	ReplicatedStorage:SetAttribute("Frozen", true)
@@ -25824,6 +25871,9 @@ local function playRound()
 				return roundOver
 			end)
 		end
+		-- La repetición de la baja final, antes de limpiar el modo (en la Infección, por ejemplo, todos
+		-- reaparecen al acabar y ya no estarían donde fue la baja)
+		playFinalKillcam()
 		Flags.Stop()
 		Hardpoint.Stop()
 		Domination.Stop()
@@ -27160,6 +27210,20 @@ local function ensureGroup()
 	return group
 end
 
+-- Con calidad baja, la ventisca echa la mitad de nieve (en este cliente; son muchas partículas)
+local stormMap, stormEmitter, stormRate = nil, nil, nil
+local function thinStorm(map)
+	if stormMap ~= map then
+		stormMap = map
+		local fall = map:FindFirstChild("Snowfall", true)
+		stormEmitter = fall and fall:FindFirstChildOfClass("ParticleEmitter") or nil
+		stormRate = stormEmitter and stormEmitter.Rate or nil
+	end
+	if stormEmitter and stormRate then
+		stormEmitter.Rate = (ClientState.EffectiveQuality == "Baja") and stormRate * 0.5 or stormRate
+	end
+end
+
 local function oneShot(id, volume, speed)
 	local sound = Instance.new("Sound")
 	sound.SoundId = id
@@ -27335,7 +27399,7 @@ end
 local WET_TERRAIN = { "Grass", "LeafyGrass", "Ground", "Mud", "Sand", "Rock", "Asphalt", "Concrete", "Pavement", "Slate", "Cobblestone", "Brick" }
 local wetMap = nil -- mapa mojado ahora mismo
 local wetParts = {} -- [pieza] = { color, brillo } de antes
-local wetTerrain = {} -- [material] = color de antes
+local wetTerrain = {} -- [material] = { color de antes, color mojado }
 local wetParams = RaycastParams.new()
 wetParams.FilterType = Enum.RaycastFilterType.Include
 
@@ -27347,13 +27411,16 @@ local function dry(sameMap)
 		end
 	end
 	table.clear(wetParts)
-	-- (si ya es otro mapa, el servidor ya puso los colores del terreno nuevo: no se tocan)
-	if sameMap then
-		for material, color in wetTerrain do
-			pcall(function()
-				workspace.Terrain:SetMaterialColor(material, color)
-			end)
-		end
+	-- (si ya es otro mapa y el servidor puso colores nuevos, no se tocan; si puso los mismos de antes,
+	-- no llega nada al cliente y siguen los mojados: esos sí se devuelven)
+	for material, saved in wetTerrain do
+		pcall(function()
+			local now = workspace.Terrain:GetMaterialColor(material)
+			local untouched = math.abs(now.R - saved[2].R) + math.abs(now.G - saved[2].G) + math.abs(now.B - saved[2].B) < 0.01
+			if sameMap or untouched then
+				workspace.Terrain:SetMaterialColor(material, saved[1])
+			end
+		end)
 	end
 	table.clear(wetTerrain)
 	wetMap = nil
@@ -27365,8 +27432,9 @@ local function wet(map)
 		pcall(function()
 			local material = (Enum.Material :: any)[name]
 			local color = workspace.Terrain:GetMaterialColor(material)
-			wetTerrain[material] = color
-			workspace.Terrain:SetMaterialColor(material, color:Lerp(Color3.new(0, 0, 0), 0.2))
+			local darker = color:Lerp(Color3.new(0, 0, 0), 0.2)
+			wetTerrain[material] = { color, darker }
+			workspace.Terrain:SetMaterialColor(material, darker)
 		end)
 	end
 	task.spawn(function()
@@ -27461,6 +27529,9 @@ function Ambience.Update()
 	local gust = 0.8 + 0.2 * math.sin(os.clock() * 0.35) + 0.1 * math.sin(os.clock() * 1.3)
 	-- (con ventisca, el viento sopla mucho más fuerte)
 	local storm = map ~= nil and map:GetAttribute("Weather") == "Snowstorm"
+	if storm then
+		thinStorm(map)
+	end
 	wind.Volume = preset.Wind * gust * (storm and 1.7 or 1)
 	wind.PlaybackSpeed = preset.WindSpeed
 	if not wind.IsPlaying then
@@ -27533,6 +27604,7 @@ local LOWER_BODY = {
 local player = Players.LocalPlayer
 local shown = {} -- piezas a mostrar del personaje actual
 local character = nil
+local wasActive = false
 local pending = false -- (una sola recogida por fotograma aunque lleguen muchas piezas de golpe)
 
 -- La cadera, las piernas y lo que va pegado a ellas (botas, rodilleras, cinturón del traje)
@@ -27578,10 +27650,29 @@ function BodyView.Active()
 	return (camera.CFrame.Position - head.Position).Magnitude < 2
 end
 
+-- ¿La cámara sigue en la cabeza? (primera persona, aunque ahora no toque mostrar las piernas)
+local function cameraInHead()
+	local head = character and character:FindFirstChild("Head")
+	local camera = workspace.CurrentCamera
+	return head ~= nil and head:IsA("BasePart") and camera ~= nil and (camera.CFrame.Position - head.Position).Magnitude < 2
+end
+
 function BodyView.Update()
 	if not BodyView.Active() then
+		-- (al dejar de mostrarlas, se esconden otra vez: Roblox no lo hace solo si para él nada cambió)
+		if wasActive then
+			wasActive = false
+			if cameraInHead() then
+				for _, part in shown do
+					if part.Parent then
+						part.LocalTransparencyModifier = 1
+					end
+				end
+			end
+		end
 		return
 	end
+	wasActive = true
 	for _, part in shown do
 		if part.Parent then
 			part.LocalTransparencyModifier = 0
@@ -27596,10 +27687,14 @@ end
 
 function BodyView.Track(model)
 	character = model
+	wasActive = false
 	collect(model)
 	if model then
 		-- Lo que se le pone después (uniforme, traje) también cuenta
-		model.DescendantAdded:Connect(function()
+		model.DescendantAdded:Connect(function(d)
+			if not (d:IsA("BasePart") or d:IsA("Weld") or d:IsA("WeldConstraint")) then
+				return
+			end
 			if character == model and not pending then
 				pending = true
 				task.defer(function()
@@ -28958,7 +29053,10 @@ local function respawnNow()
 end
 
 local function close()
-	Killcam.Stop(false)
+	-- (la killcam final del servidor sigue aunque reaparezcas; la de tu muerte no)
+	if not ClientState.KillcamFinal then
+		Killcam.Stop(false)
+	end
 	if not ClientState.Dead then
 		return
 	end
@@ -31861,6 +31959,7 @@ local function startCook()
 	end
 	cookStart = os.clock()
 	nextBeep = cookStart + 0.5
+	Remotes.GrenadePin:FireServer()
 	Sounds.Play("Click", nil, 1.7, 0.7)
 end
 
@@ -31978,8 +32077,11 @@ function GrenadeController.Init()
 	TouchLayout.BindAction("Grenade", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			startCook()
-		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+		elseif state == Enum.UserInputState.End then
 			release()
+		elseif state == Enum.UserInputState.Cancel then
+			-- (otra cosa se quedó la tecla, p. ej. se abrió un menú: no se lanza, se vuelve a poner la anilla)
+			cookStart = nil
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
@@ -34627,6 +34729,11 @@ function Killcam.Record()
 			orphans[name] = nil
 		end
 	end
+	for key, at in lastKills do
+		if now - at > Killcam.HistoryTime then
+			lastKills[key] = nil
+		end
+	end
 end
 
 -- Posición en el instante t (interpolando entre muestras)
@@ -34648,9 +34755,23 @@ function Killcam.SampleAt(list, t)
 	return list[#list][2]
 end
 
--- Historia de un personaje (por modelo o, si ya no está, por nombre)
-function Killcam.Track(model, name)
-	return (model and history[model]) or (name and orphans[name] and orphans[name].Track) or nil
+-- Historia de un personaje (por modelo o, si ya no está, por nombre). Con at: de las dos (el modelo de
+-- ahora y el que ya no está, p. ej. si reapareció justo después), la que cubre mejor lo que pasó
+-- antes de at
+function Killcam.Track(model, name, at)
+	local live = model and history[model] or nil
+	local old = name and orphans[name] and orphans[name].Track or nil
+	if not at or not live or not old or #old == 0 then
+		return live or old
+	end
+	if #live == 0 then
+		return old
+	end
+	-- (el que ya no está solo sirve si seguía ahí en el momento de la baja)
+	if old[#old][1] >= at - 0.3 and old[1][1] < live[1][1] then
+		return old
+	end
+	return live
 end
 
 -- ¿Se veían? (del ojo de quien hizo la baja a la víctima; las personas, los efectos, las barandillas
@@ -34710,6 +34831,25 @@ local function setLook(list, modifier)
 	end
 end
 
+-- (cómo estaba cada pieza al empezar: al terminar se deja igual; la primera persona no lo arregla
+-- sola, porque solo lo vuelve a escribir cuando cambia)
+local function saveLook(saved, list)
+	for _, part in list do
+		if saved[part] == nil then
+			local modifier = part.LocalTransparencyModifier
+			saved[part] = type(modifier) == "number" and modifier or 0
+		end
+	end
+end
+
+local function restoreLook(saved)
+	for part, modifier in saved do
+		if part.Parent then
+			part.LocalTransparencyModifier = modifier
+		end
+	end
+end
+
 -- (las partículas de la skin del arma de quien hizo la baja se verían en la lente: se apagan un rato)
 local function muteEmitters(model)
 	local muted = {}
@@ -34743,8 +34883,7 @@ function Killcam.Stop(runOnEnd)
 	if k.Effect then
 		k.Effect:Destroy()
 	end
-	-- (si eras tú, la primera persona vuelve a esconderte sola)
-	setLook(k.KillerParts, 0)
+	restoreLook(k.Saved)
 	for _, emitter in k.Muted do
 		if emitter.Parent then
 			emitter.Enabled = true
@@ -34790,6 +34929,7 @@ local function step()
 	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
 	setLook(k.KillerParts, 1)
 	setLook(k.VictimParts, 0)
+	setLook(k.OwnParts, 0)
 end
 
 -- Empieza una repetición; devuelve false si no hay con qué (poca historia, o sin línea de visión).
@@ -34799,12 +34939,12 @@ function Killcam.Play(opts)
 	if not Killcam.Enabled then
 		return false
 	end
-	local killerTrack = Killcam.Track(opts.Killer, opts.KillerName)
-	local victimTrack = Killcam.Track(opts.Victim, opts.VictimName)
+	local at = opts.At or os.clock()
+	local killerTrack = Killcam.Track(opts.Killer, opts.KillerName, at)
+	local victimTrack = Killcam.Track(opts.Victim, opts.VictimName, at)
 	if not killerTrack or not victimTrack or #killerTrack < 6 or #victimTrack < 6 then
 		return false
 	end
-	local at = opts.At or os.clock()
 	local available = at - killerTrack[1][1]
 	if available < 0.6 then
 		return false
@@ -34815,7 +34955,20 @@ function Killcam.Play(opts)
 			return false
 		end
 	end
-	Killcam.Stop(false) -- (nunca dos a la vez)
+	-- (nunca dos a la vez; si la nueva sustituye a otra, lo que tocaba al acabar aquella, p. ej. pasar
+	-- a observar, se hace al acabar esta)
+	local previousOnEnd = current and current.OnEnd
+	Killcam.Stop(false)
+	local onEnd = opts.OnEnd
+	if previousOnEnd then
+		local own = onEnd
+		onEnd = function()
+			if own then
+				own()
+			end
+			previousOnEnd()
+		end
+	end
 	local span = math.min(Killcam.Length, available)
 	local effect = Instance.new("ColorCorrectionEffect")
 	effect.Name = "KillcamColor"
@@ -34833,14 +34986,20 @@ function Killcam.Play(opts)
 		Victim = opts.Victim,
 		KillerParts = lookParts(opts.Killer),
 		VictimParts = lookParts(opts.Victim),
+		-- (tú, si no eres ninguno de los dos: en primera persona estás escondido y desde fuera se te ve)
+		OwnParts = (player.Character ~= opts.Killer and player.Character ~= opts.Victim) and lookParts(player.Character) or {},
+		Saved = {},
 		Muted = muteEmitters(opts.Killer),
 		Fov = camera.FieldOfView,
 		CameraBefore = camera.CFrame,
 		Effect = effect,
 		Final = opts.Final == true,
-		OnEnd = opts.OnEnd,
+		OnEnd = onEnd,
 		Look = nil :: CFrame?,
 	}
+	saveLook(current.Saved, current.KillerParts)
+	saveLook(current.Saved, current.VictimParts)
+	saveLook(current.Saved, current.OwnParts)
 	ClientState.KillcamActive = true
 	ClientState.KillcamFinal = opts.Final == true
 	if refs.Frame then

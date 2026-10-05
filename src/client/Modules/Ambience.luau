@@ -61,6 +61,20 @@ local function ensureGroup()
 	return group
 end
 
+-- Con calidad baja, la ventisca echa la mitad de nieve (en este cliente; son muchas partículas)
+local stormMap, stormEmitter, stormRate = nil, nil, nil
+local function thinStorm(map)
+	if stormMap ~= map then
+		stormMap = map
+		local fall = map:FindFirstChild("Snowfall", true)
+		stormEmitter = fall and fall:FindFirstChildOfClass("ParticleEmitter") or nil
+		stormRate = stormEmitter and stormEmitter.Rate or nil
+	end
+	if stormEmitter and stormRate then
+		stormEmitter.Rate = (ClientState.EffectiveQuality == "Baja") and stormRate * 0.5 or stormRate
+	end
+end
+
 local function oneShot(id, volume, speed)
 	local sound = Instance.new("Sound")
 	sound.SoundId = id
@@ -236,7 +250,7 @@ end
 local WET_TERRAIN = { "Grass", "LeafyGrass", "Ground", "Mud", "Sand", "Rock", "Asphalt", "Concrete", "Pavement", "Slate", "Cobblestone", "Brick" }
 local wetMap = nil -- mapa mojado ahora mismo
 local wetParts = {} -- [pieza] = { color, brillo } de antes
-local wetTerrain = {} -- [material] = color de antes
+local wetTerrain = {} -- [material] = { color de antes, color mojado }
 local wetParams = RaycastParams.new()
 wetParams.FilterType = Enum.RaycastFilterType.Include
 
@@ -248,13 +262,16 @@ local function dry(sameMap)
 		end
 	end
 	table.clear(wetParts)
-	-- (si ya es otro mapa, el servidor ya puso los colores del terreno nuevo: no se tocan)
-	if sameMap then
-		for material, color in wetTerrain do
-			pcall(function()
-				workspace.Terrain:SetMaterialColor(material, color)
-			end)
-		end
+	-- (si ya es otro mapa y el servidor puso colores nuevos, no se tocan; si puso los mismos de antes,
+	-- no llega nada al cliente y siguen los mojados: esos sí se devuelven)
+	for material, saved in wetTerrain do
+		pcall(function()
+			local now = workspace.Terrain:GetMaterialColor(material)
+			local untouched = math.abs(now.R - saved[2].R) + math.abs(now.G - saved[2].G) + math.abs(now.B - saved[2].B) < 0.01
+			if sameMap or untouched then
+				workspace.Terrain:SetMaterialColor(material, saved[1])
+			end
+		end)
 	end
 	table.clear(wetTerrain)
 	wetMap = nil
@@ -266,8 +283,9 @@ local function wet(map)
 		pcall(function()
 			local material = (Enum.Material :: any)[name]
 			local color = workspace.Terrain:GetMaterialColor(material)
-			wetTerrain[material] = color
-			workspace.Terrain:SetMaterialColor(material, color:Lerp(Color3.new(0, 0, 0), 0.2))
+			local darker = color:Lerp(Color3.new(0, 0, 0), 0.2)
+			wetTerrain[material] = { color, darker }
+			workspace.Terrain:SetMaterialColor(material, darker)
 		end)
 	end
 	task.spawn(function()
@@ -362,6 +380,9 @@ function Ambience.Update()
 	local gust = 0.8 + 0.2 * math.sin(os.clock() * 0.35) + 0.1 * math.sin(os.clock() * 1.3)
 	-- (con ventisca, el viento sopla mucho más fuerte)
 	local storm = map ~= nil and map:GetAttribute("Weather") == "Snowstorm"
+	if storm then
+		thinStorm(map)
+	end
 	wind.Volume = preset.Wind * gust * (storm and 1.7 or 1)
 	wind.PlaybackSpeed = preset.WindSpeed
 	if not wind.IsPlaying then

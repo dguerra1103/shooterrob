@@ -558,18 +558,34 @@ local function onAimPitch(player, pitch)
 end
 
 -- Linterna del arma (de noche): los demás la ven si la llevas encendida
-local lastFlashlight = setmetatable({}, { __mode = "k" }) -- [player] = os.clock()
+local lastFlashlight = setmetatable({}, { __mode = "k" }) -- [player] = { At, Want, Pending }
 local function onFlashlight(player, on)
 	if type(on) ~= "boolean" then
 		return
 	end
-	local now = os.clock()
-	if now - (lastFlashlight[player] or 0) < 0.2 then
-		return
+	-- (como mucho 5 veces por segundo; si llega otra antes, se aplica la última un poco después:
+	-- así el servidor nunca se queda con una distinta de la del jugador)
+	local entry = lastFlashlight[player]
+	if not entry then
+		entry = { At = 0, Want = on, Pending = false }
+		lastFlashlight[player] = entry
 	end
-	lastFlashlight[player] = now
-	if player.Character then
-		player.Character:SetAttribute("Flashlight", on)
+	entry.Want = on
+	local function apply()
+		entry.At = os.clock()
+		if player.Character then
+			player.Character:SetAttribute("Flashlight", entry.Want)
+		end
+	end
+	local wait = 0.2 - (os.clock() - entry.At)
+	if wait <= 0 then
+		apply()
+	elseif not entry.Pending then
+		entry.Pending = true
+		task.delay(wait, function()
+			entry.Pending = false
+			apply()
+		end)
 	end
 end
 

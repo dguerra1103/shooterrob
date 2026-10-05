@@ -55,13 +55,23 @@ local function makeGrenade(cf)
 	return ball, light
 end
 
+local pins = setmetatable({}, { __mode = "k" }) -- [Player] = now() al quitar la anilla
+
+local function pullPin(player)
+	pins[player] = now()
+end
+
 -- cook: segundos que el jugador la tuvo cocinándose en la mano (sale con menos mecha)
 local function throw(player, direction, cook)
 	if typeof(direction) ~= "Vector3" then
 		return
 	end
-	-- (como mucho hasta que le quede un pelín de mecha; también descarta NaN)
-	cook = (type(cook) == "number" and cook == cook) and math.clamp(cook, 0, DEF.Fuse - 0.2) or 0
+	-- (como mucho hasta que le quede un pelín de mecha; también descarta NaN). Y nunca más de lo que el
+	-- servidor vio que la tuvo sin anilla (más un poco por la latencia)
+	local pinAt = pins[player]
+	pins[player] = nil
+	local held = pinAt and (now() - pinAt + 0.15) or 0
+	cook = (type(cook) == "number" and cook == cook) and math.clamp(cook, 0, math.min(DEF.Fuse - 0.2, held)) or 0
 	local length = direction.Magnitude
 	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
@@ -190,6 +200,7 @@ function Grenades.Init()
 	folder.Name = "Grenades"
 	folder.Parent = workspace
 	Remotes.ThrowGrenade.OnServerEvent:Connect(throw)
+	Remotes.GrenadePin.OnServerEvent:Connect(pullPin)
 end
 
 -- Al empezar una ronda todos tienen la granada lista (reaparecer no la recarga: evita abusar)

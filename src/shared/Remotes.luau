@@ -26,6 +26,7 @@ local EVENTS = {
 	"SaveSettings", -- cliente -> servidor: ajustes (calidad gráfica, FOV, sensibilidad)
 	"KillFX", -- servidor -> clientes: efecto de eliminación (posición, efecto, color)
 	"ThrowGrenade", -- cliente -> servidor: lanzar granada (dirección)
+	"GrenadePin", -- cliente -> servidor: quita la anilla (empieza a cocinar; el servidor mide cuánto)
 	"ExplosionFX", -- servidor -> clientes: explosión de granada (posición, radio)
 	"CallAirstrike", -- cliente -> servidor: pedir el ataque aéreo (punto objetivo)
 	"AirstrikeMark", -- servidor -> clientes: marcas rojas donde va a caer el ataque aéreo

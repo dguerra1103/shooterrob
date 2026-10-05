@@ -23,6 +23,7 @@ local LOWER_BODY = {
 local player = Players.LocalPlayer
 local shown = {} -- piezas a mostrar del personaje actual
 local character = nil
+local wasActive = false
 local pending = false -- (una sola recogida por fotograma aunque lleguen muchas piezas de golpe)
 
 -- La cadera, las piernas y lo que va pegado a ellas (botas, rodilleras, cinturón del traje)
@@ -68,10 +69,29 @@ function BodyView.Active()
 	return (camera.CFrame.Position - head.Position).Magnitude < 2
 end
 
+-- ¿La cámara sigue en la cabeza? (primera persona, aunque ahora no toque mostrar las piernas)
+local function cameraInHead()
+	local head = character and character:FindFirstChild("Head")
+	local camera = workspace.CurrentCamera
+	return head ~= nil and head:IsA("BasePart") and camera ~= nil and (camera.CFrame.Position - head.Position).Magnitude < 2
+end
+
 function BodyView.Update()
 	if not BodyView.Active() then
+		-- (al dejar de mostrarlas, se esconden otra vez: Roblox no lo hace solo si para él nada cambió)
+		if wasActive then
+			wasActive = false
+			if cameraInHead() then
+				for _, part in shown do
+					if part.Parent then
+						part.LocalTransparencyModifier = 1
+					end
+				end
+			end
+		end
 		return
 	end
+	wasActive = true
 	for _, part in shown do
 		if part.Parent then
 			part.LocalTransparencyModifier = 0
@@ -86,10 +106,14 @@ end
 
 function BodyView.Track(model)
 	character = model
+	wasActive = false
 	collect(model)
 	if model then
 		-- Lo que se le pone después (uniforme, traje) también cuenta
-		model.DescendantAdded:Connect(function()
+		model.DescendantAdded:Connect(function(d)
+			if not (d:IsA("BasePart") or d:IsA("Weld") or d:IsA("WeldConstraint")) then
+				return
+			end
 			if character == model and not pending then
 				pending = true
 				task.defer(function()

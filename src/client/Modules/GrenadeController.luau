@@ -61,6 +61,7 @@ local function startCook()
 	end
 	cookStart = os.clock()
 	nextBeep = cookStart + 0.5
+	Remotes.GrenadePin:FireServer()
 	Sounds.Play("Click", nil, 1.7, 0.7)
 end
 
@@ -178,8 +179,11 @@ function GrenadeController.Init()
 	TouchLayout.BindAction("Grenade", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			startCook()
-		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+		elseif state == Enum.UserInputState.End then
 			release()
+		elseif state == Enum.UserInputState.Cancel then
+			-- (otra cosa se quedó la tecla, p. ej. se abrió un menú: no se lanza, se vuelve a poner la anilla)
+			cookStart = nil
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)

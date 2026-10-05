@@ -252,7 +252,10 @@ local function respawnNow()
 end
 
 local function close()
-	Killcam.Stop(false)
+	-- (la killcam final del servidor sigue aunque reaparezcas; la de tu muerte no)
+	if not ClientState.KillcamFinal then
+		Killcam.Stop(false)
+	end
 	if not ClientState.Dead then
 		return
 	end

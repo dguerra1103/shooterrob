@@ -96,6 +96,11 @@ function Killcam.Record()
 			orphans[name] = nil
 		end
 	end
+	for key, at in lastKills do
+		if now - at > Killcam.HistoryTime then
+			lastKills[key] = nil
+		end
+	end
 end
 
 -- Posición en el instante t (interpolando entre muestras)
@@ -117,9 +122,23 @@ function Killcam.SampleAt(list, t)
 	return list[#list][2]
 end
 
--- Historia de un personaje (por modelo o, si ya no está, por nombre)
-function Killcam.Track(model, name)
-	return (model and history[model]) or (name and orphans[name] and orphans[name].Track) or nil
+-- Historia de un personaje (por modelo o, si ya no está, por nombre). Con at: de las dos (el modelo de
+-- ahora y el que ya no está, p. ej. si reapareció justo después), la que cubre mejor lo que pasó
+-- antes de at
+function Killcam.Track(model, name, at)
+	local live = model and history[model] or nil
+	local old = name and orphans[name] and orphans[name].Track or nil
+	if not at or not live or not old or #old == 0 then
+		return live or old
+	end
+	if #live == 0 then
+		return old
+	end
+	-- (el que ya no está solo sirve si seguía ahí en el momento de la baja)
+	if old[#old][1] >= at - 0.3 and old[1][1] < live[1][1] then
+		return old
+	end
+	return live
 end
 
 -- ¿Se veían? (del ojo de quien hizo la baja a la víctima; las personas, los efectos, las barandillas
@@ -179,6 +198,25 @@ local function setLook(list, modifier)
 	end
 end
 
+-- (cómo estaba cada pieza al empezar: al terminar se deja igual; la primera persona no lo arregla
+-- sola, porque solo lo vuelve a escribir cuando cambia)
+local function saveLook(saved, list)
+	for _, part in list do
+		if saved[part] == nil then
+			local modifier = part.LocalTransparencyModifier
+			saved[part] = type(modifier) == "number" and modifier or 0
+		end
+	end
+end
+
+local function restoreLook(saved)
+	for part, modifier in saved do
+		if part.Parent then
+			part.LocalTransparencyModifier = modifier
+		end
+	end
+end
+
 -- (las partículas de la skin del arma de quien hizo la baja se verían en la lente: se apagan un rato)
 local function muteEmitters(model)
 	local muted = {}
@@ -212,8 +250,7 @@ function Killcam.Stop(runOnEnd)
 	if k.Effect then
 		k.Effect:Destroy()
 	end
-	-- (si eras tú, la primera persona vuelve a esconderte sola)
-	setLook(k.KillerParts, 0)
+	restoreLook(k.Saved)
 	for _, emitter in k.Muted do
 		if emitter.Parent then
 			emitter.Enabled = true
@@ -259,6 +296,7 @@ local function step()
 	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
 	setLook(k.KillerParts, 1)
 	setLook(k.VictimParts, 0)
+	setLook(k.OwnParts, 0)
 end
 
 -- Empieza una repetición; devuelve false si no hay con qué (poca historia, o sin línea de visión).
@@ -268,12 +306,12 @@ function Killcam.Play(opts)
 	if not Killcam.Enabled then
 		return false
 	end
-	local killerTrack = Killcam.Track(opts.Killer, opts.KillerName)
-	local victimTrack = Killcam.Track(opts.Victim, opts.VictimName)
+	local at = opts.At or os.clock()
+	local killerTrack = Killcam.Track(opts.Killer, opts.KillerName, at)
+	local victimTrack = Killcam.Track(opts.Victim, opts.VictimName, at)
 	if not killerTrack or not victimTrack or #killerTrack < 6 or #victimTrack < 6 then
 		return false
 	end
-	local at = opts.At or os.clock()
 	local available = at - killerTrack[1][1]
 	if available < 0.6 then
 		return false
@@ -284,7 +322,20 @@ function Killcam.Play(opts)
 			return false
 		end
 	end
-	Killcam.Stop(false) -- (nunca dos a la vez)
+	-- (nunca dos a la vez; si la nueva sustituye a otra, lo que tocaba al acabar aquella, p. ej. pasar
+	-- a observar, se hace al acabar esta)
+	local previousOnEnd = current and current.OnEnd
+	Killcam.Stop(false)
+	local onEnd = opts.OnEnd
+	if previousOnEnd then
+		local own = onEnd
+		onEnd = function()
+			if own then
+				own()
+			end
+			previousOnEnd()
+		end
+	end
 	local span = math.min(Killcam.Length, available)
 	local effect = Instance.new("ColorCorrectionEffect")
 	effect.Name = "KillcamColor"
@@ -302,14 +353,20 @@ function Killcam.Play(opts)
 		Victim = opts.Victim,
 		KillerParts = lookParts(opts.Killer),
 		VictimParts = lookParts(opts.Victim),
+		-- (tú, si no eres ninguno de los dos: en primera persona estás escondido y desde fuera se te ve)
+		OwnParts = (player.Character ~= opts.Killer and player.Character ~= opts.Victim) and lookParts(player.Character) or {},
+		Saved = {},
 		Muted = muteEmitters(opts.Killer),
 		Fov = camera.FieldOfView,
 		CameraBefore = camera.CFrame,
 		Effect = effect,
 		Final = opts.Final == true,
-		OnEnd = opts.OnEnd,
+		OnEnd = onEnd,
 		Look = nil :: CFrame?,
 	}
+	saveLook(current.Saved, current.KillerParts)
+	saveLook(current.Saved, current.VictimParts)
+	saveLook(current.Saved, current.OwnParts)
 	ClientState.KillcamActive = true
 	ClientState.KillcamFinal = opts.Final == true
 	if refs.Frame then

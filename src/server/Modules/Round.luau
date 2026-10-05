@@ -64,6 +64,7 @@ end
 local streakVictims = {} -- [player] = { [UserId] = true }
 local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
 local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para la killcam final)
+local decidingKill = nil -- la baja que cerró la partida (desde ahí todo queda congelado hasta su repetición)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -278,6 +279,7 @@ local function resetStats()
 	Grenades.Reset()
 	firstBlood = false
 	lastKill = nil
+	decidingKill = nil
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -362,6 +364,7 @@ local function awardMedals(killer, victimName, victimStreak, weaponName, positio
 end
 
 function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, position, killerBot, victimBot)
+	local wasOver = roundOver
 	local bounty = 0
 	-- (la racha que llevaba el caído, antes de ponerla a 0: para la medalla Cazarrachas)
 	local victimStreak = (victim and victim:GetAttribute("Streak")) or (victimBot and victimBot.Streak) or 0
@@ -524,6 +527,12 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 	local killerName = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
 	if killerName and victimName and killerName ~= victimName then
 		lastKill = { Killer = killerName, Victim = victimName, Weapon = weaponName, Time = os.clock() }
+		-- (si esta baja cierra la partida, se guarda tal cual y se congela todo ya: ninguna baja de
+		-- después, hasta que la ronda se dé cuenta, la sustituye en la repetición)
+		if roundOver and not wasOver and not decidingKill and GameConfig.FinalKillcam ~= false then
+			decidingKill = lastKill
+			ReplicatedStorage:SetAttribute("Frozen", true)
+		end
 	end
 	local weapon = weaponName and Weapons.Get(weaponName)
 	Remotes.KillFeed:FireAllClients({
@@ -1022,9 +1031,18 @@ end
 -- ven la repetición desde los ojos de quien la hizo. Mientras, todo queda congelado (nadie dispara
 -- ni se mueven los bots). Devuelve true si la hubo.
 local function playFinalKillcam()
-	local kill = lastKill
+	-- La que cerró la partida; si no la hubo (p. ej. la ronda la decidió quién quedaba vivo), la última
+	-- baja solo si fue justo antes (si se acabó el tiempo o por puntos de zona, no hay repetición)
+	local kill = decidingKill
+	if not kill and lastKill and os.clock() - lastKill.Time <= 1.2 then
+		kill = lastKill
+	end
+	decidingKill = nil
 	lastKill = nil
-	if GameConfig.FinalKillcam == false or not kill or os.clock() - kill.Time > 3 then
+	if GameConfig.FinalKillcam == false or not kill or os.clock() - kill.Time > 4 then
+		if kill then
+			ReplicatedStorage:SetAttribute("Frozen", false)
+		end
 		return false
 	end
 	ReplicatedStorage:SetAttribute("Frozen", true)
@@ -1519,6 +1537,9 @@ local function playRound()
 				return roundOver
 			end)
 		end
+		-- La repetición de la baja final, antes de limpiar el modo (en la Infección, por ejemplo, todos
+		-- reaparecen al acabar y ya no estarían donde fue la baja)
+		playFinalKillcam()
 		Flags.Stop()
 		Hardpoint.Stop()
 		Domination.Stop()
