@@ -10,6 +10,11 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | Mapas 5v5 diseñados (Encrucijada, Base Militar, Cumbre): solo límites de legibilidad y saturación mínima 0,09. | Ya tenían su luz pensada; no se rehacen. | `MapKit.tacticalize(preset, true)` |
 | Ultra: el desenfoque de profundidad solo actúa más allá de 250 studs. | Un enemigo a distancia de combate nunca sale borroso. | `client/Modules/Settings.luau` |
 
+## Mapa nuevo
+| Qué | Por qué | Dónde |
+|---|---|---|
+| **Puesto del Desierto** (5v5): aldea de adobe con identidad arena + turquesa (puertas, franjas, toldos, cúpula del caravasar). Tres carriles con carácter distinto: callejones estrechos (norte), calle mayor (centro), chatarrería abierta (sur). Zonas con nombre, sitios A/B, puestos de tirador y variantes de atardecer y tormenta de arena. | Un mapa reconocible por una captura, pensado para 5 contra 5. | `server/Modules/MapDefs/DesertOutpost.luau` |
+
 ## Legibilidad en combate
 | Qué | Por qué | Dónde |
 |---|---|---|
