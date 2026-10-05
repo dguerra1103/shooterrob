@@ -460,7 +460,8 @@ local function onReload(player, tool)
 	tool:SetAttribute("Reloading", true)
 	local token = {}
 	reloadTokens[tool] = token
-	task.delay(def.ReloadTime, function()
+	-- (con balas aún en el cargador, recarga táctica: más rápida)
+	task.delay(Weapons.ReloadDuration(def, ammo <= 0), function()
 		if reloadTokens[tool] ~= token then
 			return
 		end

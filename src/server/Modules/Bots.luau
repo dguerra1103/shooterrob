@@ -718,8 +718,10 @@ end
 -- Recarga (los demás ven el arma recargando: atributo Reloading del Tool)
 local function startReload(agent, def, now)
 	local tool = agent.Tool
+	local empty = (agent.Mag or 0) <= 0
 	agent.Mag = def.MagSize
-	agent.ReloadUntil = now + def.ReloadTime * (1.05 + math.random() * 0.2)
+	-- (como los jugadores: con balas aún en el cargador, recarga táctica más rápida)
+	agent.ReloadUntil = now + Weapons.ReloadDuration(def, empty) * (1.05 + math.random() * 0.2)
 	if tool then
 		tool:SetAttribute("Reloading", true)
 		task.delay(agent.ReloadUntil - now, function()

@@ -77,6 +77,7 @@ local airOffset = 0
 local meleeSide = 1
 local meleeDuration = 0.35
 local reloadWasEmpty = false
+local reloadDuration = 2 -- lo que dura la recarga en curso (táctica: más corta; Weapons.ReloadDuration)
 local wallCheckTime = 0
 
 local collectMovingParts -- (más abajo)
@@ -547,8 +548,10 @@ local function requestReload()
 	Remotes.Reload:FireServer(equippedTool)
 	-- Secuencia de la recarga: sacar el cargador, meter el nuevo y (si estaba vacía) montar el arma.
 	-- Si la recarga se corta (cambias de arma, cuchillo...) deja de sonar.
-	local token, reloadTime, wasEmpty = reloadStart, def.ReloadTime or 2, localAmmo <= 0
+	local wasEmpty = localAmmo <= 0
+	local token, reloadTime = reloadStart, Weapons.ReloadDuration(def, wasEmpty)
 	reloadWasEmpty = wasEmpty
+	reloadDuration = reloadTime
 	local shotgun = def.Pellets > 1 and #moving.Mag == 0 -- (la escopeta de tambor recarga con cargador)
 	local function step(at, name, pitch, volume)
 		task.delay(reloadTime * at, function()
@@ -828,11 +831,11 @@ local function renderStep(dt)
 	ClientState.Spread = currentSpread()
 
 	-- Recarga: tiempo límite por si el servidor la rechazó
-	if reloadStart and def and os.clock() - reloadStart > def.ReloadTime + 1 then
+	if reloadStart and def and os.clock() - reloadStart > reloadDuration + 1 then
 		reloadStart = nil
 	end
 	ClientState.Reloading = reloadStart ~= nil
-	ClientState.ReloadProgress = (reloadStart and def) and math.clamp((os.clock() - reloadStart) / def.ReloadTime, 0, 1)
+	ClientState.ReloadProgress = (reloadStart and def) and math.clamp((os.clock() - reloadStart) / reloadDuration, 0, 1)
 		or 0
 	ClientState.Ammo = localAmmo
 

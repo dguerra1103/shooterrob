@@ -857,6 +857,14 @@ function Weapons.Get(name)
 	return Weapons.List[name] or Weapons.List[Weapons.Legacy[name] or ""]
 end
 
+-- Recarga táctica (como en los shooters realistas): si aún quedan balas en el cargador no hay que
+-- montar el arma, así que es más rápida; con el cargador vacío dura el ReloadTime completo
+Weapons.TacticalReload = 0.8
+function Weapons.ReloadDuration(def, empty)
+	local base = def.ReloadTime or 2
+	return empty and base or base * Weapons.TacticalReload
+end
+
 -- ¿Puede el jugador usar esta arma? (nivel alcanzado o comprada con monedas)
 function Weapons.IsUnlocked(name, data)
 	local def = Weapons.List[name]

@@ -5972,6 +5972,14 @@ function Weapons.Get(name)
 	return Weapons.List[name] or Weapons.List[Weapons.Legacy[name] or ""]
 end
 
+-- Recarga táctica (como en los shooters realistas): si aún quedan balas en el cargador no hay que
+-- montar el arma, así que es más rápida; con el cargador vacío dura el ReloadTime completo
+Weapons.TacticalReload = 0.8
+function Weapons.ReloadDuration(def, empty)
+	local base = def.ReloadTime or 2
+	return empty and base or base * Weapons.TacticalReload
+end
+
 -- ¿Puede el jugador usar esta arma? (nivel alcanzado o comprada con monedas)
 function Weapons.IsUnlocked(name, data)
 	local def = Weapons.List[name]
@@ -7491,8 +7499,10 @@ end
 -- Recarga (los demás ven el arma recargando: atributo Reloading del Tool)
 local function startReload(agent, def, now)
 	local tool = agent.Tool
+	local empty = (agent.Mag or 0) <= 0
 	agent.Mag = def.MagSize
-	agent.ReloadUntil = now + def.ReloadTime * (1.05 + math.random() * 0.2)
+	-- (como los jugadores: con balas aún en el cargador, recarga táctica más rápida)
+	agent.ReloadUntil = now + Weapons.ReloadDuration(def, empty) * (1.05 + math.random() * 0.2)
 	if tool then
 		tool:SetAttribute("Reloading", true)
 		task.delay(agent.ReloadUntil - now, function()
@@ -9104,7 +9114,8 @@ local function onReload(player, tool)
 	tool:SetAttribute("Reloading", true)
 	local token = {}
 	reloadTokens[tool] = token
-	task.delay(def.ReloadTime, function()
+	-- (con balas aún en el cargador, recarga táctica: más rápida)
+	task.delay(Weapons.ReloadDuration(def, ammo <= 0), function()
 		if reloadTokens[tool] ~= token then
 			return
 		end
@@ -40903,6 +40914,7 @@ local airOffset = 0
 local meleeSide = 1
 local meleeDuration = 0.35
 local reloadWasEmpty = false
+local reloadDuration = 2 -- lo que dura la recarga en curso (táctica: más corta; Weapons.ReloadDuration)
 local wallCheckTime = 0
 
 local collectMovingParts -- (más abajo)
@@ -41373,8 +41385,10 @@ local function requestReload()
 	Remotes.Reload:FireServer(equippedTool)
 	-- Secuencia de la recarga: sacar el cargador, meter el nuevo y (si estaba vacía) montar el arma.
 	-- Si la recarga se corta (cambias de arma, cuchillo...) deja de sonar.
-	local token, reloadTime, wasEmpty = reloadStart, def.ReloadTime or 2, localAmmo <= 0
+	local wasEmpty = localAmmo <= 0
+	local token, reloadTime = reloadStart, Weapons.ReloadDuration(def, wasEmpty)
 	reloadWasEmpty = wasEmpty
+	reloadDuration = reloadTime
 	local shotgun = def.Pellets > 1 and #moving.Mag == 0 -- (la escopeta de tambor recarga con cargador)
 	local function step(at, name, pitch, volume)
 		task.delay(reloadTime * at, function()
@@ -41654,11 +41668,11 @@ local function renderStep(dt)
 	ClientState.Spread = currentSpread()
 
 	-- Recarga: tiempo límite por si el servidor la rechazó
-	if reloadStart and def and os.clock() - reloadStart > def.ReloadTime + 1 then
+	if reloadStart and def and os.clock() - reloadStart > reloadDuration + 1 then
 		reloadStart = nil
 	end
 	ClientState.Reloading = reloadStart ~= nil
-	ClientState.ReloadProgress = (reloadStart and def) and math.clamp((os.clock() - reloadStart) / def.ReloadTime, 0, 1)
+	ClientState.ReloadProgress = (reloadStart and def) and math.clamp((os.clock() - reloadStart) / reloadDuration, 0, 1)
 		or 0
 	ClientState.Ammo = localAmmo
 
