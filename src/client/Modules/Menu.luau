@@ -2451,6 +2451,11 @@ function refresh()
 		local claimable = claimableAchievements(data)
 		tabButtons.Perfil.Text = claimable > 0 and ("Perfil 🔴" .. claimable) or "Perfil"
 	end
+	-- Y en Tienda si hay algo gratis esperando (premio diario o cajas gratis): da ganas de entrar
+	if tabButtons.Tienda and data then
+		local free = (data.DailyAvailable and 1 or 0) + (data.FreeCrates or 0)
+		tabButtons.Tienda.Text = free > 0 and ("Tienda 🔴" .. free) or "Tienda"
+	end
 	if not data then
 		scrollToCoins = false
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = "Cargando datos...", TextSize = 24, Parent = content })

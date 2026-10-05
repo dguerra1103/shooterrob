@@ -1360,7 +1360,10 @@ local function onMatchSummary(summary)
 		end
 	end)
 	task.spawn(function()
-		-- Contadores de XP y monedas
+		-- Contadores de XP y monedas (con monedas volando hasta el contador)
+		if (summary.Coins or 0) > 0 then
+			RewardFX.FlyCoins(refs.SummaryCoins, math.ceil((summary.Coins or 0) / 15))
+		end
 		local steps = 24
 		for i = 1, steps do
 			if token ~= summaryToken then
