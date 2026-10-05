@@ -814,9 +814,10 @@ local function buildFeedsAndOverlays()
 		Size = UDim2.new(1, 0, 0, 30),
 		Text = "",
 		TextSize = 22,
+		TextScaled = true, -- (con racha de victorias la línea es larga: se encoge para caber)
 		RichText = true,
 		Parent = refs.Summary,
-	})
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 22 }) })
 	refs.SummaryLevel = UI.label({
 		Position = UDim2.fromOffset(0, 44),
 		Size = UDim2.new(0.5, 0, 0, 28),
@@ -1541,7 +1542,7 @@ local function onMatchSummary(summary)
 	refs.RoundEnd.Size = UDim2.fromOffset(560, 390)
 	refs.Summary.Visible = true
 	refs.SummaryLevelUp.Visible = false
-	local stats = string.format("🎯 %d bajas   💀 %d muertes   🔥 racha %d", summary.Kills or 0, summary.Deaths or 0, summary.BestStreak or 0)
+	local stats = string.format("🎯 %d bajas   🤝 %d asist.   💀 %d muertes   🔥 racha %d", summary.Kills or 0, summary.Assists or 0, summary.Deaths or 0, summary.BestStreak or 0)
 	if (summary.Captures or 0) > 0 then
 		stats ..= "   🚩 " .. summary.Captures
 	end

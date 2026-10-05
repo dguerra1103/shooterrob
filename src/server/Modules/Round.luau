@@ -282,6 +282,7 @@ local function resetStats()
 		player:SetAttribute("ElimPlayed", nil)
 		player:SetAttribute("InfZombieStart", nil)
 		player:SetAttribute("LastKiller", nil)
+		player:SetAttribute("MatchAssists", 0)
 		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
@@ -606,6 +607,7 @@ function Round.RegisterAssist(helpers, victimName, victimBot, victimPlayer)
 		PlayerData.AddXP(helper, math.floor((GameConfig.XP.Assist or 0) * scale), "Asistencia")
 		PlayerData.AddCoins(helper, math.max(1, math.floor((GameConfig.Coins.Assist or 0) * scale)))
 		PlayerData.Increment(helper, "Assists", 1)
+		helper:SetAttribute("MatchAssists", (helper:GetAttribute("MatchAssists") or 0) + 1)
 		Remotes.Notify:FireClient(helper, "Assist", tostring(victimName or ""))
 	end
 end
@@ -1456,6 +1458,7 @@ local function endRound()
 			local stats = PlayerData.GetLeaderstats(player)
 			summary.Kills = stats.Bajas.Value
 			summary.Deaths = stats.Muertes.Value
+			summary.Assists = player:GetAttribute("MatchAssists") or 0
 			summary.BestStreak = player:GetAttribute("BestStreak") or 0
 			summary.Captures = player:GetAttribute("Captures") or 0
 			summary.WinStreak = player:GetAttribute("WinStreak") or 0

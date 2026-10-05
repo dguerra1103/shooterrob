@@ -24815,6 +24815,7 @@ local function resetStats()
 		player:SetAttribute("ElimPlayed", nil)
 		player:SetAttribute("InfZombieStart", nil)
 		player:SetAttribute("LastKiller", nil)
+		player:SetAttribute("MatchAssists", 0)
 		PlayerData.StartMatch(player)
 	end
 	Killstreaks.Reset()
@@ -25139,6 +25140,7 @@ function Round.RegisterAssist(helpers, victimName, victimBot, victimPlayer)
 		PlayerData.AddXP(helper, math.floor((GameConfig.XP.Assist or 0) * scale), "Asistencia")
 		PlayerData.AddCoins(helper, math.max(1, math.floor((GameConfig.Coins.Assist or 0) * scale)))
 		PlayerData.Increment(helper, "Assists", 1)
+		helper:SetAttribute("MatchAssists", (helper:GetAttribute("MatchAssists") or 0) + 1)
 		Remotes.Notify:FireClient(helper, "Assist", tostring(victimName or ""))
 	end
 end
@@ -25989,6 +25991,7 @@ local function endRound()
 			local stats = PlayerData.GetLeaderstats(player)
 			summary.Kills = stats.Bajas.Value
 			summary.Deaths = stats.Muertes.Value
+			summary.Assists = player:GetAttribute("MatchAssists") or 0
 			summary.BestStreak = player:GetAttribute("BestStreak") or 0
 			summary.Captures = player:GetAttribute("Captures") or 0
 			summary.WinStreak = player:GetAttribute("WinStreak") or 0
@@ -33319,9 +33322,10 @@ local function buildFeedsAndOverlays()
 		Size = UDim2.new(1, 0, 0, 30),
 		Text = "",
 		TextSize = 22,
+		TextScaled = true, -- (con racha de victorias la línea es larga: se encoge para caber)
 		RichText = true,
 		Parent = refs.Summary,
-	})
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 22 }) })
 	refs.SummaryLevel = UI.label({
 		Position = UDim2.fromOffset(0, 44),
 		Size = UDim2.new(0.5, 0, 0, 28),
@@ -34046,7 +34050,7 @@ local function onMatchSummary(summary)
 	refs.RoundEnd.Size = UDim2.fromOffset(560, 390)
 	refs.Summary.Visible = true
 	refs.SummaryLevelUp.Visible = false
-	local stats = string.format("🎯 %d bajas   💀 %d muertes   🔥 racha %d", summary.Kills or 0, summary.Deaths or 0, summary.BestStreak or 0)
+	local stats = string.format("🎯 %d bajas   🤝 %d asist.   💀 %d muertes   🔥 racha %d", summary.Kills or 0, summary.Assists or 0, summary.Deaths or 0, summary.BestStreak or 0)
 	if (summary.Captures or 0) > 0 then
 		stats ..= "   🚩 " .. summary.Captures
 	end
