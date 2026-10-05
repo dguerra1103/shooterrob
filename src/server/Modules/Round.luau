@@ -63,6 +63,7 @@ end
 -- no cuenta como "racha contra jugadores")
 local streakVictims = {} -- [player] = { [UserId] = true }
 local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
+local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para la killcam final)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -276,6 +277,7 @@ local function resetStats()
 	Killstreaks.Reset()
 	Grenades.Reset()
 	firstBlood = false
+	lastKill = nil
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -518,6 +520,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Remotes.KillFX:FireAllClients(position, effect, burstColor)
 	end
 
+	-- La última baja de verdad (de alguien a otro): si cierra la partida o la ronda, se repite para todos
+	local killerName = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
+	if killerName and victimName and killerName ~= victimName then
+		lastKill = { Killer = killerName, Victim = victimName, Weapon = weaponName, Time = os.clock() }
+	end
 	local weapon = weaponName and Weapons.Get(weaponName)
 	Remotes.KillFeed:FireAllClients({
 		Killer = (killer and killer.Name) or (killerBot and killerBot.Name) or nil,
@@ -1011,6 +1018,23 @@ local function clearElimination()
 	end
 end
 
+-- Killcam final (como en los shooters): si la partida o la ronda la acaba de cerrar una baja, todos
+-- ven la repetición desde los ojos de quien la hizo. Mientras, todo queda congelado (nadie dispara
+-- ni se mueven los bots). Devuelve true si la hubo.
+local function playFinalKillcam()
+	local kill = lastKill
+	lastKill = nil
+	if GameConfig.FinalKillcam == false or not kill or os.clock() - kill.Time > 3 then
+		return false
+	end
+	ReplicatedStorage:SetAttribute("Frozen", true)
+	Remotes.FinalKillcam:FireAllClients({ Killer = kill.Killer, Victim = kill.Victim, Weapon = kill.Weapon })
+	task.wait(GameConfig.FinalKillcamTime or 3.4)
+	ReplicatedStorage:SetAttribute("Frozen", false)
+	return true
+end
+Round.PlayFinalKillcam = playFinalKillcam -- (para las pruebas)
+
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
 local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
 -- Buscar y destruir (SND) usa las mismas rondas con la bomba: atacan y defienden por turnos
@@ -1137,7 +1161,10 @@ local function eliminationRounds(s)
 			else
 				Remotes.Notify:FireAllClients("Big", "RONDA EMPATADA")
 			end
-			task.wait(3)
+			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
+			if not playFinalKillcam() then
+				task.wait(3)
+			end
 		end
 	end
 	clearElimination()
@@ -1185,6 +1212,8 @@ local function topPlayers()
 end
 
 local function endRound()
+	-- Antes de nada (al cambiar de estado se quitan los bots): la repetición de la baja final
+	playFinalKillcam()
 	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
 	local leader, leaderScore = updateLeader()
 	-- (el podio es un extra: si fallara, la partida termina igual)

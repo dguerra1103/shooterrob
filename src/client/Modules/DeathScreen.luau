@@ -17,10 +17,10 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Shop = require(Shared.Shop)
 local Sounds = require(Shared.Sounds)
-local Weapons = require(Shared.Weapons)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local Killcam = require(script.Parent.Killcam)
 local MainMenu = require(script.Parent.MainMenu)
 local Menu = require(script.Parent.Menu)
 
@@ -140,193 +140,14 @@ local function refreshTargets(firstChoice)
 end
 
 ---------------------------------------------------------------------------
--- Killcam (como en los shooters): al morir, unos segundos desde los ojos del que te eliminó, mirando
--- hacia donde estabas, un poco a cámara lenta y sin color. Para eso se guardan, varias veces por
--- segundo, las posiciones de las cabezas de todos (jugadores y bots) durante los últimos segundos.
--- Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic o toque: saltarla.
--- No hay killcam en los modos de una sola vida (enseñaría en directo dónde está el enemigo) ni con
+-- Killcam al morir (ver Killcam): unos segundos desde los ojos del que te eliminó, mirando hacia donde
+-- estabas. Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic o toque:
+-- saltarla. No hay en los modos de una sola vida (enseñaría en directo dónde está el enemigo) ni con
 -- granadas o ataques aéreos, ni si al morir no había línea de visión (se vería una pared).
 ---------------------------------------------------------------------------
-local HISTORY_TIME = 3.2
-local SAMPLE_TIME = 0.05
-local SLOW_MOTION = 1.25
-DeathScreen.KillcamLength = 2.4 -- segundos de repetición (si hay tantos guardados)
 DeathScreen.KillcamEnabled = true
 
-local history = {} -- [Model] = { { tiempo, posición } }
-local killcam = nil -- la repetición en curso
-local sampleClock = 0
-local losParams = RaycastParams.new()
-losParams.FilterType = Enum.RaycastFilterType.Exclude
-
--- ¿Se veían? (del ojo del que te eliminó a ti; las personas, los efectos, las barandillas invisibles
--- y los cristales no tapan)
-local function clearLine(from, to)
-	local ignore = { camera }
-	for _, p in Players:GetPlayers() do
-		if p.Character then
-			table.insert(ignore, p.Character)
-		end
-	end
-	for _, name in { "Bots", "ClientFX" } do
-		local folder = workspace:FindFirstChild(name)
-		if folder then
-			table.insert(ignore, folder)
-		end
-	end
-	local map = workspace:FindFirstChild("Map")
-	local boundary = map and map:FindFirstChild("Boundary")
-	if boundary then
-		table.insert(ignore, boundary)
-	end
-	for _ = 1, 4 do
-		losParams.FilterDescendantsInstances = ignore
-		local hit = workspace:Raycast(from, to - from, losParams)
-		if not hit then
-			return true
-		end
-		if hit.Instance.Transparency < 0.3 then
-			return false
-		end
-		table.insert(ignore, hit.Instance)
-	end
-	return true
-end
-
--- Durante la killcam: tu cuerpo se ve (la cámara de primera persona lo deja invisible) y el del que
--- te eliminó no (la cámara está en su cabeza: se vería por dentro)
-local function setModelLook(model, modifier)
-	if not model then
-		return
-	end
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") or part:IsA("Decal") then
-			part.LocalTransparencyModifier = modifier
-		end
-	end
-end
-
-local function headPosition(model)
-	local head = model:FindFirstChild("Head")
-	if head and head:IsA("BasePart") then
-		return head.Position
-	end
-	local root = model:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then
-		return root.Position + Vector3.new(0, 1.5, 0)
-	end
-	return nil
-end
-
-local function recordHistory()
-	local now = os.clock()
-	local models = {}
-	for _, p in Players:GetPlayers() do
-		if p.Character then
-			table.insert(models, p.Character)
-		end
-	end
-	local bots = workspace:FindFirstChild("Bots")
-	if bots then
-		for _, model in bots:GetChildren() do
-			if model:IsA("Model") then
-				table.insert(models, model)
-			end
-		end
-	end
-	for _, model in models do
-		local position = headPosition(model)
-		if position then
-			local list = history[model]
-			if not list then
-				list = {}
-				history[model] = list
-			end
-			table.insert(list, { now, position })
-			while #list > 0 and now - list[1][1] > HISTORY_TIME do
-				table.remove(list, 1)
-			end
-		end
-	end
-	for model in history do
-		if not model.Parent then
-			history[model] = nil
-		end
-	end
-end
-
--- Posición en el instante t (interpolando entre muestras)
-local function sampleAt(list, t)
-	if not list or #list == 0 then
-		return nil
-	end
-	if t <= list[1][1] then
-		return list[1][2]
-	end
-	for i = 2, #list do
-		local b = list[i]
-		if b[1] >= t then
-			local a = list[i - 1]
-			local k = (t - a[1]) / math.max(1e-3, b[1] - a[1])
-			return a[2]:Lerp(b[2], math.clamp(k, 0, 1))
-		end
-	end
-	return list[#list][2]
-end
-
 local spectateAfterKillcam -- (se define más abajo)
-
-local function endKillcam(thenSpectate)
-	local k = killcam
-	if not k then
-		return
-	end
-	killcam = nil
-	ClientState.KillcamActive = false
-	pcall(function()
-		RunService:UnbindFromRenderStep("Killcam")
-	end)
-	if k.Effect then
-		k.Effect:Destroy()
-	end
-	if k.KillerModel and k.KillerModel.Parent then
-		setModelLook(k.KillerModel, 0)
-	end
-	refs.Killcam.Visible = false
-	camera.FieldOfView = k.Fov
-	camera.CameraType = Enum.CameraType.Custom
-	if thenSpectate and ClientState.Dead then
-		spectateAfterKillcam(k.Target)
-	end
-end
-
-local function stepKillcam()
-	local k = killcam
-	if not k then
-		return
-	end
-	local elapsed = os.clock() - k.Start
-	if elapsed >= k.Span * SLOW_MOTION then
-		endKillcam(true)
-		return
-	end
-	local t = k.From + elapsed / SLOW_MOTION
-	local eye = sampleAt(k.KillerTrack, t)
-	local victim = sampleAt(k.VictimTrack, t)
-	if not eye or not victim then
-		endKillcam(true)
-		return
-	end
-	camera.CameraType = Enum.CameraType.Scriptable
-	camera.FieldOfView = 60
-	-- (si los dos puntos casi coinciden, se mantiene hacia donde se miraba)
-	if (victim - eye).Magnitude > 0.5 then
-		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
-	end
-	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
-	setModelLook(k.KillerModel, 1)
-	setModelLook(k.MyModel, 0)
-end
 
 -- Empieza la repetición si hay suficiente historia del que te eliminó; si no, devuelve false
 local function startKillcam(target, weaponName)
@@ -336,64 +157,38 @@ local function startKillcam(target, weaponName)
 	if weaponName == "Grenade" or weaponName == "Airstrike" then
 		return false
 	end
-	endKillcam(false) -- (nunca dos a la vez)
 	local killerModel = characterOf(target)
 	local myModel = player.Character
 	if not killerModel or not myModel or killerModel == myModel then
 		return false
 	end
-	local killerTrack, victimTrack = history[killerModel], history[myModel]
-	if not killerTrack or not victimTrack or #killerTrack < 6 or #victimTrack < 6 then
-		return false
+	local started = Killcam.Play({
+		Killer = killerModel,
+		Victim = myModel,
+		At = deathTime,
+		Title = "▶ KILLCAM",
+		Name = Killcam.Caption(target, weaponName),
+		CheckSight = true,
+		OnEnd = function()
+			if ClientState.Dead then
+				spectateAfterKillcam(target)
+			end
+		end,
+	})
+	if started then
+		refs.SpectatePanel.Visible = false
 	end
-	local available = deathTime - killerTrack[1][1]
-	if available < 0.6 then
-		return false
-	end
-	local eyeAtDeath, meAtDeath = sampleAt(killerTrack, deathTime), sampleAt(victimTrack, deathTime)
-	if not eyeAtDeath or not meAtDeath or not clearLine(eyeAtDeath, meAtDeath) then
-		return false
-	end
-	local span = math.min(DeathScreen.KillcamLength, available)
-	local effect = Instance.new("ColorCorrectionEffect")
-	effect.Name = "KillcamColor"
-	effect.Saturation = -0.45
-	effect.Contrast = 0.12
-	effect.TintColor = Color3.fromRGB(235, 240, 255)
-	effect.Parent = camera
-	killcam = {
-		Target = target,
-		Start = os.clock(),
-		From = deathTime - span,
-		Span = span,
-		KillerTrack = table.clone(killerTrack),
-		VictimTrack = table.clone(victimTrack),
-		Fov = camera.FieldOfView,
-		Effect = effect,
-		KillerModel = killerModel,
-		MyModel = myModel,
-		Look = nil :: CFrame?,
-	}
-	ClientState.KillcamActive = true
-	local name = target:IsA("Player") and target.DisplayName or target.Name
-	local weapon = type(weaponName) == "string" and Weapons.List[weaponName]
-	local weaponText = weapon and weapon.DisplayName or weaponName
-	refs.KillcamName.Text = name .. ((weaponText and weaponText ~= "") and ("  ·  " .. tostring(weaponText)) or "")
-	refs.Killcam.Visible = true
-	refs.SpectatePanel.Visible = false
-	-- (al final de todo lo demás: nada mueve la cámara mientras dura)
-	RunService:BindToRenderStep("Killcam", Enum.RenderPriority.Last.Value, stepKillcam)
-	return true
+	return started
 end
 
 DeathScreen.KillcamActive = function()
-	return killcam ~= nil
+	return Killcam.Active()
 end
 
 local function cycle(step)
 	-- (durante la killcam, el clic la salta)
-	if killcam then
-		endKillcam(true)
+	if Killcam.Active() then
+		Killcam.Stop(true)
 		return
 	end
 	refreshTargets(spectating)
@@ -457,9 +252,7 @@ local function respawnNow()
 end
 
 local function close()
-	if killcam then
-		endKillcam(false)
-	end
+	Killcam.Stop(false)
 	if not ClientState.Dead then
 		return
 	end
@@ -549,41 +342,6 @@ local function build()
 	})
 	-- Libera el ratón aunque la cámara esté en primera persona
 	UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Parent = gui })
-
-	-- Killcam: bandas negras de cine arriba y abajo, «KILLCAM» y quién te eliminó con qué
-	refs.Killcam = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, Parent = gui })
-	UI.new("Frame", {
-		Size = UDim2.new(1, 0, 0.09, 0),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		BorderSizePixel = 0,
-		Parent = refs.Killcam,
-	})
-	UI.new("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.new(1, 0, 0.09, 0),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		BorderSizePixel = 0,
-		Parent = refs.Killcam,
-	})
-	UI.label({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.09, 6),
-		Size = UDim2.new(0.6, 0, 0, 34),
-		Text = "▶ KILLCAM",
-		TextScaled = true,
-		TextColor3 = Color3.fromRGB(255, 70, 60),
-		TextStrokeTransparency = 0.2,
-		Parent = refs.Killcam,
-	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 30 }) })
-	refs.KillcamName = UI.label({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.09, 40),
-		Size = UDim2.new(0.6, 0, 0, 24),
-		Text = "",
-		TextScaled = true,
-		Parent = refs.Killcam,
-	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 20 }) })
 
 	refs.Bottom = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
 	local scale = UI.new("UIScale", { Parent = refs.Bottom })
@@ -740,8 +498,8 @@ function DeathScreen.Init()
 		end
 		-- (en el móvil, tocar la pantalla salta la killcam)
 		if input.UserInputType == Enum.UserInputType.Touch then
-			if killcam then
-				endKillcam(true)
+			if Killcam.Active() then
+				Killcam.Stop(true)
 			end
 			return
 		end
@@ -759,15 +517,6 @@ function DeathScreen.Init()
 		end
 	end)
 	RunService.RenderStepped:Connect(update)
-	-- Historia de posiciones para la killcam (cada SAMPLE_TIME s)
-	RunService.Heartbeat:Connect(function(dt)
-		sampleClock += dt
-		if sampleClock < SAMPLE_TIME then
-			return
-		end
-		sampleClock = 0
-		pcall(recordHistory)
-	end)
 	-- Muerto en Eliminación y de vuelta desde la pantalla de inicio: vuelve a la pantalla de muerte
 	-- (se observa a los compañeros hasta la siguiente ronda en vez de quedarse mirando el cuerpo)
 	RunService.Heartbeat:Connect(function()

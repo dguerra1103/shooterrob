@@ -68,6 +68,10 @@ GameConfig.Flag = {
 	CarrierSpeedMultiplier = 0.9, -- el portador va un poco más lento
 }
 GameConfig.EndScreenTime = 8
+-- Killcam final: si una baja cierra la partida o una ronda de Eliminación / Buscar y destruir, todos ven
+-- su repetición desde los ojos de quien la hizo (con todo congelado este rato). false = sin ella
+GameConfig.FinalKillcam = true
+GameConfig.FinalKillcamTime = 3.4
 GameConfig.RespawnTime = 3
 GameConfig.RespawnNowDelay = 1 -- "Regenerar ahora" se puede pulsar a partir de este segundo
 GameConfig.StartingRevives = 3 -- revivir instantáneos con los que empieza un jugador nuevo

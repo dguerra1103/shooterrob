@@ -1950,9 +1950,10 @@ checkClutch = function(aliveA, aliveB, teamA)
 end
 
 local function render(dt)
-	gui.Enabled = not ClientState.InMainMenu
-	if ClientState.InMainMenu then
-		return -- en la pantalla de inicio no se dibuja el HUD
+	-- (en la pantalla de inicio y durante la killcam final no se dibuja el HUD)
+	gui.Enabled = not ClientState.InMainMenu and not ClientState.KillcamFinal
+	if not gui.Enabled then
+		return
 	end
 	-- Durante la killcam, su propio rótulo dice quién te eliminó y con qué (no se pisan)
 	local showDeath = not ClientState.KillcamActive

@@ -515,6 +515,10 @@ GameConfig.Flag = {
 	CarrierSpeedMultiplier = 0.9, -- el portador va un poco más lento
 }
 GameConfig.EndScreenTime = 8
+-- Killcam final: si una baja cierra la partida o una ronda de Eliminación / Buscar y destruir, todos ven
+-- su repetición desde los ojos de quien la hizo (con todo congelado este rato). false = sin ella
+GameConfig.FinalKillcam = true
+GameConfig.FinalKillcamTime = 3.4
 GameConfig.RespawnTime = 3
 GameConfig.RespawnNowDelay = 1 -- "Regenerar ahora" se puede pulsar a partir de este segundo
 GameConfig.StartingRevives = 3 -- revivir instantáneos con los que empieza un jugador nuevo
@@ -1839,6 +1843,7 @@ local EVENTS = {
 	"DataUpdate", -- servidor -> cliente: datos de progreso
 	"Died", -- servidor -> cliente: quién te eliminó
 	"RoundEnd", -- servidor -> clientes: resultado de la ronda
+	"FinalKillcam", -- servidor -> clientes: repetición de la última baja de la partida/ronda (Killcam)
 	"MatchSummary", -- servidor -> cliente: resumen de tu partida (XP, monedas, bajas, mejor racha)
 }
 local FUNCTIONS = {
@@ -24304,6 +24309,7 @@ end
 -- no cuenta como "racha contra jugadores")
 local streakVictims = {} -- [player] = { [UserId] = true }
 local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
+local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para la killcam final)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -24517,6 +24523,7 @@ local function resetStats()
 	Killstreaks.Reset()
 	Grenades.Reset()
 	firstBlood = false
+	lastKill = nil
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -24759,6 +24766,11 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		Remotes.KillFX:FireAllClients(position, effect, burstColor)
 	end
 
+	-- La última baja de verdad (de alguien a otro): si cierra la partida o la ronda, se repite para todos
+	local killerName = (killer and killer ~= victim and killer.Name) or (killerBot and killerBot.Name) or nil
+	if killerName and victimName and killerName ~= victimName then
+		lastKill = { Killer = killerName, Victim = victimName, Weapon = weaponName, Time = os.clock() }
+	end
 	local weapon = weaponName and Weapons.Get(weaponName)
 	Remotes.KillFeed:FireAllClients({
 		Killer = (killer and killer.Name) or (killerBot and killerBot.Name) or nil,
@@ -25252,6 +25264,23 @@ local function clearElimination()
 	end
 end
 
+-- Killcam final (como en los shooters): si la partida o la ronda la acaba de cerrar una baja, todos
+-- ven la repetición desde los ojos de quien la hizo. Mientras, todo queda congelado (nadie dispara
+-- ni se mueven los bots). Devuelve true si la hubo.
+local function playFinalKillcam()
+	local kill = lastKill
+	lastKill = nil
+	if GameConfig.FinalKillcam == false or not kill or os.clock() - kill.Time > 3 then
+		return false
+	end
+	ReplicatedStorage:SetAttribute("Frozen", true)
+	Remotes.FinalKillcam:FireAllClients({ Killer = kill.Killer, Victim = kill.Victim, Weapon = kill.Weapon })
+	task.wait(GameConfig.FinalKillcamTime or 3.4)
+	ReplicatedStorage:SetAttribute("Frozen", false)
+	return true
+end
+Round.PlayFinalKillcam = playFinalKillcam -- (para las pruebas)
+
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
 local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
 -- Buscar y destruir (SND) usa las mismas rondas con la bomba: atacan y defienden por turnos
@@ -25378,7 +25407,10 @@ local function eliminationRounds(s)
 			else
 				Remotes.Notify:FireAllClients("Big", "RONDA EMPATADA")
 			end
-			task.wait(3)
+			-- (si la ronda la cerró una baja: su repetición, como en Buscar y destruir)
+			if not playFinalKillcam() then
+				task.wait(3)
+			end
 		end
 	end
 	clearElimination()
@@ -25426,6 +25458,8 @@ local function topPlayers()
 end
 
 local function endRound()
+	-- Antes de nada (al cambiar de estado se quitan los bots): la repetición de la baja final
+	playFinalKillcam()
 	-- El líder se calcula antes de cambiar de estado (al cambiar, los bots se quitan)
 	local leader, leaderScore = updateLeader()
 	-- (el podio es un extra: si fallara, la partida termina igual)
@@ -26138,6 +26172,7 @@ local RewardFX = require(Modules.RewardFX)
 local AimFX = require(Modules.AimFX)
 local CombatFX = require(Modules.CombatFX)
 local RiflePose = require(Modules.RiflePose)
+local Killcam = require(Modules.Killcam)
 local BodyView = require(Modules.BodyView)
 local Effects = require(Modules.Effects)
 
@@ -26174,6 +26209,7 @@ start("LoadingScreen", LoadingScreen.Init)
 start("EnemyName", EnemyName.Init)
 start("AimFX", AimFX.Init)
 start("RiflePose", RiflePose.Init)
+start("Killcam", Killcam.Init)
 start("BodyView", BodyView.Init)
 start("CombatFX", function()
 	CombatFX.Init()
@@ -27812,7 +27848,8 @@ local ClientState = {
 	Settings = nil :: { [string]: any }?, -- ajustes del jugador (los rellena Settings)
 	EffectiveQuality = "Media", -- calidad real aplicada ("Auto" ya resuelto); la rellena Settings
 	Dead = false, -- pantalla de muerte abierta (la rellena DeathScreen)
-	KillcamActive = false, -- la killcam se está viendo (DeathScreen; el HUD oculta su «ELIMINADO POR»)
+	KillcamActive = false, -- se está viendo una killcam (Killcam; el HUD oculta su «ELIMINADO POR»)
+	KillcamFinal = false, -- es la killcam final de la partida/ronda (el HUD se esconde entero)
 	Emoting = false, -- haciendo un emote (cámara en tercera persona, arma oculta)
 	EmoteMenuOpen = false, -- menú de emotes abierto (N)
 	TutorialOpen = false, -- tarjeta de controles de la primera partida en pantalla
@@ -28300,10 +28337,10 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Shop = require(Shared.Shop)
 local Sounds = require(Shared.Sounds)
-local Weapons = require(Shared.Weapons)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local Killcam = require(script.Parent.Killcam)
 local MainMenu = require(script.Parent.MainMenu)
 local Menu = require(script.Parent.Menu)
 
@@ -28423,193 +28460,14 @@ local function refreshTargets(firstChoice)
 end
 
 ---------------------------------------------------------------------------
--- Killcam (como en los shooters): al morir, unos segundos desde los ojos del que te eliminó, mirando
--- hacia donde estabas, un poco a cámara lenta y sin color. Para eso se guardan, varias veces por
--- segundo, las posiciones de las cabezas de todos (jugadores y bots) durante los últimos segundos.
--- Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic o toque: saltarla.
--- No hay killcam en los modos de una sola vida (enseñaría en directo dónde está el enemigo) ni con
+-- Killcam al morir (ver Killcam): unos segundos desde los ojos del que te eliminó, mirando hacia donde
+-- estabas. Luego sigue la pantalla de muerte de siempre (observar al que te eliminó). Clic o toque:
+-- saltarla. No hay en los modos de una sola vida (enseñaría en directo dónde está el enemigo) ni con
 -- granadas o ataques aéreos, ni si al morir no había línea de visión (se vería una pared).
 ---------------------------------------------------------------------------
-local HISTORY_TIME = 3.2
-local SAMPLE_TIME = 0.05
-local SLOW_MOTION = 1.25
-DeathScreen.KillcamLength = 2.4 -- segundos de repetición (si hay tantos guardados)
 DeathScreen.KillcamEnabled = true
 
-local history = {} -- [Model] = { { tiempo, posición } }
-local killcam = nil -- la repetición en curso
-local sampleClock = 0
-local losParams = RaycastParams.new()
-losParams.FilterType = Enum.RaycastFilterType.Exclude
-
--- ¿Se veían? (del ojo del que te eliminó a ti; las personas, los efectos, las barandillas invisibles
--- y los cristales no tapan)
-local function clearLine(from, to)
-	local ignore = { camera }
-	for _, p in Players:GetPlayers() do
-		if p.Character then
-			table.insert(ignore, p.Character)
-		end
-	end
-	for _, name in { "Bots", "ClientFX" } do
-		local folder = workspace:FindFirstChild(name)
-		if folder then
-			table.insert(ignore, folder)
-		end
-	end
-	local map = workspace:FindFirstChild("Map")
-	local boundary = map and map:FindFirstChild("Boundary")
-	if boundary then
-		table.insert(ignore, boundary)
-	end
-	for _ = 1, 4 do
-		losParams.FilterDescendantsInstances = ignore
-		local hit = workspace:Raycast(from, to - from, losParams)
-		if not hit then
-			return true
-		end
-		if hit.Instance.Transparency < 0.3 then
-			return false
-		end
-		table.insert(ignore, hit.Instance)
-	end
-	return true
-end
-
--- Durante la killcam: tu cuerpo se ve (la cámara de primera persona lo deja invisible) y el del que
--- te eliminó no (la cámara está en su cabeza: se vería por dentro)
-local function setModelLook(model, modifier)
-	if not model then
-		return
-	end
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") or part:IsA("Decal") then
-			part.LocalTransparencyModifier = modifier
-		end
-	end
-end
-
-local function headPosition(model)
-	local head = model:FindFirstChild("Head")
-	if head and head:IsA("BasePart") then
-		return head.Position
-	end
-	local root = model:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then
-		return root.Position + Vector3.new(0, 1.5, 0)
-	end
-	return nil
-end
-
-local function recordHistory()
-	local now = os.clock()
-	local models = {}
-	for _, p in Players:GetPlayers() do
-		if p.Character then
-			table.insert(models, p.Character)
-		end
-	end
-	local bots = workspace:FindFirstChild("Bots")
-	if bots then
-		for _, model in bots:GetChildren() do
-			if model:IsA("Model") then
-				table.insert(models, model)
-			end
-		end
-	end
-	for _, model in models do
-		local position = headPosition(model)
-		if position then
-			local list = history[model]
-			if not list then
-				list = {}
-				history[model] = list
-			end
-			table.insert(list, { now, position })
-			while #list > 0 and now - list[1][1] > HISTORY_TIME do
-				table.remove(list, 1)
-			end
-		end
-	end
-	for model in history do
-		if not model.Parent then
-			history[model] = nil
-		end
-	end
-end
-
--- Posición en el instante t (interpolando entre muestras)
-local function sampleAt(list, t)
-	if not list or #list == 0 then
-		return nil
-	end
-	if t <= list[1][1] then
-		return list[1][2]
-	end
-	for i = 2, #list do
-		local b = list[i]
-		if b[1] >= t then
-			local a = list[i - 1]
-			local k = (t - a[1]) / math.max(1e-3, b[1] - a[1])
-			return a[2]:Lerp(b[2], math.clamp(k, 0, 1))
-		end
-	end
-	return list[#list][2]
-end
-
 local spectateAfterKillcam -- (se define más abajo)
-
-local function endKillcam(thenSpectate)
-	local k = killcam
-	if not k then
-		return
-	end
-	killcam = nil
-	ClientState.KillcamActive = false
-	pcall(function()
-		RunService:UnbindFromRenderStep("Killcam")
-	end)
-	if k.Effect then
-		k.Effect:Destroy()
-	end
-	if k.KillerModel and k.KillerModel.Parent then
-		setModelLook(k.KillerModel, 0)
-	end
-	refs.Killcam.Visible = false
-	camera.FieldOfView = k.Fov
-	camera.CameraType = Enum.CameraType.Custom
-	if thenSpectate and ClientState.Dead then
-		spectateAfterKillcam(k.Target)
-	end
-end
-
-local function stepKillcam()
-	local k = killcam
-	if not k then
-		return
-	end
-	local elapsed = os.clock() - k.Start
-	if elapsed >= k.Span * SLOW_MOTION then
-		endKillcam(true)
-		return
-	end
-	local t = k.From + elapsed / SLOW_MOTION
-	local eye = sampleAt(k.KillerTrack, t)
-	local victim = sampleAt(k.VictimTrack, t)
-	if not eye or not victim then
-		endKillcam(true)
-		return
-	end
-	camera.CameraType = Enum.CameraType.Scriptable
-	camera.FieldOfView = 60
-	-- (si los dos puntos casi coinciden, se mantiene hacia donde se miraba)
-	if (victim - eye).Magnitude > 0.5 then
-		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
-	end
-	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
-	setModelLook(k.KillerModel, 1)
-	setModelLook(k.MyModel, 0)
-end
 
 -- Empieza la repetición si hay suficiente historia del que te eliminó; si no, devuelve false
 local function startKillcam(target, weaponName)
@@ -28619,64 +28477,38 @@ local function startKillcam(target, weaponName)
 	if weaponName == "Grenade" or weaponName == "Airstrike" then
 		return false
 	end
-	endKillcam(false) -- (nunca dos a la vez)
 	local killerModel = characterOf(target)
 	local myModel = player.Character
 	if not killerModel or not myModel or killerModel == myModel then
 		return false
 	end
-	local killerTrack, victimTrack = history[killerModel], history[myModel]
-	if not killerTrack or not victimTrack or #killerTrack < 6 or #victimTrack < 6 then
-		return false
+	local started = Killcam.Play({
+		Killer = killerModel,
+		Victim = myModel,
+		At = deathTime,
+		Title = "▶ KILLCAM",
+		Name = Killcam.Caption(target, weaponName),
+		CheckSight = true,
+		OnEnd = function()
+			if ClientState.Dead then
+				spectateAfterKillcam(target)
+			end
+		end,
+	})
+	if started then
+		refs.SpectatePanel.Visible = false
 	end
-	local available = deathTime - killerTrack[1][1]
-	if available < 0.6 then
-		return false
-	end
-	local eyeAtDeath, meAtDeath = sampleAt(killerTrack, deathTime), sampleAt(victimTrack, deathTime)
-	if not eyeAtDeath or not meAtDeath or not clearLine(eyeAtDeath, meAtDeath) then
-		return false
-	end
-	local span = math.min(DeathScreen.KillcamLength, available)
-	local effect = Instance.new("ColorCorrectionEffect")
-	effect.Name = "KillcamColor"
-	effect.Saturation = -0.45
-	effect.Contrast = 0.12
-	effect.TintColor = Color3.fromRGB(235, 240, 255)
-	effect.Parent = camera
-	killcam = {
-		Target = target,
-		Start = os.clock(),
-		From = deathTime - span,
-		Span = span,
-		KillerTrack = table.clone(killerTrack),
-		VictimTrack = table.clone(victimTrack),
-		Fov = camera.FieldOfView,
-		Effect = effect,
-		KillerModel = killerModel,
-		MyModel = myModel,
-		Look = nil :: CFrame?,
-	}
-	ClientState.KillcamActive = true
-	local name = target:IsA("Player") and target.DisplayName or target.Name
-	local weapon = type(weaponName) == "string" and Weapons.List[weaponName]
-	local weaponText = weapon and weapon.DisplayName or weaponName
-	refs.KillcamName.Text = name .. ((weaponText and weaponText ~= "") and ("  ·  " .. tostring(weaponText)) or "")
-	refs.Killcam.Visible = true
-	refs.SpectatePanel.Visible = false
-	-- (al final de todo lo demás: nada mueve la cámara mientras dura)
-	RunService:BindToRenderStep("Killcam", Enum.RenderPriority.Last.Value, stepKillcam)
-	return true
+	return started
 end
 
 DeathScreen.KillcamActive = function()
-	return killcam ~= nil
+	return Killcam.Active()
 end
 
 local function cycle(step)
 	-- (durante la killcam, el clic la salta)
-	if killcam then
-		endKillcam(true)
+	if Killcam.Active() then
+		Killcam.Stop(true)
 		return
 	end
 	refreshTargets(spectating)
@@ -28740,9 +28572,7 @@ local function respawnNow()
 end
 
 local function close()
-	if killcam then
-		endKillcam(false)
-	end
+	Killcam.Stop(false)
 	if not ClientState.Dead then
 		return
 	end
@@ -28832,41 +28662,6 @@ local function build()
 	})
 	-- Libera el ratón aunque la cámara esté en primera persona
 	UI.new("TextButton", { Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, Text = "", Modal = true, Parent = gui })
-
-	-- Killcam: bandas negras de cine arriba y abajo, «KILLCAM» y quién te eliminó con qué
-	refs.Killcam = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, Parent = gui })
-	UI.new("Frame", {
-		Size = UDim2.new(1, 0, 0.09, 0),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		BorderSizePixel = 0,
-		Parent = refs.Killcam,
-	})
-	UI.new("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.fromScale(0, 1),
-		Size = UDim2.new(1, 0, 0.09, 0),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		BorderSizePixel = 0,
-		Parent = refs.Killcam,
-	})
-	UI.label({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.09, 6),
-		Size = UDim2.new(0.6, 0, 0, 34),
-		Text = "▶ KILLCAM",
-		TextScaled = true,
-		TextColor3 = Color3.fromRGB(255, 70, 60),
-		TextStrokeTransparency = 0.2,
-		Parent = refs.Killcam,
-	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 30 }) })
-	refs.KillcamName = UI.label({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.09, 40),
-		Size = UDim2.new(0.6, 0, 0, 24),
-		Text = "",
-		TextScaled = true,
-		Parent = refs.Killcam,
-	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 20 }) })
 
 	refs.Bottom = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
 	local scale = UI.new("UIScale", { Parent = refs.Bottom })
@@ -29023,8 +28818,8 @@ function DeathScreen.Init()
 		end
 		-- (en el móvil, tocar la pantalla salta la killcam)
 		if input.UserInputType == Enum.UserInputType.Touch then
-			if killcam then
-				endKillcam(true)
+			if Killcam.Active() then
+				Killcam.Stop(true)
 			end
 			return
 		end
@@ -29042,15 +28837,6 @@ function DeathScreen.Init()
 		end
 	end)
 	RunService.RenderStepped:Connect(update)
-	-- Historia de posiciones para la killcam (cada SAMPLE_TIME s)
-	RunService.Heartbeat:Connect(function(dt)
-		sampleClock += dt
-		if sampleClock < SAMPLE_TIME then
-			return
-		end
-		sampleClock = 0
-		pcall(recordHistory)
-	end)
 	-- Muerto en Eliminación y de vuelta desde la pantalla de inicio: vuelve a la pantalla de muerte
 	-- (se observa a los compañeros hasta la siguiente ronda en vez de quedarse mirando el cuerpo)
 	RunService.Heartbeat:Connect(function()
@@ -33570,9 +33356,10 @@ checkClutch = function(aliveA, aliveB, teamA)
 end
 
 local function render(dt)
-	gui.Enabled = not ClientState.InMainMenu
-	if ClientState.InMainMenu then
-		return -- en la pantalla de inicio no se dibuja el HUD
+	-- (en la pantalla de inicio y durante la killcam final no se dibuja el HUD)
+	gui.Enabled = not ClientState.InMainMenu and not ClientState.KillcamFinal
+	if not gui.Enabled then
+		return
 	end
 	-- Durante la killcam, su propio rótulo dice quién te eliminó y con qué (no se pisan)
 	local showDeath = not ClientState.KillcamActive
@@ -34019,6 +33806,429 @@ return JumpPads
           </Item>
           <Item class="ModuleScript" referent="112">
             <Properties>
+              <string name="Name">Killcam</string>
+              <string name="Source"><![CDATA[-- Killcam (como en los shooters): repetición desde los ojos de quien hizo una baja, mirando hacia su
+-- víctima, un poco a cámara lenta, sin color y con bandas de cine. Para eso se guardan, varias veces
+-- por segundo, las posiciones de las cabezas de todos (jugadores y bots) durante los últimos segundos.
+--   * Al morir: la pide DeathScreen (luego sigue la pantalla de muerte de siempre).
+--   * Killcam final: si una baja cierra la partida o una ronda, el servidor avisa (Remotes.FinalKillcam)
+--     y todos ven esa baja ("KILLCAM FINAL"), también quien la hizo.
+-- Clic o toque: saltarla. Solo en este cliente: mueve la cámara, no cambia nada del juego.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Weapons = require(Shared.Weapons)
+local Remotes = require(Shared.Remotes)
+
+local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
+
+local Killcam = {}
+
+Killcam.HistoryTime = 6 -- segundos de posiciones guardados
+Killcam.SampleTime = 0.05 -- cada cuánto se guardan
+Killcam.SlowMotion = 1.25 -- (1,25 = un 25 % más lenta)
+Killcam.Length = 2.4 -- segundos de repetición (si hay tantos guardados)
+Killcam.Enabled = true
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local history = {} -- [Model] = { { tiempo, posición } }
+local orphans = {} -- [nombre] = { Track, Removed }: modelos que ya no están (un bot caído y quitado)
+local lastKills = {} -- ["asesino|víctima"] = os.clock() de la baja (de la lista de bajas)
+local current = nil -- la repetición en curso
+local sampleClock = 0
+local gui: any = nil
+local refs: { [string]: any } = {}
+local losParams = RaycastParams.new()
+losParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function headPosition(model)
+	local head = model:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		return head.Position
+	end
+	local root = model:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root.Position + Vector3.new(0, 1.5, 0)
+	end
+	return nil
+end
+
+local function characters()
+	local models = {}
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(models, p.Character)
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			if model:IsA("Model") then
+				table.insert(models, model)
+			end
+		end
+	end
+	return models
+end
+
+function Killcam.Record()
+	local now = os.clock()
+	for _, model in characters() do
+		local position = headPosition(model)
+		if position then
+			local list = history[model]
+			if not list then
+				list = {}
+				history[model] = list
+			end
+			table.insert(list, { now, position })
+			while #list > 0 and now - list[1][1] > Killcam.HistoryTime do
+				table.remove(list, 1)
+			end
+		end
+	end
+	for model, list in history do
+		if not model.Parent then
+			-- (se guarda un rato por su nombre: la killcam final puede necesitar a un bot ya quitado)
+			orphans[model.Name] = { Track = list, Removed = now }
+			history[model] = nil
+		end
+	end
+	for name, entry in orphans do
+		if now - entry.Removed > Killcam.HistoryTime then
+			orphans[name] = nil
+		end
+	end
+end
+
+-- Posición en el instante t (interpolando entre muestras)
+function Killcam.SampleAt(list, t)
+	if not list or #list == 0 then
+		return nil
+	end
+	if t <= list[1][1] then
+		return list[1][2]
+	end
+	for i = 2, #list do
+		local b = list[i]
+		if b[1] >= t then
+			local a = list[i - 1]
+			local k = (t - a[1]) / math.max(1e-3, b[1] - a[1])
+			return a[2]:Lerp(b[2], math.clamp(k, 0, 1))
+		end
+	end
+	return list[#list][2]
+end
+
+-- Historia de un personaje (por modelo o, si ya no está, por nombre)
+function Killcam.Track(model, name)
+	return (model and history[model]) or (name and orphans[name] and orphans[name].Track) or nil
+end
+
+-- ¿Se veían? (del ojo de quien hizo la baja a la víctima; las personas, los efectos, las barandillas
+-- invisibles y los cristales no tapan)
+function Killcam.ClearLine(from, to)
+	local ignore = { camera }
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(ignore, p.Character)
+		end
+	end
+	for _, name in { "Bots", "ClientFX" } do
+		local folder = workspace:FindFirstChild(name)
+		if folder then
+			table.insert(ignore, folder)
+		end
+	end
+	local map = workspace:FindFirstChild("Map")
+	local boundary = map and map:FindFirstChild("Boundary")
+	if boundary then
+		table.insert(ignore, boundary)
+	end
+	for _ = 1, 4 do
+		losParams.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(from, to - from, losParams)
+		if not hit then
+			return true
+		end
+		if hit.Instance.Transparency < 0.3 then
+			return false
+		end
+		table.insert(ignore, hit.Instance)
+	end
+	return true
+end
+
+-- Durante la repetición: la víctima se ve (aunque sea tu propio cuerpo, que la primera persona deja
+-- invisible) y quien hizo la baja no (la cámara está en su cabeza: se vería por dentro)
+local function setModelLook(model, modifier)
+	if not model then
+		return
+	end
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") or part:IsA("Decal") then
+			part.LocalTransparencyModifier = modifier
+		end
+	end
+end
+
+function Killcam.Active()
+	return current ~= nil
+end
+
+-- Termina la repetición. runOnEnd: avisar a quien la pidió (p. ej. para pasar a observar)
+function Killcam.Stop(runOnEnd)
+	local k = current
+	if not k then
+		return
+	end
+	current = nil
+	ClientState.KillcamActive = false
+	ClientState.KillcamFinal = false
+	pcall(function()
+		RunService:UnbindFromRenderStep("Killcam")
+	end)
+	if k.Effect then
+		k.Effect:Destroy()
+	end
+	if k.Killer and k.Killer.Parent then
+		-- (si eras tú, la primera persona vuelve a esconderte sola)
+		setModelLook(k.Killer, 0)
+	end
+	if refs.Frame then
+		refs.Frame.Visible = false
+	end
+	camera.FieldOfView = k.Fov
+	-- (en la final sigues vivo: la cámara vuelve a donde mirabas)
+	if k.Final and k.CameraBefore then
+		camera.CFrame = k.CameraBefore
+	end
+	camera.CameraType = Enum.CameraType.Custom
+	if runOnEnd and k.OnEnd then
+		task.spawn(k.OnEnd)
+	end
+end
+
+local function step()
+	local k = current
+	if not k then
+		return
+	end
+	local elapsed = os.clock() - k.Start
+	if elapsed >= k.Span * Killcam.SlowMotion then
+		Killcam.Stop(true)
+		return
+	end
+	local t = k.From + elapsed / Killcam.SlowMotion
+	local eye = Killcam.SampleAt(k.KillerTrack, t)
+	local victim = Killcam.SampleAt(k.VictimTrack, t)
+	if not eye or not victim then
+		Killcam.Stop(true)
+		return
+	end
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.FieldOfView = 60
+	-- (si los dos puntos casi coinciden, se mantiene hacia donde se miraba)
+	if (victim - eye).Magnitude > 0.5 then
+		k.Look = CFrame.lookAt(eye + Vector3.new(0, 0.15, 0), victim - Vector3.new(0, 0.4, 0))
+	end
+	camera.CFrame = k.Look or CFrame.new(eye + Vector3.new(0, 0.15, 0))
+	setModelLook(k.Killer, 1)
+	setModelLook(k.Victim, 0)
+end
+
+-- Empieza una repetición; devuelve false si no hay con qué (poca historia, o sin línea de visión).
+-- opts: Killer, Victim (modelos; pueden faltar si ya no están: entonces KillerName/VictimName),
+--       At (os.clock() de la baja), Title, Name (texto de debajo), CheckSight, Final, OnEnd()
+function Killcam.Play(opts)
+	if not Killcam.Enabled then
+		return false
+	end
+	local killerTrack = Killcam.Track(opts.Killer, opts.KillerName)
+	local victimTrack = Killcam.Track(opts.Victim, opts.VictimName)
+	if not killerTrack or not victimTrack or #killerTrack < 6 or #victimTrack < 6 then
+		return false
+	end
+	local at = opts.At or os.clock()
+	local available = at - killerTrack[1][1]
+	if available < 0.6 then
+		return false
+	end
+	if opts.CheckSight then
+		local eye, target = Killcam.SampleAt(killerTrack, at), Killcam.SampleAt(victimTrack, at)
+		if not eye or not target or not Killcam.ClearLine(eye, target) then
+			return false
+		end
+	end
+	Killcam.Stop(false) -- (nunca dos a la vez)
+	local span = math.min(Killcam.Length, available)
+	local effect = Instance.new("ColorCorrectionEffect")
+	effect.Name = "KillcamColor"
+	effect.Saturation = -0.45
+	effect.Contrast = 0.12
+	effect.TintColor = Color3.fromRGB(235, 240, 255)
+	effect.Parent = camera
+	current = {
+		Start = os.clock(),
+		From = at - span,
+		Span = span,
+		KillerTrack = table.clone(killerTrack),
+		VictimTrack = table.clone(victimTrack),
+		Killer = opts.Killer,
+		Victim = opts.Victim,
+		Fov = camera.FieldOfView,
+		CameraBefore = camera.CFrame,
+		Effect = effect,
+		Final = opts.Final == true,
+		OnEnd = opts.OnEnd,
+		Look = nil :: CFrame?,
+	}
+	ClientState.KillcamActive = true
+	ClientState.KillcamFinal = opts.Final == true
+	if refs.Frame then
+		refs.Title.Text = opts.Title or "▶ KILLCAM"
+		refs.Name.Text = opts.Name or ""
+		refs.Frame.Visible = true
+	end
+	-- (al final de todo lo demás: nada mueve la cámara mientras dura)
+	RunService:BindToRenderStep("Killcam", Enum.RenderPriority.Last.Value, step)
+	return true
+end
+
+-- "Nombre · Arma" para el rótulo
+function Killcam.Caption(who, weaponName)
+	local name = who
+	if typeof(who) == "Instance" then
+		name = who:IsA("Player") and who.DisplayName or who.Name
+	end
+	local weapon = type(weaponName) == "string" and Weapons.List[weaponName]
+	local weaponText = weapon and weapon.DisplayName or weaponName
+	return tostring(name or "") .. ((weaponText and weaponText ~= "") and ("  ·  " .. tostring(weaponText)) or "")
+end
+
+local function modelNamed(name)
+	if type(name) ~= "string" then
+		return nil
+	end
+	local p = Players:FindFirstChild(name)
+	if p and p:IsA("Player") then
+		return p.Character, p
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	return bots and bots:FindFirstChild(name) or nil, nil
+end
+
+-- Killcam final (la manda el servidor): la última baja de la partida o de la ronda
+function Killcam.PlayFinal(info)
+	if type(info) ~= "table" or ClientState.InMainMenu then
+		return false
+	end
+	local killer, killerPlayer = modelNamed(info.Killer)
+	local victim = modelNamed(info.Victim)
+	local at = lastKills[tostring(info.Killer) .. "|" .. tostring(info.Victim)] or (os.clock() - 0.3)
+	return Killcam.Play({
+		Killer = killer,
+		Victim = victim,
+		KillerName = info.Killer,
+		VictimName = info.Victim,
+		At = at,
+		Title = "▶ KILLCAM FINAL",
+		Name = Killcam.Caption(killerPlayer or info.Killer, info.Weapon),
+		Final = true,
+	})
+end
+
+local function buildOverlay()
+	gui = UI.new("ScreenGui", {
+		Name = "Killcam",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		DisplayOrder = 40,
+		Parent = player:WaitForChild("PlayerGui"),
+	})
+	-- Bandas negras de cine arriba y abajo, «KILLCAM» y quién hizo la baja con qué
+	refs.Frame = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false, Parent = gui })
+	UI.new("Frame", {
+		Size = UDim2.new(1, 0, 0.09, 0),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+		Parent = refs.Frame,
+	})
+	UI.new("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.new(1, 0, 0.09, 0),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+		Parent = refs.Frame,
+	})
+	refs.Title = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.09, 6),
+		Size = UDim2.new(0.6, 0, 0, 34),
+		Text = "▶ KILLCAM",
+		TextScaled = true,
+		TextColor3 = Color3.fromRGB(255, 70, 60),
+		TextStrokeTransparency = 0.2,
+		Parent = refs.Frame,
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 30 }) })
+	refs.Name = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.09, 40),
+		Size = UDim2.new(0.6, 0, 0, 24),
+		Text = "",
+		TextScaled = true,
+		Parent = refs.Frame,
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 20 }) })
+end
+
+function Killcam.Init()
+	buildOverlay()
+	-- Historia de posiciones (cada SampleTime s)
+	RunService.Heartbeat:Connect(function(dt)
+		sampleClock += dt
+		if sampleClock >= Killcam.SampleTime then
+			sampleClock = 0
+			local ok, err = pcall(Killcam.Record)
+			if not ok then
+				warn("[Killcam]", err)
+			end
+		end
+	end)
+	-- Cuándo pasó cada baja en este cliente (la final se repite justo hasta ese momento)
+	Remotes.KillFeed.OnClientEvent:Connect(function(info)
+		if type(info) == "table" and info.Killer and info.Victim then
+			lastKills[tostring(info.Killer) .. "|" .. tostring(info.Victim)] = os.clock()
+		end
+	end)
+	Remotes.FinalKillcam.OnClientEvent:Connect(function(info)
+		local ok, err = pcall(Killcam.PlayFinal, info)
+		if not ok then
+			warn("[Killcam] final:", err)
+		end
+	end)
+	-- La final también se puede saltar (clic o toque); la de la muerte la salta DeathScreen
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or not current or not current.Final then
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			Killcam.Stop(true)
+		end
+	end)
+end
+
+return Killcam
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="113">
+            <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
 --  * Radar: resalta en rojo a los enemigos a través de las paredes mientras dure (RadarUntil)
@@ -34255,7 +34465,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -34373,7 +34583,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -35120,7 +35330,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -35370,7 +35580,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -38212,7 +38422,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -38607,7 +38817,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -39063,7 +39273,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -39190,7 +39400,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -39367,7 +39577,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -39550,7 +39760,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -40043,7 +40253,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">RiflePose</string>
               <string name="Source"><![CDATA[-- Postura realista: los personajes (bots y los demás jugadores) sujetan el arma de fuego con las dos
@@ -40314,7 +40524,7 @@ return RiflePose
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -40447,7 +40657,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">ScopeSway</string>
               <string name="Source"><![CDATA[-- Visor de francotirador realista: con el visor puesto la mira nunca está del todo quieta (el pulso y
@@ -40548,7 +40758,7 @@ return ScopeSway
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -40875,7 +41085,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -41094,7 +41304,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -41180,7 +41390,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -41414,7 +41624,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -41571,7 +41781,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -41737,7 +41947,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="132">
+          <Item class="ModuleScript" referent="133">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -41931,7 +42141,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="133">
+          <Item class="ModuleScript" referent="134">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -43136,7 +43346,7 @@ local function renderStep(dt)
 
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
-	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting
+	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting or ClientState.KillcamActive
 	setViewmodelHidden(hide)
 	if not hide then -- oculta no hace falta moverla cada fotograma
 		viewmodel:PivotTo(
@@ -43432,7 +43642,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="134">
+          <Item class="ModuleScript" referent="135">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -43489,7 +43699,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="135">
+          <Item class="ModuleScript" referent="136">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -43790,7 +44000,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="136">
+          <Item class="ModuleScript" referent="137">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -44009,19 +44219,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="137">
+  <Item class="Teams" referent="138">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="138">
+  <Item class="Workspace" referent="139">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="139">
+    <Item class="Terrain" referent="140">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

@@ -1200,7 +1200,7 @@ local function renderStep(dt)
 
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
-	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting
+	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting or ClientState.KillcamActive
 	setViewmodelHidden(hide)
 	if not hide then -- oculta no hace falta moverla cada fotograma
 		viewmodel:PivotTo(
