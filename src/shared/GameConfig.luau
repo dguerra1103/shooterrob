@@ -3,9 +3,10 @@ local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
 GameConfig.GameTitle = "SHOOTER NEW"
--- Estilo de los mapas: "Cartoon" (colores vivos, plástico liso, sombras suaves, como los shooters más
--- jugados de Roblox) o "Realista" (piedra, yeso, ladrillo y luz más dura)
-GameConfig.VisualStyle = "Cartoon"
+-- Estilo de los mapas: "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
+-- luz con sombras marcadas, como los shooters militares) o "Cartoon" (colores vivos, plástico liso y
+-- sombras suaves). En Realista, los mapas pensados para Cartoon se "realizan" solos (MapKit.realize).
+GameConfig.VisualStyle = "Realista"
 
 -- Equipos
 GameConfig.Teams = {

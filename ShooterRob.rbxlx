@@ -450,9 +450,10 @@ local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
 GameConfig.GameTitle = "SHOOTER NEW"
--- Estilo de los mapas: "Cartoon" (colores vivos, plástico liso, sombras suaves, como los shooters más
--- jugados de Roblox) o "Realista" (piedra, yeso, ladrillo y luz más dura)
-GameConfig.VisualStyle = "Cartoon"
+-- Estilo de los mapas: "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
+-- luz con sombras marcadas, como los shooters militares) o "Cartoon" (colores vivos, plástico liso y
+-- sombras suaves). En Realista, los mapas pensados para Cartoon se "realizan" solos (MapKit.realize).
+GameConfig.VisualStyle = "Realista"
 
 -- Equipos
 GameConfig.Teams = {
@@ -19382,6 +19383,7 @@ end
 -- Estilo Cartoon: los materiales "realistas" pasan a plástico liso y los colores ganan viveza; los
 -- grises claros tiran a lavanda (paredes tipo shooter de Roblox). Los detalles de suelo no cambian.
 Kit.Cartoon = GameConfig.VisualStyle ~= "Realista"
+Kit.Designed = false -- (mapa hecho ya realista: ver Kit.Begin)
 local CARTOON_FLAT = {}
 for _, name in {
 	"Plaster", "Concrete", "Brick", "Limestone", "Cobblestone", "Slate", "Pavement", "Asphalt", "Granite", "Marble",
@@ -19422,8 +19424,25 @@ function Kit.vivid(color)
 	return Color3.fromHSV(h, math.clamp(s * 1.45, 0, 0.95), math.clamp(v * 1.1 + 0.04, 0, 1))
 end
 
+-- Estilo realista en mapas pensados para Cartoon: los colores muy vivos pasan a pintura de verdad
+-- (menos saturados y no tan claros); los grises y los marrones casi no cambian
+function Kit.natural(color)
+	local h, s, v = color:ToHSV()
+	if s < 0.25 then
+		return color
+	end
+	return Color3.fromHSV(h, s * (s > 0.6 and 0.78 or 0.88), v > 0.85 and v * 0.93 or v)
+end
+
 function Kit.applyStyle(part)
-	if not Kit.Cartoon or KEEP_LOOK[part.Name] or part.Material == Enum.Material.Neon then
+	if KEEP_LOOK[part.Name] or part.Material == Enum.Material.Neon then
+		return
+	end
+	if not Kit.Cartoon then
+		-- (los mapas hechos ya realistas, como Encrucijada, tienen sus colores pensados)
+		if not Kit.Designed then
+			part.Color = Kit.natural(part.Color)
+		end
 		return
 	end
 	if CARTOON_FLAT[part.Material] then
@@ -20639,6 +20658,55 @@ local function cartoonize(preset)
 	return p
 end
 
+-- Estilo realista en mapas pensados para Cartoon: luz más contrastada (sombras más oscuras y nítidas),
+-- color natural (sin tonos pastel en el ambiente ni en la neblina), neblina y brillo del sol de verdad,
+-- y hierba, tierra y nieve de colores naturales. La hora y el ambiente de cada mapa se mantienen.
+local function neutralize(color, amount)
+	local h, s, v = color:ToHSV()
+	return Color3.fromHSV(h, s * (1 - amount), v)
+end
+
+local function realize(preset)
+	local p = table.clone(preset)
+	local clock = p.ClockTime or 14
+	local night = clock < 6 or clock > 18.6
+	p.Ambient = neutralize(p.Ambient or RGB(60, 62, 72), 0.6):Lerp(night and RGB(30, 32, 46) or RGB(70, 72, 82), 0.45)
+	p.OutdoorAmbient = neutralize(p.OutdoorAmbient or RGB(125, 128, 140), 0.6)
+		:Lerp(night and RGB(55, 58, 82) or RGB(120, 122, 132), 0.4)
+	p.ShadowSoftness = math.min(p.ShadowSoftness or 0.12, 0.15)
+	local a = table.clone(p.Atmosphere or {})
+	a.Density = math.max(a.Density or 0.3, 0.3)
+	a.Haze = math.max(a.Haze or 1.4, 1.2)
+	a.Glare = night and (a.Glare or 0) or math.max(a.Glare or 0.3, 0.25)
+	if a.Color then
+		a.Color = neutralize(a.Color, 0.5)
+	end
+	if a.Decay then
+		a.Decay = neutralize(a.Decay, 0.5)
+	end
+	p.Atmosphere = a
+	local c = table.clone(p.Color or {})
+	c.Saturation = math.min(c.Saturation or 0.05, 0.05)
+	c.Contrast = math.max(c.Contrast or 0.12, 0.12)
+	c.Brightness = math.min(c.Brightness or 0, 0.02)
+	if c.Tint then
+		c.Tint = neutralize(c.Tint, 0.6)
+	end
+	p.Color = c
+	local b = table.clone(p.Bloom or {})
+	b.Intensity = math.min(b.Intensity or 0.6, 0.6)
+	b.Threshold = math.max(b.Threshold or 1.6, 1.6)
+	p.Bloom = b
+	local terrain = {}
+	for name, color in TERRAIN_DEFAULTS do
+		local custom = p.TerrainColors and p.TerrainColors[name]
+		terrain[name] = custom and neutralize(custom, 0.45):Lerp(color, 0.35) or color
+	end
+	p.TerrainColors = terrain
+	return p
+end
+Kit.realize = realize
+
 -- Luz de esta partida: a veces sale otra hora del día del mapa (como las versiones de los mapas en
 -- los shooters de móvil). map.LightingVariants = { { Name = "Atardecer", Chance = 0.3, ...cambios } }.
 -- Deja el nombre de la variante en Kit.Variant (y el mapa lo guarda en su atributo Variant).
@@ -20667,6 +20735,8 @@ function Kit.applyLighting(preset)
 	Kit.Neutral = type(neutral) == "table" and { Hue = neutral.Hue or 0.68, Sat = neutral.Sat or 0.16 } or { Hue = 0.68, Sat = 0.16 }
 	if Kit.Cartoon then
 		preset = cartoonize(preset)
+	elseif not Kit.Designed then
+		preset = realize(preset)
 	end
 	Lighting.ClockTime = preset.ClockTime or 14
 	Lighting.GeographicLatitude = preset.Latitude or 35
@@ -20751,6 +20821,8 @@ end
 -- mapa usa materiales y luz realistas aunque el juego esté en estilo Cartoon (mapas tipo CoD)
 function Kit.Begin(name, options)
 	Kit.Cartoon = GameConfig.VisualStyle ~= "Realista" and not (options and options.Realistic)
+	-- (mapa hecho ya realista: su luz y sus colores se respetan tal cual)
+	Kit.Designed = options ~= nil and options.Realistic == true
 	local old = workspace:FindFirstChild("Map")
 	if old then
 		old:Destroy()
