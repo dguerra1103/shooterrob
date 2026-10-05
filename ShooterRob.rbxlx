@@ -2904,10 +2904,68 @@ end
 
 -- Reproduce un sonido. Si parent es nil, suena en 2D (para el jugador local).
 -- pitch y volume (opcionales) multiplican los valores del sonido: así cada arma suena distinta.
+-- Sonidos 2D que suenan muchísimo (cada disparo, cada impacto): se reutilizan en vez de crear y
+-- destruir una instancia cada vez. Cinco por nombre; si suenan todos, se corta el más antiguo
+local POOLED = { Shot = true, ShotHeavy = true, Boom = true, Mech = true, Hit = true, Headshot = true, Kill = true, Click = true, Empty = true, Swing = true }
+local POOL_SIZE = 5
+local pools = {} -- [nombre] = { Sound }
+
+local function pooledSound(name, info)
+	local pool = pools[name]
+	if not pool then
+		pool = {}
+		pools[name] = pool
+	end
+	-- (alguien pudo destruir uno: fuera de la lista)
+	for i = #pool, 1, -1 do
+		if not pool[i].Parent then
+			table.remove(pool, i)
+		end
+	end
+	local sound = nil
+	for _, candidate in pool do
+		if candidate.IsPlaying ~= true then
+			sound = candidate
+			break
+		end
+	end
+	if not sound then
+		if #pool < POOL_SIZE then
+			sound = Instance.new("Sound")
+			sound.SoundId = info.Id
+			sound.RollOffMaxDistance = 300
+			sound.Parent = workspace.CurrentCamera or workspace
+		else
+			sound = table.remove(pool, 1)
+			sound:Stop()
+		end
+		table.insert(pool, sound)
+	end
+	-- (como nuevo: sin efectos que le pusiera otro uso, desde el principio)
+	for _, child in sound:GetChildren() do
+		if child:IsA("SoundEffect") or string.sub(child.ClassName, -11) == "SoundEffect" then
+			child:Destroy()
+		end
+	end
+	sound.TimePosition = 0
+	return sound
+end
+
 function Sounds.Play(name, parent, pitch, volume)
 	local info = Sounds[name]
 	if type(info) ~= "table" then
 		return
+	end
+	if parent == nil and POOLED[name] then
+		local sound = pooledSound(name, info)
+		sound.Volume = info.Volume * (volume or 1)
+		sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
+		sound.SoundGroup = getWorldGroup()
+		if sound.Parent == nil then
+			sound.Parent = workspace.CurrentCamera or workspace
+		end
+		sound:Play()
+		return sound
 	end
 	local sound = Instance.new("Sound")
 	sound.SoundId = info.Id
