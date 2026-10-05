@@ -222,6 +222,8 @@ function Map.Build()
 
 	-- Fondo: piruletas gigantes, árboles de algodón de azúcar y colinas
 	Kit.bounds(LENGTH, WIDTH, 45)
+	-- Nombres de las zonas
+	Kit.callout("TARTA", CFrame.new(0, 6, 0), V(30, 18, 30))
 	local farColors = { RGB(255, 120, 180), RGB(120, 200, 255), RGB(255, 210, 90), RGB(170, 120, 255), RGB(120, 230, 160) }
 	local n = 0
 	for x = -130, 130, 26 do

@@ -188,6 +188,9 @@ function Map.Build()
 
 	-- Límites y fondo: pinos y colinas verdes detrás de los muros
 	Kit.bounds(LENGTH, WIDTH, 50)
+	-- Nombres de las zonas
+	Kit.callout("TORRE", CFrame.new(0, 10, 0), V(26, 26, 26))
+	Kit.callout("PLAZA", CFrame.new(0, 10, 0), V(60, 24, 60))
 	for x = -150, 150, 26 do
 		for _, z in { -1, 1 } do
 			Kit.cartoonPine(V(x + z * 9, 0, z * (92 + (math.abs(x) % 17))), 1.4 + (math.abs(x) % 3) * 0.15, true)

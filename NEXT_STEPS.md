@@ -9,8 +9,8 @@ Solo lo importante que todavía tiene sentido, por orden.
    familia (pistola, fusil, escopeta, francotirador) darían el mayor salto de "game feel".
 4. **Animaciones del viewmodel con Animator** (recarga, inspección, equipar) en vez de procedurales,
    empezando por el fusil de asalto y la pistola, que son las que más se ven.
-5. **Más nombres de zona** en los mapas que aún usan el respaldo automático (Pastel Plaza, Caja de
-   Juguetes, Arena Caramelo, Downtown): 2-3 `Kit.callout` por mapa.
+5. **Nombres de zona más finos**: todos los mapas tienen ya nombres (Downtown usa el automático,
+   «NORTE · LADO ROJO»); probar con gente qué nombres se usan de verdad al hablar y ajustarlos.
 6. **Probar Puesto del Desierto con gente**: tiempos de cruce, líneas de tiro desde los puestos de
    tirador y si los callejones favorecen demasiado a un estilo.
 7. **Accesorios de armas** (mira, cañón, empuñadura) con efecto real pequeño: profundidad tipo

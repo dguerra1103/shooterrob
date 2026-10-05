@@ -12898,6 +12898,8 @@ function Map.Build()
 
 	-- Fondo: piruletas gigantes, árboles de algodón de azúcar y colinas
 	Kit.bounds(LENGTH, WIDTH, 45)
+	-- Nombres de las zonas
+	Kit.callout("TARTA", CFrame.new(0, 6, 0), V(30, 18, 30))
 	local farColors = { RGB(255, 120, 180), RGB(120, 200, 255), RGB(255, 210, 90), RGB(170, 120, 255), RGB(120, 230, 160) }
 	local n = 0
 	for x = -130, 130, 26 do
@@ -18380,6 +18382,9 @@ function Map.Build()
 
 	-- Límites y fondo: pinos y colinas verdes detrás de los muros
 	Kit.bounds(LENGTH, WIDTH, 50)
+	-- Nombres de las zonas
+	Kit.callout("TORRE", CFrame.new(0, 10, 0), V(26, 26, 26))
+	Kit.callout("PLAZA", CFrame.new(0, 10, 0), V(60, 24, 60))
 	for x = -150, 150, 26 do
 		for _, z in { -1, 1 } do
 			Kit.cartoonPine(V(x + z * 9, 0, z * (92 + (math.abs(x) % 17))), 1.4 + (math.abs(x) % 3) * 0.15, true)
@@ -19905,6 +19910,11 @@ function Map.Build()
 
 	-- Fondo: pilas de bloques gigantes, ositos y colinas
 	Kit.bounds(LENGTH, WIDTH, 50)
+	-- Nombres de las zonas
+	Kit.callout("CASTILLO", CFrame.new(0, 8, 0), V(30, 24, 30))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("LADRILLO GRANDE", m * CFrame.new(-41, 6, -(WIDTH / 2 - 8)), V(26, 18, 16))
+	end
 	teddy(V(-40, 0, WIDTH / 2 + 30), 1.6, math.pi)
 	teddy(V(40, 0, -(WIDTH / 2 + 30)), 1.6, 0)
 	local n = 0
@@ -46593,6 +46603,14 @@ local function readMap(map)
 			end
 		end
 		info.Length, info.Width = maxX * 2, maxZ * 2
+		-- (mapas con solo techo invisible, como Downtown: su tamaño es el del techo)
+		if maxX <= 0 or maxZ <= 0 then
+			for _, roof in boundary:GetChildren() do
+				if roof:IsA("BasePart") and roof.Size.X * roof.Size.Z > (info.Length or 0) * (info.Width or 0) then
+					info.Length, info.Width = roof.Size.X, roof.Size.Z
+				end
+			end
+		end
 	end
 	-- Lado de cada equipo: por dónde está su zona de salida
 	for _, d in map:GetDescendants() do

@@ -207,6 +207,11 @@ function Map.Build()
 
 	-- Fondo: pilas de bloques gigantes, ositos y colinas
 	Kit.bounds(LENGTH, WIDTH, 50)
+	-- Nombres de las zonas
+	Kit.callout("CASTILLO", CFrame.new(0, 8, 0), V(30, 24, 30))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("LADRILLO GRANDE", m * CFrame.new(-41, 6, -(WIDTH / 2 - 8)), V(26, 18, 16))
+	end
 	teddy(V(-40, 0, WIDTH / 2 + 30), 1.6, math.pi)
 	teddy(V(40, 0, -(WIDTH / 2 + 30)), 1.6, 0)
 	local n = 0
