@@ -24,6 +24,8 @@ local Sounds = {
 	Unsheath = { Id = "rbxassetid://12222225", Volume = 0.4, Pitch = 1.3 }, -- sacar el arma cuerpo a cuerpo
 	Whiz = { Id = "rbxassetid://12222095", Volume = 0.45, Pitch = 2.6 }, -- bala que pasa rozando
 	LowAmmo = { Id = "rbxassetid://15675032796", Volume = 0.35, Pitch = 1.4 }, -- quedan pocas balas
+	-- Pitido en los oídos tras una explosión cercana (el "ping" muy agudo y en bucle, que se apaga)
+	Tinnitus = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 2.8 },
 }
 
 -- Mezcla de las armas: grupo con compresor (más pegada), graves realzados y una cola de eco
@@ -66,6 +68,24 @@ local function getGunGroup()
 	return ok and gunGroup or nil
 end
 Sounds.GetGunGroup = getGunGroup
+
+-- Grupo de todos los demás sonidos (sin efectos): así se pueden filtrar todos a la vez, p. ej. el
+-- oído "taponado" tras una explosión cercana (CombatFX pone su filtro en cada grupo)
+local worldGroup
+local function getWorldGroup()
+	if worldGroup and worldGroup.Parent then
+		return worldGroup
+	end
+	local ok = pcall(function()
+		local group = Instance.new("SoundGroup")
+		group.Name = "Mundo"
+		group.Volume = 1
+		group.Parent = game:GetService("SoundService")
+		worldGroup = group
+	end)
+	return ok and worldGroup or nil
+end
+Sounds.GetWorldGroup = getWorldGroup
 
 -- Sonido en el grupo de las armas (con la mezcla de arriba)
 function Sounds.PlayGun(name, parent, pitch, volume)
@@ -194,6 +214,10 @@ function Sounds.Play(name, parent, pitch, volume)
 	sound.Volume = info.Volume * (volume or 1)
 	sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
 	sound.RollOffMaxDistance = 300
+	local group = getWorldGroup()
+	if group then
+		sound.SoundGroup = group
+	end
 	sound.Parent = parent or workspace.CurrentCamera or workspace
 	sound:Play()
 	sound.Ended:Once(function()

@@ -14,6 +14,7 @@ local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local AimAssist = require(script.Parent.AimAssist)
+local CombatFX = require(script.Parent.CombatFX)
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
@@ -1422,6 +1423,8 @@ local function onShotFX(tool, endpoints)
 						if sound then
 							sound.TimePosition = 0.05
 						end
+						-- (supresión: un instante de desenfoque, más cuanto más cerca pasa)
+						CombatFX.Suppress(1 - gap / 7)
 						break
 					end
 				end

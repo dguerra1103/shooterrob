@@ -6,6 +6,9 @@ local ClientState = require(script.Parent.ClientState)
 
 local Effects = {}
 
+-- Lo pone CombatFX: se llama con la fuerza (0..1) cuando una explosión estalla muy cerca de la cámara
+Effects.OnConcussion = nil :: ((number) -> ())?
+
 -- Texturas de partículas incluidas con Roblox
 local TEX = {
 	Fire = "rbxasset://textures/particles/fire_main.dds",
@@ -548,6 +551,12 @@ function Effects.Explosion(position, radius, color)
 		local strength = math.clamp(1 - distance / (radius * 4), 0, 1)
 		if strength > 0 then
 			ClientState.Shake = math.max(ClientState.Shake or 0, strength)
+		end
+		-- Muy cerca: aturdimiento (pitido, sonido apagado, destello y desenfoque; ver CombatFX)
+		local concussion = math.clamp(1 - distance / (radius * 2.2), 0, 1)
+		local onConcussion = Effects.OnConcussion
+		if concussion > 0 and onConcussion then
+			onConcussion(concussion)
 		end
 	end
 	color = color or Color3.fromRGB(255, 140, 30)

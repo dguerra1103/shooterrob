@@ -2659,6 +2659,8 @@ local Sounds = {
 	Unsheath = { Id = "rbxassetid://12222225", Volume = 0.4, Pitch = 1.3 }, -- sacar el arma cuerpo a cuerpo
 	Whiz = { Id = "rbxassetid://12222095", Volume = 0.45, Pitch = 2.6 }, -- bala que pasa rozando
 	LowAmmo = { Id = "rbxassetid://15675032796", Volume = 0.35, Pitch = 1.4 }, -- quedan pocas balas
+	-- Pitido en los oídos tras una explosión cercana (el "ping" muy agudo y en bucle, que se apaga)
+	Tinnitus = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 2.8 },
 }
 
 -- Mezcla de las armas: grupo con compresor (más pegada), graves realzados y una cola de eco
@@ -2701,6 +2703,24 @@ local function getGunGroup()
 	return ok and gunGroup or nil
 end
 Sounds.GetGunGroup = getGunGroup
+
+-- Grupo de todos los demás sonidos (sin efectos): así se pueden filtrar todos a la vez, p. ej. el
+-- oído "taponado" tras una explosión cercana (CombatFX pone su filtro en cada grupo)
+local worldGroup
+local function getWorldGroup()
+	if worldGroup and worldGroup.Parent then
+		return worldGroup
+	end
+	local ok = pcall(function()
+		local group = Instance.new("SoundGroup")
+		group.Name = "Mundo"
+		group.Volume = 1
+		group.Parent = game:GetService("SoundService")
+		worldGroup = group
+	end)
+	return ok and worldGroup or nil
+end
+Sounds.GetWorldGroup = getWorldGroup
 
 -- Sonido en el grupo de las armas (con la mezcla de arriba)
 function Sounds.PlayGun(name, parent, pitch, volume)
@@ -2829,6 +2849,10 @@ function Sounds.Play(name, parent, pitch, volume)
 	sound.Volume = info.Volume * (volume or 1)
 	sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
 	sound.RollOffMaxDistance = 300
+	local group = getWorldGroup()
+	if group then
+		sound.SoundGroup = group
+	end
 	sound.Parent = parent or workspace.CurrentCamera or workspace
 	sound:Play()
 	sound.Ended:Once(function()
@@ -25867,6 +25891,8 @@ local LoadingScreen = require(Modules.LoadingScreen)
 local EnemyName = require(Modules.EnemyName)
 local RewardFX = require(Modules.RewardFX)
 local AimFX = require(Modules.AimFX)
+local CombatFX = require(Modules.CombatFX)
+local Effects = require(Modules.Effects)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -25900,6 +25926,10 @@ start("Ambience", Ambience.Init)
 start("LoadingScreen", LoadingScreen.Init)
 start("EnemyName", EnemyName.Init)
 start("AimFX", AimFX.Init)
+start("CombatFX", function()
+	CombatFX.Init()
+	Effects.OnConcussion = CombatFX.Concussion
+end)
 start("Menu", Menu.Init)
 start("Movement", Movement.Init)
 start("WeaponController", WeaponController.Init)
@@ -27288,6 +27318,8 @@ local ClientState = {
 	NewsOpen = false, -- tarjeta de novedades abierta (News)
 	FovKick = 0, -- empujón de campo de visión (habilidades); lo consume WeaponController
 	Shake = 0, -- temblor de cámara pendiente (explosiones cercanas); lo consume WeaponController
+	ConcussedUntil = 0, -- aturdido por una explosión cercana hasta este os.clock() (CombatFX)
+	SuppressedAt = 0, -- última bala que pasó rozando (os.clock(); CombatFX)
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
 	InMainMenu = true, -- pantalla de inicio visible
@@ -27369,6 +27401,201 @@ return ClientState
             </Properties>
           </Item>
           <Item class="ModuleScript" referent="95">
+            <Properties>
+              <string name="Name">CombatFX</string>
+              <string name="Source"><![CDATA[-- Sensaciones de combate (realismo), solo en este cliente:
+--   Concussion: una explosión cerca te aturde: destello blanco, desenfoque, pitido en los oídos y todo
+--               lo demás suena apagado unos segundos (más cuanto más cerca)
+--   Suppress:   balas que pasan rozando: un instante de desenfoque y la imagen se oscurece (supresión)
+--   Latido:     con poca vida, un latido grave que se acelera cuanto menos vida queda
+-- En calidad Baja, sin desenfoques (cuestan en móviles modestos); el sonido sí.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
+local ClientState = require(script.Parent.ClientState)
+
+local CombatFX = {}
+
+local player = Players.LocalPlayer
+local blur, flash, ring
+local muffles = {}
+local muffleUntil, muffleStrength = 0, 0
+local blurTarget = 0
+local nextBeat = 0
+
+local function lowQuality()
+	return ClientState.EffectiveQuality == "Baja"
+end
+
+local function ensureEffects()
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	if not blur or blur.Parent ~= camera then
+		blur = Instance.new("BlurEffect")
+		blur.Name = "CombatBlur"
+		blur.Size = 0
+		blur.Parent = camera
+	end
+	if not flash or flash.Parent ~= camera then
+		flash = Instance.new("ColorCorrectionEffect")
+		flash.Name = "CombatFlash"
+		flash.Parent = camera
+	end
+end
+
+-- Filtro que apaga los agudos de todo lo que suena (el oído "taponado" tras una explosión): uno en
+-- cada grupo de sonido (armas, ambiente y el resto, ver Sounds), que es donde Roblox aplica los efectos
+local function ensureMuffles()
+	Sounds.GetWorldGroup()
+	Sounds.GetGunGroup()
+	muffles = {}
+	for _, group in SoundService:GetChildren() do
+		if group:IsA("SoundGroup") then
+			local eq = group:FindFirstChild("ConcussionMuffle")
+			if not eq then
+				eq = Instance.new("EqualizerSoundEffect")
+				eq.Name = "ConcussionMuffle"
+				eq.HighGain = 0
+				eq.MidGain = 0
+				eq.LowGain = 0
+				eq.Priority = 10
+				eq.Parent = group
+			end
+			table.insert(muffles, eq)
+		end
+	end
+end
+
+local function setMuffle(high, mid)
+	for _, eq in muffles do
+		if eq.Parent then
+			eq.HighGain = high
+			eq.MidGain = mid
+			eq.Enabled = high < -0.5
+		end
+	end
+end
+
+-- strength: 0..1 (1 = la explosión casi encima)
+function CombatFX.Concussion(strength)
+	strength = math.clamp(strength or 0, 0, 1)
+	if strength < 0.2 or ClientState.InMainMenu then
+		return
+	end
+	ensureEffects()
+	if not lowQuality() and blur and flash then
+		blur.Size = 18 * strength
+		blurTarget = 0
+		flash.Brightness = 0.45 * strength
+		flash.Contrast = -0.2 * strength
+		flash.Saturation = -0.5 * strength
+		TweenService:Create(flash, TweenInfo.new(1.6 * strength + 0.4), { Brightness = 0, Contrast = 0, Saturation = 0 }):Play()
+	end
+	-- Oído taponado: los agudos y medios bajan de golpe y vuelven poco a poco
+	muffleStrength = strength
+	muffleUntil = os.clock() + 1.2 + 2.3 * strength
+	ensureMuffles()
+	setMuffle(-30 * strength, -14 * strength)
+	-- Pitido en los oídos (fuera de los grupos: no se apaga con el filtro)
+	if ring then
+		ring:Destroy()
+	end
+	ring = Sounds.Play("Tinnitus", nil, 1, 0.4 + 0.6 * strength)
+	if ring then
+		ring.Name = "Tinnitus"
+		ring.SoundGroup = nil
+		ring.Looped = true
+		local fade = 1.4 + 2.2 * strength
+		TweenService:Create(ring, TweenInfo.new(fade), { Volume = 0 }):Play()
+		local sound = ring
+		task.delay(fade + 0.1, function()
+			if sound.Parent then
+				sound:Destroy()
+			end
+		end)
+	end
+	ClientState.ConcussedUntil = muffleUntil
+end
+
+-- Bala que pasa rozando: un instante de desenfoque y la imagen se oscurece un poco (te "encoges")
+function CombatFX.Suppress(amount)
+	amount = math.clamp(amount or 0.5, 0, 1)
+	ensureEffects()
+	if not lowQuality() and blur and flash then
+		blur.Size = math.max(blur.Size, 5 * amount)
+		blurTarget = 0
+		-- (sin pisar el destello de una explosión que aún se está yendo)
+		if os.clock() >= muffleUntil then
+			flash.Brightness = -0.06 * amount
+			flash.Contrast = 0.1 * amount
+			flash.Saturation = -0.2 * amount
+			TweenService:Create(flash, TweenInfo.new(0.5), { Brightness = 0, Contrast = 0, Saturation = 0 }):Play()
+		end
+	end
+	ClientState.SuppressedAt = os.clock()
+end
+
+function CombatFX.Update(dt)
+	dt = dt or 1 / 60
+	-- El desenfoque se va solo (y al morir o en el menú, al momento: que se vea bien la killcam)
+	if blur and blur.Size > blurTarget then
+		if ClientState.Dead or ClientState.InMainMenu then
+			blur.Size = blurTarget
+		else
+			blur.Size = math.max(blurTarget, blur.Size - dt * 9)
+		end
+	end
+	-- El oído se destapona poco a poco
+	if #muffles > 0 then
+		local left = muffleUntil - os.clock()
+		if left <= 0 then
+			setMuffle(0, 0)
+			muffles = {}
+		else
+			local k = math.clamp(left / (1.2 + 2.3 * math.max(muffleStrength, 0.01)), 0, 1)
+			setMuffle(-30 * muffleStrength * k, -14 * muffleStrength * k)
+		end
+	end
+	-- Latido con poca vida
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 and humanoid.MaxHealth > 0 and not ClientState.InMainMenu then
+		local ratio = humanoid.Health / humanoid.MaxHealth
+		if ratio < 0.35 then
+			local now = os.clock()
+			if now >= nextBeat then
+				local danger = 1 - ratio / 0.35
+				-- (dos golpes, "pum-pum", cada vez más seguidos)
+				Sounds.Play("Boom", nil, 0.55, 0.35 + 0.35 * danger)
+				task.delay(0.16, function()
+					Sounds.Play("Boom", nil, 0.5, 0.25 + 0.25 * danger)
+				end)
+				nextBeat = now + (1.1 - 0.5 * danger)
+			end
+		end
+	end
+end
+
+function CombatFX.Init()
+	RunService.RenderStepped:Connect(function(dt)
+		local ok, err = pcall(CombatFX.Update, dt)
+		if not ok then
+			warn("[CombatFX]", err)
+		end
+	end)
+end
+
+return CombatFX
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -27545,7 +27772,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -28257,7 +28484,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">DominationHUD</string>
               <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
@@ -28368,7 +28595,7 @@ return DominationHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -28378,6 +28605,9 @@ local Debris = game:GetService("Debris")
 local ClientState = require(script.Parent.ClientState)
 
 local Effects = {}
+
+-- Lo pone CombatFX: se llama con la fuerza (0..1) cuando una explosión estalla muy cerca de la cámara
+Effects.OnConcussion = nil :: ((number) -> ())?
 
 -- Texturas de partículas incluidas con Roblox
 local TEX = {
@@ -28921,6 +29151,12 @@ function Effects.Explosion(position, radius, color)
 		local strength = math.clamp(1 - distance / (radius * 4), 0, 1)
 		if strength > 0 then
 			ClientState.Shake = math.max(ClientState.Shake or 0, strength)
+		end
+		-- Muy cerca: aturdimiento (pitido, sonido apagado, destello y desenfoque; ver CombatFX)
+		local concussion = math.clamp(1 - distance / (radius * 2.2), 0, 1)
+		local onConcussion = Effects.OnConcussion
+		if concussion > 0 and onConcussion then
+			onConcussion(concussion)
 		end
 	end
 	color = color or Color3.fromRGB(255, 140, 30)
@@ -29605,7 +29841,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -29781,7 +30017,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">EnemyName</string>
               <string name="Source"><![CDATA[-- Nombre del enemigo al que apuntas (como en los shooters): normalmente los enemigos no llevan nombre
@@ -29889,7 +30125,7 @@ return EnemyName
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -30016,7 +30252,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -30169,7 +30405,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -30241,7 +30477,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -30387,7 +30623,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">GrenadeWarning</string>
               <string name="Source"><![CDATA[-- Aviso de granada cercana (como en los shooters): cuando una granada enemiga cae cerca, sale un
@@ -30500,7 +30736,7 @@ return GrenadeWarning
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -32735,7 +32971,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -32807,7 +33043,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -32872,7 +33108,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -33110,7 +33346,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -33228,7 +33464,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -33975,7 +34211,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -34225,7 +34461,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -37067,7 +37303,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -37462,7 +37698,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -37918,7 +38154,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -38045,7 +38281,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -38222,7 +38458,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -38405,7 +38641,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -38898,7 +39134,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -39031,7 +39267,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -39358,7 +39594,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -39577,7 +39813,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -39663,7 +39899,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -39897,7 +40133,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -40054,7 +40290,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -40220,7 +40456,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -40414,7 +40650,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -40433,6 +40669,7 @@ local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local AimAssist = require(script.Parent.AimAssist)
+local CombatFX = require(script.Parent.CombatFX)
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
@@ -41841,6 +42078,8 @@ local function onShotFX(tool, endpoints)
 						if sound then
 							sound.TimePosition = 0.05
 						end
+						-- (supresión: un instante de desenfoque, más cuanto más cerca pasa)
+						CombatFX.Suppress(1 - gap / 7)
 						break
 					end
 				end
@@ -41872,7 +42111,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -41929,7 +42168,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -42230,7 +42469,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -42449,19 +42688,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="132">
+  <Item class="Teams" referent="133">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="133">
+  <Item class="Workspace" referent="134">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="134">
+    <Item class="Terrain" referent="135">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
