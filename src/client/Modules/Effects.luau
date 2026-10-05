@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientState = require(script.Parent.ClientState)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 
 local Effects = {}
 
@@ -680,6 +681,7 @@ end
 local liveCasings = 0
 local MAX_CASINGS = 8 -- con fuego automático no hace falta simular más a la vez
 
+local lastClink = 0
 function Effects.ShellCasing(attachment, cameraCFrame, color)
 	if not attachment or liveCasings >= MAX_CASINGS then
 		return
@@ -706,6 +708,19 @@ function Effects.ShellCasing(attachment, cameraCFrame, color)
 	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3)
 	casing.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
 	Debris:AddItem(casing, 1.5)
+	-- Tintineo del casquillo al caer al suelo (como mucho uno cada 0,1 s: con ráfagas, una lluvia de latón)
+	local now = os.clock()
+	if now - lastClink >= 0.1 then
+		lastClink = now
+		task.delay(0.45 + math.random() * 0.2, function()
+			if casing.Parent then
+				local clink = Sounds.Play("Mech", casing, 2 + math.random() * 0.6, 0.14)
+				if clink then
+					clink.RollOffMaxDistance = 40
+				end
+			end
+		end)
+	end
 end
 
 -- Humo del cañón: tras una ráfaga larga, del cañón caliente sale un hilo de humo un par de segundos

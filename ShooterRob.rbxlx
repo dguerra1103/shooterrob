@@ -26212,6 +26212,7 @@ local CombatFX = require(Modules.CombatFX)
 local RiflePose = require(Modules.RiflePose)
 local Killcam = require(Modules.Killcam)
 local AimPitch = require(Modules.AimPitch)
+local EnemySounds = require(Modules.EnemySounds)
 local BodyView = require(Modules.BodyView)
 local Effects = require(Modules.Effects)
 
@@ -26250,6 +26251,7 @@ start("AimFX", AimFX.Init)
 start("RiflePose", RiflePose.Init)
 start("Killcam", Killcam.Init)
 start("AimPitch", AimPitch.Init)
+start("EnemySounds", EnemySounds.Init)
 start("BodyView", BodyView.Init)
 start("CombatFX", function()
 	CombatFX.Init()
@@ -29077,6 +29079,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientState = require(script.Parent.ClientState)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 
 local Effects = {}
 
@@ -29752,6 +29755,7 @@ end
 local liveCasings = 0
 local MAX_CASINGS = 8 -- con fuego automático no hace falta simular más a la vez
 
+local lastClink = 0
 function Effects.ShellCasing(attachment, cameraCFrame, color)
 	if not attachment or liveCasings >= MAX_CASINGS then
 		return
@@ -29778,6 +29782,19 @@ function Effects.ShellCasing(attachment, cameraCFrame, color)
 	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3)
 	casing.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
 	Debris:AddItem(casing, 1.5)
+	-- Tintineo del casquillo al caer al suelo (como mucho uno cada 0,1 s: con ráfagas, una lluvia de latón)
+	local now = os.clock()
+	if now - lastClink >= 0.1 then
+		lastClink = now
+		task.delay(0.45 + math.random() * 0.2, function()
+			if casing.Parent then
+				local clink = Sounds.Play("Mech", casing, 2 + math.random() * 0.6, 0.14)
+				if clink then
+					clink.RollOffMaxDistance = 40
+				end
+			end
+		end)
+	end
 end
 
 -- Humo del cañón: tras una ráfaga larga, del cañón caliente sale un hilo de humo un par de segundos
@@ -30853,6 +30870,117 @@ return EnemyName
           </Item>
           <Item class="ModuleScript" referent="105">
             <Properties>
+              <string name="Name">EnemySounds</string>
+              <string name="Source"><![CDATA[-- Sonidos de los demás que dan información, como en los shooters: si alguien recarga cerca (jugador o
+-- bot), se oye su cargador saliendo y entrando en su posición. Solo de cerca (unos 70 studs): así se
+-- sabe que es buen momento para asomarse. Solo en este cliente.
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Sounds = require(Shared.Sounds)
+local Weapons = require(Shared.Weapons)
+
+local ClientState = require(script.Parent.ClientState)
+
+local EnemySounds = {}
+
+EnemySounds.Range = 70 -- hasta dónde se oye una recarga
+EnemySounds.Interval = 0.15 -- cada cuánto se mira quién está recargando
+
+local player = Players.LocalPlayer
+local reloading = setmetatable({}, { __mode = "k" }) -- [Tool] = true mientras recarga
+local clock = 0
+
+local function heldTools()
+	local list = {}
+	local function add(model)
+		if model then
+			local tool = model:FindFirstChildOfClass("Tool")
+			if tool and tool:GetAttribute("Weapon") then
+				table.insert(list, tool)
+			end
+		end
+	end
+	for _, p in Players:GetPlayers() do
+		if p ~= player then
+			add(p.Character)
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			add(model)
+		end
+	end
+	return list
+end
+
+local function play(name, handle, pitch, volume)
+	local sound = Sounds.Play(name, handle, pitch, volume)
+	if sound then
+		sound.RollOffMode = Enum.RollOffMode.InverseTapered
+		sound.RollOffMinDistance = 6
+		sound.RollOffMaxDistance = EnemySounds.Range
+	end
+	return sound
+end
+
+-- Empieza la recarga de alguien: cargador fuera y, un poco después, dentro
+function EnemySounds.OnReload(tool)
+	local handle = tool:FindFirstChild("Handle")
+	local camera = workspace.CurrentCamera
+	if not handle or not handle:IsA("BasePart") or not camera then
+		return false
+	end
+	if (handle.Position - camera.CFrame.Position).Magnitude > EnemySounds.Range then
+		return false
+	end
+	local def = Weapons.Get(tool:GetAttribute("Weapon"))
+	local duration = def and def.ReloadTime or 2
+	play("MagOut", handle, 1, 0.8)
+	task.delay(duration * 0.5, function()
+		if tool.Parent and tool:GetAttribute("Reloading") and handle.Parent then
+			play("MagIn", handle, 1, 0.9)
+		end
+	end)
+	return true
+end
+
+function EnemySounds.Update(dt)
+	clock += dt
+	if clock < EnemySounds.Interval then
+		return
+	end
+	clock = 0
+	if ClientState.InMainMenu then
+		return
+	end
+	for _, tool in heldTools() do
+		local now = tool:GetAttribute("Reloading") == true
+		if now and not reloading[tool] then
+			EnemySounds.OnReload(tool)
+		end
+		reloading[tool] = now or nil
+	end
+end
+
+function EnemySounds.Init()
+	RunService.Heartbeat:Connect(function(dt)
+		local ok, err = pcall(EnemySounds.Update, dt)
+		if not ok then
+			warn("[EnemySounds]", err)
+		end
+	end)
+end
+
+return EnemySounds
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="106">
+            <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
 -- siguiente premio (GameConfig.Event.Milestones y la skin final), con marcas en la barra.
@@ -30978,7 +31106,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -31131,7 +31259,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -31203,7 +31331,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -31417,7 +31545,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">GrenadeWarning</string>
               <string name="Source"><![CDATA[-- Aviso de granada cercana (como en los shooters): cuando una granada enemiga cae cerca, sale un
@@ -31530,7 +31658,7 @@ return GrenadeWarning
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -33796,7 +33924,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -33868,7 +33996,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -33933,7 +34061,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">Killcam</string>
               <string name="Source"><![CDATA[-- Killcam (como en los shooters): repetición desde los ojos de quien hizo una baja, mirando hacia su
@@ -34387,7 +34515,7 @@ return Killcam
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -34625,7 +34753,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -34743,7 +34871,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -35490,7 +35618,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -35740,7 +35868,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -38582,7 +38710,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -38977,7 +39105,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -39433,7 +39561,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -39560,7 +39688,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -39737,7 +39865,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -39920,7 +40048,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -40413,7 +40541,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">RiflePose</string>
               <string name="Source"><![CDATA[-- Postura realista: los personajes (bots y los demás jugadores) sujetan el arma de fuego con las dos
@@ -40710,7 +40838,7 @@ return RiflePose
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -40843,7 +40971,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">ScopeSway</string>
               <string name="Source"><![CDATA[-- Visor de francotirador realista: con el visor puesto la mira nunca está del todo quieta (el pulso y
@@ -40944,7 +41072,7 @@ return ScopeSway
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -41271,7 +41399,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -41490,7 +41618,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -41576,7 +41704,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -41810,7 +41938,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="132">
+          <Item class="ModuleScript" referent="133">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -41967,7 +42095,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="133">
+          <Item class="ModuleScript" referent="134">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -42133,7 +42261,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="134">
+          <Item class="ModuleScript" referent="135">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -42327,7 +42455,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="135">
+          <Item class="ModuleScript" referent="136">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -43837,7 +43965,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="136">
+          <Item class="ModuleScript" referent="137">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -43894,7 +44022,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="137">
+          <Item class="ModuleScript" referent="138">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -44195,7 +44323,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="138">
+          <Item class="ModuleScript" referent="139">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -44414,19 +44542,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="139">
+  <Item class="Teams" referent="140">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="140">
+  <Item class="Workspace" referent="141">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="141">
+    <Item class="Terrain" referent="142">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
