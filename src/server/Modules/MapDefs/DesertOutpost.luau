@@ -167,12 +167,13 @@ function Map.Build()
 		Floors = 2,
 		Color = ADOBE[1],
 		Material = M.Sandstone,
-		Doors = { Front = { 7 }, Back = { -7 }, Right = { 0 } }, -- (por la izquierda va la escalera)
+		Doors = { Front = { 7 }, Back = { 7 } }, -- (una puerta para cada equipo; por la izquierda va la escalera)
 		Sign = "CARAVASAR",
 	})
 	-- Cúpula turquesa encima (se ve desde todo el mapa)
-	Kit.ball("Dome", 12, CFrame.new(4, 17.5, 0), TEAL, M.SmoothPlastic, true)
-	block("DomeBase", V(13, 1.2, 13), CFrame.new(4, 17, 0), ADOBE[3], M.Sandstone)
+	-- (encima del tejado, apoyada en su tambor: no asoma dentro de la planta de arriba)
+	block("DomeBase", V(13, 6, 13), CFrame.new(-5, 20, 0), ADOBE[3], M.Sandstone)
+	Kit.ball("Dome", 12, CFrame.new(-5, 24, 0), TEAL, M.SmoothPlastic, true)
 
 	Kit.symmetric(function(m, side)
 		local teamColor = side == "A" and teams[1].Color.Color or teams[2].Color.Color
@@ -193,8 +194,12 @@ function Map.Build()
 			jar(m * CFrame.new(p), 1.1)
 		end
 		Kit.crate(m * CFrame.new(-138, 0, -14), 4)
+		-- Muros altos a los dos lados del caravasar: cortan la línea de tiro de base a base por los
+		-- bordes de la calle (el caravasar solo tapa el centro)
+		solidBlock(m * CFrame.new(-24, 0, 18), 8, 10, 8, ADOBE[4], { Material = M.Sandstone, Windows = false })
+		solidBlock(m * CFrame.new(-24, 0, -18), 8, 10, 8, ADOBE[4], { Material = M.Sandstone, Windows = false })
 		Kit.crate(m * CFrame.new(-72, 0, 13), 4)
-		for x = -170, -30, 28 do
+		for x = -156, -30, 28 do
 			Kit.palm(m * CFrame.new(x, 0, 21), 13 + (x % 3))
 			Kit.palm(m * CFrame.new(x + 14, 0, -21), 12 + (x % 2))
 		end
@@ -246,7 +251,7 @@ function Map.Build()
 			Floors = 2,
 			Color = ADOBE[2],
 			Material = M.Sandstone,
-			Doors = { Front = { 0 }, Back = { -4 }, Left = { 0 } },
+			Doors = { Front = { 0 }, Back = { 4 } },
 			Sign = "CASA DEL JEQUE",
 		})
 		well(m * CFrame.new(-94, 0, 86))
@@ -301,7 +306,7 @@ function Map.Build()
 			Kit.palm(m * CFrame.new(x, 0, WIDTH / 2 + 10), 15)
 		end
 		for _, z in { -30, 30 } do
-			Kit.banner(m * CFrame.new(-205, 6, z) * CFrame.Angles(0, rad(90), 0), 5, 9, teamColor, RGB(240, 230, 210))
+			Kit.banner(m * CFrame.new(-205, 11, z) * CFrame.Angles(0, rad(90), 0), 5, 9, teamColor, RGB(240, 230, 210))
 		end
 		block("BaseWall", V(2, 12, 90), m * CFrame.new(-206.5, 6, 0), ADOBE[4], M.Sandstone)
 	end)
@@ -332,7 +337,7 @@ function Map.Build()
 	end
 
 	-- Dunas alrededor y algo de polvo en el aire
-	for _, spec in { { V(-300, 0, 220), 110 }, { V(300, 0, -220), 110 }, { V(40, 0, 300), 120 }, { V(-40, 0, -300), 120 }, { V(-340, 0, -120), 95 }, { V(340, 0, 120), 95 } } do
+	for _, spec in { { V(-330, 0, 245), 110 }, { V(330, 0, -245), 110 }, { V(40, 0, 320), 120 }, { V(-40, 0, -320), 120 }, { V(-365, 0, -130), 95 }, { V(365, 0, 130), 95 } } do
 		Kit.naturalHill(spec[1], spec[2], M.Sand)
 	end
 	Kit.dustMotes(CFrame.new(0, 8, 0), V(LENGTH, 14, WIDTH), RGB(230, 200, 150), Kit.Variant == "Tormenta de arena" and 60 or 18)
@@ -349,9 +354,9 @@ function Map.Build()
 	end
 	-- Puestos de los tiradores: ventanas de arriba de la posada, los telégrafos y la casa del jeque
 	for _, spot in {
-		{ V(-112, FLOOR_H, 25.5), V(-40, 4, 0) },
-		{ V(-114, FLOOR_H, -25.5), V(-40, 4, 0) },
-		{ V(-117.5, FLOOR_H, 100), V(-60, 4, 90) },
+		{ V(-112, FLOOR_H, 26.7), V(-40, 4, 0) },
+		{ V(-114, FLOOR_H, -26.7), V(-40, 4, 0) },
+		{ V(-119.7, FLOOR_H, 108), V(-60, 4, 90) },
 	} do
 		Kit.botSpot(spot[1], spot[2])
 		Kit.botSpot(Kit.MIRROR * spot[1], Kit.MIRROR * spot[2])

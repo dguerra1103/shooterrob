@@ -89,7 +89,7 @@ Sounds.GetWorldGroup = getWorldGroup
 
 -- Sonido en el grupo de las armas (con la mezcla de arriba)
 function Sounds.PlayGun(name, parent, pitch, volume)
-	local sound = Sounds.Play(name, parent, pitch, volume)
+	local sound = Sounds.Play(name, parent, pitch, volume, "gun")
 	if sound then
 		local group = getGunGroup()
 		if group then
@@ -238,7 +238,7 @@ end
 -- Sonidos 2D que suenan muchísimo (cada disparo, cada impacto): se reutilizan en vez de crear y
 -- destruir una instancia cada vez. Cinco por nombre; si suenan todos, se corta el más antiguo
 local POOLED = { Shot = true, ShotHeavy = true, Boom = true, Mech = true, Hit = true, Headshot = true, Kill = true, Click = true, Empty = true, Swing = true }
-local POOL_SIZE = 5
+local POOL_SIZE = 6
 local pools = {} -- [nombre] = { Sound }
 
 local function pooledSound(name, info)
@@ -249,7 +249,9 @@ local function pooledSound(name, info)
 	end
 	-- (alguien pudo destruir uno: fuera de la lista)
 	for i = #pool, 1, -1 do
-		if not pool[i].Parent then
+		-- (o se quedó en una cámara que ya no es la actual: sonaría sin oírse)
+		local holder = pool[i].Parent
+		if holder == nil or (holder ~= workspace and holder ~= workspace.CurrentCamera) then
 			table.remove(pool, i)
 		end
 	end
@@ -261,15 +263,14 @@ local function pooledSound(name, info)
 		end
 	end
 	if not sound then
-		if #pool < POOL_SIZE then
-			sound = Instance.new("Sound")
-			sound.SoundId = info.Id
-			sound.RollOffMaxDistance = 300
-			sound.Parent = workspace.CurrentCamera or workspace
-		else
-			sound = table.remove(pool, 1)
-			sound:Stop()
+		if #pool >= POOL_SIZE then
+			-- (todos sonando: no se corta ninguno; este va aparte, como antes)
+			return nil
 		end
+		sound = Instance.new("Sound")
+		sound.SoundId = info.Id
+		sound.RollOffMaxDistance = 300
+		sound.Parent = workspace.CurrentCamera or workspace
 		table.insert(pool, sound)
 	end
 	-- (como nuevo: sin efectos que le pusiera otro uso, desde el principio)
@@ -282,13 +283,14 @@ local function pooledSound(name, info)
 	return sound
 end
 
-function Sounds.Play(name, parent, pitch, volume)
+-- poolKey (opcional): grupo de reutilización aparte (las armas no comparten estampidos con la interfaz)
+function Sounds.Play(name, parent, pitch, volume, poolKey)
 	local info = Sounds[name]
 	if type(info) ~= "table" then
 		return
 	end
-	if parent == nil and POOLED[name] then
-		local sound = pooledSound(name, info)
+	local sound = (parent == nil and POOLED[name]) and pooledSound(poolKey and (name .. "|" .. poolKey) or name, info) or nil
+	if sound then
 		sound.Volume = info.Volume * (volume or 1)
 		sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
 		sound.SoundGroup = getWorldGroup()
@@ -298,7 +300,7 @@ function Sounds.Play(name, parent, pitch, volume)
 		sound:Play()
 		return sound
 	end
-	local sound = Instance.new("Sound")
+	sound = Instance.new("Sound")
 	sound.SoundId = info.Id
 	sound.Volume = info.Volume * (volume or 1)
 	sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
