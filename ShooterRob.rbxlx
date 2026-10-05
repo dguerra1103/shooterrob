@@ -26503,9 +26503,45 @@ local function lightning()
 	end)
 end
 
+-- Eco del sitio (SoundService.AmbientReverb, afecta a todos los sonidos): dentro de un edificio los
+-- disparos retumban como en una habitación; fuera, según el mapa (ciudad, montaña, campo abierto)
+local OUTDOOR_REVERB = { War = Enum.ReverbType.City, Base = Enum.ReverbType.Plain, Wind = Enum.ReverbType.Mountains }
+local reverbParams = RaycastParams.new()
+reverbParams.FilterType = Enum.RaycastFilterType.Include
+local function updateReverb(map, preset)
+	local reverb = Enum.ReverbType.NoReverb
+	local camera = workspace.CurrentCamera
+	if map and camera and not ClientState.InMainMenu then
+		reverb = (preset and OUTDOOR_REVERB[map:GetAttribute("Ambience")]) or Enum.ReverbType.Plain
+		-- ¿Bajo techo? (y no es el techo invisible del límite del mapa)
+		reverbParams.FilterDescendantsInstances = { map }
+		local roof = workspace:Raycast(camera.CFrame.Position, Vector3.new(0, 30, 0), reverbParams)
+		local boundary = map:FindFirstChild("Boundary")
+		if roof and not (boundary and roof.Instance:IsDescendantOf(boundary)) and roof.Instance.Name ~= "Boundary" then
+			-- (y con paredes alrededor: bajo un árbol o un toldo sigue siendo la calle)
+			local walls = 0
+			local origin = camera.CFrame.Position
+			for _, direction in { Vector3.new(24, 0, 0), Vector3.new(-24, 0, 0), Vector3.new(0, 0, 24), Vector3.new(0, 0, -24) } do
+				local hit = workspace:Raycast(origin, direction, reverbParams)
+				if hit and not (boundary and hit.Instance:IsDescendantOf(boundary)) then
+					walls += 1
+				end
+			end
+			if walls >= 2 then
+				reverb = roof.Distance < 14 and Enum.ReverbType.Room or Enum.ReverbType.Hallway
+			end
+		end
+	end
+	if SoundService.AmbientReverb ~= reverb then
+		SoundService.AmbientReverb = reverb
+	end
+	Ambience.Reverb = reverb
+end
+
 function Ambience.Update()
 	local preset = current()
 	local map = workspace:FindFirstChild("Map")
+	pcall(updateReverb, map, preset)
 	local raining = preset ~= nil and map ~= nil and map:GetAttribute("Weather") == "Rain"
 	if raining then
 		startRain()
