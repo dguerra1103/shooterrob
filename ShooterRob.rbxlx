@@ -27315,11 +27315,99 @@ local function updateReverb(map, preset)
 	Ambience.Reverb = reverb
 end
 
+-- Suelo mojado con lluvia: el suelo al aire libre (piedra, asfalto, madera, metal...) se oscurece un
+-- poco y brilla, y el terreno (hierba, tierra, roca) se oscurece; al parar, todo vuelve. Se reparte en
+-- varios fotogramas para no dar un tirón
+local WET_MATERIALS = {} -- (por nombre del material)
+for _, name in {
+	"Concrete", "Asphalt", "Pavement", "Slate", "Cobblestone", "Brick", "Granite", "Marble", "Basalt", "Limestone",
+	"Sandstone", "Plastic", "SmoothPlastic", "Metal", "DiamondPlate", "CorrodedMetal", "Wood", "WoodPlanks",
+	"CeramicTiles", "ClayRoofTiles", "Rock",
+} do
+	WET_MATERIALS[name] = true
+end
+local WET_TERRAIN = { "Grass", "LeafyGrass", "Ground", "Mud", "Sand", "Rock", "Asphalt", "Concrete", "Pavement", "Slate", "Cobblestone", "Brick" }
+local wetMap = nil -- mapa mojado ahora mismo
+local wetParts = {} -- [pieza] = { color, brillo } de antes
+local wetTerrain = {} -- [material] = color de antes
+local wetParams = RaycastParams.new()
+wetParams.FilterType = Enum.RaycastFilterType.Include
+
+local function dry(sameMap)
+	for part, saved in wetParts do
+		if part.Parent then
+			part.Color = saved[1]
+			part.Reflectance = saved[2]
+		end
+	end
+	table.clear(wetParts)
+	-- (si ya es otro mapa, el servidor ya puso los colores del terreno nuevo: no se tocan)
+	if sameMap then
+		for material, color in wetTerrain do
+			pcall(function()
+				workspace.Terrain:SetMaterialColor(material, color)
+			end)
+		end
+	end
+	table.clear(wetTerrain)
+	wetMap = nil
+end
+
+local function wet(map)
+	wetMap = map
+	for _, name in WET_TERRAIN do
+		pcall(function()
+			local material = (Enum.Material :: any)[name]
+			local color = workspace.Terrain:GetMaterialColor(material)
+			wetTerrain[material] = color
+			workspace.Terrain:SetMaterialColor(material, color:Lerp(Color3.new(0, 0, 0), 0.2))
+		end)
+	end
+	task.spawn(function()
+		local boundary = map:FindFirstChild("Boundary")
+		wetParams.FilterDescendantsInstances = { map }
+		local count = 0
+		for _, part in map:GetDescendants() do
+			if wetMap ~= map then
+				return -- (dejó de llover o cambió el mapa)
+			end
+			if part:IsA("BasePart") and WET_MATERIALS[part.Material.Name] and part.Transparency < 0.5
+				and part.Size.Y <= 3 and part.CFrame.UpVector.Y > 0.9 and not wetParts[part]
+				and not (boundary and part:IsDescendantOf(boundary)) then
+				-- (solo lo que está al aire libre: bajo techo no llueve)
+				local top = part.Position + Vector3.new(0, part.Size.Y / 2 + 0.1, 0)
+				local roof = workspace:Raycast(top, Vector3.new(0, 60, 0), wetParams)
+				if not roof or (boundary and roof.Instance:IsDescendantOf(boundary)) then
+					wetParts[part] = { part.Color, part.Reflectance }
+					part.Color = part.Color:Lerp(Color3.new(0, 0, 0), 0.18)
+					part.Reflectance = math.max(part.Reflectance, 0.07)
+				end
+			end
+			count += 1
+			if count % 250 == 0 then
+				task.wait()
+			end
+		end
+	end)
+end
+
+-- (para las pruebas)
+function Ambience.WetParts()
+	return wetParts
+end
+
 function Ambience.Update()
 	local preset = current()
 	local map = workspace:FindFirstChild("Map")
 	pcall(updateReverb, map, preset)
 	local raining = preset ~= nil and map ~= nil and map:GetAttribute("Weather") == "Rain"
+	-- Suelo mojado (y seco otra vez al parar o al cambiar de mapa)
+	if wetMap and (wetMap ~= map or not raining) then
+		dry(wetMap == map)
+	end
+	if raining and wetMap ~= map and map then
+		wet(map)
+	end
 	if raining then
 		startRain()
 		-- Bajo techo no caen gotas (seguirían atravesando el tejado); en calidad Baja, menos gotas
