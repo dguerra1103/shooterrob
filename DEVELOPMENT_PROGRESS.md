@@ -28,12 +28,19 @@ Estado del pase "Stylized Tactical Roblox" (shooter 5v5). Corto a propósito: si
   legible en todos los mapas, color algo más vivo, brillo contenido, niebla limitada.
 - Contorno rojo fino de enemigos (no atraviesa paredes) — GameConfig.EnemyOutline.
 - Ultra: el desenfoque lejano solo afecta más allá de 250 studs (nunca a un enemigo en combate).
+- ACE, resultado de ronda personal (GANADA/PERDIDA + mejor de la ronda), ¡REMONTADA!.
+- HUD de combate limpio (retos/evento/tienda/racha solo cuando aportan), habilidades compactas en PC.
+- Microanimaciones en todos los botones (UI.pressFeel).
+- Nombres de zona (callouts) en el HUD.
+- Cola de eco en los disparos, cámara más estable al apuntar, reacción al recibir daño.
+- Presets Rendimiento/Equilibrada/Alta/Ultra con nombre.
+- VISUAL_IMPROVEMENTS.md, PERFORMANCE_NOTES.md, NEXT_STEPS.md.
 
 ## EN PROGRESO
-- Feedback de combate (Fases 2-3).
+- Revisión de los cambios del pase y bucle de pulido.
 
 ## PENDIENTE
-- Fase 5 UI/UX, Fase 7 rendimiento, docs finales (VISUAL_IMPROVEMENTS, PERFORMANCE_NOTES, NEXT_STEPS).
+- Ver NEXT_STEPS.md.
 
 ## DECISIONES TÉCNICAS
 - No se reescribe nada que funcione: el estilo se cambia en un solo punto (MapKit.applyLighting).
