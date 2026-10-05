@@ -234,6 +234,24 @@ local function fanfare(big)
 	end
 end
 
+-- Lluvia de confeti sola (p. ej. al ganar la partida, sin tapar el panel del resultado)
+function RewardFX.Confetti(count)
+	if not gui then
+		return
+	end
+	local holder = Instance.new("Frame")
+	holder.Name = "Confetti"
+	holder.Size = UDim2.fromScale(1, 1)
+	holder.BackgroundTransparency = 1
+	holder.Parent = gui
+	confetti(holder, math.floor((count or 40) * (lowQuality() and 0.45 or 1)))
+	task.delay(3.5, function()
+		holder:Destroy()
+	end)
+end
+
+RewardFX.Fanfare = fanfare
+
 -- Celebración a pantalla completa. title: texto grande; subtitle: debajo (opcional);
 -- color: el de la celebración; big: más confeti y una nota más
 function RewardFX.Celebrate(title, subtitle, color, big)

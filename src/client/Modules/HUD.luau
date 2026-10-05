@@ -764,10 +764,11 @@ local function buildFeedsAndOverlays()
 		Size = UDim2.new(1, 0, 0, 30),
 		Text = "⬆ ¡SUBES DE NIVEL!",
 		TextSize = 26,
+		TextScaled = true, -- (el aviso de "te faltan X XP" es largo: se encoge en vez de salirse)
 		TextColor3 = Color3.fromRGB(255, 220, 70),
 		Visible = false,
 		Parent = refs.Summary,
-	})
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = 26 }) })
 	refs.SummaryCoins = UI.label({
 		Position = UDim2.fromOffset(0, 134),
 		Size = UDim2.new(0.45, 0, 0, 32),
@@ -1260,6 +1261,17 @@ local function onMatchSummary(summary)
 				refs.SummaryFill.Size = UDim2.fromScale(0, 1)
 			end
 		end
+		-- Sin subir de nivel: cuánto falta y qué premio espera (ganas de jugar "solo una más")
+		if levels == 0 and token == summaryToken and not refs.SummaryLevelUp.Visible then
+			local missing = perLevel - (summary.LevelXP or 0)
+			local nextTier = GameConfig.BattlePass[level + 1]
+			local prize = nextTier and (describeReward(nextTier.Free) or (nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)))
+			if missing > 0 then
+				refs.SummaryLevelUp.Text = "Solo te faltan " .. missing .. " XP para el nivel " .. (level + 1) .. (prize and ("  ·  " .. prize) or "")
+				refs.SummaryLevelUp.TextColor3 = Color3.fromRGB(150, 220, 255)
+				refs.SummaryLevelUp.Visible = true
+			end
+		end
 	end)
 	task.spawn(function()
 		-- Contadores de XP y monedas
@@ -1315,6 +1327,20 @@ local function podiumText(top)
 	return table.concat(parts, "    ")
 end
 
+-- El título del resultado entra de golpe; si ganas, confeti y fanfarria; si pierdes, un golpe grave
+local function resultFX(won)
+	local scale = refs.RoundTitle:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = refs.RoundTitle })
+	scale.Scale = won and 2 or 1.4
+	tween(scale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+	if won then
+		RewardFX.Confetti(50)
+		RewardFX.Fanfare(true)
+		RewardFX.EdgeFlash(Color3.fromRGB(255, 210, 60), 0.5)
+	else
+		Sounds.Play("Boom", nil, 0.9, 0.3)
+	end
+end
+
 local function onRoundEnd(info)
 	if type(info) ~= "table" then
 		return
@@ -1329,6 +1355,7 @@ local function onRoundEnd(info)
 		local won = info.Winner == player.Name
 		refs.RoundTitle.Text = won and "¡VICTORIA!" or (info.Winner and (info.Winner .. " GANA") or "FIN")
 		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 120, 80)
+		resultFX(won)
 		refs.RoundScore.Text = "👑 " .. tostring(info.Winner or "-") .. " · " .. tostring(info.LeaderScore or 0)
 		refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
 		refs.RoundEnd.Visible = true
@@ -1340,6 +1367,7 @@ local function onRoundEnd(info)
 		local won = player.Team and player.Team.Name == info.Winner
 		refs.RoundTitle.Text = won and "¡VICTORIA!" or "DERROTA"
 		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 80)
+		resultFX(won)
 	else
 		refs.RoundTitle.Text = "EMPATE"
 		refs.RoundTitle.TextColor3 = Color3.new(1, 1, 1)
