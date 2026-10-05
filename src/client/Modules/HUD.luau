@@ -1148,6 +1148,7 @@ local function onKillFeed(info)
 end
 
 local hitToken
+local checkClutch
 local hitFlash, hitFlashTween, hitFlashToken -- destello del enemigo al impactar
 local dmgCombo -- número de daño que se va sumando sobre el enemigo al que das
 local function onHitConfirm(damage, headshot, killed, serverPosition)
@@ -1654,6 +1655,7 @@ local function updateScoreboard()
 		local aliveA, aliveB = ReplicatedStorage:GetAttribute("AliveA"), ReplicatedStorage:GetAttribute("AliveB")
 		if aliveA and aliveB and teamA and teamB then
 			refs.Mode.Text = modeName .. " · En pie: " .. teamA .. " " .. aliveA .. " – " .. aliveB .. " " .. teamB
+			checkClutch(aliveA, aliveB, teamA)
 		end
 	end
 
@@ -1785,6 +1787,36 @@ local lastDamageTime = 0
 local lowHealthCC: ColorCorrectionEffect? = nil
 local chipRatio = 1
 local renderCrosshair
+
+-- "Clutch" (Eliminación y Buscar y destruir): si eres el último de tu equipo en pie, aviso de
+-- «1 CONTRA N»; si acabas con todos, celebración
+local clutch = nil -- { Enemies = N } mientras dura
+checkClutch = function(aliveA, aliveB, teamA)
+	local mode = ReplicatedStorage:GetAttribute("Mode")
+	if (mode ~= "ELIM" and mode ~= "SND") or ReplicatedStorage:GetAttribute("Infection") == "On" or not player.Team then
+		clutch = nil
+		return
+	end
+	local mine, theirs = aliveA, aliveB
+	if player.Team.Name ~= teamA then
+		mine, theirs = aliveB, aliveA
+	end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local alive = humanoid ~= nil and humanoid.Health > 0
+	if not clutch then
+		if alive and mine == 1 and theirs >= 2 then
+			clutch = { Enemies = theirs }
+			bigMessage("⚔ 1 CONTRA " .. theirs, Color3.fromRGB(255, 90, 70))
+			RewardFX.EdgeFlash(Color3.fromRGB(255, 60, 40), 0.5)
+			Sounds.Play("Boom", nil, 1.1, 0.3)
+		end
+	elseif theirs == 0 and alive then
+		RewardFX.Celebrate("🔥 ¡CLUTCH!", "Ganaste la ronda tú solo contra " .. clutch.Enemies, Color3.fromRGB(255, 140, 40), true)
+		clutch = nil
+	elseif not alive or mine > 1 then
+		clutch = nil -- (caíste, o empezó otra ronda con el equipo entero)
+	end
+end
 
 local function render(dt)
 	gui.Enabled = not ClientState.InMainMenu
