@@ -26810,8 +26810,8 @@ local function build()
 		}, { UI.stroke(touchOnly and Color3.new(1, 1, 1) or action.Color, touchOnly and 3 or 2, 0), touchOnly and UI.gloss() or nil })
 		if not touchOnly then
 			UI.new("Frame", {
-				AnchorPoint = Vector2.new(0.5, 1),
-				Position = UDim2.new(0.5, 0, 1, -3),
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.new(0.5, 0, 0, 3),
 				Size = UDim2.new(1, -14, 0, 3),
 				BackgroundColor3 = action.Color,
 				BorderSizePixel = 0,
@@ -32927,6 +32927,7 @@ local function buildPlayerPanel()
 
 	-- Racha (barra vertical a la izquierda, como en la captura)
 	local streakBar = UI.new("Frame", {
+		Name = "StreakBar",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 40, 0.55, 0),
 		Size = UDim2.fromOffset(10, 240),
@@ -33146,6 +33147,29 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 	refs.KillScale = UI.new("UIScale", { Scale = killBaseScale, Parent = refs.KillBanner })
+	-- Placa detrás del texto: oscura y que se desvanece hacia la derecha, con una franja del color de la
+	-- baja a la izquierda (rojo; dorado a la cabeza o en bajas seguidas)
+	refs.KillPlate = UI.new("Frame", {
+		Position = UDim2.fromOffset(4, 4),
+		Size = UDim2.fromOffset(400, 56),
+		BackgroundColor3 = Color3.fromRGB(10, 12, 18),
+		BackgroundTransparency = 0.3,
+		BorderSizePixel = 0,
+		ZIndex = 0,
+		Parent = refs.KillBanner,
+	}, {
+		UI.corner(6),
+		UI.new("UIGradient", {
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.65, 0.25), NumberSequenceKeypoint.new(1, 1) }),
+		}),
+	})
+	refs.KillAccent = UI.new("Frame", {
+		Position = UDim2.fromOffset(4, 4),
+		Size = UDim2.fromOffset(4, 56),
+		BackgroundColor3 = Color3.fromRGB(255, 70, 70),
+		BorderSizePixel = 0,
+		Parent = refs.KillBanner,
+	}, { UI.corner(2) })
 	refs.KillIcon = UI.label({
 		Size = UDim2.fromOffset(64, 64),
 		Text = "💀",
@@ -33653,6 +33677,10 @@ local function showKillBanner(victim, headshot)
 	refs.KillTitle.TextColor3 = MULTI_COLORS[multiCount] or (multi and Color3.fromRGB(255, 215, 60)) or Color3.fromRGB(255, 70, 70)
 	refs.KillSub.Text = tostring(victim) .. (headshot and "  ·  DISPARO A LA CABEZA" or "")
 	refs.KillIcon.Text = headshot and "🎯" or "💀"
+	refs.KillAccent.BackgroundColor3 = (headshot or multi) and Color3.fromRGB(255, 205, 60) or Color3.fromRGB(255, 70, 70)
+	-- (la placa entra desde la izquierda, rápida)
+	refs.KillPlate.Size = UDim2.fromOffset(120, 56)
+	tween(refs.KillPlate, 0.18, { Size = UDim2.fromOffset(400, 56) })
 	refs.KillBanner.Visible = true
 	-- (cuantas más bajas seguidas, más grande entra y más se sacude)
 	refs.KillScale.Scale = killBaseScale * (1.5 + 0.25 * math.min(multiCount - 1, 4))
@@ -34576,6 +34604,7 @@ local function render(dt)
 		refs.StreakText.Text = "Racha x" .. streak .. nextText
 		-- (sin racha no se enseña: menos cosas en pantalla mientras se lucha)
 		refs.StreakText.Visible = streak > 0
+		refs.StreakFill.Parent.Visible = streak > 0
 		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
 	end
 

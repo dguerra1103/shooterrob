@@ -210,8 +210,8 @@ local function build()
 		}, { UI.stroke(touchOnly and Color3.new(1, 1, 1) or action.Color, touchOnly and 3 or 2, 0), touchOnly and UI.gloss() or nil })
 		if not touchOnly then
 			UI.new("Frame", {
-				AnchorPoint = Vector2.new(0.5, 1),
-				Position = UDim2.new(0.5, 0, 1, -3),
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.new(0.5, 0, 0, 3),
 				Size = UDim2.new(1, -14, 0, 3),
 				BackgroundColor3 = action.Color,
 				BorderSizePixel = 0,
