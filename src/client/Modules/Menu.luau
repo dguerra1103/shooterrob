@@ -665,6 +665,8 @@ local function buildProfilePage(data)
 				if ok and success then
 					Sounds.Play("Kill")
 					showToast("🏅 ¡Logro conseguido! +" .. tostring(result) .. " 🪙", GREEN)
+					RewardFX.FlyCoins(headerInfo, 8)
+					RewardFX.EdgeFlash(GREEN, 0.4)
 				else
 					showToast(ok and tostring(result) or "No se pudo reclamar", Color3.fromRGB(255, 90, 90))
 				end

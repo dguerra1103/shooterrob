@@ -1754,6 +1754,29 @@ local function updateScoreboard()
 end
 
 local lastXP = { Level = nil, XP = nil }
+local readyAchievements = nil -- logros listos para reclamar en la última actualización (nil = aún no)
+
+-- Al completar un logro en plena partida: aviso grande (se reclama en el Perfil)
+local function checkAchievements(data)
+	local ready = {}
+	for _, achievement in GameConfig.Achievements do
+		if not (data.Achievements or {})[achievement.Id] and (tonumber(data[achievement.Stat]) or 0) >= achievement.Goal then
+			ready[achievement.Id] = achievement
+		end
+	end
+	if readyAchievements then
+		for id, achievement in ready do
+			if not readyAchievements[id] then
+				bigMessage("🏅 ¡LOGRO! " .. achievement.Icon .. " " .. achievement.Text, Color3.fromRGB(120, 255, 160))
+				timedLabel(refs.Toast, "Recógelo en el menú → Perfil: +" .. tostring(achievement.Coins) .. " 🪙", 4)
+				RewardFX.EdgeFlash(Color3.fromRGB(120, 255, 160), 0.5)
+				RewardFX.Fanfare(false)
+				break -- (uno por actualización: si saltan varios a la vez, el resto sale en el Perfil)
+			end
+		end
+	end
+	readyAchievements = ready
+end
 local XP_BLUE = Color3.fromRGB(80, 170, 255)
 
 local function updateData(data)
@@ -1776,6 +1799,7 @@ local function updateData(data)
 		tween(refs.XPScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
 	end
 	lastXP.Level, lastXP.XP = data.Level, data.XP
+	checkAchievements(data)
 	-- La chuleta de teclas solo para los que empiezan (luego estorba al killfeed y a las armas)
 	if refs.KeyHints then
 		refs.KeyHints.Visible = (data.Level or 1) < 5
