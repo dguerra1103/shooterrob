@@ -33,6 +33,7 @@ local SpawnPicker = require(script.Parent.SpawnPicker)
 local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
 local Pumpkins = require(script.Parent.Pumpkins)
+local Loot = require(script.Parent.Loot)
 local Combat = require(script.Parent.Combat)
 local Friends = require(script.Parent.Friends)
 
@@ -527,6 +528,10 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		WeaponId = weapon and weaponName or nil, -- (el cliente dibuja la silueta del arma)
 		Headshot = headshot,
 	})
+	-- Botín: a veces el caído suelta un paquete para quien le eliminó (no en Calabazas: ya sueltan algo)
+	if playing and currentMode ~= "CAL" and killer and killer ~= victim and typeof(position) == "Vector3" then
+		Loot.MaybeDrop(position, killer, victimBot ~= nil)
+	end
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo
 	-- (solo si alguien le eliminó: caerse o la lava no regala puntos al rival)
 	if playing and currentMode == "CAL" and typeof(position) == "Vector3" and ((killer and killer ~= victim) or killerBot) then
@@ -1480,6 +1485,7 @@ local function playRound()
 		Hardpoint.Stop()
 		Domination.Stop()
 		Pumpkins.Stop()
+		Loot.Clear()
 		Loadout.Override = nil
 		if mode == "INF" then
 			clearInfection()
@@ -1506,6 +1512,7 @@ local function gameLoop()
 			pcall(Hardpoint.Stop)
 			pcall(Domination.Stop)
 			pcall(Pumpkins.Stop)
+			pcall(Loot.Clear)
 			clearElimination()
 			clearInfection()
 			-- (primero las armas normales: si no, tras un fallo en Escalada se quedarían las de esa ronda)

@@ -826,7 +826,32 @@ local function showMedal(text)
 	}, { UI.corner(8), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.1) })
 	local scale = UI.new("UIScale", { Scale = 1.6, Parent = badge })
 	tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
-	Sounds.Play("Click")
+	-- Un brillo cruza la medalla y suena un "cling" (más alto cuantas más medallas juntas)
+	badge.ClipsDescendants = true
+	local shine = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		Parent = badge,
+	})
+	local gradient = UI.new("UIGradient", {
+		Rotation = 20,
+		Offset = Vector2.new(-1, 0),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.45, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(0.55, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = shine,
+	})
+	task.delay(0.15, function()
+		tween(gradient, 0.45, { Offset = Vector2.new(1, 0) })
+	end)
+	Debris:AddItem(shine, 0.7)
+	Sounds.Play("Kill", nil, 1.6 + 0.15 * #list, 0.35)
 	task.delay(2.6, function()
 		if badge.Parent then
 			tween(badge, 0.3, { TextTransparency = 1, BackgroundTransparency = 1 })
@@ -946,6 +971,26 @@ local function onNotify(kind, text)
 					timedLabel(refs.Toast, line, 4)
 				end)
 			end
+		end
+	elseif kind == "LootDrop" then
+		-- Tu baja ha soltado botín: el rayo de luz marca dónde está
+		local color = Skins.RarityColors[text] or Color3.new(1, 1, 1)
+		popup("📦 ¡Botín " .. tostring(text) .. "! Pasa por encima para cogerlo", color)
+		Sounds.Play("Kill", nil, 1.9, 0.4)
+	elseif kind == "Loot" and type(text) == "table" then
+		local color = typeof(text.Color) == "Color3" and text.Color or Color3.new(1, 1, 1)
+		local reward = "+" .. tostring(text.Coins or 0) .. " 🪙" .. ((text.XP or 0) > 0 and ("  +" .. text.XP .. " XP") or "")
+		popup("📦 Botín " .. tostring(text.Rarity) .. "  " .. reward, color)
+		if text.Rarity == "Legendario" then
+			if not RewardFX.Celebrate("📦 ¡BOTÍN LEGENDARIO!", reward, color, true) then
+				RewardFX.EdgeFlash(color, 0.6)
+			end
+		elseif text.Rarity == "Épico" then
+			RewardFX.EdgeFlash(color, 0.55)
+			RewardFX.Fanfare(false)
+		else
+			RewardFX.EdgeFlash(color, 0.3)
+			Sounds.Play("Kill", nil, 1.5, 0.5)
 		end
 	elseif kind == "Flag" then
 		timedLabel(refs.Banner, "🚩 " .. text, 3)

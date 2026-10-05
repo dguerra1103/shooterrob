@@ -11976,6 +11976,217 @@ return Loadout
         </Item>
         <Item class="ModuleScript" referent="48">
           <Properties>
+            <string name="Name">Loot</string>
+            <string name="Source"><![CDATA[-- Botín: a veces el enemigo que eliminas suelta un paquete de suministros con un rayo de luz del
+-- color de su rareza (como el botín de los juegos de disparos con saqueo). Solo lo puede recoger
+-- quien hizo la baja, pasando por encima, y desaparece a los LIFETIME segundos. Dentro hay monedas
+-- (y XP en los mejores): como nunca sabes qué toca, cada baja tiene su pequeña emoción.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local PlayerData = require(script.Parent.PlayerData)
+
+local Loot = {}
+
+Loot.Chance = 0.12 -- probabilidad de que una baja a otro jugador suelte botín
+Loot.BotChance = 0.07 -- (contra bots, menos: que no salga a cuenta "granjear" bots)
+Loot.LIFETIME = 15
+local RADIUS = 5
+
+-- Rarezas: peso (probabilidad relativa), monedas, XP y color del rayo
+Loot.Tiers = {
+	{ Name = "Común", Weight = 62, Coins = 15, XP = 0, Color = Color3.fromRGB(200, 200, 200) },
+	{ Name = "Raro", Weight = 26, Coins = 40, XP = 0, Color = Color3.fromRGB(70, 160, 255) },
+	{ Name = "Épico", Weight = 10, Coins = 100, XP = 100, Color = Color3.fromRGB(190, 80, 255) },
+	{ Name = "Legendario", Weight = 2, Coins = 300, XP = 250, Color = Color3.fromRGB(255, 180, 30) },
+}
+
+local active = {} -- { Model, Position, Owner, Tier, Expires }
+local folder
+local loopRunning = false
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Include
+
+-- Suelo bajo el punto (si cae al vacío o a la lava, no hay botín)
+local function groundBelow(position)
+	local map = workspace:FindFirstChild("Map")
+	if not map then
+		return position
+	end
+	rayParams.FilterDescendantsInstances = { map, workspace.Terrain }
+	local hit = workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -60, 0), rayParams)
+	if not hit then
+		return nil
+	end
+	if hit.Instance:GetAttribute("Hazard") or hit.Instance.Name == "Lava" or hit.Material == Enum.Material.CrackedLava then
+		return nil
+	end
+	return hit.Position
+end
+
+function Loot.RollTier(roll)
+	local total = 0
+	for _, tier in Loot.Tiers do
+		total += tier.Weight
+	end
+	local pick = (roll or math.random()) * total
+	for _, tier in Loot.Tiers do
+		pick -= tier.Weight
+		if pick <= 0 then
+			return tier
+		end
+	end
+	return Loot.Tiers[1]
+end
+
+local function build(position, tier)
+	local model = Instance.new("Model")
+	model.Name = "LootDrop"
+	model:SetAttribute("Rarity", tier.Name)
+	local function part(name, size, cf, color, material)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = material or Enum.Material.SmoothPlastic
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Parent = model
+		return p
+	end
+	local base = CFrame.new(position)
+	-- Paquete del color de la rareza (flota y gira en el cliente, con WorldFX)
+	local box = part("LootBox", Vector3.new(1.6, 1.1, 1.1), base * CFrame.new(0, 1.4, 0), tier.Color, Enum.Material.SmoothPlastic)
+	box:SetAttribute("Bob", 0.3)
+	box:SetAttribute("Spin", 90)
+	-- Rayo de luz que se ve desde lejos (más alto cuanto mejor el botín)
+	local height = 10 + 4 * (table.find(Loot.Tiers, tier) or 1)
+	local beam = part("LootBeam", Vector3.new(0.5, height, 0.5), base * CFrame.new(0, height / 2, 0), tier.Color, Enum.Material.Neon)
+	beam.Transparency = 0.45
+	local light = Instance.new("PointLight")
+	light.Color = tier.Color
+	light.Range = 10
+	light.Brightness = 1.5
+	light.Parent = box
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkle.Color = ColorSequence.new(tier.Color)
+	sparkle.LightEmission = 1
+	sparkle.Size = NumberSequence.new(0.35, 0)
+	sparkle.Lifetime = NumberRange.new(0.6, 1)
+	sparkle.Speed = NumberRange.new(2, 4)
+	sparkle.SpreadAngle = Vector2.new(60, 60)
+	sparkle.Rate = 8
+	sparkle.Parent = box
+	model.PrimaryPart = box
+	return model
+end
+
+local function collect(entry, player)
+	local tier = entry.Tier
+	local coins = PlayerData.AddCoins(player, tier.Coins)
+	if tier.XP > 0 then
+		PlayerData.AddXP(player, tier.XP, "Botín " .. tier.Name)
+	end
+	Remotes.Notify:FireClient(player, "Loot", { Rarity = tier.Name, Coins = coins, XP = tier.XP, Color = tier.Color })
+end
+
+local function step()
+	local now = os.clock()
+	for i = #active, 1, -1 do
+		local entry = active[i]
+		local owner = entry.Owner
+		local character = owner.Parent and owner.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local alive = humanoid and humanoid.Health > 0
+		if root and alive and (root.Position - entry.Position).Magnitude <= RADIUS then
+			table.remove(active, i)
+			entry.Model:Destroy()
+			collect(entry, owner)
+		elseif now >= entry.Expires or not owner.Parent or not entry.Model.Parent then
+			table.remove(active, i)
+			entry.Model:Destroy()
+		end
+	end
+end
+
+local function ensureLoop()
+	if loopRunning then
+		return
+	end
+	loopRunning = true
+	local elapsed = 0
+	RunService.Heartbeat:Connect(function(dt)
+		elapsed += dt
+		if elapsed < 0.15 or #active == 0 then
+			return
+		end
+		elapsed = 0
+		step()
+	end)
+end
+
+-- Tras una baja: a veces suelta botín para quien la hizo. roll (opcional, para pruebas)
+function Loot.MaybeDrop(position, killer, againstBot, roll)
+	if typeof(position) ~= "Vector3" or not killer or not killer:IsA("Player") then
+		return nil
+	end
+	if (roll or math.random()) > (againstBot and Loot.BotChance or Loot.Chance) then
+		return nil
+	end
+	local ground = groundBelow(position)
+	if not ground then
+		return nil
+	end
+	if not folder or not folder.Parent then
+		folder = Instance.new("Folder")
+		folder.Name = "Loot"
+		folder.Parent = workspace
+	end
+	local tier = Loot.RollTier()
+	local model = build(ground, tier)
+	model:SetAttribute("Owner", killer.UserId)
+	model.Parent = folder
+	table.insert(active, { Model = model, Position = ground, Owner = killer, Tier = tier, Expires = os.clock() + Loot.LIFETIME })
+	ensureLoop()
+	-- Solo quien lo ha ganado ve el aviso
+	Remotes.Notify:FireClient(killer, "LootDrop", tier.Name)
+	return model, tier
+end
+
+-- Al acabar la partida o cambiar de mapa, fuera todo el botín
+function Loot.Clear()
+	for _, entry in active do
+		entry.Model:Destroy()
+	end
+	table.clear(active)
+end
+
+Loot.Step = step
+Loot.Active = active
+Players.PlayerRemoving:Connect(function(player)
+	for i = #active, 1, -1 do
+		if active[i].Owner == player then
+			active[i].Model:Destroy()
+			table.remove(active, i)
+		end
+	end
+end)
+
+return Loot
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="49">
+          <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Registro de mapas: construye el mapa elegido y publica su nombre para la interfaz.
 -- Si construyes tu propio mapa en Studio dentro de workspace.Map (sin el atributo "Generated"),
@@ -12076,11 +12287,11 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="49">
+        <Item class="Folder" referent="50">
           <Properties>
             <string name="Name">MapDefs</string>
           </Properties>
-          <Item class="ModuleScript" referent="50">
+          <Item class="ModuleScript" referent="51">
             <Properties>
               <string name="Name">CandyArena</string>
               <string name="Source"><![CDATA[-- ARENA CARAMELO: arena pequeña y simétrica para duelos rápidos (pensada para Eliminación, pero vale
@@ -12356,7 +12567,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="51">
+          <Item class="ModuleScript" referent="52">
             <Properties>
               <string name="Name">Carnival</string>
               <string name="Source"><![CDATA[-- FERIA: parque de atracciones al atardecer. En el centro, un tiovivo con caballitos (se puede subir
@@ -12761,7 +12972,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="52">
+          <Item class="ModuleScript" referent="53">
             <Properties>
               <string name="Name">Castle</string>
               <string name="Source"><![CDATA[-- CASTILLO DEL REY: patio medieval de mañana. En el centro, la torre del homenaje con un túnel que
@@ -13004,7 +13215,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="53">
+          <Item class="ModuleScript" referent="54">
             <Properties>
               <string name="Name">ChristmasVillage</string>
               <string name="Source"><![CDATA[-- VILLA NAVIDEÑA (solo sale en la votación durante el evento de Navidad, ver Season): pueblo nevado
@@ -13292,7 +13503,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="54">
+          <Item class="ModuleScript" referent="55">
             <Properties>
               <string name="Name">ContainerClash</string>
               <string name="Source"><![CDATA[-- CONTAINER CLASH: patio de contenedores al atardecer. Calle central con pila central,
@@ -13534,7 +13745,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="55">
+          <Item class="ModuleScript" referent="56">
             <Properties>
               <string name="Name">Crossroads</string>
               <string name="Source"><![CDATA[-- ENCRUCIJADA: ciudad en guerra al estilo de los mapas 5 contra 5 de los shooters de móvil.
@@ -13998,7 +14209,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">Downtown</string>
               <string name="Source"><![CDATA[-- Mapa "Downtown": ciudad simétrica con calles, tiendas, contenedores y plaza central (de día).
@@ -14770,7 +14981,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">FrostStation</string>
               <string name="Source"><![CDATA[-- FROST STATION: base de investigación polar. Lago helado resbaladizo en el centro bajo la torre
@@ -15125,7 +15336,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">HarborHeights</string>
               <string name="Source"><![CDATA[-- HARBOR HEIGHTS: pueblo costero vertical. Canal con agua en el centro (pasarelas por debajo
@@ -15410,7 +15621,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">HauntedManor</string>
               <string name="Source"><![CDATA[-- MANSIÓN ENCANTADA (mapa de Halloween): de noche, con luna grande y niebla violeta. Mansión en el
@@ -15656,7 +15867,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">JungleTemple</string>
               <string name="Source"><![CDATA[-- JUNGLE TEMPLE: ruinas en la selva. Pirámide escalonada en el centro con un santuario y una gema
@@ -15990,7 +16201,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">MilitaryBase</string>
               <string name="Source"><![CDATA[-- BASE MILITAR: base de entrenamiento en un valle verde, al estilo de los mapas 5 contra 5 de los
@@ -16534,7 +16745,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">MoonBase</string>
               <string name="Source"><![CDATA[-- BASE LUNAR: base espacial de dibujos animados en la Luna, de noche con la Tierra enorme en el
@@ -16794,7 +17005,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">NeonFoundry</string>
               <string name="Source"><![CDATA[-- NEON FOUNDRY: fundición de noche. Horno central con metal fundido, canales de lava (hacen daño),
@@ -17030,7 +17241,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">PastelPlaza</string>
               <string name="Source"><![CDATA[-- PASTEL PLAZA: arena compacta al estilo de los shooters más jugados de Roblox. Paredes lavanda con
@@ -17259,7 +17470,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">PirateCove</string>
               <string name="Source"><![CDATA[-- BAHÍA PIRATA: dos orillas de arena separadas por un canal de agua. En el centro, un galeón
@@ -17512,7 +17723,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">SakuraGarden</string>
               <string name="Source"><![CDATA[-- JARDÍN SAKURA: arena compacta en un jardín japonés de estilo cartoon. Pagoda central jugable de dos
@@ -17836,7 +18047,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">Summit</string>
               <string name="Source"><![CDATA[-- CUMBRE: estación de montaña nevada al atardecer, al estilo de los mapas 5 contra 5 de los
@@ -18253,7 +18464,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">TikiBeach</string>
               <string name="Source"><![CDATA[-- PLAYA TIKI: isla tropical de estilo cartoon rodeada de mar. Torre de socorrista jugable en el centro,
@@ -18495,7 +18706,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">ToyBox</string>
               <string name="Source"><![CDATA[-- CAJA DE JUGUETES: eres del tamaño de un juguete dentro del cuarto de un niño. Castillo de bloques
@@ -18754,7 +18965,7 @@ return Map
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">WildWest</string>
               <string name="Source"><![CDATA[-- PUEBLO VAQUERO: calle mayor del Oeste a pleno sol. En el centro, el depósito de agua sobre patas
@@ -19102,7 +19313,7 @@ return Map
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="72">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -20553,7 +20764,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="72">
+        <Item class="ModuleScript" referent="73">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -22574,7 +22785,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="73">
+        <Item class="ModuleScript" referent="74">
           <Properties>
             <string name="Name">Pumpkins</string>
             <string name="Source"><![CDATA[-- Modo Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza con el color de su equipo.
@@ -22777,7 +22988,7 @@ return Pumpkins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="74">
+        <Item class="ModuleScript" referent="75">
           <Properties>
             <string name="Name">Ragdoll</string>
             <string name="Source"><![CDATA[-- Muñeco de trapo al morir (como en los shooters): en vez de romperse en piezas, las articulaciones
@@ -22903,7 +23114,7 @@ return Ragdoll
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="75">
+        <Item class="ModuleScript" referent="76">
           <Properties>
             <string name="Name">RealKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción "realista" para los mapas tipo shooter militar (Encrucijada, Base Militar...):
@@ -23430,7 +23641,7 @@ return RealKit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="76">
+        <Item class="ModuleScript" referent="77">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -23637,7 +23848,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="77">
+        <Item class="ModuleScript" referent="78">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -23675,6 +23886,7 @@ local SpawnPicker = require(script.Parent.SpawnPicker)
 local Zombie = require(script.Parent.Zombie)
 local Bounty = require(script.Parent.Bounty)
 local Pumpkins = require(script.Parent.Pumpkins)
+local Loot = require(script.Parent.Loot)
 local Combat = require(script.Parent.Combat)
 local Friends = require(script.Parent.Friends)
 
@@ -24169,6 +24381,10 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		WeaponId = weapon and weaponName or nil, -- (el cliente dibuja la silueta del arma)
 		Headshot = headshot,
 	})
+	-- Botín: a veces el caído suelta un paquete para quien le eliminó (no en Calabazas: ya sueltan algo)
+	if playing and currentMode ~= "CAL" and killer and killer ~= victim and typeof(position) == "Vector3" then
+		Loot.MaybeDrop(position, killer, victimBot ~= nil)
+	end
 	-- Calabazas: el caído suelta una calabaza con el color de su equipo
 	-- (solo si alguien le eliminó: caerse o la lava no regala puntos al rival)
 	if playing and currentMode == "CAL" and typeof(position) == "Vector3" and ((killer and killer ~= victim) or killerBot) then
@@ -25122,6 +25338,7 @@ local function playRound()
 		Hardpoint.Stop()
 		Domination.Stop()
 		Pumpkins.Stop()
+		Loot.Clear()
 		Loadout.Override = nil
 		if mode == "INF" then
 			clearInfection()
@@ -25148,6 +25365,7 @@ local function gameLoop()
 			pcall(Hardpoint.Stop)
 			pcall(Domination.Stop)
 			pcall(Pumpkins.Stop)
+			pcall(Loot.Clear)
 			clearElimination()
 			clearInfection()
 			-- (primero las armas normales: si no, tras un fallo en Escalada se quedarían las de esa ronda)
@@ -25281,7 +25499,7 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="78">
+        <Item class="ModuleScript" referent="79">
           <Properties>
             <string name="Name">SpawnPicker</string>
             <string name="Source"><![CDATA[-- Apariciones dinámicas en los modos por equipos (como en los shooters de móvil): al reaparecer
@@ -25383,7 +25601,7 @@ return SpawnPicker
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="79">
+        <Item class="ModuleScript" referent="80">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -25457,22 +25675,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="80">
+  <Item class="StarterPlayer" referent="81">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="81">
+    <Item class="StarterPlayerScripts" referent="82">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="82">
+      <Item class="Folder" referent="83">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="83">
+        <Item class="LocalScript" referent="84">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -25580,11 +25798,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="84">
+        <Item class="Folder" referent="85">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="86">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -25878,7 +26096,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="87">
             <Properties>
               <string name="Name">Ambience</string>
               <string name="Source"><![CDATA[-- Sonido ambiente de los mapas realistas (atributo Ambience de workspace.Map, lo pone cada mapa):
@@ -26140,7 +26358,7 @@ return Ambience
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">BombHUD</string>
               <string name="Source"><![CDATA[-- Buscar y destruir: qué te toca (atacar o defender), la cuenta atrás de la bomba plantada y la
@@ -26312,7 +26530,7 @@ return BombHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">BoostHUD</string>
               <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
@@ -26400,7 +26618,7 @@ return BoostHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">BotFootsteps</string>
               <string name="Source"><![CDATA[-- Pasos de los bots (solo en el cliente). Los personajes de los jugadores ya suenan al correr con los
@@ -26500,7 +26718,7 @@ return BotFootsteps
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -26569,7 +26787,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -26660,7 +26878,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -26837,7 +27055,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -27308,7 +27526,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">DominationHUD</string>
               <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
@@ -27419,7 +27637,7 @@ return DominationHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -28575,7 +28793,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -28752,7 +28970,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">EnemyName</string>
               <string name="Source"><![CDATA[-- Nombre del enemigo al que apuntas (como en los shooters): normalmente los enemigos no llevan nombre
@@ -28860,7 +29078,7 @@ return EnemyName
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -28984,7 +29202,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -29137,7 +29355,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -29210,7 +29428,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -29340,7 +29558,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">GrenadeWarning</string>
               <string name="Source"><![CDATA[-- Aviso de granada cercana (como en los shooters): cuando una granada enemiga cae cerca, sale un
@@ -29453,7 +29671,7 @@ return GrenadeWarning
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -30284,7 +30502,32 @@ local function showMedal(text)
 	}, { UI.corner(8), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.1) })
 	local scale = UI.new("UIScale", { Scale = 1.6, Parent = badge })
 	tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
-	Sounds.Play("Click")
+	-- Un brillo cruza la medalla y suena un "cling" (más alto cuantas más medallas juntas)
+	badge.ClipsDescendants = true
+	local shine = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		Parent = badge,
+	})
+	local gradient = UI.new("UIGradient", {
+		Rotation = 20,
+		Offset = Vector2.new(-1, 0),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.45, 1),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(0.55, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = shine,
+	})
+	task.delay(0.15, function()
+		tween(gradient, 0.45, { Offset = Vector2.new(1, 0) })
+	end)
+	Debris:AddItem(shine, 0.7)
+	Sounds.Play("Kill", nil, 1.6 + 0.15 * #list, 0.35)
 	task.delay(2.6, function()
 		if badge.Parent then
 			tween(badge, 0.3, { TextTransparency = 1, BackgroundTransparency = 1 })
@@ -30404,6 +30647,26 @@ local function onNotify(kind, text)
 					timedLabel(refs.Toast, line, 4)
 				end)
 			end
+		end
+	elseif kind == "LootDrop" then
+		-- Tu baja ha soltado botín: el rayo de luz marca dónde está
+		local color = Skins.RarityColors[text] or Color3.new(1, 1, 1)
+		popup("📦 ¡Botín " .. tostring(text) .. "! Pasa por encima para cogerlo", color)
+		Sounds.Play("Kill", nil, 1.9, 0.4)
+	elseif kind == "Loot" and type(text) == "table" then
+		local color = typeof(text.Color) == "Color3" and text.Color or Color3.new(1, 1, 1)
+		local reward = "+" .. tostring(text.Coins or 0) .. " 🪙" .. ((text.XP or 0) > 0 and ("  +" .. text.XP .. " XP") or "")
+		popup("📦 Botín " .. tostring(text.Rarity) .. "  " .. reward, color)
+		if text.Rarity == "Legendario" then
+			if not RewardFX.Celebrate("📦 ¡BOTÍN LEGENDARIO!", reward, color, true) then
+				RewardFX.EdgeFlash(color, 0.6)
+			end
+		elseif text.Rarity == "Épico" then
+			RewardFX.EdgeFlash(color, 0.55)
+			RewardFX.Fanfare(false)
+		else
+			RewardFX.EdgeFlash(color, 0.3)
+			Sounds.Play("Kill", nil, 1.5, 0.5)
 		end
 	elseif kind == "Flag" then
 		timedLabel(refs.Banner, "🚩 " .. text, 3)
@@ -31432,7 +31695,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -31504,7 +31767,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -31569,7 +31832,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -31803,7 +32066,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -31921,7 +32184,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -32668,7 +32931,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -32909,7 +33172,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -35657,7 +35920,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -36043,7 +36306,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -36500,7 +36763,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -36627,7 +36890,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -36798,7 +37061,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -36968,7 +37231,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -37338,7 +37601,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -37471,7 +37734,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -37798,7 +38061,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -38017,7 +38280,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -38103,7 +38366,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
@@ -38155,7 +38418,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -38312,7 +38575,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -38414,7 +38677,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -38608,7 +38871,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -40046,7 +40309,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -40103,7 +40366,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -40404,7 +40667,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -40623,19 +40886,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="129">
+  <Item class="Teams" referent="130">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="130">
+  <Item class="Workspace" referent="131">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="131">
+    <Item class="Terrain" referent="132">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
