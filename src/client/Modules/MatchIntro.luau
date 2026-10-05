@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
+local RewardFX = require(script.Parent.RewardFX)
 
 local player = Players.LocalPlayer
 
@@ -136,6 +137,10 @@ function MatchIntro.Show()
 		task.wait(0.5)
 		if token == showToken then
 			gui.Enabled = false
+			-- ¡A por ellos! (solo si la partida sigue en marcha)
+			if ReplicatedStorage:GetAttribute("State") == "Playing" and not ClientState.InMainMenu then
+				RewardFX.Punch("¡A LUCHAR!", Color3.fromRGB(255, 220, 90))
+			end
 		end
 	end)
 end
