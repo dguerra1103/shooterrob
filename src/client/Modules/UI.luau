@@ -199,6 +199,23 @@ function UI.upper(text)
 	return (string.gsub(upper, "\195[\161\169\173\179\186\177\188]", ACCENTS))
 end
 
+-- Color de equipo para la interfaz: los colores puros de Roblox (rojo 255,0,0 y azul 0,0,255) se ven
+-- baratos y el azul apenas se lee sobre fondo oscuro. Se suavizan (el azul tira a celeste) y, para
+-- textos, se aclaran
+function UI.teamTint(color, forText)
+	if typeof(color) ~= "Color3" then
+		return color
+	end
+	local h, sat, v = color:ToHSV()
+	if h > 0.58 and h < 0.72 then
+		h = 0.6 -- (azul puro → azul más claro y legible)
+	end
+	if forText then
+		return Color3.fromHSV(h, math.min(sat, 0.62), math.max(v, 0.95))
+	end
+	return Color3.fromHSV(h, math.min(sat, 0.8), math.min(math.max(v, 0.55), 0.9))
+end
+
 function UI.hex(color)
 	return "#" .. color:ToHex()
 end

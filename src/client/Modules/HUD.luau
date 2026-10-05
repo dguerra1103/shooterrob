@@ -1241,9 +1241,9 @@ local function onKillFeed(info)
 	if info.Headshot then
 		weapon ..= "🎯 "
 	end
-	local victim = string.format('<font color="%s">%s</font>', UI.hex(info.VictimColor), info.Victim or "?")
+	local victim = string.format('<font color="%s">%s</font>', UI.hex(UI.teamTint(info.VictimColor, true)), info.Victim or "?")
 	if killer then
-		text = string.format('<font color="%s">%s</font>%s%s', UI.hex(info.KillerColor), killer, weapon, victim)
+		text = string.format('<font color="%s">%s</font>%s%s', UI.hex(UI.teamTint(info.KillerColor, true)), killer, weapon, victim)
 	else
 		text = victim .. " se eliminó"
 	end
@@ -1290,12 +1290,12 @@ local function onKillFeed(info)
 				Parent = entry,
 			})
 		end
-		name(1, killer, info.KillerColor)
+		name(1, killer, UI.teamTint(info.KillerColor, true))
 		iconHolder.Parent = entry
 		if info.Headshot then
 			UI.label({ LayoutOrder = 3, Size = UDim2.fromOffset(18, 22), Text = "🎯", TextSize = 15, Parent = entry })
 		end
-		name(4, info.Victim or "?", info.VictimColor)
+		name(4, info.Victim or "?", UI.teamTint(info.VictimColor, true))
 	else
 		UI.label({
 			Size = UDim2.new(1, -12, 1, 0),
@@ -1335,7 +1335,8 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 	end
 	for _, line in refs.HitLines do
 		line.BackgroundColor3 = color
-		line.Size = killed and UDim2.fromOffset(14, 4) or UDim2.fromOffset(10, 3)
+		-- (normal: corta y blanca; cabeza: más larga y dorada; baja: gruesa y roja)
+		line.Size = killed and UDim2.fromOffset(14, 4) or (headshot and UDim2.fromOffset(13, 3) or UDim2.fromOffset(10, 3))
 	end
 	refs.Hitmarker.Visible = true
 	-- (cada impacto "golpea": la X entra grande y se encoge; más en bajas)
@@ -1825,14 +1826,14 @@ local function updateScoreboard()
 		refs.ScoreA.Text = tostring(ReplicatedStorage:GetAttribute("Score_" .. teamA) or 0)
 		local team = game:GetService("Teams"):FindFirstChild(teamA)
 		if team then
-			refs.ScoreABox.BackgroundColor3 = team.TeamColor.Color
+			refs.ScoreABox.BackgroundColor3 = UI.teamTint(team.TeamColor.Color)
 		end
 	end
 	if teamB then
 		refs.ScoreB.Text = tostring(ReplicatedStorage:GetAttribute("Score_" .. teamB) or 0)
 		local team = game:GetService("Teams"):FindFirstChild(teamB)
 		if team then
-			refs.ScoreBBox.BackgroundColor3 = team.TeamColor.Color
+			refs.ScoreBBox.BackgroundColor3 = UI.teamTint(team.TeamColor.Color)
 		end
 	end
 	local state = ReplicatedStorage:GetAttribute("State")
