@@ -13,6 +13,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
+local AimAssist = require(script.Parent.AimAssist)
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
@@ -862,6 +863,8 @@ local function renderStep(dt)
 		debtYaw -= backYaw
 		camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
 	end
+	-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano
+	AimAssist.Update(dt)
 
 	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
 	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.

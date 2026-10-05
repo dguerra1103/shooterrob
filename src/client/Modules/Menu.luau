@@ -1479,8 +1479,27 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Asistencia de apuntado (solo con dedo o mando)
+	local assist = section(7, "🎯 Asistencia de apuntado (con dedo o mando)", 92)
+	local assistMode = math.floor((current.AimAssist == nil and 2 or current.AimAssist) + 0.5)
+	for i, info in { { 2, "Normal" }, { 1, "Suave" }, { 0, "No" } } do
+		local selected = assistMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = assist,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("AimAssist", info[1])
+			refresh()
+		end)
+	end
 	-- Ventaja (una, gratis)
-	local perkSection = section(7, "🎖️ Ventaja", 130)
+	local perkSection = section(8, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
 		Position = UDim2.fromOffset(16, 86),

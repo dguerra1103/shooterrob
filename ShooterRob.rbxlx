@@ -767,7 +767,7 @@ GameConfig.Movement = {
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, Perk = 0 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -775,6 +775,7 @@ GameConfig.SettingsLimits = {
 	CrossColor = { 1, 6 }, -- índice de GameConfig.CrosshairColors
 	CrossSize = { 0.6, 2 },
 	AutoFire = { 0, 2 },
+	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
@@ -26199,6 +26200,191 @@ return Abilities
           </Item>
           <Item class="ModuleScript" referent="87">
             <Properties>
+              <string name="Name">AimAssist</string>
+              <string name="Source"><![CDATA[-- Asistencia de apuntado (como en los shooters de móvil): con pantalla táctil o mando, si un enemigo
+-- visible está cerca de la mira, la cámara se va hacia su pecho poco a poco (más al apuntar con la
+-- mira) y, al empezar a apuntar con él cerca, da un pequeño "salto" hacia él. Nunca con ratón: ahí
+-- apuntar es cosa de cada uno. Se puede bajar o quitar en Ajustes (Settings.AimAssist: 2 normal,
+-- 1 suave, 0 no). WeaponController la llama cada fotograma justo después del retroceso.
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ClientState = require(script.Parent.ClientState)
+local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+
+local AimAssist = {}
+
+local player = Players.LocalPlayer
+
+-- Cono de captura (grados) sin apuntar y apuntando, y cuánto del ángulo que falta se corrige por
+-- segundo (fracción). El "salto" al empezar a apuntar corrige una parte en ~0,2 s.
+AimAssist.HipCone = 5
+AimAssist.AdsCone = 9
+AimAssist.HipPull = 1.2
+AimAssist.AdsPull = 3.2
+AimAssist.SnapCone = 12
+AimAssist.SnapPull = 9
+AimAssist.SnapTime = 0.2
+
+local params = RaycastParams.new()
+params.FilterType = Enum.RaycastFilterType.Exclude
+local lastAds = 0
+local snapUntil = 0
+
+local GAMEPAD = {}
+for i = 1, 8 do
+	local ok, value = pcall(function()
+		return (Enum.UserInputType :: any)["Gamepad" .. i]
+	end)
+	if ok and value then
+		GAMEPAD[value] = true
+	end
+end
+
+-- ¿Se está jugando con el dedo o con mando? (con ratón, nada)
+function AimAssist.UsingAssistInput()
+	local ok, last = pcall(function()
+		return UserInputService:GetLastInputType()
+	end)
+	if ok and (last == Enum.UserInputType.Touch or GAMEPAD[last]) then
+		return true
+	end
+	-- (móvil sin teclado aunque aún no haya tocado nada)
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+local function level()
+	local settings = ClientState.Settings or GameConfig.DefaultSettings
+	local value = settings.AimAssist
+	if value == nil then
+		value = 2
+	end
+	return math.floor(value + 0.5)
+end
+
+local function isEnemy(model)
+	if model == player.Character then
+		return false
+	end
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return false
+	end
+	-- (con la protección de aparición no se le puede herir: no tira de la mira)
+	if model:FindFirstChildOfClass("ForceField") then
+		return false
+	end
+	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
+	local owner = Players:GetPlayerFromCharacter(model)
+	if owner then
+		return not (teamMode and player.Team ~= nil and owner.Team == player.Team)
+	end
+	if model:GetAttribute("Bot") then
+		return not (teamMode and player.Team ~= nil and model:GetAttribute("Team") == player.Team.Name)
+	end
+	return false
+end
+
+local function candidates()
+	local list = {}
+	for _, other in Players:GetPlayers() do
+		if other ~= player and other.Character then
+			table.insert(list, other.Character)
+		end
+	end
+	local bots = workspace:FindFirstChild("Bots")
+	if bots then
+		for _, model in bots:GetChildren() do
+			if model:IsA("Model") then
+				table.insert(list, model)
+			end
+		end
+	end
+	return list
+end
+
+-- Mejor objetivo dentro del cono: { Model, Point, Angle } o nil
+function AimAssist.FindTarget(camera, coneDegrees, range)
+	local cf = camera.CFrame
+	local origin = cf.Position
+	local look = cf.LookVector
+	local cone = math.rad(coneDegrees)
+	local best
+	for _, model in candidates() do
+		if isEnemy(model) then
+			local part = model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso") or model:FindFirstChild("HumanoidRootPart")
+			if part and part:IsA("BasePart") then
+				local offset = part.Position - origin
+				local distance = offset.Magnitude
+				if distance > 1 and distance <= range then
+					local angle = math.acos(math.clamp(look:Dot(offset / distance), -1, 1))
+					if angle < cone and (not best or angle < best.Angle) then
+						-- (que se vea: nada de imanes a través de las paredes)
+						local ignore = { camera }
+						if player.Character then
+							table.insert(ignore, player.Character)
+						end
+						params.FilterDescendantsInstances = ignore
+						local hit = workspace:Raycast(origin, offset, params)
+						if not hit or hit.Instance:IsDescendantOf(model) then
+							best = { Model = model, Point = part.Position, Angle = angle }
+						end
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+-- Gira la cámara una fracción hacia el punto (en su propio espacio: arriba/abajo e izquierda/derecha)
+local function turnToward(camera, point, fraction)
+	local direction = (point - camera.CFrame.Position).Unit
+	local localDir = camera.CFrame:VectorToObjectSpace(direction)
+	local yaw = math.atan2(-localDir.X, -localDir.Z)
+	local pitch = math.atan2(localDir.Y, math.sqrt(localDir.X * localDir.X + localDir.Z * localDir.Z))
+	camera.CFrame = camera.CFrame * CFrame.Angles(pitch * fraction, yaw * fraction, 0)
+end
+
+function AimAssist.Update(dt)
+	local camera = workspace.CurrentCamera
+	local def = ClientState.CurrentDef
+	local strength = level()
+	local ads = ClientState.AimAlpha or 0
+	local startedAiming = ads > 0.1 and lastAds <= 0.1
+	lastAds = ads
+	if not camera or strength <= 0 or not def or def.Type ~= "Gun" or ClientState.Dead or ClientState.IsBlocked() then
+		return nil
+	end
+	if not AimAssist.UsingAssistInput() then
+		return nil
+	end
+	local scale = strength == 1 and 0.5 or 1
+	local range = def.Range or 300
+	if startedAiming then
+		snapUntil = os.clock() + AimAssist.SnapTime
+	end
+	local snapping = os.clock() < snapUntil
+	local cone = snapping and AimAssist.SnapCone or (AimAssist.HipCone + (AimAssist.AdsCone - AimAssist.HipCone) * ads)
+	local target = AimAssist.FindTarget(camera, cone, range)
+	if not target then
+		return nil
+	end
+	local pull = snapping and AimAssist.SnapPull or (AimAssist.HipPull + (AimAssist.AdsPull - AimAssist.HipPull) * ads)
+	-- (más fuerte cuanto más cerca de la mira; en el borde del cono casi nada)
+	local closeness = 1 - target.Angle / math.rad(cone)
+	local fraction = math.clamp(pull * scale * closeness * dt, 0, 0.5)
+	turnToward(camera, target.Point, fraction)
+	return target
+end
+
+return AimAssist
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="88">
+            <Properties>
               <string name="Name">AimFX</string>
               <string name="Source"><![CDATA[-- Apuntar con realismo: al apuntar con la mira, el fondo se desenfoca un poco más allá de lo que
 -- miras (profundidad de campo, enfocada a la distancia del punto de mira) y los bordes de la pantalla
@@ -26329,7 +26515,7 @@ return AimFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">Ambience</string>
               <string name="Source"><![CDATA[-- Sonido ambiente de los mapas realistas (atributo Ambience de workspace.Map, lo pone cada mapa):
@@ -26627,7 +26813,7 @@ return Ambience
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">BombHUD</string>
               <string name="Source"><![CDATA[-- Buscar y destruir: qué te toca (atacar o defender), la cuenta atrás de la bomba plantada y la
@@ -26799,7 +26985,7 @@ return BombHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">BoostHUD</string>
               <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
@@ -26887,7 +27073,7 @@ return BoostHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">BotFootsteps</string>
               <string name="Source"><![CDATA[-- Pasos de los bots (solo en el cliente). Los personajes de los jugadores ya suenan al correr con los
@@ -26987,7 +27173,7 @@ return BotFootsteps
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -27056,7 +27242,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -27152,7 +27338,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -27329,7 +27515,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -27800,7 +27986,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">DominationHUD</string>
               <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
@@ -27911,7 +28097,7 @@ return DominationHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -29148,7 +29334,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -29324,7 +29510,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">EnemyName</string>
               <string name="Source"><![CDATA[-- Nombre del enemigo al que apuntas (como en los shooters): normalmente los enemigos no llevan nombre
@@ -29432,7 +29618,7 @@ return EnemyName
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -29559,7 +29745,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -29712,7 +29898,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -29784,7 +29970,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -29930,7 +30116,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">GrenadeWarning</string>
               <string name="Source"><![CDATA[-- Aviso de granada cercana (como en los shooters): cuando una granada enemiga cae cerca, sale un
@@ -30043,7 +30229,7 @@ return GrenadeWarning
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -32278,7 +32464,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -32350,7 +32536,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -32415,7 +32601,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -32653,7 +32839,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -32771,7 +32957,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -33518,7 +33704,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -33768,7 +33954,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -35252,8 +35438,27 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Asistencia de apuntado (solo con dedo o mando)
+	local assist = section(7, "🎯 Asistencia de apuntado (con dedo o mando)", 92)
+	local assistMode = math.floor((current.AimAssist == nil and 2 or current.AimAssist) + 0.5)
+	for i, info in { { 2, "Normal" }, { 1, "Suave" }, { 0, "No" } } do
+		local selected = assistMode == info[1]
+		local button = UI.button({
+			Position = UDim2.fromOffset(16 + (i - 1) * 150, 44),
+			Size = UDim2.fromOffset(140, 36),
+			Text = (selected and "✔ " or "") .. info[2],
+			TextSize = 18,
+			BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+			Parent = assist,
+		}, { UI.gloss() })
+		button.Activated:Connect(function()
+			Sounds.Play("Click")
+			Settings.Set("AimAssist", info[1])
+			refresh()
+		end)
+	end
 	-- Ventaja (una, gratis)
-	local perkSection = section(7, "🎖️ Ventaja", 130)
+	local perkSection = section(8, "🎖️ Ventaja", 130)
 	local perkNow = math.floor(current.Perk or 0)
 	local perkInfo = UI.label({
 		Position = UDim2.fromOffset(16, 86),
@@ -36572,7 +36777,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -36967,7 +37172,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -37423,7 +37628,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -37550,7 +37755,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -37727,7 +37932,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -37910,7 +38115,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -38403,7 +38608,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -38536,7 +38741,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -38863,7 +39068,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -39082,7 +39287,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -39168,7 +39373,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -39402,7 +39607,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -39559,7 +39764,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -39716,7 +39921,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -39910,7 +40115,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -39928,6 +40133,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
+local AimAssist = require(script.Parent.AimAssist)
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
@@ -40777,6 +40983,8 @@ local function renderStep(dt)
 		debtYaw -= backYaw
 		camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
 	end
+	-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano
+	AimAssist.Update(dt)
 
 	-- Inclinación de cámara al moverse de lado y pequeña sacudida al disparar.
 	-- El módulo de cámara recalcula el giro cada frame, así que esto no se acumula.
@@ -41365,7 +41573,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -41422,7 +41630,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -41723,7 +41931,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -41942,19 +42150,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="131">
+  <Item class="Teams" referent="132">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="132">
+  <Item class="Workspace" referent="133">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="133">
+    <Item class="Terrain" referent="134">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

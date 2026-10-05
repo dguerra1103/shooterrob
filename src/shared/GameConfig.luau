@@ -320,7 +320,7 @@ GameConfig.Movement = {
 GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- AutoFire: disparo automático con la mira sobre un enemigo (0 = no, 1 = siempre, 2 = solo en pantallas táctiles)
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, Perk = 0 }
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Perk = 0 }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -328,6 +328,7 @@ GameConfig.SettingsLimits = {
 	CrossColor = { 1, 6 }, -- índice de GameConfig.CrosshairColors
 	CrossSize = { 0.6, 2 },
 	AutoFire = { 0, 2 },
+	AimAssist = { 0, 2 }, -- asistencia de apuntado con dedo o mando: 2 normal, 1 suave, 0 no
 	Perk = { 0, 3 },
 }
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
