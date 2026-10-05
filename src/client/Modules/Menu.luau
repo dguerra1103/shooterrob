@@ -2084,7 +2084,8 @@ local function buildShopPage(data)
 		Parent = scroll,
 	}, { UI.corner(12), UI.stroke(Color3.fromRGB(90, 230, 110), 2, 0) })
 	local streak = data.DailyStreak or 0
-	local nextDay = data.DailyAvailable and ((streak % #Shop.DailyRewards) + 1) or streak
+	-- (el servidor dice qué día toca: si se saltó uno, la racha vuelve a empezar)
+	local nextDay = data.DailyAvailable and (data.DailyNext or ((streak % #Shop.DailyRewards) + 1)) or streak
 	UI.label({
 		Position = UDim2.fromOffset(16, 0),
 		Size = UDim2.new(1, -260, 0, 56),
@@ -2115,7 +2116,7 @@ local function buildShopPage(data)
 		UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for day, coins in Shop.DailyRewards do
-		local claimed = day < nextDay or (not data.DailyAvailable and day <= streak)
+		local claimed = (data.DailyAvailable and day < nextDay) or (not data.DailyAvailable and day <= streak)
 		local today = data.DailyAvailable and day == nextDay
 		local cell = UI.new("Frame", {
 			LayoutOrder = day,
@@ -2135,7 +2136,11 @@ local function buildShopPage(data)
 		if today then
 			-- (el de hoy late)
 			local pulse = UI.new("UIScale", { Parent = cell })
-			TweenService:Create(pulse, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.08 }):Play()
+			local beat = TweenService:Create(pulse, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.08 })
+			beat:Play()
+			cell.Destroying:Connect(function()
+				beat:Cancel() -- (el latido es infinito: se para al rehacer la página)
+			end)
 		end
 	end
 

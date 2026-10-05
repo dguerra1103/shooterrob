@@ -947,7 +947,7 @@ local function onNotify(kind, text)
 		Sounds.Play("Kill")
 	elseif kind == "LevelUp" then
 		-- Subir de nivel: celebración a pantalla completa (rayos, confeti y fanfarria)
-		if not RewardFX.Celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0) then
+		if not RewardFX.Celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0, true) then
 			bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
 			Sounds.Play("Kill")
 		end
@@ -1183,7 +1183,19 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
 	-- reutiliza, y sin verse a través de las paredes
 	-- (solo si el último disparo propio fue hace muy poco: una granada no hace destellar a otro)
-	local target = os.clock() - ClientState.LastHitTime < 0.35 and ClientState.LastHitModel
+	-- (con la posición del impacto que manda el servidor se comprueba que es ese enemigo; sin ella,
+	-- solo si el disparo fue hace muy poco)
+	local target = ClientState.LastHitModel
+	if target and target.Parent then
+		if typeof(serverPosition) == "Vector3" then
+			local ok, pivot = pcall(target.GetPivot, target)
+			if not ok or (pivot.Position - serverPosition).Magnitude > 8 or os.clock() - ClientState.LastHitTime > 1.5 then
+				target = nil
+			end
+		elseif os.clock() - ClientState.LastHitTime > 0.35 then
+			target = nil
+		end
+	end
 	if target and target.Parent then
 		if not hitFlash or not hitFlash.Parent then
 			hitFlash = Instance.new("Highlight")
@@ -1434,7 +1446,7 @@ local function onMatchSummary(summary)
 				refs.SummaryLevelUp.TextColor3 = tier.Color
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
-				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
+				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true, true)
 			end
 		end
 	end)
@@ -1527,10 +1539,15 @@ local function onRoundEnd(info)
 		mvpText ..= ")"
 	end
 	refs.RoundMVP.Text = mvpText
-	-- ¡Eres el MVP!
+	-- ¡Eres el MVP! (la línea del MVP salta y brilla; no ocupa turno de celebración: esas quedan
+	-- para subir de nivel, de rango o batir tu récord)
 	if info.MVP == player.Name then
+		refs.RoundMVP.Text = "⭐ ¡ERES EL MVP! (" .. tostring(info.MVPKills or 0) .. " bajas)"
+		local mvpScale = refs.RoundMVP:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = refs.RoundMVP })
+		mvpScale.Scale = 1.5
 		task.delay(0.8, function()
-			RewardFX.Celebrate("⭐ ¡ERES EL MVP!", tostring(info.MVPKills or 0) .. " bajas", Color3.fromRGB(255, 215, 80), false)
+			tween(mvpScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+			Sounds.Play("Kill", nil, 1.5, 0.5)
 		end)
 	end
 	refs.RoundEnd.Visible = true
@@ -1764,6 +1781,10 @@ local function checkAchievements(data)
 			ready[achievement.Id] = achievement
 		end
 	end
+	-- (fuera de la partida se espera: no se pisa con el fin de partida ni se gasta en el menú)
+	if readyAchievements and (ReplicatedStorage:GetAttribute("State") ~= "Playing" or ClientState.InMainMenu) then
+		return
+	end
 	if readyAchievements then
 		for id, achievement in ready do
 			if not readyAchievements[id] then
@@ -1817,7 +1838,9 @@ local renderCrosshair
 local clutch = nil -- { Enemies = N } mientras dura
 checkClutch = function(aliveA, aliveB, teamA)
 	local mode = ReplicatedStorage:GetAttribute("Mode")
-	if (mode ~= "ELIM" and mode ~= "SND") or ReplicatedStorage:GetAttribute("Infection") == "On" or not player.Team then
+	-- (solo quien juega de verdad esta ronda: no desde la pantalla de inicio)
+	if (mode ~= "ELIM" and mode ~= "SND") or ReplicatedStorage:GetAttribute("Infection") == "On" or not player.Team
+		or ClientState.InMainMenu or player:GetAttribute("InMenu") or not player:GetAttribute("ElimIn") then
 		clutch = nil
 		return
 	end
@@ -1834,7 +1857,8 @@ checkClutch = function(aliveA, aliveB, teamA)
 			RewardFX.EdgeFlash(Color3.fromRGB(255, 60, 40), 0.5)
 			Sounds.Play("Boom", nil, 1.1, 0.3)
 		end
-	elseif theirs == 0 and alive then
+	elseif theirs == 0 and alive and ReplicatedStorage:GetAttribute("Bomb_State") ~= "Planted" then
+		-- (con la bomba plantada aún hay que desactivarla: entonces no es victoria todavía)
 		RewardFX.Celebrate("🔥 ¡CLUTCH!", "Ganaste la ronda tú solo contra " .. clutch.Enemies, Color3.fromRGB(255, 140, 40), true)
 		clutch = nil
 	elseif not alive or mine > 1 then

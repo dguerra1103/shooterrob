@@ -245,6 +245,8 @@ local function publicView(player, data)
 		VIP = player:GetAttribute("VIP") == true,
 		DailyStreak = data.DailyStreak,
 		DailyAvailable = data.LastDailyDay ~= Shop.DayNumber(),
+		-- Día que tocaría al reclamar hoy (si se saltó un día, la racha vuelve al 1)
+		DailyNext = (data.LastDailyDay == Shop.DayNumber() - 1) and (data.DailyStreak % #Shop.DailyRewards + 1) or 1,
 		FirstWinAvailable = data.FirstWinDay ~= Shop.DayNumber(),
 		FreeCrates = data.FreeCrates,
 		CratesRestricted = cratesRestricted[player] == true,

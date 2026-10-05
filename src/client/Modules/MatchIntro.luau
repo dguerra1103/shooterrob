@@ -138,7 +138,11 @@ function MatchIntro.Show()
 		if token == showToken then
 			gui.Enabled = false
 			-- ¡A por ellos! (solo si la partida sigue en marcha)
-			if ReplicatedStorage:GetAttribute("State") == "Playing" and not ClientState.InMainMenu then
+			-- (no en Eliminación, Buscar y destruir ni Infección: ahí el servidor ya anuncia «¡YA!»,
+			-- «ATACAS/DEFIENDES» o la fase de esconderse)
+			local mode = ReplicatedStorage:GetAttribute("Mode")
+			if ReplicatedStorage:GetAttribute("State") == "Playing" and not ClientState.InMainMenu
+				and mode ~= "ELIM" and mode ~= "SND" and mode ~= "INF" and not ReplicatedStorage:GetAttribute("Frozen") then
 				RewardFX.Punch("¡A LUCHAR!", Color3.fromRGB(255, 220, 90))
 			end
 		end

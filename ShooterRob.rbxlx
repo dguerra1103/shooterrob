@@ -21020,6 +21020,8 @@ local function publicView(player, data)
 		VIP = player:GetAttribute("VIP") == true,
 		DailyStreak = data.DailyStreak,
 		DailyAvailable = data.LastDailyDay ~= Shop.DayNumber(),
+		-- Día que tocaría al reclamar hoy (si se saltó un día, la racha vuelve al 1)
+		DailyNext = (data.LastDailyDay == Shop.DayNumber() - 1) and (data.DailyStreak % #Shop.DailyRewards + 1) or 1,
 		FirstWinAvailable = data.FirstWinDay ~= Shop.DayNumber(),
 		FreeCrates = data.FreeCrates,
 		CratesRestricted = cratesRestricted[player] == true,
@@ -30647,7 +30649,7 @@ local function onNotify(kind, text)
 		Sounds.Play("Kill")
 	elseif kind == "LevelUp" then
 		-- Subir de nivel: celebración a pantalla completa (rayos, confeti y fanfarria)
-		if not RewardFX.Celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0) then
+		if not RewardFX.Celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0, true) then
 			bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
 			Sounds.Play("Kill")
 		end
@@ -30883,7 +30885,19 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
 	-- reutiliza, y sin verse a través de las paredes
 	-- (solo si el último disparo propio fue hace muy poco: una granada no hace destellar a otro)
-	local target = os.clock() - ClientState.LastHitTime < 0.35 and ClientState.LastHitModel
+	-- (con la posición del impacto que manda el servidor se comprueba que es ese enemigo; sin ella,
+	-- solo si el disparo fue hace muy poco)
+	local target = ClientState.LastHitModel
+	if target and target.Parent then
+		if typeof(serverPosition) == "Vector3" then
+			local ok, pivot = pcall(target.GetPivot, target)
+			if not ok or (pivot.Position - serverPosition).Magnitude > 8 or os.clock() - ClientState.LastHitTime > 1.5 then
+				target = nil
+			end
+		elseif os.clock() - ClientState.LastHitTime > 0.35 then
+			target = nil
+		end
+	end
 	if target and target.Parent then
 		if not hitFlash or not hitFlash.Parent then
 			hitFlash = Instance.new("Highlight")
@@ -31134,7 +31148,7 @@ local function onMatchSummary(summary)
 				refs.SummaryLevelUp.TextColor3 = tier.Color
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
-				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
+				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true, true)
 			end
 		end
 	end)
@@ -31227,10 +31241,15 @@ local function onRoundEnd(info)
 		mvpText ..= ")"
 	end
 	refs.RoundMVP.Text = mvpText
-	-- ¡Eres el MVP!
+	-- ¡Eres el MVP! (la línea del MVP salta y brilla; no ocupa turno de celebración: esas quedan
+	-- para subir de nivel, de rango o batir tu récord)
 	if info.MVP == player.Name then
+		refs.RoundMVP.Text = "⭐ ¡ERES EL MVP! (" .. tostring(info.MVPKills or 0) .. " bajas)"
+		local mvpScale = refs.RoundMVP:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = refs.RoundMVP })
+		mvpScale.Scale = 1.5
 		task.delay(0.8, function()
-			RewardFX.Celebrate("⭐ ¡ERES EL MVP!", tostring(info.MVPKills or 0) .. " bajas", Color3.fromRGB(255, 215, 80), false)
+			tween(mvpScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+			Sounds.Play("Kill", nil, 1.5, 0.5)
 		end)
 	end
 	refs.RoundEnd.Visible = true
@@ -31464,6 +31483,10 @@ local function checkAchievements(data)
 			ready[achievement.Id] = achievement
 		end
 	end
+	-- (fuera de la partida se espera: no se pisa con el fin de partida ni se gasta en el menú)
+	if readyAchievements and (ReplicatedStorage:GetAttribute("State") ~= "Playing" or ClientState.InMainMenu) then
+		return
+	end
 	if readyAchievements then
 		for id, achievement in ready do
 			if not readyAchievements[id] then
@@ -31517,7 +31540,9 @@ local renderCrosshair
 local clutch = nil -- { Enemies = N } mientras dura
 checkClutch = function(aliveA, aliveB, teamA)
 	local mode = ReplicatedStorage:GetAttribute("Mode")
-	if (mode ~= "ELIM" and mode ~= "SND") or ReplicatedStorage:GetAttribute("Infection") == "On" or not player.Team then
+	-- (solo quien juega de verdad esta ronda: no desde la pantalla de inicio)
+	if (mode ~= "ELIM" and mode ~= "SND") or ReplicatedStorage:GetAttribute("Infection") == "On" or not player.Team
+		or ClientState.InMainMenu or player:GetAttribute("InMenu") or not player:GetAttribute("ElimIn") then
 		clutch = nil
 		return
 	end
@@ -31534,7 +31559,8 @@ checkClutch = function(aliveA, aliveB, teamA)
 			RewardFX.EdgeFlash(Color3.fromRGB(255, 60, 40), 0.5)
 			Sounds.Play("Boom", nil, 1.1, 0.3)
 		end
-	elseif theirs == 0 and alive then
+	elseif theirs == 0 and alive and ReplicatedStorage:GetAttribute("Bomb_State") ~= "Planted" then
+		-- (con la bomba plantada aún hay que desactivarla: entonces no es victoria todavía)
 		RewardFX.Celebrate("🔥 ¡CLUTCH!", "Ganaste la ronda tú solo contra " .. clutch.Enemies, Color3.fromRGB(255, 140, 40), true)
 		clutch = nil
 	elseif not alive or mine > 1 then
@@ -33211,7 +33237,11 @@ function MatchIntro.Show()
 		if token == showToken then
 			gui.Enabled = false
 			-- ¡A por ellos! (solo si la partida sigue en marcha)
-			if ReplicatedStorage:GetAttribute("State") == "Playing" and not ClientState.InMainMenu then
+			-- (no en Eliminación, Buscar y destruir ni Infección: ahí el servidor ya anuncia «¡YA!»,
+			-- «ATACAS/DEFIENDES» o la fase de esconderse)
+			local mode = ReplicatedStorage:GetAttribute("Mode")
+			if ReplicatedStorage:GetAttribute("State") == "Playing" and not ClientState.InMainMenu
+				and mode ~= "ELIM" and mode ~= "SND" and mode ~= "INF" and not ReplicatedStorage:GetAttribute("Frozen") then
 				RewardFX.Punch("¡A LUCHAR!", Color3.fromRGB(255, 220, 90))
 			end
 		end
@@ -35403,7 +35433,8 @@ local function buildShopPage(data)
 		Parent = scroll,
 	}, { UI.corner(12), UI.stroke(Color3.fromRGB(90, 230, 110), 2, 0) })
 	local streak = data.DailyStreak or 0
-	local nextDay = data.DailyAvailable and ((streak % #Shop.DailyRewards) + 1) or streak
+	-- (el servidor dice qué día toca: si se saltó uno, la racha vuelve a empezar)
+	local nextDay = data.DailyAvailable and (data.DailyNext or ((streak % #Shop.DailyRewards) + 1)) or streak
 	UI.label({
 		Position = UDim2.fromOffset(16, 0),
 		Size = UDim2.new(1, -260, 0, 56),
@@ -35434,7 +35465,7 @@ local function buildShopPage(data)
 		UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for day, coins in Shop.DailyRewards do
-		local claimed = day < nextDay or (not data.DailyAvailable and day <= streak)
+		local claimed = (data.DailyAvailable and day < nextDay) or (not data.DailyAvailable and day <= streak)
 		local today = data.DailyAvailable and day == nextDay
 		local cell = UI.new("Frame", {
 			LayoutOrder = day,
@@ -35454,7 +35485,11 @@ local function buildShopPage(data)
 		if today then
 			-- (el de hoy late)
 			local pulse = UI.new("UIScale", { Parent = cell })
-			TweenService:Create(pulse, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.08 }):Play()
+			local beat = TweenService:Create(pulse, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.08 })
+			beat:Play()
+			cell.Destroying:Connect(function()
+				beat:Cancel() -- (el latido es infinito: se para al rehacer la página)
+			end)
 		end
 	end
 
@@ -37760,15 +37795,25 @@ end
 -- Celebración a pantalla completa. title: texto grande; subtitle: debajo (opcional);
 -- color: el de la celebración; big: más confeti y una nota más. Si ya hay una en pantalla, espera
 -- su turno (devuelve true); si la cola está llena, nil
-function RewardFX.Celebrate(title, subtitle, color, big)
+-- priority: pasa delante en la cola (y si está llena, echa a la última): subir de rango o de nivel no
+-- se pierde nunca por otras celebraciones menores
+function RewardFX.Celebrate(title, subtitle, color, big, priority)
 	if not gui then
 		return nil
 	end
 	if celebrating then
+		local entry = { title, subtitle, color, big }
+		if priority then
+			if #queue >= MAX_QUEUE then
+				table.remove(queue)
+			end
+			table.insert(queue, 1, entry)
+			return true
+		end
 		if #queue >= MAX_QUEUE then
 			return nil
 		end
-		table.insert(queue, { title, subtitle, color, big })
+		table.insert(queue, entry)
 		return true
 	end
 	celebrating = true

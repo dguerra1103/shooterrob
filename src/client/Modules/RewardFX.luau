@@ -334,15 +334,25 @@ end
 -- Celebración a pantalla completa. title: texto grande; subtitle: debajo (opcional);
 -- color: el de la celebración; big: más confeti y una nota más. Si ya hay una en pantalla, espera
 -- su turno (devuelve true); si la cola está llena, nil
-function RewardFX.Celebrate(title, subtitle, color, big)
+-- priority: pasa delante en la cola (y si está llena, echa a la última): subir de rango o de nivel no
+-- se pierde nunca por otras celebraciones menores
+function RewardFX.Celebrate(title, subtitle, color, big, priority)
 	if not gui then
 		return nil
 	end
 	if celebrating then
+		local entry = { title, subtitle, color, big }
+		if priority then
+			if #queue >= MAX_QUEUE then
+				table.remove(queue)
+			end
+			table.insert(queue, 1, entry)
+			return true
+		end
 		if #queue >= MAX_QUEUE then
 			return nil
 		end
-		table.insert(queue, { title, subtitle, color, big })
+		table.insert(queue, entry)
 		return true
 	end
 	celebrating = true
