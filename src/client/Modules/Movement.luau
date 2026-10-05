@@ -5,7 +5,6 @@
 --   * aterrizar desde alto da un golpe de cámara y, si es muy alto, frena un momento
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -405,7 +404,7 @@ end
 
 function Movement.Init()
 	buildStaminaBar()
-	ContextActionService:BindAction("Sprint", function(_, state, input)
+	TouchLayout.BindAction("Sprint", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 				sprintHeld = not sprintHeld
@@ -417,11 +416,11 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
-	ContextActionService:SetTitle("Sprint", "🏃")
+	TouchLayout.SetTitle("Sprint", "🏃")
 	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	-- C: corriendo te deslizas; si no, te agachas o te levantas (como en los shooters de móvil)
-	ContextActionService:BindAction("Slide", function(_, state)
+	TouchLayout.BindAction("Slide", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			local running = ClientState.Sprinting or currentSpeed > GameConfig.WalkSpeed + 1
 			if running then
@@ -433,7 +432,7 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
-	ContextActionService:SetTitle("Slide", "⬇")
+	TouchLayout.SetTitle("Slide", "⬇")
 	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr

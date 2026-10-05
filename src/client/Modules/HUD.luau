@@ -502,7 +502,7 @@ local function buildFeedsAndOverlays()
 	refs.KillFeed = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		-- (teléfono: más pequeño y a la izquierda del botón del marcador)
-		Position = phone and UDim2.new(1, -80, 0, 46) or UDim2.new(1, -16, 0, 60),
+		Position = phone and UDim2.new(1, -80, 0, 54) or UDim2.new(1, -16, 0, 60),
 		Size = UDim2.fromOffset(380, 220),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -557,10 +557,12 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 
+	-- (teléfono: arriba, encima del aviso de baja; abajo estaba sobre la mira y la munición)
 	refs.CarrierBanner = UI.label({
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -158),
-		Size = UDim2.fromOffset(700, 34),
+		AnchorPoint = phone and Vector2.new(0.5, 0) or Vector2.new(0.5, 1),
+		Position = phone and UDim2.new(0.5, 0, 0, 82) or UDim2.new(0.5, 0, 1, -158),
+		Size = phone and UDim2.new(0.55, 0, 0, 22) or UDim2.fromOffset(700, 34),
+		TextScaled = phone,
 		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
 		TextSize = 28,
 		TextColor3 = Color3.fromRGB(255, 220, 70),
@@ -569,15 +571,21 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 
+	-- (teléfono: a la izquierda, bajo los avisos de XP; en el centro de abajo está la munición)
 	refs.Toast = UI.label({
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -122),
-		Size = UDim2.fromOffset(600, 30),
+		AnchorPoint = phone and Vector2.new(1, 0) or Vector2.new(0.5, 1),
+		Position = phone and UDim2.new(0.5, -90, 0.5, 70) or UDim2.new(0.5, 0, 1, -122),
+		Size = phone and UDim2.fromOffset(300, 20) or UDim2.fromOffset(600, 30),
 		Text = "",
 		TextSize = 22,
+		TextScaled = phone,
+		TextXAlignment = phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center,
 		Visible = false,
 		Parent = gui,
 	})
+	if phone then
+		UI.new("UITextSizeConstraint", { MaxTextSize = 16, Parent = refs.Toast })
+	end
 
 	-- Viñeta roja de daño
 	refs.Damage = UI.new("Frame", {
@@ -2041,7 +2049,7 @@ local function render(dt)
 			elseif ClientState.Ammo == 0 and reserve == 0 then
 				refs.ReloadHint.Text = "SIN MUNICIÓN"
 			elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
-				refs.ReloadHint.Text = "[R] Recargar"
+				refs.ReloadHint.Text = UserInputService.KeyboardEnabled and "[R] Recargar" or "🔄 Recargar"
 			else
 				refs.ReloadHint.Text = ""
 			end

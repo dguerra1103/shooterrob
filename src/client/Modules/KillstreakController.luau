@@ -3,7 +3,6 @@
 --  * Ataque aéreo: tecla T (cruceta derecha en mando) lanza el ataque al punto al que apuntas
 --  * Marcas rojas en el suelo antes de que caigan las bombas
 local Players = game:GetService("Players")
-local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
@@ -96,6 +95,8 @@ local function updateWidget()
 	strikeWidget.Visible = charges > 0 and not ClientState.InMainMenu
 		and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	strikeLabel.Text = "✈ T" .. (charges > 1 and (" ×" .. charges) or "")
+	-- (en el botón táctil, cuántos hay si son varios)
+	TouchLayout.SetTitle("Airstrike", charges > 1 and ("✈" .. charges) or "✈")
 end
 
 -- Punto al que apunta la cámara (o lejos al frente si apunta al cielo)
@@ -202,13 +203,13 @@ function KillstreakController.Init()
 		Parent = gui,
 	})
 
-	ContextActionService:BindAction("Airstrike", function(_, state)
+	TouchLayout.BindAction("Airstrike", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			callAirstrike()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
-	ContextActionService:SetTitle("Airstrike", "✈")
+	TouchLayout.SetTitle("Airstrike", "✈")
 	TouchLayout.Set("Airstrike", UDim2.new(1, -280, 1, -310))
 	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
 	ClientState.UpdateMouse()

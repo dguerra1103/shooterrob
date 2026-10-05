@@ -2,7 +2,6 @@
 -- emote la cámara pasa a tercera persona para verte; vuelve a primera persona al moverte o al acabar.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
@@ -136,7 +135,7 @@ end
 
 function Emotes.Init()
 	build()
-	ContextActionService:BindAction("Emotes", function(_, state)
+	TouchLayout.BindAction("Emotes", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			if wheel.Visible then
 				setWheel(false)
@@ -147,7 +146,7 @@ function Emotes.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.N)
 	-- Botón táctil en móvil
-	ContextActionService:SetTitle("Emotes", "😀")
+	TouchLayout.SetTitle("Emotes", "😀")
 	TouchLayout.Set("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then

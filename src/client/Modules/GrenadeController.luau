@@ -1,6 +1,5 @@
 -- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
 local Players = game:GetService("Players")
-local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
@@ -52,8 +51,14 @@ end
 local lastKey
 local function updateWidget()
 	local gunGame = ReplicatedStorage:GetAttribute("Mode") == "GUN"
-	widget.Visible = not ClientState.InMainMenu and not gunGame
-	if not widget.Visible then
+	local active = not ClientState.InMainMenu and not gunGame
+	-- (con pantalla táctil el cartel no sale: está el botón 💣, que tampoco sale en la Escalada)
+	widget.Visible = active and not touchOnly
+	local touchButton = TouchLayout.GetButton("Grenade")
+	if touchButton then
+		touchButton.Visible = active and not ClientState.IsBlocked()
+	end
+	if not active then
 		return
 	end
 	local left = readyAt() - workspace:GetServerTimeNow()
@@ -66,7 +71,7 @@ local function updateWidget()
 	-- (en pantallas táctiles el botón 💣 es el de Roblox: la cuenta atrás va en su texto)
 	if touchOnly then
 		pcall(function()
-			ContextActionService:SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
+			TouchLayout.SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
 		end)
 	end
 	if left <= 0 then
@@ -108,13 +113,13 @@ function GrenadeController.Init()
 	}, { UI.corner(10) })
 	label = UI.label({ Size = UDim2.fromScale(1, 1), Text = "💣 G", TextSize = 20, ZIndex = 2, Parent = widget })
 
-	ContextActionService:BindAction("Grenade", function(_, state)
+	TouchLayout.BindAction("Grenade", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			throw()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
-	ContextActionService:SetTitle("Grenade", "💣")
+	TouchLayout.SetTitle("Grenade", "💣")
 	TouchLayout.Set("Grenade", UDim2.new(1, -200, 1, -270))
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)

@@ -26878,12 +26878,16 @@ function ClientState.UpdateMouse()
 	local blocked = ClientState.IsBlocked()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
-	local cas = game:GetService("ContextActionService")
+	-- (los botones táctiles son nuestros, de TouchLayout: se pide aquí para no requerirlo al cargar)
+	local okLayout, TouchLayout = pcall(require, script.Parent.TouchLayout)
+	if not okLayout then
+		return
+	end
 	-- (el de emotes sigue visible con su propia rueda abierta: en el móvil es la forma de cerrarla)
 	local onlyEmotes = ClientState.EmoteMenuOpen and not (ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
 		or ClientState.Dead or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen)
 	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Spray", "Scoreboard" } do
-		local button = cas:GetButton(name)
+		local button = TouchLayout.GetButton(name)
 		if button then
 			button.Visible = not blocked or (name == "Emotes" and onlyEmotes)
 			-- (el del ataque aéreo solo cuando hay alguno listo)
@@ -28828,7 +28832,6 @@ return Effects
 -- emote la cámara pasa a tercera persona para verte; vuelve a primera persona al moverte o al acabar.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
@@ -28962,7 +28965,7 @@ end
 
 function Emotes.Init()
 	build()
-	ContextActionService:BindAction("Emotes", function(_, state)
+	TouchLayout.BindAction("Emotes", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			if wheel.Visible then
 				setWheel(false)
@@ -28973,7 +28976,7 @@ function Emotes.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.N)
 	-- Botón táctil en móvil
-	ContextActionService:SetTitle("Emotes", "😀")
+	TouchLayout.SetTitle("Emotes", "😀")
 	TouchLayout.Set("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then
@@ -29392,7 +29395,6 @@ return Footprints
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
 -- tienes delante. El servidor (Graffiti) comprueba el punto y lo pinta para todos.
 local Players = game:GetService("Players")
-local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -29445,13 +29447,13 @@ local function spray()
 end
 
 function Graffiti.Init()
-	ContextActionService:BindAction("Spray", function(_, state)
+	TouchLayout.BindAction("Spray", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			spray()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J, Enum.KeyCode.ButtonR1) -- (R1 en el mando)
-	ContextActionService:SetTitle("Spray", "🎨")
+	TouchLayout.SetTitle("Spray", "🎨")
 	TouchLayout.Set("Spray", UDim2.new(1, -200, 1, -340))
 end
 
@@ -29464,7 +29466,6 @@ return Graffiti
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
 local Players = game:GetService("Players")
-local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
@@ -29516,8 +29517,14 @@ end
 local lastKey
 local function updateWidget()
 	local gunGame = ReplicatedStorage:GetAttribute("Mode") == "GUN"
-	widget.Visible = not ClientState.InMainMenu and not gunGame
-	if not widget.Visible then
+	local active = not ClientState.InMainMenu and not gunGame
+	-- (con pantalla táctil el cartel no sale: está el botón 💣, que tampoco sale en la Escalada)
+	widget.Visible = active and not touchOnly
+	local touchButton = TouchLayout.GetButton("Grenade")
+	if touchButton then
+		touchButton.Visible = active and not ClientState.IsBlocked()
+	end
+	if not active then
 		return
 	end
 	local left = readyAt() - workspace:GetServerTimeNow()
@@ -29530,7 +29537,7 @@ local function updateWidget()
 	-- (en pantallas táctiles el botón 💣 es el de Roblox: la cuenta atrás va en su texto)
 	if touchOnly then
 		pcall(function()
-			ContextActionService:SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
+			TouchLayout.SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
 		end)
 	end
 	if left <= 0 then
@@ -29572,13 +29579,13 @@ function GrenadeController.Init()
 	}, { UI.corner(10) })
 	label = UI.label({ Size = UDim2.fromScale(1, 1), Text = "💣 G", TextSize = 20, ZIndex = 2, Parent = widget })
 
-	ContextActionService:BindAction("Grenade", function(_, state)
+	TouchLayout.BindAction("Grenade", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			throw()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
-	ContextActionService:SetTitle("Grenade", "💣")
+	TouchLayout.SetTitle("Grenade", "💣")
 	TouchLayout.Set("Grenade", UDim2.new(1, -200, 1, -270))
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)
@@ -30220,7 +30227,7 @@ local function buildFeedsAndOverlays()
 	refs.KillFeed = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		-- (teléfono: más pequeño y a la izquierda del botón del marcador)
-		Position = phone and UDim2.new(1, -80, 0, 46) or UDim2.new(1, -16, 0, 60),
+		Position = phone and UDim2.new(1, -80, 0, 54) or UDim2.new(1, -16, 0, 60),
 		Size = UDim2.fromOffset(380, 220),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -30275,10 +30282,12 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 
+	-- (teléfono: arriba, encima del aviso de baja; abajo estaba sobre la mira y la munición)
 	refs.CarrierBanner = UI.label({
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -158),
-		Size = UDim2.fromOffset(700, 34),
+		AnchorPoint = phone and Vector2.new(0.5, 0) or Vector2.new(0.5, 1),
+		Position = phone and UDim2.new(0.5, 0, 0, 82) or UDim2.new(0.5, 0, 1, -158),
+		Size = phone and UDim2.new(0.55, 0, 0, 22) or UDim2.fromOffset(700, 34),
+		TextScaled = phone,
 		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
 		TextSize = 28,
 		TextColor3 = Color3.fromRGB(255, 220, 70),
@@ -30287,15 +30296,21 @@ local function buildFeedsAndOverlays()
 		Parent = gui,
 	})
 
+	-- (teléfono: a la izquierda, bajo los avisos de XP; en el centro de abajo está la munición)
 	refs.Toast = UI.label({
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -122),
-		Size = UDim2.fromOffset(600, 30),
+		AnchorPoint = phone and Vector2.new(1, 0) or Vector2.new(0.5, 1),
+		Position = phone and UDim2.new(0.5, -90, 0.5, 70) or UDim2.new(0.5, 0, 1, -122),
+		Size = phone and UDim2.fromOffset(300, 20) or UDim2.fromOffset(600, 30),
 		Text = "",
 		TextSize = 22,
+		TextScaled = phone,
+		TextXAlignment = phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center,
 		Visible = false,
 		Parent = gui,
 	})
+	if phone then
+		UI.new("UITextSizeConstraint", { MaxTextSize = 16, Parent = refs.Toast })
+	end
 
 	-- Viñeta roja de daño
 	refs.Damage = UI.new("Frame", {
@@ -31759,7 +31774,7 @@ local function render(dt)
 			elseif ClientState.Ammo == 0 and reserve == 0 then
 				refs.ReloadHint.Text = "SIN MUNICIÓN"
 			elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
-				refs.ReloadHint.Text = "[R] Recargar"
+				refs.ReloadHint.Text = UserInputService.KeyboardEnabled and "[R] Recargar" or "🔄 Recargar"
 			else
 				refs.ReloadHint.Text = ""
 			end
@@ -32085,7 +32100,6 @@ return JumpPads
 --  * Ataque aéreo: tecla T (cruceta derecha en mando) lanza el ataque al punto al que apuntas
 --  * Marcas rojas en el suelo antes de que caigan las bombas
 local Players = game:GetService("Players")
-local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
@@ -32178,6 +32192,8 @@ local function updateWidget()
 	strikeWidget.Visible = charges > 0 and not ClientState.InMainMenu
 		and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	strikeLabel.Text = "✈ T" .. (charges > 1 and (" ×" .. charges) or "")
+	-- (en el botón táctil, cuántos hay si son varios)
+	TouchLayout.SetTitle("Airstrike", charges > 1 and ("✈" .. charges) or "✈")
 end
 
 -- Punto al que apunta la cámara (o lejos al frente si apunta al cielo)
@@ -32284,13 +32300,13 @@ function KillstreakController.Init()
 		Parent = gui,
 	})
 
-	ContextActionService:BindAction("Airstrike", function(_, state)
+	TouchLayout.BindAction("Airstrike", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			callAirstrike()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
-	ContextActionService:SetTitle("Airstrike", "✈")
+	TouchLayout.SetTitle("Airstrike", "✈")
 	TouchLayout.Set("Airstrike", UDim2.new(1, -280, 1, -310))
 	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
 	ClientState.UpdateMouse()
@@ -36638,7 +36654,6 @@ return Minimap
 --   * aterrizar desde alto da un golpe de cámara y, si es muy alto, frena un momento
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37038,7 +37053,7 @@ end
 
 function Movement.Init()
 	buildStaminaBar()
-	ContextActionService:BindAction("Sprint", function(_, state, input)
+	TouchLayout.BindAction("Sprint", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 				sprintHeld = not sprintHeld
@@ -37050,11 +37065,11 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
-	ContextActionService:SetTitle("Sprint", "🏃")
+	TouchLayout.SetTitle("Sprint", "🏃")
 	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	-- C: corriendo te deslizas; si no, te agachas o te levantas (como en los shooters de móvil)
-	ContextActionService:BindAction("Slide", function(_, state)
+	TouchLayout.BindAction("Slide", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			local running = ClientState.Sprinting or currentSpeed > GameConfig.WalkSpeed + 1
 			if running then
@@ -37066,7 +37081,7 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
-	ContextActionService:SetTitle("Slide", "⬇")
+	TouchLayout.SetTitle("Slide", "⬇")
 	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr
@@ -37592,6 +37607,7 @@ local RunService = game:GetService("RunService")
 
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
 
 local RewardFX = {}
 
@@ -37628,10 +37644,8 @@ end
 
 -- Teléfono (táctil y pantalla baja): todo un poco más pequeño y más arriba, para no tapar la mira
 -- ni los botones
-local UserInputService = game:GetService("UserInputService")
 local function isPhone()
-	local camera = workspace.CurrentCamera
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and camera ~= nil and camera.ViewportSize.Y < 500
+	return UI.IsPhone()
 end
 RewardFX.IsPhone = isPhone
 
@@ -37687,6 +37701,8 @@ local function buildScore()
 end
 
 function RewardFX.Init()
+	-- (se espera a saber el tamaño de la pantalla: si no, una tablet podía quedarse con lo del teléfono)
+	UI.WaitViewport()
 	local player = Players.LocalPlayer
 	gui = Instance.new("ScreenGui")
 	gui.Name = "RewardFX"
@@ -38206,7 +38222,6 @@ return ScopeGlint
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ContextActionService = game:GetService("ContextActionService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
@@ -38489,7 +38504,7 @@ function Scoreboard.Init()
 	fit()
 
 	-- Tab: se ve mientras se mantiene pulsado. En móvil el botón 📋 lo abre y lo cierra.
-	ContextActionService:BindAction("Scoreboard", function(_, state, input)
+	TouchLayout.BindAction("Scoreboard", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin then
 				setVisible(not visible)
@@ -38507,7 +38522,7 @@ function Scoreboard.Init()
 			setVisible(false)
 		end
 	end)
-	ContextActionService:SetTitle("Scoreboard", "📋")
+	TouchLayout.SetTitle("Scoreboard", "📋")
 	TouchLayout.Set("Scoreboard", UDim2.new(1, -60, 0, 70))
 
 	task.spawn(function()
@@ -38833,26 +38848,38 @@ return SkinFX
           <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">TouchLayout</string>
-              <string name="Source"><![CDATA[-- Posición de los botones táctiles (ContextActionService). Las posiciones del código están pensadas
--- para el teléfono, alrededor del botón de saltar de Roblox. En tablet (pantalla grande) ese botón
--- es más grande y está más arriba y a la izquierda (120 px, a 170 de la derecha y 210 de abajo), así
--- que todo el grupo de abajo a la derecha se corre a la izquierda para no taparlo.
--- En el teléfono hay una disposición propia (PHONE): un racimo ordenado alrededor del botón de saltar,
--- como en los shooters de móvil (disparar grande, apuntar y agacharse a mano del pulgar), sin que
--- ningún botón pise a otro, y los botones de menos uso (marcador, emotes, grafiti) pequeños arriba a
--- la derecha.
+              <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
+-- en un recuadro del cuarto de abajo a la derecha: en el móvil faltaban la granada, el ataque
+-- aéreo, los emotes, el grafiti y el marcador, y los demás salían desordenados. Así que en pantallas
+-- táctiles los botones son nuestros: sin límite, con su icono, del tamaño que toca y colocados en la
+-- pantalla exactamente donde se dice. Las teclas y el mando siguen con ContextActionService.
+--
+-- Uso (como ContextActionService): TouchLayout.BindAction(nombre, función, conBotón, teclas...),
+-- TouchLayout.SetTitle(nombre, texto) y TouchLayout.Set(nombre, posición). La función recibe
+-- (nombre, estado, input) igual que con ContextActionService.
+--
+-- Posiciones: las del código son las de siempre (pensadas alrededor del botón de saltar de Roblox).
+-- En tablet ese botón es más grande y está más arriba y a la izquierda, así que el grupo de abajo a la
+-- derecha se corre a la izquierda. En el teléfono hay una disposición propia (PHONE): un racimo
+-- ordenado alrededor del botón de saltar, como en los shooters de móvil (disparar grande, apuntar y
+-- agacharse a mano del pulgar), sin que ningún botón pise a otro, y los de menos uso (marcador,
+-- emotes, grafiti) pequeños arriba a la derecha.
 local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 
 local UI = require(script.Parent.UI)
 
 local TouchLayout = {}
 
 local TABLET_SHIFT_X = -130
-local registered = {} -- [acción] = posición de teléfono
+local registered = {} -- [acción] = posición pedida por el código
+local buttons = {} -- [acción] = { Button, Label, Handler }
 local watching = false
+local gui
 
--- Teléfono: { posición (esquina de arriba a la izquierda), tamaño }. El salto de Roblox ocupa
--- (1,-95)..(1,-25) de ancho y (1,-90)..(1,-20) de alto.
+-- Teléfono: { posición en pantalla (esquina de arriba a la izquierda), tamaño }. El salto de Roblox
+-- ocupa (1,-95)..(1,-25) de ancho y (1,-90)..(1,-20) de alto.
 local BIG, NORMAL, SMALL = 76, 52, 40
 local PHONE = {
 	Fire = { UDim2.new(1, -180, 1, -176), BIG }, -- (arriba a la izquierda del salto)
@@ -38869,71 +38896,183 @@ local PHONE = {
 	Spray = { UDim2.new(1, -60, 0, 8), SMALL },
 }
 TouchLayout.Phone = PHONE
+-- Tablet y pantallas medianas: arriba a la derecha también los de menos uso
+local TOP_ROW = {
+	Scoreboard = UDim2.new(1, -60, 0, 8),
+	Emotes = UDim2.new(1, -112, 0, 8),
+	Spray = UDim2.new(1, -164, 0, 8),
+}
 
 local function isLarge()
 	local size = workspace.CurrentCamera.ViewportSize
 	return math.min(size.X, size.Y) > 500
 end
 
--- El texto del botón se encoge para caber (si no, «Disparar» salía partido en «Dispar / ar»)
-local function styleButton(actionName, size)
-	pcall(function()
-		local button = ContextActionService:GetButton(actionName)
-		if not button then
-			return
-		end
-		if size then
-			button.Size = UDim2.fromOffset(size, size)
-		end
-		local title = button:FindFirstChild("ActionTitle")
-		if title and title:IsA("TextLabel") then
-			title.TextScaled = true
-			title.TextWrapped = false
-			if not title:FindFirstChildOfClass("UITextSizeConstraint") then
-				local fit = Instance.new("UITextSizeConstraint")
-				fit.MaxTextSize = 22
-				fit.MinTextSize = 8
-				fit.Parent = title
-			end
-		end
-	end)
+local function touchDevice()
+	return UserInputService.TouchEnabled
+end
+
+local function ensureGui()
+	if gui and gui.Parent then
+		return gui
+	end
+	gui = Instance.new("ScreenGui")
+	gui.Name = "TouchButtons"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 3
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	return gui
 end
 
 local function apply(actionName, position)
-	local size
+	local entry = buttons[actionName]
+	if not entry then
+		return
+	end
+	local size = NORMAL
 	local phoneSpot = UI.IsPhone() and PHONE[actionName]
 	if phoneSpot then
 		position, size = phoneSpot[1], phoneSpot[2]
-	elseif isLarge() and position.X.Scale == 1 and position.Y.Scale == 1 then
-		position = UDim2.new(1, position.X.Offset + TABLET_SHIFT_X, 1, position.Y.Offset)
+	elseif TOP_ROW[actionName] then
+		position, size = TOP_ROW[actionName], 46
+	elseif isLarge() then
+		size = actionName == "Fire" and 90 or 64
+		if position.X.Scale == 1 and position.Y.Scale == 1 then
+			position = UDim2.new(1, position.X.Offset + TABLET_SHIFT_X, 1, position.Y.Offset)
+		end
+	elseif actionName == "Fire" then
+		size = 64
 	end
-	pcall(function()
-		ContextActionService:SetPosition(actionName, position)
-	end)
-	styleButton(actionName, size)
+	entry.Button.Position = position
+	entry.Button.Size = UDim2.fromOffset(size, size)
 end
 
--- Igual que ContextActionService:SetPosition, pero se ajusta en tablet y teléfono (y al girar la
--- pantalla, o cuando se sabe por fin su tamaño: al arrancar puede valer 0)
+-- Botón redondo y translúcido con su icono; mientras se pulsa, más claro
+local function createButton(actionName, handler)
+	local button = Instance.new("TextButton")
+	button.Name = actionName
+	button.AutoButtonColor = false
+	button.Text = ""
+	button.BackgroundColor3 = Color3.fromRGB(15, 18, 26)
+	button.BackgroundTransparency = 0.45
+	button.Size = UDim2.fromOffset(NORMAL, NORMAL)
+	button.Position = UDim2.new(1, -120, 1, -160)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = button
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.new(1, 1, 1)
+	stroke.Transparency = 0.35
+	stroke.Thickness = 2
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = button
+	local label = Instance.new("TextLabel")
+	label.Name = "ActionTitle"
+	label.BackgroundTransparency = 1
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
+	label.Position = UDim2.fromScale(0.5, 0.5)
+	label.Size = UDim2.fromScale(0.62, 0.62)
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextScaled = true
+	label.Text = ""
+	label.Parent = button
+	local fit = Instance.new("UITextSizeConstraint")
+	fit.MaxTextSize = 34
+	fit.Parent = label
+	-- Pulsar y soltar llaman a la acción como lo haría ContextActionService (con el toque real)
+	button.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.Touch and input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			return
+		end
+		button.BackgroundTransparency = 0.15
+		task.spawn(handler, actionName, Enum.UserInputState.Begin, input)
+		local connection
+		connection = input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+			local state = input.UserInputState
+			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+				connection:Disconnect()
+				button.BackgroundTransparency = 0.45
+				task.spawn(handler, actionName, state, input)
+			end
+		end)
+	end)
+	button.Parent = ensureGui()
+	buttons[actionName] = { Button = button, Label = label, Handler = handler }
+	-- (que respete enseguida si hay un menú abierto o la pantalla de inicio)
+	task.defer(function()
+		local ok, ClientState = pcall(require, script.Parent.ClientState)
+		if ok and ClientState.UpdateMouse then
+			pcall(ClientState.UpdateMouse)
+		end
+	end)
+	if registered[actionName] then
+		apply(actionName, registered[actionName])
+	end
+	return button
+end
+
+local function watch()
+	if watching then
+		return
+	end
+	watching = true
+	local function mode()
+		return (UI.IsPhone() and "phone") or (isLarge() and "large") or "normal"
+	end
+	local was = mode()
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		local now = mode()
+		if now ~= was then
+			was = now
+			for name, position in registered do
+				apply(name, position)
+			end
+		end
+	end)
+end
+
+-- Como ContextActionService:BindAction; si conBotón y la pantalla es táctil, el botón es nuestro
+function TouchLayout.BindAction(actionName, handler, withButton, ...)
+	ContextActionService:BindAction(actionName, handler, false, ...)
+	if withButton and touchDevice() then
+		if buttons[actionName] then
+			buttons[actionName].Button:Destroy()
+		end
+		createButton(actionName, handler)
+		watch()
+	end
+end
+
+function TouchLayout.UnbindAction(actionName)
+	ContextActionService:UnbindAction(actionName)
+	local entry = buttons[actionName]
+	if entry then
+		entry.Button:Destroy()
+		buttons[actionName] = nil
+	end
+end
+
+function TouchLayout.SetTitle(actionName, title)
+	local entry = buttons[actionName]
+	if entry then
+		entry.Label.Text = tostring(title)
+	end
+end
+
+-- El botón de una acción (nil si no hay: sin pantalla táctil o sin enlazar)
+function TouchLayout.GetButton(actionName)
+	local entry = buttons[actionName]
+	return entry and entry.Button or nil
+end
+
+-- Coloca el botón (se ajusta en tablet y teléfono, y al girar la pantalla o cuando se sabe por
+-- fin su tamaño: al arrancar puede valer 0)
 function TouchLayout.Set(actionName, position)
 	registered[actionName] = position
 	apply(actionName, position)
-	if not watching then
-		watching = true
-		local function mode()
-			return (UI.IsPhone() and "phone") or (isLarge() and "large") or "normal"
-		end
-		local was = mode()
-		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-			local now = mode()
-			if now ~= was then
-				was = now
-				for name, phonePosition in registered do
-					apply(name, phonePosition)
-				end
-			end
-		end)
-	end
+	watch()
 end
 
 return TouchLayout
@@ -39193,16 +39332,23 @@ end
 
 -- Espera a que la cámara sepa el tamaño de la pantalla (al arrancar puede valer 0 un instante y el
 -- móvil se confundía con un ordenador: minimapa y paneles salían a tamaño de escritorio)
+local viewportWaited = false
 function UI.WaitViewport(timeout)
+	-- (solo la primera vez se espera: si la pantalla no llega a saberse, los demás no esperan otra vez)
+	if viewportWaited then
+		return
+	end
 	local deadline = os.clock() + (timeout or 2)
 	while os.clock() < deadline do
 		local camera = workspace.CurrentCamera
 		local size = camera and camera.ViewportSize
 		if typeof(size) == "Vector2" and size.Y > 2 then
+			viewportWaited = true
 			return
 		end
 		task.wait(0.05)
 	end
+	viewportWaited = true
 end
 
 -- ¿Teléfono? (táctil, sin teclado y pantalla baja; las tablets usan la disposición normal)
@@ -39215,12 +39361,18 @@ end
 
 -- Dónde acaba la barra de botones de Roblox (menú, chat...) arriba a la izquierda: lo nuestro de esa
 -- esquina va debajo para no quedar tapado
+local topbarBottom = nil
 function UI.TopbarBottom()
+	-- (se guarda el primer valor bueno: así el minimapa, el regalo y el evento quedan alineados)
+	if topbarBottom then
+		return topbarBottom
+	end
 	local ok, inset = pcall(function()
 		return game:GetService("GuiService").TopbarInset
 	end)
 	if ok and typeof(inset) == "Rect" and inset.Height > 0 then
-		return math.floor(inset.Max.Y) + 6
+		topbarBottom = math.floor(inset.Max.Y) + 6
+		return topbarBottom
 	end
 	return 60
 end
@@ -39464,7 +39616,7 @@ local camera = workspace.CurrentCamera
 local WeaponController = {}
 
 -- Teléfono (UI.IsPhone): el arma de cadera se aparta un poco (se decide al arrancar)
-local PHONE_HIP = CFrame.new(0.1, -0.12, 0.18)
+local PHONE_HIP = CFrame.new(0.1, -0.12, -0.18) -- (más abajo, a la derecha y más lejos: se ve más pequeña)
 local phoneScreen = false
 
 -- Hombros del viewmodel (espacio de cámara, fuera de pantalla)
@@ -40454,7 +40606,7 @@ local function renderStep(dt)
 	-- Cadera -> mira
 	-- (en el teléfono, el arma de cadera algo más abajo, a la derecha y lejos: en una pantalla
 	-- pequeña tapaba media pantalla y los botones táctiles)
-	local hipOffset = phoneScreen and def.ViewOffset * PHONE_HIP or def.ViewOffset
+	local hipOffset = phoneScreen and PHONE_HIP * def.ViewOffset or def.ViewOffset
 	local base = hipOffset
 	if def.AimPoint then
 		local a = def.AimPoint
@@ -40633,7 +40785,7 @@ end
 ---------------------------------------------------------------------------
 
 local function bindActions()
-	ContextActionService:BindAction("Fire", function(_, state)
+	TouchLayout.BindAction("Fire", function(_, state)
 		if ClientState.IsBlocked() then
 			triggerHeld = false
 			return Enum.ContextActionResult.Pass
@@ -40652,10 +40804,10 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-	ContextActionService:SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
+	TouchLayout.SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
 	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
-	ContextActionService:BindAction("Aim", function(_, state, input)
+	TouchLayout.BindAction("Aim", function(_, state, input)
 		if ClientState.IsBlocked() then
 			aimHeld = false
 			return Enum.ContextActionResult.Pass
@@ -40671,25 +40823,25 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
-	ContextActionService:SetTitle("Aim", "🎯")
+	TouchLayout.SetTitle("Aim", "🎯")
 	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
-	ContextActionService:BindAction("Reload", function(_, state)
+	TouchLayout.BindAction("Reload", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			requestReload()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
-	ContextActionService:SetTitle("Reload", "🔄")
+	TouchLayout.SetTitle("Reload", "🔄")
 	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
-	ContextActionService:BindAction("Melee", function(_, state)
+	TouchLayout.BindAction("Melee", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			melee()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
-	ContextActionService:SetTitle("Melee", "🔪")
+	TouchLayout.SetTitle("Melee", "🔪")
 	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)
@@ -40718,13 +40870,13 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.V, Enum.KeyCode.DPadUp)
 
-	ContextActionService:BindAction("SwapWeapon", function(_, state)
+	TouchLayout.BindAction("SwapWeapon", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			cycleSlot(1)
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.Q)
-	ContextActionService:SetTitle("SwapWeapon", "⇄")
+	TouchLayout.SetTitle("SwapWeapon", "⇄")
 	TouchLayout.Set("SwapWeapon", UDim2.new(1, -280, 1, -100))
 
 	UserInputService.InputChanged:Connect(function(input, processed)

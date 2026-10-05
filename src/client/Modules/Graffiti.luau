@@ -1,7 +1,6 @@
 -- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
 -- tienes delante. El servidor (Graffiti) comprueba el punto y lo pinta para todos.
 local Players = game:GetService("Players")
-local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -54,13 +53,13 @@ local function spray()
 end
 
 function Graffiti.Init()
-	ContextActionService:BindAction("Spray", function(_, state)
+	TouchLayout.BindAction("Spray", function(_, state)
 		if state == Enum.UserInputState.Begin then
 			spray()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J, Enum.KeyCode.ButtonR1) -- (R1 en el mando)
-	ContextActionService:SetTitle("Spray", "🎨")
+	TouchLayout.SetTitle("Spray", "🎨")
 	TouchLayout.Set("Spray", UDim2.new(1, -200, 1, -340))
 end
 

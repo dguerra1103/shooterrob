@@ -91,16 +91,23 @@ end
 
 -- Espera a que la cámara sepa el tamaño de la pantalla (al arrancar puede valer 0 un instante y el
 -- móvil se confundía con un ordenador: minimapa y paneles salían a tamaño de escritorio)
+local viewportWaited = false
 function UI.WaitViewport(timeout)
+	-- (solo la primera vez se espera: si la pantalla no llega a saberse, los demás no esperan otra vez)
+	if viewportWaited then
+		return
+	end
 	local deadline = os.clock() + (timeout or 2)
 	while os.clock() < deadline do
 		local camera = workspace.CurrentCamera
 		local size = camera and camera.ViewportSize
 		if typeof(size) == "Vector2" and size.Y > 2 then
+			viewportWaited = true
 			return
 		end
 		task.wait(0.05)
 	end
+	viewportWaited = true
 end
 
 -- ¿Teléfono? (táctil, sin teclado y pantalla baja; las tablets usan la disposición normal)
@@ -113,12 +120,18 @@ end
 
 -- Dónde acaba la barra de botones de Roblox (menú, chat...) arriba a la izquierda: lo nuestro de esa
 -- esquina va debajo para no quedar tapado
+local topbarBottom = nil
 function UI.TopbarBottom()
+	-- (se guarda el primer valor bueno: así el minimapa, el regalo y el evento quedan alineados)
+	if topbarBottom then
+		return topbarBottom
+	end
 	local ok, inset = pcall(function()
 		return game:GetService("GuiService").TopbarInset
 	end)
 	if ok and typeof(inset) == "Rect" and inset.Height > 0 then
-		return math.floor(inset.Max.Y) + 6
+		topbarBottom = math.floor(inset.Max.Y) + 6
+		return topbarBottom
 	end
 	return 60
 end

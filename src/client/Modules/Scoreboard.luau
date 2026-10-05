@@ -4,7 +4,6 @@
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ContextActionService = game:GetService("ContextActionService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
@@ -287,7 +286,7 @@ function Scoreboard.Init()
 	fit()
 
 	-- Tab: se ve mientras se mantiene pulsado. En móvil el botón 📋 lo abre y lo cierra.
-	ContextActionService:BindAction("Scoreboard", function(_, state, input)
+	TouchLayout.BindAction("Scoreboard", function(_, state, input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin then
 				setVisible(not visible)
@@ -305,7 +304,7 @@ function Scoreboard.Init()
 			setVisible(false)
 		end
 	end)
-	ContextActionService:SetTitle("Scoreboard", "📋")
+	TouchLayout.SetTitle("Scoreboard", "📋")
 	TouchLayout.Set("Scoreboard", UDim2.new(1, -60, 0, 70))
 
 	task.spawn(function()

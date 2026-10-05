@@ -24,7 +24,7 @@ local camera = workspace.CurrentCamera
 local WeaponController = {}
 
 -- Teléfono (UI.IsPhone): el arma de cadera se aparta un poco (se decide al arrancar)
-local PHONE_HIP = CFrame.new(0.1, -0.12, 0.18)
+local PHONE_HIP = CFrame.new(0.1, -0.12, -0.18) -- (más abajo, a la derecha y más lejos: se ve más pequeña)
 local phoneScreen = false
 
 -- Hombros del viewmodel (espacio de cámara, fuera de pantalla)
@@ -1014,7 +1014,7 @@ local function renderStep(dt)
 	-- Cadera -> mira
 	-- (en el teléfono, el arma de cadera algo más abajo, a la derecha y lejos: en una pantalla
 	-- pequeña tapaba media pantalla y los botones táctiles)
-	local hipOffset = phoneScreen and def.ViewOffset * PHONE_HIP or def.ViewOffset
+	local hipOffset = phoneScreen and PHONE_HIP * def.ViewOffset or def.ViewOffset
 	local base = hipOffset
 	if def.AimPoint then
 		local a = def.AimPoint
@@ -1193,7 +1193,7 @@ end
 ---------------------------------------------------------------------------
 
 local function bindActions()
-	ContextActionService:BindAction("Fire", function(_, state)
+	TouchLayout.BindAction("Fire", function(_, state)
 		if ClientState.IsBlocked() then
 			triggerHeld = false
 			return Enum.ContextActionResult.Pass
@@ -1212,10 +1212,10 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-	ContextActionService:SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
+	TouchLayout.SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
 	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
-	ContextActionService:BindAction("Aim", function(_, state, input)
+	TouchLayout.BindAction("Aim", function(_, state, input)
 		if ClientState.IsBlocked() then
 			aimHeld = false
 			return Enum.ContextActionResult.Pass
@@ -1231,25 +1231,25 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
-	ContextActionService:SetTitle("Aim", "🎯")
+	TouchLayout.SetTitle("Aim", "🎯")
 	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
-	ContextActionService:BindAction("Reload", function(_, state)
+	TouchLayout.BindAction("Reload", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			requestReload()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
-	ContextActionService:SetTitle("Reload", "🔄")
+	TouchLayout.SetTitle("Reload", "🔄")
 	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
-	ContextActionService:BindAction("Melee", function(_, state)
+	TouchLayout.BindAction("Melee", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			melee()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
-	ContextActionService:SetTitle("Melee", "🔪")
+	TouchLayout.SetTitle("Melee", "🔪")
 	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)
@@ -1278,13 +1278,13 @@ local function bindActions()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.KeyCode.V, Enum.KeyCode.DPadUp)
 
-	ContextActionService:BindAction("SwapWeapon", function(_, state)
+	TouchLayout.BindAction("SwapWeapon", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 			cycleSlot(1)
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.Q)
-	ContextActionService:SetTitle("SwapWeapon", "⇄")
+	TouchLayout.SetTitle("SwapWeapon", "⇄")
 	TouchLayout.Set("SwapWeapon", UDim2.new(1, -280, 1, -100))
 
 	UserInputService.InputChanged:Connect(function(input, processed)

@@ -59,12 +59,16 @@ function ClientState.UpdateMouse()
 	local blocked = ClientState.IsBlocked()
 	game:GetService("UserInputService").MouseIconEnabled = blocked
 	-- Botones táctiles del juego: ocultos mientras hay un menú abierto
-	local cas = game:GetService("ContextActionService")
+	-- (los botones táctiles son nuestros, de TouchLayout: se pide aquí para no requerirlo al cargar)
+	local okLayout, TouchLayout = pcall(require, script.Parent.TouchLayout)
+	if not okLayout then
+		return
+	end
 	-- (el de emotes sigue visible con su propia rueda abierta: en el móvil es la forma de cerrarla)
 	local onlyEmotes = ClientState.EmoteMenuOpen and not (ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
 		or ClientState.Dead or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen)
 	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Spray", "Scoreboard" } do
-		local button = cas:GetButton(name)
+		local button = TouchLayout.GetButton(name)
 		if button then
 			button.Visible = not blocked or (name == "Emotes" and onlyEmotes)
 			-- (el del ataque aéreo solo cuando hay alguno listo)

@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local ClientState = require(script.Parent.ClientState)
+local UI = require(script.Parent.UI)
 
 local RewardFX = {}
 
@@ -51,10 +52,8 @@ end
 
 -- Teléfono (táctil y pantalla baja): todo un poco más pequeño y más arriba, para no tapar la mira
 -- ni los botones
-local UserInputService = game:GetService("UserInputService")
 local function isPhone()
-	local camera = workspace.CurrentCamera
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and camera ~= nil and camera.ViewportSize.Y < 500
+	return UI.IsPhone()
 end
 RewardFX.IsPhone = isPhone
 
@@ -110,6 +109,8 @@ local function buildScore()
 end
 
 function RewardFX.Init()
+	-- (se espera a saber el tamaño de la pantalla: si no, una tablet podía quedarse con lo del teléfono)
+	UI.WaitViewport()
 	local player = Players.LocalPlayer
 	gui = Instance.new("ScreenGui")
 	gui.Name = "RewardFX"
