@@ -361,6 +361,14 @@ function Map.Build()
 
 	-- Fondo: noria, montaña rusa, carpa del circo, pinos y colinas
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Nombres de las zonas
+	Kit.callout("TIOVIVO", CFrame.new(0, 10, 0), V(46, 24, 46))
+	Kit.callout("PASEO", CFrame.new(0, 10, 0), V(LENGTH, 24, 16))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CASETAS", m * CFrame.new(-44, 10, 50), V(50, 24, 18))
+		Kit.callout("COCHES DE CHOQUE", m * CFrame.new(-30, 10, -28), V(32, 24, 24))
+		Kit.callout("CASA DE LA RISA", m * CFrame.new(-70, 12, -48), V(26, 30, 22))
+	end
 	ferrisWheel(CFrame.new(-10, 0, WIDTH / 2 + 26) * CFrame.Angles(0, rad(180), 0), 26)
 	rollerCoaster(-110, 110, -(WIDTH / 2 + 24))
 	stripedCone(CFrame.new(70, 0, WIDTH / 2 + 34), 34, 22, RED, CREAM, 8)

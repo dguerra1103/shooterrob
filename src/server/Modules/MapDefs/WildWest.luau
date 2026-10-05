@@ -309,6 +309,15 @@ function Map.Build()
 
 	-- Fondo: tren de vapor, mesetas y cactus
 	Kit.bounds(LENGTH, WIDTH, 60)
+	-- Nombres de las zonas
+	Kit.callout("CALLE MAYOR", CFrame.new(0, 10, 0), V(LENGTH, 30, 30))
+	Kit.callout("DEPÓSITO DE AGUA", CFrame.new(0, 10, 0), V(16, 30, 16))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("ALMACÉN", m * CFrame.new(-61, 10, 33), V(16, 26, 18))
+		Kit.callout("SALOON", m * CFrame.new(-36, 12, 33), V(24, 30, 20))
+		Kit.callout("BANCO", m * CFrame.new(-58, 12, -33), V(20, 30, 20))
+		Kit.callout("SHERIFF", m * CFrame.new(-31, 10, -33), V(18, 26, 18))
+	end
 	block("TrackGround", V(LENGTH + 80, 2, 16), CFrame.new(0, -1, WIDTH / 2 + 24), DIRT_DARK, SMOOTH)
 	block("BackGround", V(LENGTH + 80, 2, 20), CFrame.new(0, -1, -(WIDTH / 2 + 26)), DIRT_DARK, SMOOTH)
 	train(CFrame.new(0, 0, WIDTH / 2 + 24))
