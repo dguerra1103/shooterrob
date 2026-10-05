@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Weapons = require(ReplicatedStorage.Shared.Weapons)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local RiflePose = {}
 
@@ -44,6 +45,10 @@ end
 -- arma giran alrededor del pecho
 local PITCH_PIVOT = Vector3.new(0, 0.5, 0)
 RiflePose.MaxPitch = 0.9 -- (unos 50°: más inclinado el arma se metería en la cabeza)
+-- Retroceso al disparar (lo ven los demás): el arma va un poco hacia atrás y arriba un instante
+local KICK = CFrame.new(0, 0.03, 0.14)
+local KICK_UP = 0.07
+local KICK_TIME = 0.06
 
 -- Dónde van la mano derecha (con su giro: el arma mira hacia delante) y la izquierda, respecto al pecho.
 -- Devuelve CFrame de la empuñadura y Vector3 de la mano izquierda, o nil si no es un arma de fuego
@@ -121,14 +126,44 @@ local function update(model)
 		grip, hand = RiflePose.Targets(tool:GetAttribute("Weapon"), tool:GetAttribute("WorldScale") or 1, model:GetAttribute("AimPitch"), rig.Reach)
 	end
 	if grip and hand then
+		-- (justo después de disparar, el golpe del retroceso)
+		if os.clock() < (rig.KickUntil or 0) then
+			grip = KICK * grip * CFrame.Angles(KICK_UP, 0, 0)
+			hand += KICK.Position + Vector3.new(0, KICK_UP * 0.5, 0)
+		end
 		rig.Grip.CFrame = grip
 		rig.Hand.Position = hand
 		rig.Right.Enabled = true
 		rig.Left.Enabled = true
+		-- La cabeza mira hacia donde apunta (un poco: el resto lo hacen los brazos)
+		if rig.Head and rig.Look then
+			local pitch = math.clamp(tonumber(model:GetAttribute("AimPitch")) or 0, -RiflePose.MaxPitch, RiflePose.MaxPitch)
+			rig.Look.Position = Vector3.new(0, 1.4, 0) + Vector3.new(0, math.sin(pitch), -math.cos(pitch)) * 10
+			rig.Head.Enabled = true
+		end
 	else
 		rig.Right.Enabled = false
 		rig.Left.Enabled = false
+		if rig.Head then
+			rig.Head.Enabled = false
+		end
 	end
+end
+
+-- Alguien dispara: su arma da el golpe del retroceso (y vuelve)
+function RiflePose.Kick(model)
+	local rig = rigs[model]
+	if not rig then
+		return false
+	end
+	rig.KickUntil = os.clock() + KICK_TIME
+	update(model)
+	task.delay(KICK_TIME + 0.01, function()
+		if rigs[model] == rig then
+			update(model)
+		end
+	end)
+	return true
 end
 
 local function release(model)
@@ -140,7 +175,7 @@ local function release(model)
 	for _, connection in rig.Connections do
 		connection:Disconnect()
 	end
-	for _, instance in { rig.Right, rig.Left, rig.Grip, rig.Hand, rig.PoleRight, rig.PoleLeft } do
+	for _, instance in { rig.Right, rig.Left, rig.Head, rig.Grip, rig.Hand, rig.Look, rig.PoleRight, rig.PoleLeft } do
 		if instance then
 			instance:Destroy()
 		end
@@ -176,7 +211,7 @@ function RiflePose.Setup(model)
 	right.EndEffector = rightGrip
 	right.Target = grip
 	right.Pole = poleRight
-	right.SmoothTime = 0.08
+	right.SmoothTime = 0.05
 	right.Weight = 1
 	right.Enabled = false
 	right.Parent = humanoid
@@ -188,10 +223,27 @@ function RiflePose.Setup(model)
 	left.EndEffector = leftGrip
 	left.Target = hand
 	left.Pole = poleLeft
-	left.SmoothTime = 0.08
+	left.SmoothTime = 0.05
 	left.Weight = 1
 	left.Enabled = false
 	left.Parent = humanoid
+
+	-- La cabeza (solo el cuello) mira un poco hacia donde apunta
+	local head = model:FindFirstChild("Head")
+	local headIK, look = nil, nil
+	if head and head:IsA("BasePart") then
+		look = attachment(torso, "PoseLook", Vector3.new(0, 1.4, -10))
+		headIK = Instance.new("IKControl")
+		headIK.Name = "PoseHead"
+		headIK.Type = Enum.IKControlType.LookAt
+		headIK.ChainRoot = torso
+		headIK.EndEffector = head
+		headIK.Target = look
+		headIK.SmoothTime = 0.1
+		headIK.Weight = 0.6
+		headIK.Enabled = false
+		headIK.Parent = humanoid
+	end
 
 	-- (lo que llega de verdad el brazo izquierdo de este personaje; si no se puede medir, lo normal)
 	local okLength, chain = pcall(function()
@@ -202,6 +254,8 @@ function RiflePose.Setup(model)
 		Reach = reach,
 		Right = right,
 		Left = left,
+		Head = headIK,
+		Look = look,
 		Grip = grip,
 		Hand = hand,
 		PoleRight = poleRight,
@@ -260,6 +314,12 @@ function RiflePose.Init()
 	if GameConfig.TwoHandedPose == false then
 		return
 	end
+	-- Los disparos de los demás (jugadores y bots): golpe de retroceso en su arma
+	Remotes.ShotFX.OnClientEvent:Connect(function(tool)
+		if typeof(tool) == "Instance" and tool.Parent then
+			RiflePose.Kick(tool.Parent)
+		end
+	end)
 	for _, other in Players:GetPlayers() do
 		watchPlayer(other)
 	end
