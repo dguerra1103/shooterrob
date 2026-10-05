@@ -35,6 +35,9 @@ Estado del pase "Stylized Tactical Roblox" (shooter 5v5). Corto a propósito: si
 - Cola de eco en los disparos, cámara más estable al apuntar, reacción al recibir daño.
 - Presets Rendimiento/Equilibrada/Alta/Ultra con nombre.
 - VISUAL_IMPROVEMENTS.md, PERFORMANCE_NOTES.md, NEXT_STEPS.md.
+- Revisión de código del pase (9 hallazgos, todos arreglados) y batería completa: 110 pruebas + 10 modos OK.
+- Asistencias en resumen y marcador, barras de estadísticas de armas, color de enemigo elegible,
+  sitios de bomba con nombre, desbloqueos con presentación, aviso de baja adaptado al teléfono.
 
 ## EN PROGRESO
 - Revisión de los cambios del pase y bucle de pulido.

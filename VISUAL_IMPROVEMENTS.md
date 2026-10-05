@@ -15,6 +15,8 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 |---|---|---|
 | **Contorno rojo fino** en enemigos (Highlight `Occluded`, borde semitransparente, sin relleno). Se quita al morir, se recalcula si cambia de bando y cede el sitio al radar y al destello de impacto (un resaltado por modelo). | Ver al enemigo al instante contra cualquier fondo, sin dar información a través de paredes. | `client/Modules/WorldFX.luau`, `GameConfig.EnemyOutline` |
 | **Nombres de zona**: «📍 HOTEL CENTRAL», «AVENIDA», «BASE AZUL» bajo el minimapa; con nombres propios en Encrucijada, Base Militar, Cumbre, Puerto, Contenedores y Fundición; en el resto, «NORTE · LADO AZUL». | 5v5: poder decir dónde estás («en las obras») y orientarse. | `client/Modules/ZoneName.luau`, `Kit.callout`, `RealKit.building` (los edificios con cartel se nombran solos) |
+| **Color del contorno enemigo elegible** (Ajustes → Efectos de pantalla): rojo, amarillo o magenta. | Accesibilidad (daltonismo) sin perder legibilidad. | `GameConfig.EnemyColors`, `Menu.luau`, `WorldFX.Restyle` |
+| Sitios de bomba con nombre de zona («SITIO A · ROJO»). | En Buscar y destruir se sabe al instante qué sitio es y de quién. | `MapKit.bombSite` |
 | HUD de combate limpio: retos y barra del evento salen solo un rato (al aparecer y al progresar); el botón de tienda se oculta en PC mientras luchas (tecla B); «Racha x0» no se muestra. | Menos ruido en pantalla durante el tiroteo. | `QuestTracker.luau`, `EventHUD.luau`, `Menu.luau`, `HUD.luau` |
 | Botones de habilidades en PC compactos (oscuros con el color en el borde); en móvil siguen grandes. | Jerarquía: las habilidades no compiten con la mira. | `client/Modules/Abilities.luau` |
 
@@ -29,6 +31,7 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | Hitmarker con tres lecturas: normal (corto, blanco), cabeza (largo, dorado, con «tin» agudo extra), baja (grueso, rojo, gira). | "¿Le pegué? ¿A la cabeza? ¿Lo maté?" sin pensar. | `HUD.luau` `onHitConfirm` |
 | Colores de equipo legibles: el rojo/azul puros se suavizan en marcador, killfeed y contorno de compañeros (el azul tira a celeste). | El azul puro casi no se leía sobre fondo oscuro. | `UI.teamTint` |
 | Resumen de partida y marcador (Tab) con **asistencias** (bajas / asist. / muertes). | Lectura K/A/D de los shooters competitivos. | `Round.luau` (`MatchAssists`), `HUD.luau`, `Scoreboard.luau` |
+| **Desbloqueos con presentación**: arma nueva con celebración a pantalla completa; skins, trajes y efectos con aviso dorado. | Un premio tiene que sentirse premio. | `HUD.luau` (`Notify "Unlock"`) |
 | Armas: **barras de estadísticas** (daño, cadencia, control; en cuerpo a cuerpo daño, velocidad, alcance) comparadas con la mejor del juego. | Elegir arma de un vistazo, como en un loadout. | `Menu.luau` `statRows` |
 
 ## Gun feel y cámara
