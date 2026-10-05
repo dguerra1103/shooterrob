@@ -14790,6 +14790,41 @@ local function rug(cf, color)
 	deco("RugBand", V(3.02, 0.5, 0.12), cf * CFrame.new(0, -1.4, 0), RGB(240, 220, 170), M.Fabric)
 end
 
+-- Aspas que giran alrededor de un eje (las mueve el cliente: WorldFX, atributos Orbit)
+local function rotor(center, axis, count, length, width, speed, color)
+	axis = axis.Unit
+	-- (una dirección perpendicular al eje para empezar; con el eje vertical, la X)
+	local ref = math.abs(axis.Y) > 0.9 and V(1, 0, 0) or V(0, 1, 0)
+	ref = (ref - axis * ref:Dot(axis)).Unit
+	for i = 0, count - 1 do
+		local radial = CFrame.fromAxisAngle(axis, i * math.pi * 2 / count) * ref
+		local blade = deco("Blade", V(width, length, 0.15), CFrame.fromMatrix(center + radial * (length / 2 + 0.3), axis:Cross(radial), radial), color, M.Metal)
+		blade.CastShadow = false
+		blade:SetAttribute("Orbit", speed)
+		blade:SetAttribute("OrbitCenter", center)
+		blade:SetAttribute("OrbitAxis", axis)
+	end
+end
+
+-- Molino de agua del desierto: torre de celosía con la rueda de aspas arriba (se ve de lejos)
+local function windpump(cf)
+	local h = 16
+	for _, c in { V(-2, 0, -2), V(2, 0, -2), V(-2, 0, 2), V(2, 0, 2) } do
+		local top = V(c.X * 0.35, h, c.Z * 0.35)
+		local mid = (c + top) / 2
+		deco("PumpLeg", V(0.4, (top - c).Magnitude, 0.4), cf * CFrame.lookAt(mid, top) * CFrame.Angles(math.pi / 2, 0, 0), RGB(90, 86, 82), M.Metal)
+	end
+	for _, y in { 5, 10 } do
+		deco("PumpBrace", V(3.4 - y * 0.14, 0.3, 0.3), cf * CFrame.new(0, y, -1.9 + y * 0.08), RGB(90, 86, 82), M.Metal)
+	end
+	deco("PumpHead", V(1.6, 1.4, 1.6), cf * CFrame.new(0, h + 0.4, 0), RGB(70, 66, 62), M.Metal)
+	deco("PumpVane", V(0.2, 2.4, 4), cf * CFrame.new(0, h + 0.8, 3.4), TEAL, M.Metal)
+	local hub = (cf * CFrame.new(0, h + 0.6, -1.2)).Position
+	rotor(hub, cf.LookVector, 12, 3, 0.9, 40, RGB(200, 196, 186))
+	Kit.ball("PumpHub", 1, CFrame.new(hub), RGB(70, 66, 62), M.Metal, true)
+	jar(cf * CFrame.new(3.5, 0, 2), 1.2)
+end
+
 ---------------------------------------------------------------------------
 -- Mapa
 ---------------------------------------------------------------------------
@@ -14861,6 +14896,10 @@ function Map.Build()
 			Blind = { Left = true },
 			Sign = "POSADA",
 		})
+		-- Ventilador de techo en la planta baja de la posada
+		local fanCenter = (m * CFrame.new(-106, FLOOR_H - 1.6, 35)).Position
+		deco("FanRod", V(0.25, 1, 0.25), CFrame.new(fanCenter + V(0, 0.6, 0)), RGB(60, 50, 40), M.Metal)
+		rotor(fanCenter, V(0, 1, 0), 4, 2.4, 0.7, 160, RGB(120, 90, 60))
 		building(m * CFrame.new(-68, 0, 34), 24, 18, {
 			Floors = 1,
 			Color = ADOBE[4],
@@ -14933,6 +14972,7 @@ function Map.Build()
 			Sign = "GARAJE",
 		})
 		Kit.container(m * CFrame.new(-80, 0, -118), RGB(150, 70, 50), "CARGA")
+		windpump(m * CFrame.new(-182, 0, -116) * CFrame.Angles(0, rad(30), 0))
 		sandbags(m * CFrame.new(-120, 0, -60), 12)
 		sandbags(m * CFrame.new(-24, 0, -78) * CFrame.Angles(0, rad(90), 0), 10)
 		for _, p in { V(-128, 0, -112), V(-78, 0, -96), V(-50, 0, -96), V(-20, 0, -58) } do
