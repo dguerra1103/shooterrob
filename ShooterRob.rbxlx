@@ -6301,7 +6301,7 @@ local function makeVisual(site, color)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
 	label.TextStrokeTransparency = 0.2
 	label.Text = "💣" .. site.Letter
@@ -8529,7 +8529,7 @@ local function showTag(player, value)
 		label.Name = "Text"
 		label.Size = UDim2.fromScale(1, 1)
 		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.FredokaOne
+		label.Font = Enum.Font.GothamBlack
 		label.TextScaled = true
 		label.TextColor3 = Color3.fromRGB(255, 225, 90)
 		label.TextStrokeTransparency = 0.3
@@ -9340,7 +9340,7 @@ local function makeVisual(point)
 	label.Name = "Label"
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
 	label.TextStrokeTransparency = 0.2
 	label.Text = point.Letter
@@ -10112,7 +10112,7 @@ local function buildFlag(team)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextSize = 18
 	label.TextColor3 = team.TeamColor.Color:Lerp(Color3.new(1, 1, 1), 0.25)
 	label.TextStrokeTransparency = 0.2
@@ -11099,7 +11099,7 @@ local function makeVisual(zone)
 	label.Name = "Label"
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
 	label.TextStrokeTransparency = 0.2
 	label.Text = "◆ ZONA"
@@ -14312,7 +14312,7 @@ local function sign(part, face, text, color, strokeColor)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
 	label.Text = text
 	label.TextColor3 = color
@@ -19523,7 +19523,7 @@ function Kit.sign(part, face, text, color, strokeColor)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
 	label.Text = text
 	label.TextColor3 = color
@@ -40011,8 +40011,14 @@ return Tutorial
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
 local UI = {}
 
-UI.Font = Enum.Font.FredokaOne
+-- Letra de la interfaz: Oswald en negrita (condensada y sobria, como la de los shooters militares).
+-- Enum.Font solo da el peso normal: cualquier texto con UI.Font pasa a la versión en negrita.
+UI.Font = Enum.Font.Oswald
 UI.FontBody = Enum.Font.GothamBold
+local okBold, OSWALD_BOLD = pcall(function()
+	return Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
+end)
+UI.FontFace = okBold and OSWALD_BOLD or nil
 
 function UI.new(className, props, children)
 	local inst = Instance.new(className)
@@ -40023,6 +40029,9 @@ function UI.new(className, props, children)
 		else
 			inst[key] = value
 		end
+	end
+	if UI.FontFace and (className == "TextLabel" or className == "TextButton" or className == "TextBox") and inst.Font == UI.Font then
+		inst.FontFace = UI.FontFace
 	end
 	for _, child in children or {} do
 		child.Parent = inst
@@ -40063,7 +40072,7 @@ function UI.padding(px)
 	})
 end
 
--- Texto con borde negro estilo "cartoon"
+-- Texto con borde negro (se lee sobre cualquier fondo)
 function UI.label(props, children)
 	local defaults = {
 		BackgroundTransparency = 1,

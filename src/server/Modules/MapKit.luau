@@ -197,7 +197,7 @@ function Kit.sign(part, face, text, color, strokeColor)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
 	label.Text = text
 	label.TextColor3 = color

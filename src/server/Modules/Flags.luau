@@ -137,7 +137,7 @@ local function buildFlag(team)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
+	label.Font = Enum.Font.GothamBlack
 	label.TextSize = 18
 	label.TextColor3 = team.TeamColor.Color:Lerp(Color3.new(1, 1, 1), 0.25)
 	label.TextStrokeTransparency = 0.2

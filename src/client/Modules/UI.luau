@@ -1,8 +1,14 @@
 -- Pequeña utilidad para crear interfaces desde código.
 local UI = {}
 
-UI.Font = Enum.Font.FredokaOne
+-- Letra de la interfaz: Oswald en negrita (condensada y sobria, como la de los shooters militares).
+-- Enum.Font solo da el peso normal: cualquier texto con UI.Font pasa a la versión en negrita.
+UI.Font = Enum.Font.Oswald
 UI.FontBody = Enum.Font.GothamBold
+local okBold, OSWALD_BOLD = pcall(function()
+	return Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
+end)
+UI.FontFace = okBold and OSWALD_BOLD or nil
 
 function UI.new(className, props, children)
 	local inst = Instance.new(className)
@@ -13,6 +19,9 @@ function UI.new(className, props, children)
 		else
 			inst[key] = value
 		end
+	end
+	if UI.FontFace and (className == "TextLabel" or className == "TextButton" or className == "TextBox") and inst.Font == UI.Font then
+		inst.FontFace = UI.FontFace
 	end
 	for _, child in children or {} do
 		child.Parent = inst
@@ -53,7 +62,7 @@ function UI.padding(px)
 	})
 end
 
--- Texto con borde negro estilo "cartoon"
+-- Texto con borde negro (se lee sobre cualquier fondo)
 function UI.label(props, children)
 	local defaults = {
 		BackgroundTransparency = 1,
