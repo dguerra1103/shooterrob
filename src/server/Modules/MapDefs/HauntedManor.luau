@@ -203,6 +203,13 @@ function Map.Build()
 
 	-- Fondo: árboles secos y colinas oscuras
 	Kit.bounds(LENGTH, WIDTH, 45)
+	-- Nombres de las zonas
+	Kit.callout("MANSIÓN", CFrame.new(0, 6, 0), V(38, 14, 26))
+	Kit.callout("AZOTEA", CFrame.new(0, 16, 0), V(38, 10, 26))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("CEMENTERIO", m * CFrame.new(-51, 8, 33), V(32, 20, 28))
+		Kit.callout("CRIPTA", m * CFrame.new(-36, 6, -36), V(14, 16, 14))
+	end
 	local n = 0
 	for x = -130, 130, 24 do
 		for _, z in { -1, 1 } do

@@ -285,6 +285,13 @@ function Map.Build()
 
 	-- Límites y fondo: cerezos fuera del muro, colinas en flor y montaña nevada
 	Kit.bounds(LENGTH, WIDTH, 50)
+	-- Nombres de las zonas
+	Kit.callout("PAGODA", CFrame.new(0, 10, 0), V(28, 24, 28))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("ESTANQUE", m * CFrame.new(-45, 6, 38), V(26, 16, 28))
+		Kit.callout("CASA DE TÉ", m * CFrame.new(-62, 8, -42), V(24, 20, 20))
+		Kit.callout("TORII", m * CFrame.new(-80, 8, 0), V(10, 20, 20))
+	end
 	for x = -140, 140, 28 do
 		for _, z in { -1, 1 } do
 			local position = V(x + z * 10, 0, z * (90 + (math.abs(x) % 13)))
