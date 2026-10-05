@@ -1102,6 +1102,7 @@ local function onKillFeed(info)
 end
 
 local hitToken
+local dmgCombo -- número de daño que se va sumando sobre el enemigo al que das
 local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local color = Color3.new(1, 1, 1)
 	if killed then
@@ -1136,30 +1137,69 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local hitPosition = typeof(serverPosition) == "Vector3" and serverPosition
 		or (os.clock() - ClientState.LastHitTime < 0.6 and ClientState.LastHitPosition)
 	if type(damage) == "number" and hitPosition then
-		local anchor = Instance.new("Attachment")
-		anchor.WorldPosition = hitPosition + Vector3.new(math.random(-10, 10) / 10, 1.2, math.random(-10, 10) / 10)
-		anchor.Parent = workspace.Terrain
-		local board = Instance.new("BillboardGui")
-		board.Size = UDim2.fromOffset(120, 50)
-		board.AlwaysOnTop = true
-		board.LightInfluence = 0
-		board.Adornee = anchor
-		board.Parent = gui.Parent -- (un BillboardGui dentro de un ScreenGui no se dibuja)
-		local label = UI.label({
-			Size = UDim2.fromScale(1, 1),
-			Text = (killed and "💀 " or "") .. tostring(damage) .. (headshot and "!" or ""),
-			TextSize = killed and 34 or (headshot and 32 or 26),
-			TextColor3 = color,
-			Parent = board,
-		})
-		local scale = UI.new("UIScale", { Scale = 1.6, Parent = label })
-		tween(scale, 0.18, { Scale = 1 }, Enum.EasingStyle.Back)
-		task.delay(0.35, function()
-			tween(label, 0.5, { TextTransparency = 1, TextStrokeTransparency = 1 })
-			tween(board, 0.5, { StudsOffsetWorldSpace = Vector3.new(0, 2, 0) })
+		-- Como en los shooters de móvil: mientras sigues dando al mismo enemigo, el número se va
+		-- sumando (37 → 74 → 111) y crece, en vez de salir un número suelto por bala
+		local now = os.clock()
+		local combo = dmgCombo
+		if not (combo and combo.board.Parent and now - combo.time < 0.8 and (hitPosition - combo.pos).Magnitude < 10) then
+			local anchor = Instance.new("Attachment")
+			anchor.Parent = workspace.Terrain
+			local board = Instance.new("BillboardGui")
+			board.Size = UDim2.fromOffset(140, 56)
+			board.AlwaysOnTop = true
+			board.LightInfluence = 0
+			board.Adornee = anchor
+			board.Parent = gui.Parent -- (un BillboardGui dentro de un ScreenGui no se dibuja)
+			local label = UI.label({ Size = UDim2.fromScale(1, 1), Text = "", Parent = board })
+			combo = {
+				anchor = anchor,
+				board = board,
+				label = label,
+				scale = UI.new("UIScale", { Parent = label }),
+				offset = Vector3.new(math.random(-10, 10) / 10, 1.2, math.random(-10, 10) / 10),
+				total = 0,
+			}
+			dmgCombo = combo
+		end
+		combo.total += damage
+		combo.time = now
+		combo.pos = hitPosition
+		combo.anchor.WorldPosition = hitPosition + combo.offset
+		for _, running in combo.fades or {} do
+			running:Cancel()
+		end
+		combo.fades = nil
+		local label = combo.label
+		label.Text = (killed and "💀 " or "") .. tostring(combo.total) .. (headshot and "!" or "")
+		label.TextSize = (killed and 34 or (headshot and 32 or 26)) + math.min(math.floor(combo.total / 40), 10)
+		label.TextColor3 = color
+		label.TextTransparency = 0
+		label.TextStrokeTransparency = 0.4
+		combo.board.StudsOffsetWorldSpace = Vector3.zero
+		combo.scale.Scale = 1.6
+		tween(combo.scale, 0.18, { Scale = 1 }, Enum.EasingStyle.Back)
+		local token = {}
+		combo.token = token
+		if killed then
+			dmgCombo = nil -- (el siguiente enemigo empieza de cero)
+		end
+		task.delay(killed and 0.6 or 0.45, function()
+			if combo.token ~= token then
+				return
+			end
+			combo.fades = {
+				tween(label, 0.5, { TextTransparency = 1, TextStrokeTransparency = 1 }),
+				tween(combo.board, 0.5, { StudsOffsetWorldSpace = Vector3.new(0, 2, 0) }),
+			}
+			task.wait(0.55)
+			if combo.token == token then
+				combo.board:Destroy()
+				combo.anchor:Destroy()
+				if dmgCombo == combo then
+					dmgCombo = nil
+				end
+			end
 		end)
-		Debris:AddItem(board, 1)
-		Debris:AddItem(anchor, 1)
 		-- Baja: estallido de chispas doradas donde cayó (solo lo ves tú)
 		if killed and ClientState.EffectiveQuality ~= "Baja" then
 			local burst = Instance.new("Attachment")
