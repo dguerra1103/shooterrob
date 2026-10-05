@@ -1361,6 +1361,10 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		end
 	end)
 	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
+	-- (a la cabeza, además un «tin» agudo y corto: se reconoce sin mirar)
+	if headshot and not killed then
+		Sounds.Play("Kill", nil, 1.9, 0.28)
+	end
 
 	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
 	-- reutiliza, y sin verse a través de las paredes
