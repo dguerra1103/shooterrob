@@ -17,6 +17,13 @@ local folder = Instance.new("Folder")
 folder.Name = "ClientFX"
 folder.Parent = workspace
 
+-- ¿Mapa realista? (atributo Realistic del mapa; con el estilo Realista, todos). Ahí los impactos en
+-- personas y la baja normal son realistas en vez de destellos de colores
+local function realisticMap()
+	local map = workspace:FindFirstChild("Map")
+	return map ~= nil and map:GetAttribute("Realistic") == true
+end
+
 local function fxPart(props)
 	local part = Instance.new("Part")
 	part.Anchored = true
@@ -335,6 +342,47 @@ function Effects.Impact(position, normal, hitPart, material, style)
 		return
 	end
 
+	if isCharacter and realisticMap() then
+		-- Impacto realista: una nube rojo oscuro que se abre y se desvanece enseguida, unas gotitas
+		-- que caen y polvo de la ropa (sin charcos ni marcas)
+		emitPooled(anchor, "HitMist", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(125, 12, 14), Color3.fromRGB(70, 8, 10)),
+			LightInfluence = 0.8,
+			Size = seq(0.35, 1.4),
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.25),
+				NumberSequenceKeypoint.new(0.4, 0.55),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+			Lifetime = NumberRange.new(0.22, 0.38),
+			Speed = NumberRange.new(2, 5),
+			SpreadAngle = Vector2.new(35, 35),
+			Drag = 6,
+			Rotation = NumberRange.new(0, 360),
+		}, 3)
+		emitPooled(anchor, "HitDrops", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(110, 10, 12)),
+			LightInfluence = 0.8,
+			Size = seq(0.14, 0.05),
+			Lifetime = NumberRange.new(0.3, 0.5),
+			Speed = NumberRange.new(8, 14),
+			SpreadAngle = Vector2.new(28, 28),
+			Acceleration = Vector3.new(0, -60, 0),
+		}, 5)
+		emitPooled(anchor, "HitCloth", {
+			Texture = TEX.Smoke,
+			Color = ColorSequence.new(Color3.fromRGB(150, 140, 120)),
+			LightInfluence = 1,
+			Size = seq(0.25, 0.8),
+			Transparency = seq(0.5, 1),
+			Lifetime = NumberRange.new(0.3, 0.5),
+			Speed = NumberRange.new(1, 3),
+			SpreadAngle = Vector2.new(50, 50),
+		}, 2)
+		return
+	end
 	if isCharacter then
 		-- Destello de golpe (estilo cartoon, sin sangre)
 		emitPooled(anchor, "Hit", {
@@ -1138,10 +1186,43 @@ KILL_FX.Rodadora = function(position)
 	end)
 end
 
+-- Baja normal en un mapa realista: sin estallido de colores, solo el polvo que levanta el cuerpo al
+-- caer y una nube rojo oscuro que se desvanece (el cuerpo cae como un muñeco de trapo, ver Ragdoll)
+function Effects.DeathPuff(position)
+	local anchor = emitterAnchor(position - Vector3.new(0, 1.5, 0), Vector3.yAxis, 2)
+	emit(anchor, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(150, 140, 125)),
+		LightInfluence = 1,
+		Size = seq(0.8, 3.2),
+		Transparency = seq(0.45, 1),
+		Lifetime = NumberRange.new(0.7, 1.1),
+		Speed = NumberRange.new(3, 6),
+		SpreadAngle = Vector2.new(80, 15),
+		Drag = 3,
+		Acceleration = Vector3.new(0, 1, 0),
+	}, 7)
+	local mist = emitterAnchor(position, Vector3.yAxis, 1)
+	emit(mist, {
+		Texture = TEX.Smoke,
+		Color = ColorSequence.new(Color3.fromRGB(110, 10, 12)),
+		LightInfluence = 0.8,
+		Size = seq(0.5, 1.8),
+		Transparency = seq(0.35, 1),
+		Lifetime = NumberRange.new(0.3, 0.5),
+		Speed = NumberRange.new(2, 4),
+		SpreadAngle = Vector2.new(60, 60),
+		Drag = 5,
+	}, 3)
+end
+
 function Effects.KillEffect(effectId, position, color)
 	local fn = KILL_FX[effectId]
 	if fn then
 		fn(position)
+	elseif realisticMap() then
+		-- (los efectos comprados se ven igual; el normal, realista)
+		Effects.DeathPuff(position)
 	else
 		Effects.DeathBurst(position, color)
 	end
