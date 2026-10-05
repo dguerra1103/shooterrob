@@ -20851,6 +20851,7 @@ local function defaults()
 		TotalDeaths = 0, -- estadísticas del perfil
 		Matches = 0,
 		BestStreak = 0,
+		BestMatchKills = 0, -- récord de bajas en una partida (al batirlo, celebración en el resumen)
 		Headshots = 0,
 		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
 		RankBest = 1, -- rango más alto alcanzado (sus premios ya se dieron)
@@ -25201,6 +25202,14 @@ local function endRound()
 			summary.BestStreak = player:GetAttribute("BestStreak") or 0
 			summary.Captures = player:GetAttribute("Captures") or 0
 			summary.WinStreak = player:GetAttribute("WinStreak") or 0
+			-- ¿Récord personal de bajas en una partida? (desde 5, para que no salte en las primeras)
+			local data = PlayerData.Get(player)
+			local record = data and data.BestMatchKills or 0
+			if data and summary.Kills >= 5 and summary.Kills > record then
+				summary.NewRecord = summary.Kills
+				summary.PrevRecord = record
+			end
+			PlayerData.SetBest(player, "BestMatchKills", summary.Kills)
 			Remotes.MatchSummary:FireClient(player, summary)
 		end
 	end
@@ -31048,6 +31057,11 @@ local function onMatchSummary(summary)
 			task.wait(0.05)
 		end
 		Sounds.Play("Kill")
+		-- ¡Récord personal de bajas!
+		if type(summary.NewRecord) == "number" and token == summaryToken then
+			local before = (summary.PrevRecord or 0) > 0 and ("  (antes " .. summary.PrevRecord .. ")") or ""
+			RewardFX.Celebrate("🏆 ¡NUEVO RÉCORD!", summary.NewRecord .. " bajas en una partida" .. before, Color3.fromRGB(255, 200, 40), true)
+		end
 		if rankDelta ~= 0 and token == summaryToken then
 			refs.SummaryRank.Text = rankText(endRank, rankDelta)
 			-- ¡Subes de rango!
@@ -37271,6 +37285,8 @@ local pulseCC
 local scoreLabel, scoreScale
 local scoreTotal, scoreShown, scoreToken = 0, 0, nil
 local celebrating = false
+local queue = {} -- celebraciones esperando turno (p. ej. récord y subir de rango a la vez)
+local MAX_QUEUE = 2
 
 local function tween(inst, time, props, style, direction)
 	local t = TweenService:Create(inst, TweenInfo.new(time, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), props)
@@ -37489,10 +37505,18 @@ end
 RewardFX.Fanfare = fanfare
 
 -- Celebración a pantalla completa. title: texto grande; subtitle: debajo (opcional);
--- color: el de la celebración; big: más confeti y una nota más
+-- color: el de la celebración; big: más confeti y una nota más. Si ya hay una en pantalla, espera
+-- su turno (devuelve true); si la cola está llena, nil
 function RewardFX.Celebrate(title, subtitle, color, big)
-	if not gui or celebrating then
-		return
+	if not gui then
+		return nil
+	end
+	if celebrating then
+		if #queue >= MAX_QUEUE then
+			return nil
+		end
+		table.insert(queue, { title, subtitle, color, big })
+		return true
 	end
 	celebrating = true
 	color = color or GOLD
@@ -37593,6 +37617,10 @@ function RewardFX.Celebrate(title, subtitle, color, big)
 		task.wait(0.9)
 		holder:Destroy()
 		celebrating = false
+		local nextOne = table.remove(queue, 1)
+		if nextOne then
+			RewardFX.Celebrate(nextOne[1], nextOne[2], nextOne[3], nextOne[4])
+		end
 	end)
 	return holder
 end

@@ -35,6 +35,8 @@ local pulseCC
 local scoreLabel, scoreScale
 local scoreTotal, scoreShown, scoreToken = 0, 0, nil
 local celebrating = false
+local queue = {} -- celebraciones esperando turno (p. ej. récord y subir de rango a la vez)
+local MAX_QUEUE = 2
 
 local function tween(inst, time, props, style, direction)
 	local t = TweenService:Create(inst, TweenInfo.new(time, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), props)
@@ -253,10 +255,18 @@ end
 RewardFX.Fanfare = fanfare
 
 -- Celebración a pantalla completa. title: texto grande; subtitle: debajo (opcional);
--- color: el de la celebración; big: más confeti y una nota más
+-- color: el de la celebración; big: más confeti y una nota más. Si ya hay una en pantalla, espera
+-- su turno (devuelve true); si la cola está llena, nil
 function RewardFX.Celebrate(title, subtitle, color, big)
-	if not gui or celebrating then
-		return
+	if not gui then
+		return nil
+	end
+	if celebrating then
+		if #queue >= MAX_QUEUE then
+			return nil
+		end
+		table.insert(queue, { title, subtitle, color, big })
+		return true
 	end
 	celebrating = true
 	color = color or GOLD
@@ -357,6 +367,10 @@ function RewardFX.Celebrate(title, subtitle, color, big)
 		task.wait(0.9)
 		holder:Destroy()
 		celebrating = false
+		local nextOne = table.remove(queue, 1)
+		if nextOne then
+			RewardFX.Celebrate(nextOne[1], nextOne[2], nextOne[3], nextOne[4])
+		end
 	end)
 	return holder
 end

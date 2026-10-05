@@ -1372,6 +1372,11 @@ local function onMatchSummary(summary)
 			task.wait(0.05)
 		end
 		Sounds.Play("Kill")
+		-- ¡Récord personal de bajas!
+		if type(summary.NewRecord) == "number" and token == summaryToken then
+			local before = (summary.PrevRecord or 0) > 0 and ("  (antes " .. summary.PrevRecord .. ")") or ""
+			RewardFX.Celebrate("🏆 ¡NUEVO RÉCORD!", summary.NewRecord .. " bajas en una partida" .. before, Color3.fromRGB(255, 200, 40), true)
+		end
 		if rankDelta ~= 0 and token == summaryToken then
 			refs.SummaryRank.Text = rankText(endRank, rankDelta)
 			-- ¡Subes de rango!

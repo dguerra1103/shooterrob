@@ -82,6 +82,7 @@ local function defaults()
 		TotalDeaths = 0, -- estadísticas del perfil
 		Matches = 0,
 		BestStreak = 0,
+		BestMatchKills = 0, -- récord de bajas en una partida (al batirlo, celebración en el resumen)
 		Headshots = 0,
 		RankPoints = 0, -- puntos de rango competitivo (ver Ranks)
 		RankBest = 1, -- rango más alto alcanzado (sus premios ya se dieron)

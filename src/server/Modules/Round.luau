@@ -1348,6 +1348,14 @@ local function endRound()
 			summary.BestStreak = player:GetAttribute("BestStreak") or 0
 			summary.Captures = player:GetAttribute("Captures") or 0
 			summary.WinStreak = player:GetAttribute("WinStreak") or 0
+			-- ¿Récord personal de bajas en una partida? (desde 5, para que no salte en las primeras)
+			local data = PlayerData.Get(player)
+			local record = data and data.BestMatchKills or 0
+			if data and summary.Kills >= 5 and summary.Kills > record then
+				summary.NewRecord = summary.Kills
+				summary.PrevRecord = record
+			end
+			PlayerData.SetBest(player, "BestMatchKills", summary.Kills)
 			Remotes.MatchSummary:FireClient(player, summary)
 		end
 	end
