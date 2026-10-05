@@ -41,10 +41,12 @@ Estado del pase "Stylized Tactical Roblox" (shooter 5v5). Corto a propósito: si
 - Mapa 5v5 nuevo **Puesto del Desierto** (arena + turquesa) con SND probado con bots.
 - Pool de sonidos 2D (armas aparte de la interfaz), luz de relleno del arma de noche.
 - Justicia: en Cumbre y Base Militar el edificio central tiene una puerta para cada equipo.
-- Tres revisiones de código del pase: todos los hallazgos arreglados.
+- Cuatro revisiones de código del pase (la última, de integración de todo): sin fallos graves;
+  todos los hallazgos arreglados (p. ej. el resultado de ronda ahora sale tras la killcam).
+- Nombres de zona en 15 mapas; Puesto del Desierto con molino de aspas y ventilador animados.
 
 ## EN PROGRESO
-- Revisión de los cambios del pase y bucle de pulido.
+- Bucle de pulido (cambios pequeños y probados).
 
 ## PENDIENTE
 - Ver NEXT_STEPS.md.
