@@ -1187,8 +1187,9 @@ local function onNotify(kind, text)
 	elseif kind == "BountyClaimed" then
 		bigMessage("💰 ¡RECOMPENSA COBRADA! +" .. tostring(text) .. " 🪙", Color3.fromRGB(255, 210, 60))
 		Sounds.Play("Kill")
-	else
-		timedLabel(refs.Toast, text, 3)
+	elseif type(text) == "string" or type(text) == "number" then
+		-- (un aviso de un tipo nuevo con datos en tabla no se escribe tal cual)
+		timedLabel(refs.Toast, tostring(text), 3)
 		Sounds.Play("Click")
 	end
 end

@@ -20976,6 +20976,9 @@ function Kit.bombSite(position, letter, defender)
 	p:SetAttribute("Letter", letter)
 	p:SetAttribute("Defender", defender)
 	p:SetAttribute("Radius", 7)
+	-- (zona con nombre: «SITIO A · ROJO», el equipo que lo defiende)
+	local defenderTeam = GameConfig.Teams[defender]
+	Kit.callout("SITIO " .. letter .. (defenderTeam and (" · " .. string.upper(defenderTeam.Name)) or ""), CFrame.new(position + V(0, 6, 0)), V(26, 18, 26))
 	-- La letra pintada en el suelo, como en los mapas de los shooters (se ve en todos los modos)
 	local floorY = position.Y
 	local params = RaycastParams.new()
@@ -33695,8 +33698,9 @@ local function onNotify(kind, text)
 	elseif kind == "BountyClaimed" then
 		bigMessage("💰 ¡RECOMPENSA COBRADA! +" .. tostring(text) .. " 🪙", Color3.fromRGB(255, 210, 60))
 		Sounds.Play("Kill")
-	else
-		timedLabel(refs.Toast, text, 3)
+	elseif type(text) == "string" or type(text) == "number" then
+		-- (un aviso de un tipo nuevo con datos en tabla no se escribe tal cual)
+		timedLabel(refs.Toast, tostring(text), 3)
 		Sounds.Play("Click")
 	end
 end
@@ -33869,6 +33873,10 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		end
 	end)
 	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
+	-- (a la cabeza, además un «tin» agudo y corto: se reconoce sin mirar)
+	if headshot and not killed then
+		Sounds.Play("Kill", nil, 1.9, 0.28)
+	end
 
 	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
 	-- reutiliza, y sin verse a través de las paredes

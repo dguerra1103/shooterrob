@@ -1221,6 +1221,9 @@ function Kit.bombSite(position, letter, defender)
 	p:SetAttribute("Letter", letter)
 	p:SetAttribute("Defender", defender)
 	p:SetAttribute("Radius", 7)
+	-- (zona con nombre: «SITIO A · ROJO», el equipo que lo defiende)
+	local defenderTeam = GameConfig.Teams[defender]
+	Kit.callout("SITIO " .. letter .. (defenderTeam and (" · " .. string.upper(defenderTeam.Name)) or ""), CFrame.new(position + V(0, 6, 0)), V(26, 18, 26))
 	-- La letra pintada en el suelo, como en los mapas de los shooters (se ve en todos los modos)
 	local floorY = position.Y
 	local params = RaycastParams.new()
