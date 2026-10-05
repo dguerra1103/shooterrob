@@ -21,6 +21,7 @@ local WeaponController = require(script.Parent.WeaponController)
 local WeaponIcon = require(script.Parent.WeaponIcon)
 local Settings = require(script.Parent.Settings)
 local RewardFX = require(script.Parent.RewardFX)
+local ScopeSway = require(script.Parent.ScopeSway)
 
 local player = Players.LocalPlayer
 
@@ -241,6 +242,18 @@ local function buildCrosshair()
 			BackgroundColor3 = Color3.fromRGB(255, 40, 40),
 			BorderSizePixel = 0,
 		}, { UI.corner(3) }),
+	})
+	-- Aguantar la respiración (con teclado o mando; en el móvil la mira apenas se mueve)
+	refs.ScopeHint = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.97),
+		Size = UDim2.new(0.8, 0, 0, 22),
+		Text = "",
+		TextSize = 16,
+		TextColor3 = Color3.fromRGB(230, 230, 230),
+		TextStrokeTransparency = 0.4,
+		ZIndex = 2,
+		Parent = refs.Scope,
 	})
 end
 
@@ -2133,6 +2146,17 @@ function renderCrosshair(def)
 	refs.CrossDot.Visible = aim < 0.5
 	refs.Crosshair.Visible = not ClientState.IsBlocked()
 	refs.Scope.Visible = def ~= nil and def.Scope == true and aim > 0.85
+	if refs.Scope.Visible then
+		local hint = ""
+		if not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) then
+			hint = ScopeSway.Holding and "Aguantando la respiración…"
+				or ScopeSway.OutOfBreath() and "Sin aire…"
+				or "MAYÚS · aguantar la respiración"
+		end
+		if refs.ScopeHint.Text ~= hint then
+			refs.ScopeHint.Text = hint
+		end
+	end
 end
 
 ---------------------------------------------------------------------------

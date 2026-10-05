@@ -31213,6 +31213,7 @@ local WeaponController = require(script.Parent.WeaponController)
 local WeaponIcon = require(script.Parent.WeaponIcon)
 local Settings = require(script.Parent.Settings)
 local RewardFX = require(script.Parent.RewardFX)
+local ScopeSway = require(script.Parent.ScopeSway)
 
 local player = Players.LocalPlayer
 
@@ -31433,6 +31434,18 @@ local function buildCrosshair()
 			BackgroundColor3 = Color3.fromRGB(255, 40, 40),
 			BorderSizePixel = 0,
 		}, { UI.corner(3) }),
+	})
+	-- Aguantar la respiración (con teclado o mando; en el móvil la mira apenas se mueve)
+	refs.ScopeHint = UI.label({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.97),
+		Size = UDim2.new(0.8, 0, 0, 22),
+		Text = "",
+		TextSize = 16,
+		TextColor3 = Color3.fromRGB(230, 230, 230),
+		TextStrokeTransparency = 0.4,
+		ZIndex = 2,
+		Parent = refs.Scope,
 	})
 end
 
@@ -33325,6 +33338,17 @@ function renderCrosshair(def)
 	refs.CrossDot.Visible = aim < 0.5
 	refs.Crosshair.Visible = not ClientState.IsBlocked()
 	refs.Scope.Visible = def ~= nil and def.Scope == true and aim > 0.85
+	if refs.Scope.Visible then
+		local hint = ""
+		if not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) then
+			hint = ScopeSway.Holding and "Aguantando la respiración…"
+				or ScopeSway.OutOfBreath() and "Sin aire…"
+				or "MAYÚS · aguantar la respiración"
+		end
+		if refs.ScopeHint.Text ~= hint then
+			refs.ScopeHint.Text = hint
+		end
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -39726,6 +39750,107 @@ return ScopeGlint
           </Item>
           <Item class="ModuleScript" referent="122">
             <Properties>
+              <string name="Name">ScopeSway</string>
+              <string name="Source"><![CDATA[-- Visor de francotirador realista: con el visor puesto la mira nunca está del todo quieta (el pulso y
+-- la respiración la mueven en un "ocho" lento y pequeño). Con Mayús (o el stick izquierdo pulsado en el
+-- mando) aguantas la respiración unos 3,5 s y la mira se queda casi quieta; al acabarse el aire se
+-- mueve más un momento hasta recuperarlo. Agachado se mueve menos; en el móvil, la mitad (allí no hay
+-- tecla para aguantar). WeaponController aplica a la cámara lo que devuelve Update cada fotograma.
+local UserInputService = game:GetService("UserInputService")
+
+local ClientState = require(script.Parent.ClientState)
+
+local ScopeSway = {}
+
+ScopeSway.Amplitude = math.rad(0.22) -- cuánto se mueve la mira con el visor (sin aguantar)
+ScopeSway.HoldTime = 3.5 -- segundos que se aguanta la respiración
+ScopeSway.RecoverTime = 2.5 -- segundos para recuperar todo el aire
+ScopeSway.ExhaleTime = 1.2 -- al quedarte sin aire, este rato se mueve el doble
+ScopeSway.Holding = false -- aguantando la respiración ahora mismo (el HUD lo dice en el visor)
+ScopeSway.Breath = 1 -- aire que queda (0..1)
+
+local exhaleUntil = 0
+local amp = 0
+local lastPitch, lastYaw = 0, 0
+
+local function holdPressed()
+	local ok, down = pcall(function()
+		if UserInputService:GetFocusedTextBox() then
+			return false
+		end
+		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
+			or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+			or UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonL3)
+	end)
+	return ok and down == true
+end
+
+local function touchOnly()
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+-- Cuánto se mueve ahora mismo (radianes; 0 sin visor)
+function ScopeSway.Amount()
+	return amp
+end
+
+-- ¿Sin aire (recuperándolo tras aguantar demasiado)?
+function ScopeSway.OutOfBreath()
+	return os.clock() < exhaleUntil
+end
+
+-- Devuelve el giro (cabeceo, guiñada) que hay que sumar a la cámara en ESTE fotograma: la diferencia
+-- con el balanceo del anterior (así no se acumula y al quitar el visor vuelve solo a su sitio)
+function ScopeSway.Update(dt, scoped)
+	local now = os.clock()
+	local holding = false
+	if scoped and now >= exhaleUntil and ScopeSway.Breath > 0 and holdPressed() then
+		holding = true
+		ScopeSway.Breath = math.max(0, ScopeSway.Breath - dt / ScopeSway.HoldTime)
+		if ScopeSway.Breath <= 0 then
+			exhaleUntil = now + ScopeSway.ExhaleTime
+		end
+	else
+		ScopeSway.Breath = math.min(1, ScopeSway.Breath + dt / ScopeSway.RecoverTime)
+	end
+	ScopeSway.Holding = holding
+	local target = 0
+	if scoped then
+		target = ScopeSway.Amplitude
+		if holding then
+			target *= 0.08
+		elseif now < exhaleUntil then
+			target *= 2
+		end
+		if ClientState.Crouching then
+			target *= 0.6
+		end
+		if touchOnly() then
+			target *= 0.5
+		end
+	end
+	amp += (target - amp) * math.min(1, dt * 4)
+	local pitch = (math.sin(now * 0.9) * 0.6 + math.sin(now * 2.3) * 0.15) * amp
+	local yaw = (math.sin(now * 0.55) + math.sin(now * 1.7) * 0.2) * amp
+	local dPitch, dYaw = pitch - lastPitch, yaw - lastYaw
+	lastPitch, lastYaw = pitch, yaw
+	return dPitch, dYaw
+end
+
+-- Al morir o reaparecer: todo a cero (la cámara nueva no arrastra el balanceo de antes)
+function ScopeSway.Reset()
+	amp, lastPitch, lastYaw = 0, 0, 0
+	exhaleUntil = 0
+	ScopeSway.Breath = 1
+	ScopeSway.Holding = false
+end
+
+return ScopeSway
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="123">
+            <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
 -- lista en los modos sin equipos) con bajas, muertes y puntos. Incluye a los bots (ReplicatedStorage.
@@ -40051,7 +40176,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -40270,7 +40395,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -40356,7 +40481,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -40590,7 +40715,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -40747,7 +40872,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -40913,7 +41038,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -41107,7 +41232,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -41126,6 +41251,7 @@ local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local AimAssist = require(script.Parent.AimAssist)
+local ScopeSway = require(script.Parent.ScopeSway)
 local CombatFX = require(script.Parent.CombatFX)
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
@@ -41996,6 +42122,11 @@ local function renderStep(dt)
 		if assistYaw * debtYaw < 0 then
 			debtYaw = math.sign(debtYaw) * math.max(0, math.abs(debtYaw) - math.abs(assistYaw))
 		end
+		-- Visor de francotirador: el pulso mueve un poco la mira (Mayús: aguantar la respiración)
+		local swayPitch, swayYaw = ScopeSway.Update(dt, def ~= nil and def.Scope == true and aimAlpha > 0.85)
+		if swayPitch ~= 0 or swayYaw ~= 0 then
+			camera.CFrame = camera.CFrame * CFrame.Angles(swayPitch, swayYaw, 0)
+		end
 		-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
 		if smokeShots > 0 and os.clock() - lastShot > 0.3 then
 			local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
@@ -42488,6 +42619,7 @@ local function onCharacter(newCharacter)
 		debtPitch, debtYaw = 0, 0
 		ClientState.Shake = 0
 		ClientState.LandKick = 0
+		ScopeSway.Reset()
 	end))
 end
 
@@ -42601,7 +42733,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -42658,7 +42790,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -42959,7 +43091,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="132">
+          <Item class="ModuleScript" referent="133">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -43178,19 +43310,19 @@ return WorldFX
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="133">
+  <Item class="Teams" referent="134">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="134">
+  <Item class="Workspace" referent="135">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="135">
+    <Item class="Terrain" referent="136">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

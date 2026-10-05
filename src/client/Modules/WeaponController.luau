@@ -14,6 +14,7 @@ local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local AimAssist = require(script.Parent.AimAssist)
+local ScopeSway = require(script.Parent.ScopeSway)
 local CombatFX = require(script.Parent.CombatFX)
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
@@ -884,6 +885,11 @@ local function renderStep(dt)
 		if assistYaw * debtYaw < 0 then
 			debtYaw = math.sign(debtYaw) * math.max(0, math.abs(debtYaw) - math.abs(assistYaw))
 		end
+		-- Visor de francotirador: el pulso mueve un poco la mira (Mayús: aguantar la respiración)
+		local swayPitch, swayYaw = ScopeSway.Update(dt, def ~= nil and def.Scope == true and aimAlpha > 0.85)
+		if swayPitch ~= 0 or swayYaw ~= 0 then
+			camera.CFrame = camera.CFrame * CFrame.Angles(swayPitch, swayYaw, 0)
+		end
 		-- Tras una ráfaga larga (o varios tiros de escopeta/francotirador), sale humo del cañón
 		if smokeShots > 0 and os.clock() - lastShot > 0.3 then
 			local heavy = def ~= nil and (def.Pellets > 1 or def.Damage >= 60)
@@ -1376,6 +1382,7 @@ local function onCharacter(newCharacter)
 		debtPitch, debtYaw = 0, 0
 		ClientState.Shake = 0
 		ClientState.LandKick = 0
+		ScopeSway.Reset()
 	end))
 end
 
