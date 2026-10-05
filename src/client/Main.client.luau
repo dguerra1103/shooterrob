@@ -42,6 +42,7 @@ local GrenadeWarning = require(Modules.GrenadeWarning)
 local Ambience = require(Modules.Ambience)
 local LoadingScreen = require(Modules.LoadingScreen)
 local EnemyName = require(Modules.EnemyName)
+local RewardFX = require(Modules.RewardFX)
 
 Remotes.DataUpdate.OnClientEvent:Connect(ClientState.SetData)
 task.spawn(function()
@@ -62,6 +63,7 @@ local function start(name, fn, ...)
 end
 
 start("Settings", Settings.Init)
+start("RewardFX", RewardFX.Init)
 start("HUD", HUD.Init)
 start("Minimap", Minimap.Init)
 start("DominationHUD", DominationHUD.Init)

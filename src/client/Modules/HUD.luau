@@ -20,6 +20,7 @@ local UI = require(script.Parent.UI)
 local WeaponController = require(script.Parent.WeaponController)
 local WeaponIcon = require(script.Parent.WeaponIcon)
 local Settings = require(script.Parent.Settings)
+local RewardFX = require(script.Parent.RewardFX)
 
 local player = Players.LocalPlayer
 
@@ -173,6 +174,7 @@ local function buildCrosshair()
 		Visible = false,
 		Parent = gui,
 	})
+	refs.HitScale = UI.new("UIScale", { Parent = refs.Hitmarker })
 	refs.HitLines = {}
 	for i, pos in { Vector2.new(-1, -1), Vector2.new(1, -1), Vector2.new(-1, 1), Vector2.new(1, 1) } do
 		refs.HitLines[i] = UI.new("Frame", {
@@ -471,10 +473,11 @@ local function buildPlayerPanel()
 		BackgroundColor3 = Color3.fromRGB(80, 170, 255),
 		Parent = level,
 	}, { UI.corner(5) })
+	refs.XPScale = UI.new("UIScale", { Parent = level })
 	refs.LevelText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 0, -2),
-		Size = UDim2.fromOffset(320, 18),
+		Size = UDim2.fromOffset(520, 18),
 		Text = "Nivel 1",
 		TextSize = 15,
 		Parent = level,
@@ -840,6 +843,9 @@ local function popup(text, color)
 		LayoutOrder = nextOrder(),
 		Parent = refs.Popups,
 	})
+	-- (entra con un pequeño rebote)
+	local scale = UI.new("UIScale", { Scale = 1.4, Parent = label })
+	tween(scale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
 	task.delay(1.4, function()
 		tween(label, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
 	end)
@@ -878,41 +884,50 @@ local function timedLabel(label, text, duration)
 	end)
 end
 
+-- Texto corto de un premio del pase
+local function describeReward(reward)
+	if not reward then
+		return nil
+	elseif reward.Type == "Coins" then
+		return "🪙 +" .. tostring(reward.Amount)
+	elseif reward.Type == "Skin" then
+		return "🎨 Skin " .. Skins.Get(reward.Id).Name
+	elseif reward.Type == "Crate" then
+		return "🎁 Caja"
+	elseif reward.Type == "Outfit" then
+		return "👕 Traje nuevo"
+	elseif reward.Type == "KillEffect" then
+		return "💥 Efecto de eliminación"
+	end
+	return reward.Type
+end
+
 local function onNotify(kind, text)
 	if kind == "XP" then
 		popup(text)
+		RewardFX.AddScore(RewardFX.ParseXP(text))
 	elseif kind == "Medal" then
 		showMedal(text)
 	elseif kind == "Big" then
 		bigMessage(text)
 	elseif kind == "Challenge" then
 		bigMessage("✅ " .. text, Color3.fromRGB(90, 255, 140))
+		RewardFX.EdgeFlash(Color3.fromRGB(90, 255, 140), 0.5)
 		Sounds.Play("Kill")
 	elseif kind == "Mastery" then
 		bigMessage("🏆 " .. text, Color3.fromRGB(255, 200, 50))
+		RewardFX.EdgeFlash(Color3.fromRGB(255, 200, 50), 0.5)
 		Sounds.Play("Kill")
 	elseif kind == "LevelUp" then
-		bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
-		Sounds.Play("Kill")
+		-- Subir de nivel: celebración a pantalla completa (rayos, confeti y fanfarria)
+		if not RewardFX.Celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0) then
+			bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
+			Sounds.Play("Kill")
+		end
 		-- Qué da este nivel del pase (y qué daría el premium, si no lo tiene)
 		local tier = type(text) == "number" and GameConfig.BattlePass[text]
 		if tier then
-			local function describe(reward)
-				if not reward then
-					return nil
-				elseif reward.Type == "Coins" then
-					return "🪙 +" .. tostring(reward.Amount)
-				elseif reward.Type == "Skin" then
-					return "🎨 Skin " .. Skins.Get(reward.Id).Name
-				elseif reward.Type == "Crate" then
-					return "🎁 Caja"
-				elseif reward.Type == "Outfit" then
-					return "👕 Traje nuevo"
-				elseif reward.Type == "KillEffect" then
-					return "💥 Efecto de eliminación"
-				end
-				return reward.Type
-			end
+			local describe = describeReward
 			local data = ClientState.Data
 			local free, premium = describe(tier.Free), describe(tier.Premium)
 			local line = free and ("Recompensa: " .. free) or ""
@@ -957,6 +972,12 @@ end
 
 local multiCount, lastKillTime, killToken = 0, 0, nil
 local MULTI_NAMES = { [2] = "¡DOBLE BAJA!", [3] = "¡TRIPLE BAJA!", [4] = "¡CUÁDRUPLE!" }
+-- Color del aviso según cuántas bajas seguidas: naranja, rosa, morado y dorado
+local MULTI_COLORS = {
+	[2] = Color3.fromRGB(255, 180, 30),
+	[3] = Color3.fromRGB(255, 80, 160),
+	[4] = Color3.fromRGB(180, 90, 255),
+}
 
 local function showKillBanner(victim, headshot)
 	local now = os.clock()
@@ -964,12 +985,18 @@ local function showKillBanner(victim, headshot)
 	lastKillTime = now
 	local multi = MULTI_NAMES[multiCount] or (multiCount >= 5 and "¡IMPARABLE!" or nil)
 	refs.KillTitle.Text = multi or "ELIMINADO"
-	refs.KillTitle.TextColor3 = multi and Color3.fromRGB(255, 180, 30) or Color3.fromRGB(255, 70, 70)
+	refs.KillTitle.TextColor3 = MULTI_COLORS[multiCount] or (multi and Color3.fromRGB(255, 215, 60)) or Color3.fromRGB(255, 70, 70)
 	refs.KillSub.Text = tostring(victim) .. (headshot and "  ·  DISPARO A LA CABEZA" or "")
 	refs.KillIcon.Text = headshot and "🎯" or "💀"
 	refs.KillBanner.Visible = true
-	refs.KillScale.Scale = 1.5
+	-- (cuantas más bajas seguidas, más grande entra y más se sacude)
+	refs.KillScale.Scale = 1.5 + 0.25 * math.min(multiCount - 1, 4)
 	tween(refs.KillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	if multi then
+		refs.KillBanner.Rotation = multiCount % 2 == 0 and -6 or 6
+		tween(refs.KillBanner, 0.35, { Rotation = 0 }, Enum.EasingStyle.Elastic)
+	end
+	RewardFX.KillPulse(headshot, multiCount)
 	local token = {}
 	killToken = token
 	task.delay(2.2, function()
@@ -1086,6 +1113,14 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		line.Size = killed and UDim2.fromOffset(14, 4) or UDim2.fromOffset(10, 3)
 	end
 	refs.Hitmarker.Visible = true
+	-- (cada impacto "golpea": la X entra grande y se encoge; más en bajas)
+	refs.HitScale.Scale = killed and 1.8 or (headshot and 1.45 or 1.25)
+	tween(refs.HitScale, 0.12, { Scale = 1 })
+	-- (en la baja, la X entra girando)
+	refs.Hitmarker.Rotation = killed and -90 or 0
+	if killed then
+		tween(refs.Hitmarker, 0.25, { Rotation = 0 }, Enum.EasingStyle.Back)
+	end
 	local token = {}
 	hitToken = token
 	task.delay(killed and 0.35 or 0.15, function()
@@ -1124,6 +1159,25 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		end)
 		Debris:AddItem(board, 1)
 		Debris:AddItem(anchor, 1)
+		-- Baja: estallido de chispas doradas donde cayó (solo lo ves tú)
+		if killed and ClientState.EffectiveQuality ~= "Baja" then
+			local burst = Instance.new("Attachment")
+			burst.WorldPosition = hitPosition
+			burst.Parent = workspace.Terrain
+			local sparks = Instance.new("ParticleEmitter")
+			sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+			sparks.Color = ColorSequence.new(headshot and Color3.fromRGB(255, 220, 80) or Color3.fromRGB(255, 120, 70), Color3.fromRGB(255, 255, 220))
+			sparks.LightEmission = 1
+			sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 0) })
+			sparks.Lifetime = NumberRange.new(0.3, 0.55)
+			sparks.Speed = NumberRange.new(14, 26)
+			sparks.SpreadAngle = Vector2.new(180, 180)
+			sparks.Drag = 4
+			sparks.Rate = 0
+			sparks.Parent = burst
+			sparks:Emit(headshot and 28 or 18)
+			Debris:AddItem(burst, 1)
+		end
 	elseif type(damage) == "number" then
 		local label = UI.label({
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1234,6 +1288,7 @@ local function onMatchSummary(summary)
 				refs.SummaryLevelUp.TextColor3 = tier.Color
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
+				RewardFX.Celebrate(tier.Icon .. " ¡" .. string.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true)
 			end
 		end
 	end)
@@ -1529,13 +1584,27 @@ local function updateScoreboard()
 	end
 end
 
+local lastXP = { Level = nil, XP = nil }
+local XP_BLUE = Color3.fromRGB(80, 170, 255)
+
 local function updateData(data)
 	if not data then
 		return
 	end
 	local per = data.XPPerLevel or 1000
-	refs.LevelText.Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. "/" .. per .. " XP"
+	-- Con el próximo premio del pase a la vista: siempre hay algo "a punto" de caer
+	local nextTier = GameConfig.BattlePass[(data.Level or 1) + 1]
+	local nextText = nextTier and (describeReward(nextTier.Free) or (nextTier.Premium and "👑 " .. describeReward(nextTier.Premium)))
+	refs.LevelText.Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. "/" .. per .. " XP" .. (nextText and ("  ·  Próximo: " .. nextText) or "")
 	tween(refs.XPFill, 0.3, { Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1) })
+	-- Al ganar XP la barra destella y da un saltito
+	if lastXP.Level == data.Level and lastXP.XP and data.XP > lastXP.XP then
+		refs.XPFill.BackgroundColor3 = Color3.new(1, 1, 1)
+		tween(refs.XPFill, 0.4, { BackgroundColor3 = XP_BLUE })
+		refs.XPScale.Scale = 1.08
+		tween(refs.XPScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
+	lastXP.Level, lastXP.XP = data.Level, data.XP
 	-- La chuleta de teclas solo para los que empiezan (luego estorba al killfeed y a las armas)
 	if refs.KeyHints then
 		refs.KeyHints.Visible = (data.Level or 1) < 5

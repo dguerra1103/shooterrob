@@ -25,6 +25,7 @@ local UI = require(script.Parent.UI)
 local WeaponIcon = require(script.Parent.WeaponIcon)
 local Effects = require(script.Parent.Effects)
 local Settings = require(script.Parent.Settings)
+local RewardFX = require(script.Parent.RewardFX)
 
 local player = Players.LocalPlayer
 
@@ -1751,6 +1752,7 @@ local function crateAnimation(result)
 		end
 	end
 	local PRIZE_INDEX = 32
+	local prizeCard
 	for i = 1, 38 do
 		local kind, id
 		if i == PRIZE_INDEX then
@@ -1767,6 +1769,9 @@ local function crateAnimation(result)
 			ZIndex = 23,
 			Parent = reel,
 		}, { UI.corner(10), UI.stroke(rarityColor(rarity), 3, 0) })
+		if i == PRIZE_INDEX then
+			prizeCard = card
+		end
 		UI.label({
 			Position = UDim2.fromOffset(0, 30),
 			Size = UDim2.new(1, 0, 0, 50),
@@ -1800,14 +1805,14 @@ local function crateAnimation(result)
 	local target = -((PRIZE_INDEX - 1) * cardStep + 70 - 380) + math.random(-50, 50)
 	local spin = TweenService:Create(reel, TweenInfo.new(4.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(target, 15) })
 	spin:Play()
-	-- "tic" mientras gira
+	-- "tic" mientras gira: cada vez más agudo según se acerca al premio (más tensión)
 	task.spawn(function()
 		local last = 0
 		while spin.PlaybackState == Enum.PlaybackState.Playing do
 			local index = math.floor(-reel.Position.X.Offset / cardStep)
 			if index ~= last then
 				last = index
-				Sounds.Play("Click")
+				Sounds.Play("Click", nil, 0.8 + 0.7 * math.clamp(index / PRIZE_INDEX, 0, 1))
 			end
 			task.wait()
 		end
@@ -1815,6 +1820,32 @@ local function crateAnimation(result)
 	spin.Completed:Wait()
 	local name, rarity = itemName(result.Kind, result.Id)
 	Sounds.Play("Kill")
+	-- La carta del premio salta y brilla con el color de su rareza
+	if prizeCard then
+		local pop = UI.new("UIScale", { Scale = 1, Parent = prizeCard })
+		TweenService:Create(pop, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true), { Scale = 1.12 }):Play()
+		local stroke = prizeCard:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Thickness = 6
+		end
+	end
+	local glow = UI.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.45),
+		Size = UDim2.fromOffset(760, 170),
+		BackgroundColor3 = rarityColor(rarity),
+		BackgroundTransparency = 0.3,
+		ZIndex = 20,
+		Parent = overlay,
+	}, { UI.corner(16) })
+	TweenService:Create(glow, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { Size = UDim2.fromOffset(980, 330), BackgroundTransparency = 1 }):Play()
+	-- Épico o mejor (y nuevo): ¡celebración! Si no, un destello del color de la rareza
+	local rare = rarity == "Épico" or rarity == "Legendario" or rarity == "Mítico"
+	if rare and not result.Duplicate then
+		RewardFX.Celebrate("¡" .. string.upper(rarity) .. "!", name, rarityColor(rarity), rarity ~= "Épico")
+	else
+		RewardFX.EdgeFlash(rarityColor(rarity), 0.45)
+	end
 	local title = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.45, 100),

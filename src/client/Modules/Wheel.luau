@@ -12,6 +12,7 @@ local Sounds = require(Shared.Sounds)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local RewardFX = require(script.Parent.RewardFX)
 
 local player = Players.LocalPlayer
 
@@ -258,6 +259,12 @@ function Wheel.Spin()
 	local prize = prizes()[index]
 	Sounds.Play(prize.Jackpot and "Flag" or "Kill")
 	status.Text = (prize.Jackpot and "💥 ¡PREMIO GORDO! " or "¡Has ganado ") .. Shop.WheelPrizeText(prize) .. (prize.Jackpot and "" or "!")
+	-- Los premios difíciles (caja, 600 monedas, el gordo) se celebran a lo grande
+	if prize.Jackpot or (prize.Weight or 100) <= 8 then
+		RewardFX.Celebrate(prize.Jackpot and "💥 ¡PREMIO GORDO!" or "🎉 ¡GRAN PREMIO!", Shop.WheelPrizeText(prize), prize.Color, prize.Jackpot == true)
+	else
+		RewardFX.EdgeFlash(prize.Color, 0.4)
+	end
 	spinning = false
 	refresh()
 end
