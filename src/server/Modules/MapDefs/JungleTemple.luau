@@ -289,6 +289,12 @@ function Map.Build()
 
 	-- Límites, colinas y selva de fondo
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas
+	Kit.callout("PIRÁMIDE", CFrame.new(0, 12, 0), V(70, 40, 70))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("SALÓN DE COLUMNAS", m * CFrame.new(-78, 10, -55), V(32, 24, 24))
+		Kit.callout("PLATAFORMA", m * CFrame.new(-70, 12, 50), V(24, 30, 20))
+	end
 	for x = -240, 240, 60 do
 		for _, z in { -1, 1 } do
 			-- Colinas irregulares con salientes de roca y manchas de selva (LeafyGrass) en la cima

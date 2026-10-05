@@ -283,6 +283,13 @@ function Map.Build()
 
 	-- Límites y montañas nevadas de fondo
 	Kit.bounds(320, 220, 60)
+	-- Nombres de las zonas
+	Kit.callout("LAGO HELADO", CFrame.new(0, 6, 0), V(58, 16, 58))
+	Kit.callout("TORRE DEL RADAR", CFrame.new(0, 16, 0), V(26, 16, 26))
+	for _, m in { CFrame.new(), Kit.MIRROR } do
+		Kit.callout("HANGAR", m * CFrame.new(-70, 8, -62), V(48, 20, 34))
+		Kit.callout("LABORATORIO", m * CFrame.new(-72, 9, 45), V(30, 22, 24))
+	end
 	for x = -240, 240, 60 do
 		for _, z in { -1, 1 } do
 			-- Laderas nevadas irregulares con roca a la vista y, detrás, picos de roca con nieve en la cima
