@@ -6,7 +6,7 @@
 --   Baja  : sin sombras, sin bloom, sin rayos de sol, sin nubes ni partículas del mapa (móviles)
 --   Media : sombras y bloom, sin rayos de sol ni conos de luz, menos partículas del mapa
 --   Alta  : todo como lo diseñó el mapa
---   Ultra : además, desenfoque de profundidad lejano y más partículas
+--   Ultra : además, un desenfoque muy suave del horizonte (más allá de 250 studs) y más partículas
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -121,8 +121,9 @@ local function applyQuality()
 		if not dof then
 			dof = Instance.new("DepthOfFieldEffect")
 			dof.Name = "QualityDOF"
-			dof.FarIntensity = 0.12
-			dof.FocusDistance = 70
+			-- (muy suave y solo muy lejos: un enemigo a distancia de combate nunca sale borroso)
+			dof.FarIntensity = 0.06
+			dof.FocusDistance = 200
 			dof.InFocusRadius = 50 -- (el máximo que admite)
 			dof.NearIntensity = 0
 			dof.Parent = Lighting

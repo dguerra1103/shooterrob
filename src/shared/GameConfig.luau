@@ -3,10 +3,11 @@ local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
 GameConfig.GameTitle = "SHOOTER NEW"
--- Estilo de los mapas: "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
+-- Estilo de los mapas: "Tactico" (el de ahora: materiales de verdad con luz limpia y legible, color un
+-- poco vivo y brillo contenido: un shooter de Roblox moderno, MapKit.tacticalize), "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
 -- luz con sombras marcadas, como los shooters militares) o "Cartoon" (colores vivos, plástico liso y
 -- sombras suaves). En Realista, los mapas pensados para Cartoon se "realizan" solos (MapKit.realize).
-GameConfig.VisualStyle = "Realista"
+GameConfig.VisualStyle = "Tactico"
 
 -- Equipos
 GameConfig.Teams = {
@@ -55,6 +56,9 @@ GameConfig.WorldWeaponScale = 0.65
 -- Los personajes (bots y demás jugadores) sujetan el arma de fuego con las dos manos: culata al hombro
 -- y la otra mano en el guardamanos (IKControl, solo en cada cliente). false = la pose de Roblox
 GameConfig.TwoHandedPose = true
+-- Contorno rojo fino en los enemigos (solo donde ya se les ve: no atraviesa paredes), para leerlos al
+-- momento contra cualquier fondo, como en los shooters competitivos de Roblox. false = sin contorno
+GameConfig.EnemyOutline = true
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true

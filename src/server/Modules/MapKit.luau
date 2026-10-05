@@ -57,7 +57,11 @@ end
 
 -- Estilo Cartoon: los materiales "realistas" pasan a plástico liso y los colores ganan viveza; los
 -- grises claros tiran a lavanda (paredes tipo shooter de Roblox). Los detalles de suelo no cambian.
-Kit.Cartoon = GameConfig.VisualStyle ~= "Realista"
+-- (Táctico y Realista usan los materiales de verdad; solo cambia la luz: ver tacticalize y realize)
+local function realMaterials()
+	return GameConfig.VisualStyle == "Realista" or GameConfig.VisualStyle == "Tactico"
+end
+Kit.Cartoon = not realMaterials()
 Kit.Designed = false -- (mapa hecho ya realista: ver Kit.Begin)
 local CARTOON_FLAT = {}
 for _, name in {
@@ -1427,6 +1431,85 @@ local function realize(preset)
 end
 Kit.realize = realize
 
+-- Estilo Táctico (estilizado): materiales de verdad pero luz limpia y legible, como los shooters de
+-- Roblox modernos. Color un poco vivo (cada mapa conserva su tinte), contraste moderado, sombras
+-- limpias sin zonas negras, neblina que da profundidad sin tapar a nadie y un brillo contenido (solo
+-- brillan las luces y los neones, no las paredes al sol). Lo importante es ver al enemigo.
+-- designed: mapa ya pensado con su luz (Kit.Begin con Realistic): solo se le ponen los límites de
+-- legibilidad (ni muy oscuro, ni mucha niebla, ni mucho brillo)
+local function tacticalize(preset, designed)
+	local p = table.clone(preset)
+	local clock = p.ClockTime or 14
+	local night = clock < 6.2 or clock > 17.8
+	if designed then
+		p.Ambient = atLeast(p.Ambient or RGB(60, 62, 72), night and 55 or 66)
+		p.OutdoorAmbient = atLeast(p.OutdoorAmbient or RGB(125, 128, 140), night and 85 or 112)
+	else
+		p.Ambient = neutralize(p.Ambient or RGB(60, 62, 72), 0.15)
+			:Lerp(night and RGB(54, 58, 78) or RGB(82, 84, 96), 0.25)
+		p.OutdoorAmbient = neutralize(p.OutdoorAmbient or RGB(125, 128, 140), 0.15)
+			:Lerp(night and RGB(78, 84, 112) or RGB(138, 140, 152), 0.25)
+		p.Ambient = atLeast(p.Ambient, night and 55 or 70)
+		p.OutdoorAmbient = atLeast(p.OutdoorAmbient, night and 88 or 120)
+		p.ShadowSoftness = 0.2
+	end
+	local a = table.clone(p.Atmosphere or {})
+	local thin = (a.Density or 0.3) < 0.2
+	if not thin then
+		local maxDensity = designed and 0.38 or 0.34
+		a.Density = math.clamp(a.Density or 0.3, designed and 0.2 or 0.24, maxDensity)
+		a.Haze = math.clamp(a.Haze or 1.4, 0.4, designed and 1.4 or 1.1)
+	end
+	local overcast = (p.Clouds or 0) >= 0.85
+	if not designed then
+		a.Glare = (night or thin or overcast) and math.min(a.Glare or 0, 0.1) or 0.15
+		if a.Color then
+			a.Color = neutralize(a.Color, 0.2)
+		end
+		if a.Decay then
+			a.Decay = neutralize(a.Decay, 0.2)
+		end
+	else
+		a.Glare = math.min(a.Glare or 0.3, 0.3)
+	end
+	p.Atmosphere = a
+	local c = table.clone(p.Color or {})
+	if designed then
+		c.Saturation = math.max(c.Saturation or 0.05, 0.06)
+		c.Contrast = math.min(c.Contrast or 0.12, 0.16)
+	else
+		c.Saturation = math.clamp(c.Saturation or 0.1, 0.08, night and 0.14 or 0.16)
+		c.Contrast = math.clamp(c.Contrast or 0.12, 0.08, 0.13)
+		c.Brightness = math.clamp(c.Brightness or 0.02, 0, 0.03)
+		if c.Tint then
+			c.Tint = neutralize(c.Tint, 0.3) -- (el tinte del mapa se nota, pero sin teñirlo todo)
+		end
+	end
+	p.Color = c
+	local b = table.clone(p.Bloom or {})
+	b.Intensity = math.min(b.Intensity or 0.6, night and 0.75 or 0.5)
+	b.Threshold = math.max(b.Threshold or 1.8, night and 1.4 or 1.8)
+	b.Size = math.min(b.Size or 22, 24)
+	p.Bloom = b
+	p.SunRays = math.min(p.SunRays or 0.05, 0.05)
+	if not designed then
+		-- Terreno: los colores del mapa se respetan; solo los verdes chillones bajan un poco
+		local terrain = {}
+		for name, color in TERRAIN_DEFAULTS do
+			local custom = p.TerrainColors and p.TerrainColors[name]
+			if not custom or SNOWY[name] then
+				terrain[name] = custom or color
+			else
+				local h, sat = custom:ToHSV()
+				terrain[name] = (sat > 0.5 and h > 0.12 and h < 0.45) and neutralize(custom, 0.18) or custom
+			end
+		end
+		p.TerrainColors = terrain
+	end
+	return p
+end
+Kit.tacticalize = tacticalize
+
 -- Luz de esta partida: a veces sale otra hora del día del mapa (como las versiones de los mapas en
 -- los shooters de móvil). map.LightingVariants = { { Name = "Atardecer", Chance = 0.3, ...cambios } }.
 -- Deja el nombre de la variante en Kit.Variant (y el mapa lo guarda en su atributo Variant).
@@ -1455,6 +1538,8 @@ function Kit.applyLighting(preset)
 	Kit.Neutral = type(neutral) == "table" and { Hue = neutral.Hue or 0.68, Sat = neutral.Sat or 0.16 } or { Hue = 0.68, Sat = 0.16 }
 	if Kit.Cartoon then
 		preset = cartoonize(preset)
+	elseif GameConfig.VisualStyle == "Tactico" then
+		preset = tacticalize(preset, Kit.Designed)
 	elseif not Kit.Designed then
 		preset = realize(preset)
 	end
@@ -1540,7 +1625,7 @@ end
 -- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain). options.Realistic: este
 -- mapa usa materiales y luz realistas aunque el juego esté en estilo Cartoon (mapas tipo CoD)
 function Kit.Begin(name, options)
-	Kit.Cartoon = GameConfig.VisualStyle ~= "Realista" and not (options and options.Realistic)
+	Kit.Cartoon = not realMaterials() and not (options and options.Realistic)
 	-- (mapa hecho ya realista: su luz y sus colores se respetan tal cual)
 	Kit.Designed = options ~= nil and options.Realistic == true
 	local old = workspace:FindFirstChild("Map")

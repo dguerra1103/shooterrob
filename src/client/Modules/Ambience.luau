@@ -61,20 +61,6 @@ local function ensureGroup()
 	return group
 end
 
--- Con calidad baja, la ventisca echa la mitad de nieve (en este cliente; son muchas partículas)
-local stormMap, stormEmitter, stormRate = nil, nil, nil
-local function thinStorm(map)
-	if stormMap ~= map then
-		stormMap = map
-		local fall = map:FindFirstChild("Snowfall", true)
-		stormEmitter = fall and fall:FindFirstChildOfClass("ParticleEmitter") or nil
-		stormRate = stormEmitter and stormEmitter.Rate or nil
-	end
-	if stormEmitter and stormRate then
-		stormEmitter.Rate = (ClientState.EffectiveQuality == "Baja") and stormRate * 0.5 or stormRate
-	end
-end
-
 local function oneShot(id, volume, speed)
 	local sound = Instance.new("Sound")
 	sound.SoundId = id
@@ -380,9 +366,6 @@ function Ambience.Update()
 	local gust = 0.8 + 0.2 * math.sin(os.clock() * 0.35) + 0.1 * math.sin(os.clock() * 1.3)
 	-- (con ventisca, el viento sopla mucho más fuerte)
 	local storm = map ~= nil and map:GetAttribute("Weather") == "Snowstorm"
-	if storm then
-		thinStorm(map)
-	end
 	wind.Volume = preset.Wind * gust * (storm and 1.7 or 1)
 	wind.PlaybackSpeed = preset.WindSpeed
 	if not wind.IsPlaying then

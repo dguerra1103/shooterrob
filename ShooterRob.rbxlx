@@ -450,10 +450,11 @@ local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
 GameConfig.GameTitle = "SHOOTER NEW"
--- Estilo de los mapas: "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
+-- Estilo de los mapas: "Tactico" (el de ahora: materiales de verdad con luz limpia y legible, color un
+-- poco vivo y brillo contenido: un shooter de Roblox moderno, MapKit.tacticalize), "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
 -- luz con sombras marcadas, como los shooters militares) o "Cartoon" (colores vivos, plástico liso y
 -- sombras suaves). En Realista, los mapas pensados para Cartoon se "realizan" solos (MapKit.realize).
-GameConfig.VisualStyle = "Realista"
+GameConfig.VisualStyle = "Tactico"
 
 -- Equipos
 GameConfig.Teams = {
@@ -502,6 +503,9 @@ GameConfig.WorldWeaponScale = 0.65
 -- Los personajes (bots y demás jugadores) sujetan el arma de fuego con las dos manos: culata al hombro
 -- y la otra mano en el guardamanos (IKControl, solo en cada cliente). false = la pose de Roblox
 GameConfig.TwoHandedPose = true
+-- Contorno rojo fino en los enemigos (solo donde ya se les ve: no atraviesa paredes), para leerlos al
+-- momento contra cualquier fondo, como en los shooters competitivos de Roblox. false = sin contorno
+GameConfig.EnemyOutline = true
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
 -- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
@@ -15553,7 +15557,7 @@ function Map.Build()
 	snow.Rate = 140
 	-- (con ventisca: mucha más nieve, más rápida y de lado)
 	if Kit.Weather == "Snowstorm" then
-		snow.Rate = 300 -- (unas 1.400 partículas a la vez: los móviles con calidad baja ven la mitad, Ambience)
+		snow.Rate = 300 -- (unas 1.400 partículas a la vez; Settings las escala con la calidad)
 		snow.Size = NumberSequence.new(0.26)
 		snow.Speed = NumberRange.new(12, 18)
 		snow.Lifetime = NumberRange.new(4, 5.5)
@@ -19730,7 +19734,11 @@ end
 
 -- Estilo Cartoon: los materiales "realistas" pasan a plástico liso y los colores ganan viveza; los
 -- grises claros tiran a lavanda (paredes tipo shooter de Roblox). Los detalles de suelo no cambian.
-Kit.Cartoon = GameConfig.VisualStyle ~= "Realista"
+-- (Táctico y Realista usan los materiales de verdad; solo cambia la luz: ver tacticalize y realize)
+local function realMaterials()
+	return GameConfig.VisualStyle == "Realista" or GameConfig.VisualStyle == "Tactico"
+end
+Kit.Cartoon = not realMaterials()
 Kit.Designed = false -- (mapa hecho ya realista: ver Kit.Begin)
 local CARTOON_FLAT = {}
 for _, name in {
@@ -21100,6 +21108,85 @@ local function realize(preset)
 end
 Kit.realize = realize
 
+-- Estilo Táctico (estilizado): materiales de verdad pero luz limpia y legible, como los shooters de
+-- Roblox modernos. Color un poco vivo (cada mapa conserva su tinte), contraste moderado, sombras
+-- limpias sin zonas negras, neblina que da profundidad sin tapar a nadie y un brillo contenido (solo
+-- brillan las luces y los neones, no las paredes al sol). Lo importante es ver al enemigo.
+-- designed: mapa ya pensado con su luz (Kit.Begin con Realistic): solo se le ponen los límites de
+-- legibilidad (ni muy oscuro, ni mucha niebla, ni mucho brillo)
+local function tacticalize(preset, designed)
+	local p = table.clone(preset)
+	local clock = p.ClockTime or 14
+	local night = clock < 6.2 or clock > 17.8
+	if designed then
+		p.Ambient = atLeast(p.Ambient or RGB(60, 62, 72), night and 55 or 66)
+		p.OutdoorAmbient = atLeast(p.OutdoorAmbient or RGB(125, 128, 140), night and 85 or 112)
+	else
+		p.Ambient = neutralize(p.Ambient or RGB(60, 62, 72), 0.15)
+			:Lerp(night and RGB(54, 58, 78) or RGB(82, 84, 96), 0.25)
+		p.OutdoorAmbient = neutralize(p.OutdoorAmbient or RGB(125, 128, 140), 0.15)
+			:Lerp(night and RGB(78, 84, 112) or RGB(138, 140, 152), 0.25)
+		p.Ambient = atLeast(p.Ambient, night and 55 or 70)
+		p.OutdoorAmbient = atLeast(p.OutdoorAmbient, night and 88 or 120)
+		p.ShadowSoftness = 0.2
+	end
+	local a = table.clone(p.Atmosphere or {})
+	local thin = (a.Density or 0.3) < 0.2
+	if not thin then
+		local maxDensity = designed and 0.38 or 0.34
+		a.Density = math.clamp(a.Density or 0.3, designed and 0.2 or 0.24, maxDensity)
+		a.Haze = math.clamp(a.Haze or 1.4, 0.4, designed and 1.4 or 1.1)
+	end
+	local overcast = (p.Clouds or 0) >= 0.85
+	if not designed then
+		a.Glare = (night or thin or overcast) and math.min(a.Glare or 0, 0.1) or 0.15
+		if a.Color then
+			a.Color = neutralize(a.Color, 0.2)
+		end
+		if a.Decay then
+			a.Decay = neutralize(a.Decay, 0.2)
+		end
+	else
+		a.Glare = math.min(a.Glare or 0.3, 0.3)
+	end
+	p.Atmosphere = a
+	local c = table.clone(p.Color or {})
+	if designed then
+		c.Saturation = math.max(c.Saturation or 0.05, 0.06)
+		c.Contrast = math.min(c.Contrast or 0.12, 0.16)
+	else
+		c.Saturation = math.clamp(c.Saturation or 0.1, 0.08, night and 0.14 or 0.16)
+		c.Contrast = math.clamp(c.Contrast or 0.12, 0.08, 0.13)
+		c.Brightness = math.clamp(c.Brightness or 0.02, 0, 0.03)
+		if c.Tint then
+			c.Tint = neutralize(c.Tint, 0.3) -- (el tinte del mapa se nota, pero sin teñirlo todo)
+		end
+	end
+	p.Color = c
+	local b = table.clone(p.Bloom or {})
+	b.Intensity = math.min(b.Intensity or 0.6, night and 0.75 or 0.5)
+	b.Threshold = math.max(b.Threshold or 1.8, night and 1.4 or 1.8)
+	b.Size = math.min(b.Size or 22, 24)
+	p.Bloom = b
+	p.SunRays = math.min(p.SunRays or 0.05, 0.05)
+	if not designed then
+		-- Terreno: los colores del mapa se respetan; solo los verdes chillones bajan un poco
+		local terrain = {}
+		for name, color in TERRAIN_DEFAULTS do
+			local custom = p.TerrainColors and p.TerrainColors[name]
+			if not custom or SNOWY[name] then
+				terrain[name] = custom or color
+			else
+				local h, sat = custom:ToHSV()
+				terrain[name] = (sat > 0.5 and h > 0.12 and h < 0.45) and neutralize(custom, 0.18) or custom
+			end
+		end
+		p.TerrainColors = terrain
+	end
+	return p
+end
+Kit.tacticalize = tacticalize
+
 -- Luz de esta partida: a veces sale otra hora del día del mapa (como las versiones de los mapas en
 -- los shooters de móvil). map.LightingVariants = { { Name = "Atardecer", Chance = 0.3, ...cambios } }.
 -- Deja el nombre de la variante en Kit.Variant (y el mapa lo guarda en su atributo Variant).
@@ -21128,6 +21215,8 @@ function Kit.applyLighting(preset)
 	Kit.Neutral = type(neutral) == "table" and { Hue = neutral.Hue or 0.68, Sat = neutral.Sat or 0.16 } or { Hue = 0.68, Sat = 0.16 }
 	if Kit.Cartoon then
 		preset = cartoonize(preset)
+	elseif GameConfig.VisualStyle == "Tactico" then
+		preset = tacticalize(preset, Kit.Designed)
 	elseif not Kit.Designed then
 		preset = realize(preset)
 	end
@@ -21213,7 +21302,7 @@ end
 -- Empieza un mapa nuevo: borra el anterior (y el agua/roca de Terrain). options.Realistic: este
 -- mapa usa materiales y luz realistas aunque el juego esté en estilo Cartoon (mapas tipo CoD)
 function Kit.Begin(name, options)
-	Kit.Cartoon = GameConfig.VisualStyle ~= "Realista" and not (options and options.Realistic)
+	Kit.Cartoon = not realMaterials() and not (options and options.Realistic)
 	-- (mapa hecho ya realista: su luz y sus colores se respetan tal cual)
 	Kit.Designed = options ~= nil and options.Realistic == true
 	local old = workspace:FindFirstChild("Map")
@@ -27210,20 +27299,6 @@ local function ensureGroup()
 	return group
 end
 
--- Con calidad baja, la ventisca echa la mitad de nieve (en este cliente; son muchas partículas)
-local stormMap, stormEmitter, stormRate = nil, nil, nil
-local function thinStorm(map)
-	if stormMap ~= map then
-		stormMap = map
-		local fall = map:FindFirstChild("Snowfall", true)
-		stormEmitter = fall and fall:FindFirstChildOfClass("ParticleEmitter") or nil
-		stormRate = stormEmitter and stormEmitter.Rate or nil
-	end
-	if stormEmitter and stormRate then
-		stormEmitter.Rate = (ClientState.EffectiveQuality == "Baja") and stormRate * 0.5 or stormRate
-	end
-end
-
 local function oneShot(id, volume, speed)
 	local sound = Instance.new("Sound")
 	sound.SoundId = id
@@ -27529,9 +27604,6 @@ function Ambience.Update()
 	local gust = 0.8 + 0.2 * math.sin(os.clock() * 0.35) + 0.1 * math.sin(os.clock() * 1.3)
 	-- (con ventisca, el viento sopla mucho más fuerte)
 	local storm = map ~= nil and map:GetAttribute("Weather") == "Snowstorm"
-	if storm then
-		thinStorm(map)
-	end
 	wind.Volume = preset.Wind * gust * (storm and 1.7 or 1)
 	wind.PlaybackSpeed = preset.WindSpeed
 	if not wind.IsPlaying then
@@ -42113,7 +42185,7 @@ return Scoreboard
 --   Baja  : sin sombras, sin bloom, sin rayos de sol, sin nubes ni partículas del mapa (móviles)
 --   Media : sombras y bloom, sin rayos de sol ni conos de luz, menos partículas del mapa
 --   Alta  : todo como lo diseñó el mapa
---   Ultra : además, desenfoque de profundidad lejano y más partículas
+--   Ultra : además, un desenfoque muy suave del horizonte (más allá de 250 studs) y más partículas
 local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42228,8 +42300,9 @@ local function applyQuality()
 		if not dof then
 			dof = Instance.new("DepthOfFieldEffect")
 			dof.Name = "QualityDOF"
-			dof.FarIntensity = 0.12
-			dof.FocusDistance = 70
+			-- (muy suave y solo muy lejos: un enemigo a distancia de combate nunca sale borroso)
+			dof.FarIntensity = 0.06
+			dof.FocusDistance = 200
 			dof.InFocusRadius = 50 -- (el máximo que admite)
 			dof.NearIntensity = 0
 			dof.Parent = Lighting
@@ -45043,6 +45116,7 @@ local Teams = game:GetService("Teams")
 local Effects = require(script.Parent.Effects)
 local ClientState = require(script.Parent.ClientState)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
+local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 local player = Players.LocalPlayer
 
@@ -45123,6 +45197,8 @@ end
 -- Jugadores
 ---------------------------------------------------------------------------
 
+local ENEMY_COLOR = Color3.fromRGB(255, 64, 52)
+
 local function teamColorOf(other)
 	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
 end
@@ -45153,6 +45229,29 @@ local function applyStyle(character, isTeammate, isSelf, color)
 			-- Sin nombre sobre los enemigos: hay que encontrarlos
 			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		end
+	end
+	-- Enemigos: un contorno rojo fino que solo se ve donde ya los ves (no atraviesa paredes). Así se
+	-- distinguen al momento del fondo, también en mapas oscuros o con ropa del color de las paredes
+	local outline = character:FindFirstChild("EnemyOutline")
+	local enemy = not isTeammate and not isSelf and GameConfig.EnemyOutline ~= false and humanoid.Health > 0
+	if enemy then
+		if not outline then
+			outline = Instance.new("Highlight")
+			outline.Name = "EnemyOutline"
+			outline.FillTransparency = 1
+			outline.OutlineTransparency = 0.45
+			outline.OutlineColor = ENEMY_COLOR
+			outline.DepthMode = Enum.HighlightDepthMode.Occluded
+			outline.Parent = character
+			-- (al caer se quita: un cuerpo ya no es una amenaza)
+			humanoid.Died:Connect(function()
+				if outline.Parent then
+					outline:Destroy()
+				end
+			end)
+		end
+	elseif outline then
+		outline:Destroy()
 	end
 end
 
@@ -45220,12 +45319,17 @@ function WorldFX.Init()
 		if not bots then
 			return
 		end
-		bots.ChildAdded:Connect(function(model)
+		local function watchBot(model)
 			model:WaitForChild("Humanoid", 10)
 			styleBot(model)
-		end)
+			-- (en la Infección un bot cambia de bando al ser infectado)
+			model:GetAttributeChangedSignal("Team"):Connect(function()
+				styleBot(model)
+			end)
+		end
+		bots.ChildAdded:Connect(watchBot)
 		for _, model in bots:GetChildren() do
-			task.spawn(styleBot, model)
+			task.spawn(watchBot, model)
 		end
 	end)
 

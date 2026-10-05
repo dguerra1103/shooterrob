@@ -12,6 +12,7 @@ local Teams = game:GetService("Teams")
 local Effects = require(script.Parent.Effects)
 local ClientState = require(script.Parent.ClientState)
 local Remotes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes"))
+local GameConfig = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 local player = Players.LocalPlayer
 
@@ -92,6 +93,8 @@ end
 -- Jugadores
 ---------------------------------------------------------------------------
 
+local ENEMY_COLOR = Color3.fromRGB(255, 64, 52)
+
 local function teamColorOf(other)
 	return other and other.Team and other.TeamColor.Color or Color3.fromRGB(255, 200, 60)
 end
@@ -122,6 +125,29 @@ local function applyStyle(character, isTeammate, isSelf, color)
 			-- Sin nombre sobre los enemigos: hay que encontrarlos
 			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		end
+	end
+	-- Enemigos: un contorno rojo fino que solo se ve donde ya los ves (no atraviesa paredes). Así se
+	-- distinguen al momento del fondo, también en mapas oscuros o con ropa del color de las paredes
+	local outline = character:FindFirstChild("EnemyOutline")
+	local enemy = not isTeammate and not isSelf and GameConfig.EnemyOutline ~= false and humanoid.Health > 0
+	if enemy then
+		if not outline then
+			outline = Instance.new("Highlight")
+			outline.Name = "EnemyOutline"
+			outline.FillTransparency = 1
+			outline.OutlineTransparency = 0.45
+			outline.OutlineColor = ENEMY_COLOR
+			outline.DepthMode = Enum.HighlightDepthMode.Occluded
+			outline.Parent = character
+			-- (al caer se quita: un cuerpo ya no es una amenaza)
+			humanoid.Died:Connect(function()
+				if outline.Parent then
+					outline:Destroy()
+				end
+			end)
+		end
+	elseif outline then
+		outline:Destroy()
 	end
 end
 
@@ -189,12 +215,17 @@ function WorldFX.Init()
 		if not bots then
 			return
 		end
-		bots.ChildAdded:Connect(function(model)
+		local function watchBot(model)
 			model:WaitForChild("Humanoid", 10)
 			styleBot(model)
-		end)
+			-- (en la Infección un bot cambia de bando al ser infectado)
+			model:GetAttributeChangedSignal("Team"):Connect(function()
+				styleBot(model)
+			end)
+		end
+		bots.ChildAdded:Connect(watchBot)
 		for _, model in bots:GetChildren() do
-			task.spawn(styleBot, model)
+			task.spawn(watchBot, model)
 		end
 	end)
 
