@@ -834,6 +834,7 @@ GameConfig.XP = {
 	PumpkinConfirm = 60, -- Calabazas: recoger la calabaza de un enemigo caído
 	PumpkinDeny = 40, -- Calabazas: recoger la de un compañero (la baja no cuenta)
 	Assist = 40, -- asistencia: le quitaste vida a alguien que remató otro (en los últimos 10 s)
+	Ace = 250, -- Eliminación/Buscar y destruir: eliminar tú solo a todo el equipo rival en una ronda
 }
 -- Medallas de baja (como en los shooters de móvil): aviso en pantalla y XP extra (contra bots,
 -- reducida como el resto del XP). LongShot: distancia mínima en studs (sin explosivos ni cuerpo a cuerpo)
@@ -24487,6 +24488,8 @@ end
 local streakVictims = {} -- [player] = { [UserId] = true }
 local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
 local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para la killcam final)
+local aceRound = nil -- ronda de Eliminación en juego: { Kills = { [nombre] = n }, Members = { [equipo] = n }, Done }
+local maxDeficit = {} -- [equipo] = la mayor desventaja que llegó a tener en la partida (para la remontada)
 local decidingKill = nil -- la baja que cerró la partida (desde ahí todo queda congelado hasta su repetición)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
@@ -24538,6 +24541,13 @@ local function addScore(team, amount)
 	end
 	local score = getScore(team.Name) + amount
 	ReplicatedStorage:SetAttribute("Score_" .. team.Name, score)
+	-- (cuánto iba perdiendo cada equipo como mucho: si gana después, es una remontada)
+	for _, other in teams do
+		if other ~= team then
+			local behind = score - getScore(other.Name)
+			maxDeficit[other.Name] = math.max(maxDeficit[other.Name] or 0, behind)
+		end
+	end
 	if score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
 		roundOver = true
 	end
@@ -24703,6 +24713,8 @@ local function resetStats()
 	firstBlood = false
 	lastKill = nil
 	decidingKill = nil
+	aceRound = nil
+	table.clear(maxDeficit)
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -24955,6 +24967,21 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if roundOver and not wasOver and not decidingKill and GameConfig.FinalKillcam ~= false then
 			decidingKill = lastKill
 			ReplicatedStorage:SetAttribute("Frozen", true)
+		end
+		-- ACE: en una ronda de Eliminación, eliminar tú solo a todo el equipo rival (de 3 o más)
+		local killerTeam = (killer and killer.Team) or (killerBot and killerBot.Team) or nil
+		local victimTeam = (victim and victim.Team) or (victimBot and victimBot.Team) or nil
+		if aceRound and playing and killerTeam and victimTeam and killerTeam ~= victimTeam then
+			local count = (aceRound.Kills[killerName] or 0) + 1
+			aceRound.Kills[killerName] = count
+			local members = aceRound.Members[victimTeam.Name] or 0
+			if members >= 3 and count >= members and not aceRound.Done then
+				aceRound.Done = true
+				Remotes.Notify:FireAllClients("Ace", killerName)
+				if killer then
+					PlayerData.AddXP(killer, GameConfig.XP.Ace, "¡ACE!")
+				end
+			end
 		end
 	end
 	local weapon = weaponName and Weapons.Get(weaponName)
@@ -25475,6 +25502,10 @@ local function playFinalKillcam()
 	return true
 end
 Round.PlayFinalKillcam = playFinalKillcam -- (para las pruebas)
+-- (para las pruebas: empieza una ronda de Eliminación con estos equipos para contar el ACE)
+function Round.StartAceRound(members)
+	aceRound = { Kills = {}, Members = members, Done = false }
+end
 
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
 local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
@@ -25525,6 +25556,11 @@ local function eliminationRounds(s)
 		Bots.RespawnDead()
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
 		ReplicatedStorage:SetAttribute("Frozen", false)
+		do
+			local _, membersA = aliveCount(a)
+			local _, membersB = aliveCount(b)
+			aceRound = { Kills = {}, Members = { [a.Name] = membersA, [b.Name] = membersB }, Done = false }
+		end
 		if snd and Bomb.Start(attackers, defenders) then
 			-- Cada equipo sabe qué le toca
 			for _, player in Players:GetPlayers() do
@@ -25595,6 +25631,7 @@ local function eliminationRounds(s)
 			task.wait(0.25)
 		end
 		Bomb.Stop()
+		aceRound = nil
 		if decided then
 			if winner then
 				addScore(winner, 1)
@@ -25808,6 +25845,10 @@ local function endRound()
 		MVPKills = mvpKills,
 		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
 		Top = top,
+		-- Remontada: el ganador llegó a ir perdiendo por mucho (un 30 % de la meta, mínimo 2)
+		Comeback = teamMode and winner ~= nil
+			and (maxDeficit[winner.Name] or 0) >= math.max(2, math.ceil((ReplicatedStorage:GetAttribute("ScoreToWin") or 10) * 0.3))
+			or nil,
 	})
 	-- Resumen personal: lo ganado en esta partida (el cliente lo anima: barra de nivel, monedas...)
 	for _, player in Players:GetPlayers() do
@@ -26630,10 +26671,12 @@ local function build()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local SLOT = touchOnly and 78 or 58
 	local bar = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -58), -- (por encima del nivel y la barra de XP)
-		Size = UDim2.fromOffset(3 * 78 + 2 * 12, 92),
+		Size = UDim2.fromOffset(3 * SLOT + 2 * 12, SLOT + 14),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -26653,15 +26696,28 @@ local function build()
 	rescale()
 
 	for i, action in ACTIONS do
+		-- (estilo de HUD de shooter: fondo oscuro translúcido con el color de la habilidad en el borde y
+		-- una franja abajo; en el móvil, más grandes y de color lleno para tocarlas bien)
 		local button = UI.button({
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(78, 78),
+			Size = UDim2.fromOffset(SLOT, SLOT),
 			Text = "",
-			BackgroundColor3 = action.Color,
+			BackgroundColor3 = touchOnly and action.Color or Color3.fromRGB(16, 20, 28),
+			BackgroundTransparency = touchOnly and 0 or 0.25,
 			AutoButtonColor = true,
 			Parent = bar,
-		}, { UI.stroke(Color3.new(1, 1, 1), 3, 0), UI.gloss() })
-		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Icon, TextSize = 40, Parent = button })
+		}, { UI.stroke(touchOnly and Color3.new(1, 1, 1) or action.Color, touchOnly and 3 or 2, 0), touchOnly and UI.gloss() or nil })
+		if not touchOnly then
+			UI.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 1, -3),
+				Size = UDim2.new(1, -14, 0, 3),
+				BackgroundColor3 = action.Color,
+				BorderSizePixel = 0,
+				Parent = button,
+			}, { UI.corner(2) })
+		end
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Icon, TextSize = touchOnly and 40 or 28, Parent = button })
 		local cover = UI.new("Frame", {
 			AnchorPoint = Vector2.new(0, 1),
 			Position = UDim2.fromScale(0, 1),
@@ -26679,7 +26735,7 @@ local function build()
 			BackgroundColor3 = Color3.fromRGB(20, 22, 34),
 			ZIndex = 4,
 			-- (en el móvil no hay teclas: solo se toca el botón)
-			Visible = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
+			Visible = not touchOnly,
 			Parent = button,
 		}, { UI.corner(6), UI.stroke(Color3.new(1, 1, 1), 2, 0) })
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Key, TextSize = 18, ZIndex = 5, Parent = badge })
@@ -26718,7 +26774,7 @@ local function update()
 		end
 		if ready and not slot.WasReady then
 			-- Lista otra vez: pequeño salto del icono
-			local s = slot.Frame:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = slot.Frame })
+			local s = slot.Frame:FindFirstChild("ReadyScale") or UI.new("UIScale", { Name = "ReadyScale", Parent = slot.Frame })
 			s.Scale = 1.2
 			TweenService:Create(s, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 		end
@@ -31520,13 +31576,26 @@ function EventHUD.Init()
 		end
 		return goal, "Skin"
 	end
+	-- (mientras se juega solo sale un rato: al aparecer y cuando sumas; HUD de combate limpio)
+	local shownUntil, lastCount = 0, nil
+	Players.LocalPlayer.CharacterAdded:Connect(function()
+		shownUntil = os.clock() + 6
+	end)
 	task.spawn(function()
 		while true do
 			syncEvent()
 			local name = ReplicatedStorage:GetAttribute("EventName")
 			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
 			local data = ClientState.Data
+			local candy = data and data.EventCandy or 0
+			if candy ~= lastCount then
+				if lastCount ~= nil then
+					shownUntil = os.clock() + 5
+				end
+				lastCount = candy
+			end
 			gui.Enabled = name ~= nil and data ~= nil and not ClientState.InMainMenu
+				and (ReplicatedStorage:GetAttribute("State") ~= "Playing" or os.clock() < shownUntil)
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then
@@ -33318,6 +33387,16 @@ local function onNotify(kind, text)
 		showMedal(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Ace" then
+		-- ACE: alguien eliminó solo a todo el equipo rival en esta ronda
+		if text == player.Name then
+			if not celebrate("⭐ ¡ACE!", "Eliminaste tú solo a todo el equipo rival", Color3.fromRGB(255, 200, 50), true, true) then
+				bigMessage("⭐ ¡ACE!", Color3.fromRGB(255, 200, 50))
+			end
+			RewardFX.EdgeFlash(Color3.fromRGB(255, 200, 50), 0.6)
+		else
+			bigMessage("⭐ ACE · " .. tostring(text), Color3.fromRGB(255, 200, 50))
+		end
 	elseif kind == "Challenge" then
 		bigMessage("✅ " .. text, Color3.fromRGB(90, 255, 140))
 		RewardFX.EdgeFlash(Color3.fromRGB(90, 255, 140), 0.5)
@@ -33896,7 +33975,7 @@ local function onRoundEnd(info)
 		return
 	elseif info.Winner then
 		local won = player.Team and player.Team.Name == info.Winner
-		refs.RoundTitle.Text = won and "¡VICTORIA!" or "DERROTA"
+		refs.RoundTitle.Text = won and (info.Comeback and "¡REMONTADA!" or "¡VICTORIA!") or "DERROTA"
 		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 80)
 		resultFX(won)
 	else
@@ -34337,6 +34416,8 @@ local function render(dt)
 			nextText = "  ·  ✈ en " .. (5 - streak)
 		end
 		refs.StreakText.Text = "Racha x" .. streak .. nextText
+		-- (sin racha no se enseña: menos cosas en pantalla mientras se lucha)
+		refs.StreakText.Visible = streak > 0
 		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
 	end
 
@@ -35651,16 +35732,9 @@ local function bigButton(text, color, order, parent)
 		constraint.MaxTextSize = button.TextSize
 	end)
 	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
-	local scale = UI.new("UIScale", { Parent = button })
-	button.MouseEnter:Connect(function()
-		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-			return -- en móvil MouseLeave casi nunca llega y el botón se quedaría grande
-		end
-		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1.06 }):Play()
-	end)
-	button.MouseLeave:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1 }):Play()
-	end)
+	-- (el latido de los botones de regalo usa su propia escala; pasar por encima y pulsar ya lo hace
+	-- UI.button)
+	UI.new("UIScale", { Name = "PulseScale", Parent = button })
 	return button
 end
 
@@ -36154,7 +36228,7 @@ function MainMenu.Init()
 	end)
 		-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale"), wheelButton:FindFirstChildOfClass("UIScale") }
+		local scales = { dailyButton:FindFirstChild("PulseScale"), starterButton:FindFirstChild("PulseScale"), wheelButton:FindFirstChild("PulseScale") }
 		local buttonsList = { dailyButton, starterButton, wheelButton }
 		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
 		while gui.Parent do
@@ -39265,9 +39339,13 @@ function Menu.Init()
 	-- En la pantalla de inicio no hace falta (ya tiene su botón TIENDA) y taparía el título
 	task.spawn(function()
 		while open.Parent do
-			open.Visible = not ClientState.InMainMenu
 			-- Debajo del minimapa durante la partida
 			local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
+			-- (en PC, mientras luchas no se ve: HUD limpio; está la tecla B. En el móvil sí, que no hay teclas)
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local fighting = playing and humanoid ~= nil and humanoid.Health > 0 and not ClientState.Dead
+			open.Visible = not ClientState.InMainMenu and (phone or not fighting)
 			open.Position = UDim2.fromOffset(phone and 14 or 16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + (phone and 6 or 8) or 58)
 			task.wait(0.25)
 		end
@@ -40605,6 +40683,10 @@ local gui, panel
 local rows = {} -- [índice] = { Frame, Text, Fill, Count, Check, Done, Progress }
 
 local GREEN = Color3.fromRGB(80, 230, 90)
+-- Mientras se juega, el panel solo sale un rato (al aparecer y cuando avanza un reto): el HUD de combate
+-- queda limpio. Con la partida parada (calentamiento, fin) se ve siempre
+QuestTracker.ShowTime = 6
+local shownUntil = 0
 local GOLD = Color3.fromRGB(255, 205, 60)
 
 local function makeRow(index)
@@ -40692,8 +40774,10 @@ local function refresh(data)
 		row.Fill.BackgroundColor3 = entry.Done and GREEN or Color3.fromRGB(70, 170, 255)
 		-- Solo celebra si lo hemos visto pasar de pendiente a hecho (no al cargar)
 		if row.Done == false and entry.Done then
+			shownUntil = os.clock() + QuestTracker.ShowTime
 			celebrate(row)
 		elseif row.Progress and progress > row.Progress and not entry.Done then
+			shownUntil = os.clock() + QuestTracker.ShowTime
 			-- Cada paso del reto se nota: el contador da un salto y la barra destella
 			local scale = row.Count:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = row.Count })
 			scale.Scale = 1.5
@@ -40752,10 +40836,15 @@ function QuestTracker.Init()
 
 	ClientState.DataChanged.Event:Connect(refresh)
 	refresh(ClientState.Data)
+	player.CharacterAdded:Connect(function()
+		shownUntil = os.clock() + QuestTracker.ShowTime
+	end)
 	RunService.Heartbeat:Connect(function()
+		local state = ReplicatedStorage:GetAttribute("State")
 		gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
-			and ReplicatedStorage:GetAttribute("State") ~= "Ended" -- (no encima del resumen de la partida)
+			and state ~= "Ended" -- (no encima del resumen de la partida)
 			and not phone -- (en el teléfono no cabe: los retos se ven en el menú y avisan al completarse)
+			and (state ~= "Playing" or os.clock() < shownUntil)
 	end)
 end
 
@@ -42966,7 +43055,53 @@ function UI.button(props, children)
 	end
 	local button = UI.new("TextButton", defaults, children)
 	UI.corner(8).Parent = button
+	UI.pressFeel(button)
 	return button
+end
+
+-- Respuesta al tocar un botón: crece un poco al pasar el ratón, se hunde al pulsar y vuelve al soltar
+-- (rápido y pequeño: se nota sin distraer)
+local PRESS_INFO = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local RELEASE_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+function UI.pressFeel(button)
+	local TweenService = game:GetService("TweenService")
+	local scale = Instance.new("UIScale")
+	scale.Name = "PressScale"
+	scale.Parent = button
+	local hovering, pressed = false, false
+	local function go(info)
+		local target = pressed and 0.94 or (hovering and 1.04 or 1)
+		TweenService:Create(scale, info, { Scale = target }):Play()
+	end
+	button.MouseEnter:Connect(function()
+		local UserInputService = game:GetService("UserInputService")
+		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+			return -- (en el móvil MouseLeave casi nunca llega: se quedaría grande)
+		end
+		hovering = true
+		go(RELEASE_INFO)
+	end)
+	button.MouseLeave:Connect(function()
+		hovering, pressed = false, false
+		go(RELEASE_INFO)
+	end)
+	button.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			pressed = true
+			go(PRESS_INFO)
+		end
+	end)
+	button.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			pressed = false
+			-- (en el móvil no hay "pasar por encima": al soltar vuelve a su tamaño)
+			if input.UserInputType == Enum.UserInputType.Touch then
+				hovering = false
+			end
+			go(RELEASE_INFO)
+		end
+	end)
+	return scale
 end
 
 function UI.formatTime(seconds)

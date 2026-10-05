@@ -1017,6 +1017,16 @@ local function onNotify(kind, text)
 		showMedal(text)
 	elseif kind == "Big" then
 		bigMessage(text)
+	elseif kind == "Ace" then
+		-- ACE: alguien eliminó solo a todo el equipo rival en esta ronda
+		if text == player.Name then
+			if not celebrate("⭐ ¡ACE!", "Eliminaste tú solo a todo el equipo rival", Color3.fromRGB(255, 200, 50), true, true) then
+				bigMessage("⭐ ¡ACE!", Color3.fromRGB(255, 200, 50))
+			end
+			RewardFX.EdgeFlash(Color3.fromRGB(255, 200, 50), 0.6)
+		else
+			bigMessage("⭐ ACE · " .. tostring(text), Color3.fromRGB(255, 200, 50))
+		end
 	elseif kind == "Challenge" then
 		bigMessage("✅ " .. text, Color3.fromRGB(90, 255, 140))
 		RewardFX.EdgeFlash(Color3.fromRGB(90, 255, 140), 0.5)
@@ -1595,7 +1605,7 @@ local function onRoundEnd(info)
 		return
 	elseif info.Winner then
 		local won = player.Team and player.Team.Name == info.Winner
-		refs.RoundTitle.Text = won and "¡VICTORIA!" or "DERROTA"
+		refs.RoundTitle.Text = won and (info.Comeback and "¡REMONTADA!" or "¡VICTORIA!") or "DERROTA"
 		refs.RoundTitle.TextColor3 = won and Color3.fromRGB(255, 210, 60) or Color3.fromRGB(255, 80, 80)
 		resultFX(won)
 	else
@@ -2036,6 +2046,8 @@ local function render(dt)
 			nextText = "  ·  ✈ en " .. (5 - streak)
 		end
 		refs.StreakText.Text = "Racha x" .. streak .. nextText
+		-- (sin racha no se enseña: menos cosas en pantalla mientras se lucha)
+		refs.StreakText.Visible = streak > 0
 		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
 	end
 

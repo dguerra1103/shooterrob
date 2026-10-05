@@ -90,7 +90,53 @@ function UI.button(props, children)
 	end
 	local button = UI.new("TextButton", defaults, children)
 	UI.corner(8).Parent = button
+	UI.pressFeel(button)
 	return button
+end
+
+-- Respuesta al tocar un botón: crece un poco al pasar el ratón, se hunde al pulsar y vuelve al soltar
+-- (rápido y pequeño: se nota sin distraer)
+local PRESS_INFO = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local RELEASE_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+function UI.pressFeel(button)
+	local TweenService = game:GetService("TweenService")
+	local scale = Instance.new("UIScale")
+	scale.Name = "PressScale"
+	scale.Parent = button
+	local hovering, pressed = false, false
+	local function go(info)
+		local target = pressed and 0.94 or (hovering and 1.04 or 1)
+		TweenService:Create(scale, info, { Scale = target }):Play()
+	end
+	button.MouseEnter:Connect(function()
+		local UserInputService = game:GetService("UserInputService")
+		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+			return -- (en el móvil MouseLeave casi nunca llega: se quedaría grande)
+		end
+		hovering = true
+		go(RELEASE_INFO)
+	end)
+	button.MouseLeave:Connect(function()
+		hovering, pressed = false, false
+		go(RELEASE_INFO)
+	end)
+	button.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			pressed = true
+			go(PRESS_INFO)
+		end
+	end)
+	button.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			pressed = false
+			-- (en el móvil no hay "pasar por encima": al soltar vuelve a su tamaño)
+			if input.UserInputType == Enum.UserInputType.Touch then
+				hovering = false
+			end
+			go(RELEASE_INFO)
+		end
+	end)
+	return scale
 end
 
 function UI.formatTime(seconds)

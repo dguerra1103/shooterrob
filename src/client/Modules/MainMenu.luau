@@ -79,16 +79,9 @@ local function bigButton(text, color, order, parent)
 		constraint.MaxTextSize = button.TextSize
 	end)
 	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), Parent = button })
-	local scale = UI.new("UIScale", { Parent = button })
-	button.MouseEnter:Connect(function()
-		if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
-			return -- en móvil MouseLeave casi nunca llega y el botón se quedaría grande
-		end
-		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1.06 }):Play()
-	end)
-	button.MouseLeave:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1 }):Play()
-	end)
+	-- (el latido de los botones de regalo usa su propia escala; pasar por encima y pulsar ya lo hace
+	-- UI.button)
+	UI.new("UIScale", { Name = "PulseScale", Parent = button })
 	return button
 end
 
@@ -582,7 +575,7 @@ function MainMenu.Init()
 	end)
 		-- Los botones de regalo y oferta laten mientras están disponibles
 	task.spawn(function()
-		local scales = { dailyButton:FindFirstChildOfClass("UIScale"), starterButton:FindFirstChildOfClass("UIScale"), wheelButton:FindFirstChildOfClass("UIScale") }
+		local scales = { dailyButton:FindFirstChild("PulseScale"), starterButton:FindFirstChild("PulseScale"), wheelButton:FindFirstChild("PulseScale") }
 		local buttonsList = { dailyButton, starterButton, wheelButton }
 		-- (sigue vivo toda la sesión: al volver a la pantalla de inicio vuelven a latir)
 		while gui.Parent do

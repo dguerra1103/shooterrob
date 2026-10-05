@@ -2696,9 +2696,13 @@ function Menu.Init()
 	-- En la pantalla de inicio no hace falta (ya tiene su botón TIENDA) y taparía el título
 	task.spawn(function()
 		while open.Parent do
-			open.Visible = not ClientState.InMainMenu
 			-- Debajo del minimapa durante la partida
 			local playing = game:GetService("ReplicatedStorage"):GetAttribute("State") == "Playing"
+			-- (en PC, mientras luchas no se ve: HUD limpio; está la tecla B. En el móvil sí, que no hay teclas)
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local fighting = playing and humanoid ~= nil and humanoid.Health > 0 and not ClientState.Dead
+			open.Visible = not ClientState.InMainMenu and (phone or not fighting)
 			open.Position = UDim2.fromOffset(phone and 14 or 16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + (phone and 6 or 8) or 58)
 			task.wait(0.25)
 		end

@@ -387,6 +387,7 @@ GameConfig.XP = {
 	PumpkinConfirm = 60, -- Calabazas: recoger la calabaza de un enemigo caído
 	PumpkinDeny = 40, -- Calabazas: recoger la de un compañero (la baja no cuenta)
 	Assist = 40, -- asistencia: le quitaste vida a alguien que remató otro (en los últimos 10 s)
+	Ace = 250, -- Eliminación/Buscar y destruir: eliminar tú solo a todo el equipo rival en una ronda
 }
 -- Medallas de baja (como en los shooters de móvil): aviso en pantalla y XP extra (contra bots,
 -- reducida como el resto del XP). LongShot: distancia mínima en studs (sin explosivos ni cuerpo a cuerpo)

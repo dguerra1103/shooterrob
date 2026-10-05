@@ -20,6 +20,10 @@ local gui, panel
 local rows = {} -- [índice] = { Frame, Text, Fill, Count, Check, Done, Progress }
 
 local GREEN = Color3.fromRGB(80, 230, 90)
+-- Mientras se juega, el panel solo sale un rato (al aparecer y cuando avanza un reto): el HUD de combate
+-- queda limpio. Con la partida parada (calentamiento, fin) se ve siempre
+QuestTracker.ShowTime = 6
+local shownUntil = 0
 local GOLD = Color3.fromRGB(255, 205, 60)
 
 local function makeRow(index)
@@ -107,8 +111,10 @@ local function refresh(data)
 		row.Fill.BackgroundColor3 = entry.Done and GREEN or Color3.fromRGB(70, 170, 255)
 		-- Solo celebra si lo hemos visto pasar de pendiente a hecho (no al cargar)
 		if row.Done == false and entry.Done then
+			shownUntil = os.clock() + QuestTracker.ShowTime
 			celebrate(row)
 		elseif row.Progress and progress > row.Progress and not entry.Done then
+			shownUntil = os.clock() + QuestTracker.ShowTime
 			-- Cada paso del reto se nota: el contador da un salto y la barra destella
 			local scale = row.Count:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = row.Count })
 			scale.Scale = 1.5
@@ -167,10 +173,15 @@ function QuestTracker.Init()
 
 	ClientState.DataChanged.Event:Connect(refresh)
 	refresh(ClientState.Data)
+	player.CharacterAdded:Connect(function()
+		shownUntil = os.clock() + QuestTracker.ShowTime
+	end)
 	RunService.Heartbeat:Connect(function()
+		local state = ReplicatedStorage:GetAttribute("State")
 		gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
-			and ReplicatedStorage:GetAttribute("State") ~= "Ended" -- (no encima del resumen de la partida)
+			and state ~= "Ended" -- (no encima del resumen de la partida)
 			and not phone -- (en el teléfono no cabe: los retos se ven en el menú y avisan al completarse)
+			and (state ~= "Playing" or os.clock() < shownUntil)
 	end)
 end
 

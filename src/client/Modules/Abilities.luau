@@ -172,10 +172,12 @@ local function build()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local SLOT = touchOnly and 78 or 58
 	local bar = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -58), -- (por encima del nivel y la barra de XP)
-		Size = UDim2.fromOffset(3 * 78 + 2 * 12, 92),
+		Size = UDim2.fromOffset(3 * SLOT + 2 * 12, SLOT + 14),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -195,15 +197,28 @@ local function build()
 	rescale()
 
 	for i, action in ACTIONS do
+		-- (estilo de HUD de shooter: fondo oscuro translúcido con el color de la habilidad en el borde y
+		-- una franja abajo; en el móvil, más grandes y de color lleno para tocarlas bien)
 		local button = UI.button({
 			LayoutOrder = i,
-			Size = UDim2.fromOffset(78, 78),
+			Size = UDim2.fromOffset(SLOT, SLOT),
 			Text = "",
-			BackgroundColor3 = action.Color,
+			BackgroundColor3 = touchOnly and action.Color or Color3.fromRGB(16, 20, 28),
+			BackgroundTransparency = touchOnly and 0 or 0.25,
 			AutoButtonColor = true,
 			Parent = bar,
-		}, { UI.stroke(Color3.new(1, 1, 1), 3, 0), UI.gloss() })
-		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Icon, TextSize = 40, Parent = button })
+		}, { UI.stroke(touchOnly and Color3.new(1, 1, 1) or action.Color, touchOnly and 3 or 2, 0), touchOnly and UI.gloss() or nil })
+		if not touchOnly then
+			UI.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 1, -3),
+				Size = UDim2.new(1, -14, 0, 3),
+				BackgroundColor3 = action.Color,
+				BorderSizePixel = 0,
+				Parent = button,
+			}, { UI.corner(2) })
+		end
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Icon, TextSize = touchOnly and 40 or 28, Parent = button })
 		local cover = UI.new("Frame", {
 			AnchorPoint = Vector2.new(0, 1),
 			Position = UDim2.fromScale(0, 1),
@@ -221,7 +236,7 @@ local function build()
 			BackgroundColor3 = Color3.fromRGB(20, 22, 34),
 			ZIndex = 4,
 			-- (en el móvil no hay teclas: solo se toca el botón)
-			Visible = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled),
+			Visible = not touchOnly,
 			Parent = button,
 		}, { UI.corner(6), UI.stroke(Color3.new(1, 1, 1), 2, 0) })
 		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Key, TextSize = 18, ZIndex = 5, Parent = badge })
@@ -260,7 +275,7 @@ local function update()
 		end
 		if ready and not slot.WasReady then
 			-- Lista otra vez: pequeño salto del icono
-			local s = slot.Frame:FindFirstChildOfClass("UIScale") or UI.new("UIScale", { Parent = slot.Frame })
+			local s = slot.Frame:FindFirstChild("ReadyScale") or UI.new("UIScale", { Name = "ReadyScale", Parent = slot.Frame })
 			s.Scale = 1.2
 			TweenService:Create(s, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 		end

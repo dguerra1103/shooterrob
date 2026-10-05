@@ -83,13 +83,26 @@ function EventHUD.Init()
 		end
 		return goal, "Skin"
 	end
+	-- (mientras se juega solo sale un rato: al aparecer y cuando sumas; HUD de combate limpio)
+	local shownUntil, lastCount = 0, nil
+	Players.LocalPlayer.CharacterAdded:Connect(function()
+		shownUntil = os.clock() + 6
+	end)
 	task.spawn(function()
 		while true do
 			syncEvent()
 			local name = ReplicatedStorage:GetAttribute("EventName")
 			local goal = ReplicatedStorage:GetAttribute("EventGoal") or 100
 			local data = ClientState.Data
+			local candy = data and data.EventCandy or 0
+			if candy ~= lastCount then
+				if lastCount ~= nil then
+					shownUntil = os.clock() + 5
+				end
+				lastCount = candy
+			end
 			gui.Enabled = name ~= nil and data ~= nil and not ClientState.InMainMenu
+				and (ReplicatedStorage:GetAttribute("State") ~= "Playing" or os.clock() < shownUntil)
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then

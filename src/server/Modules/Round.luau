@@ -64,6 +64,8 @@ end
 local streakVictims = {} -- [player] = { [UserId] = true }
 local firstBlood = false -- ya hubo la primera baja de la partida (medalla Primera sangre)
 local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para la killcam final)
+local aceRound = nil -- ronda de Eliminación en juego: { Kills = { [nombre] = n }, Members = { [equipo] = n }, Done }
+local maxDeficit = {} -- [equipo] = la mayor desventaja que llegó a tener en la partida (para la remontada)
 local decidingKill = nil -- la baja que cerró la partida (desde ahí todo queda congelado hasta su repetición)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
@@ -115,6 +117,13 @@ local function addScore(team, amount)
 	end
 	local score = getScore(team.Name) + amount
 	ReplicatedStorage:SetAttribute("Score_" .. team.Name, score)
+	-- (cuánto iba perdiendo cada equipo como mucho: si gana después, es una remontada)
+	for _, other in teams do
+		if other ~= team then
+			local behind = score - getScore(other.Name)
+			maxDeficit[other.Name] = math.max(maxDeficit[other.Name] or 0, behind)
+		end
+	end
 	if score >= (ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge) then
 		roundOver = true
 	end
@@ -280,6 +289,8 @@ local function resetStats()
 	firstBlood = false
 	lastKill = nil
 	decidingKill = nil
+	aceRound = nil
+	table.clear(maxDeficit)
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -532,6 +543,21 @@ function Round.RegisterKill(killer, victim, victimName, weaponName, headshot, po
 		if roundOver and not wasOver and not decidingKill and GameConfig.FinalKillcam ~= false then
 			decidingKill = lastKill
 			ReplicatedStorage:SetAttribute("Frozen", true)
+		end
+		-- ACE: en una ronda de Eliminación, eliminar tú solo a todo el equipo rival (de 3 o más)
+		local killerTeam = (killer and killer.Team) or (killerBot and killerBot.Team) or nil
+		local victimTeam = (victim and victim.Team) or (victimBot and victimBot.Team) or nil
+		if aceRound and playing and killerTeam and victimTeam and killerTeam ~= victimTeam then
+			local count = (aceRound.Kills[killerName] or 0) + 1
+			aceRound.Kills[killerName] = count
+			local members = aceRound.Members[victimTeam.Name] or 0
+			if members >= 3 and count >= members and not aceRound.Done then
+				aceRound.Done = true
+				Remotes.Notify:FireAllClients("Ace", killerName)
+				if killer then
+					PlayerData.AddXP(killer, GameConfig.XP.Ace, "¡ACE!")
+				end
+			end
 		end
 	end
 	local weapon = weaponName and Weapons.Get(weaponName)
@@ -1052,6 +1078,10 @@ local function playFinalKillcam()
 	return true
 end
 Round.PlayFinalKillcam = playFinalKillcam -- (para las pruebas)
+-- (para las pruebas: empieza una ronda de Eliminación con estos equipos para contar el ACE)
+function Round.StartAceRound(members)
+	aceRound = { Kills = {}, Members = members, Done = false }
+end
 
 -- Rondas de una vida hasta que un equipo llegue a ScoreToWin rondas ganadas (o se acabe el tiempo total)
 local MIN_SUBROUND = 20 -- no se empieza una ronda si quedan menos segundos que esto (más la preparación)
@@ -1102,6 +1132,11 @@ local function eliminationRounds(s)
 		Bots.RespawnDead()
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
 		ReplicatedStorage:SetAttribute("Frozen", false)
+		do
+			local _, membersA = aliveCount(a)
+			local _, membersB = aliveCount(b)
+			aceRound = { Kills = {}, Members = { [a.Name] = membersA, [b.Name] = membersB }, Done = false }
+		end
 		if snd and Bomb.Start(attackers, defenders) then
 			-- Cada equipo sabe qué le toca
 			for _, player in Players:GetPlayers() do
@@ -1172,6 +1207,7 @@ local function eliminationRounds(s)
 			task.wait(0.25)
 		end
 		Bomb.Stop()
+		aceRound = nil
 		if decided then
 			if winner then
 				addScore(winner, 1)
@@ -1385,6 +1421,10 @@ local function endRound()
 		MVPKills = mvpKills,
 		MVPCaptures = mvp and mvp:GetAttribute("Captures") or 0,
 		Top = top,
+		-- Remontada: el ganador llegó a ir perdiendo por mucho (un 30 % de la meta, mínimo 2)
+		Comeback = teamMode and winner ~= nil
+			and (maxDeficit[winner.Name] or 0) >= math.max(2, math.ceil((ReplicatedStorage:GetAttribute("ScoreToWin") or 10) * 0.3))
+			or nil,
 	})
 	-- Resumen personal: lo ganado en esta partida (el cliente lo anima: barra de nivel, monedas...)
 	for _, player in Players:GetPlayers() do
