@@ -33733,9 +33733,16 @@ local function showKillBanner(victim, headshot)
 	refs.KillSub.Text = tostring(victim) .. (headshot and "  ·  DISPARO A LA CABEZA" or "")
 	refs.KillIcon.Text = headshot and "🎯" or "💀"
 	refs.KillAccent.BackgroundColor3 = (headshot or multi) and Color3.fromRGB(255, 205, 60) or Color3.fromRGB(255, 70, 70)
-	-- (la placa entra desde la izquierda, rápida)
-	refs.KillPlate.Size = UDim2.fromOffset(120, 56)
-	tween(refs.KillPlate, 0.18, { Size = UDim2.fromOffset(400, 56) })
+	-- (la placa entra desde la izquierda, rápida, y mide lo que el texto: en el teléfono no pisa el
+	-- registro de bajas)
+	local function boundsX(label)
+		local bounds = label.TextBounds
+		return typeof(bounds) == "Vector2" and bounds.X or 0
+	end
+	local textWidth = math.max(boundsX(refs.KillTitle), boundsX(refs.KillSub))
+	local plateWidth = textWidth > 0 and math.clamp(textWidth + 92, 180, phone and 300 or 400) or (phone and 250 or 400)
+	refs.KillPlate.Size = UDim2.fromOffset(math.min(120, plateWidth), 56)
+	tween(refs.KillPlate, 0.18, { Size = UDim2.fromOffset(plateWidth, 56) })
 	refs.KillBanner.Visible = true
 	-- (cuantas más bajas seguidas, más grande entra y más se sacude)
 	refs.KillScale.Scale = killBaseScale * (1.5 + 0.25 * math.min(multiCount - 1, 4))
