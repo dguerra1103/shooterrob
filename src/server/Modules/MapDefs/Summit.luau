@@ -1,5 +1,5 @@
 -- CUMBRE: estación de montaña nevada al atardecer, al estilo de los mapas 5 contra 5 de los
--- shooters de móvil. En el centro el refugio (dos plantas, se entra por los cuatro lados). Por el
+-- shooters de móvil. En el centro el refugio (dos plantas, una puerta para cada equipo). Por el
 -- carril central la carretera con la quitanieves y rocas; a un lado la estación del teleférico,
 -- en alto, con su cabina (puesto de tirador); al otro el laboratorio, la cúpula del radar y los
 -- depósitos de combustible. Simétrico por rotación. Siempre en estilo realista.
@@ -202,12 +202,12 @@ function Map.Build()
 	end
 	block("CrossPath", V(18, 0.3, WIDTH - 40), CFrame.new(0, 0.15, 0), RGB(170, 172, 180), M.Pavement)
 
-	-- Refugio en el centro: dos plantas, puertas a los cuatro lados
+	-- Refugio en el centro: dos plantas, una puerta para cada equipo
 	building(CFrame.new(0, 0, 0), 32, 24, {
 		Floors = 2,
 		Color = RGB(150, 112, 80),
 		Material = M.WoodPlanks,
-		Doors = { Front = { 7 }, Back = { -7 }, Right = { 0 } }, -- (por la izquierda va la escalera)
+		Doors = { Front = { 7 }, Back = { 7 } }, -- (una puerta a cada equipo; por la izquierda va la escalera)
 		Sign = "REFUGIO",
 	})
 	Kit.cylinder("Chimney", 6, 2.4, CFrame.new(-10, 19, 6), STONE, M.Slate, nil, true)

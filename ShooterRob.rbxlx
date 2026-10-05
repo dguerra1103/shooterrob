@@ -17045,8 +17045,8 @@ return Map
             <Properties>
               <string name="Name">MilitaryBase</string>
               <string name="Source"><![CDATA[-- BASE MILITAR: base de entrenamiento en un valle verde, al estilo de los mapas 5 contra 5 de los
--- shooters de móvil. Tres carriles: en el centro, el búnker de mando (dos plantas, se entra por los
--- cuatro lados) con la galería de tiro y los camiones; a un lado el hangar con una avioneta y
+-- shooters de móvil. Tres carriles: en el centro, el búnker de mando (dos plantas, una puerta para
+-- cada equipo) con la galería de tiro y los camiones; a un lado el hangar con una avioneta y
 -- contenedores; al otro los barracones (dos plantas), las trincheras y la torre de vigilancia.
 -- Simétrico por rotación. Siempre en estilo realista.
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
@@ -17347,12 +17347,12 @@ function Map.Build()
 		deco("RoadLine", V(LENGTH - 40, 0.05, 0.5), CFrame.new(0, 0.43, z * 10), RGB(220, 200, 90), M.Concrete)
 	end
 
-	-- Búnker de mando en el centro: dos plantas y puertas a los cuatro lados
+	-- Búnker de mando en el centro: dos plantas y una puerta para cada equipo
 	building(CFrame.new(0, 0, 0), 30, 26, {
 		Floors = 2,
 		Color = CONCRETE,
 		Material = M.Concrete,
-		Doors = { Front = { 6 }, Back = { -6 }, Right = { 0 } }, -- (por la izquierda va la escalera)
+		Doors = { Front = { 6 }, Back = { 6 } }, -- (una puerta a cada equipo; por la izquierda va la escalera)
 		Sign = "MANDO",
 	})
 	Kit.cylinder("Antenna", 16, 0.5, CFrame.new(10, 25, 8), RGB(70, 72, 76), M.Metal, nil, true)
@@ -18920,7 +18920,7 @@ return Map
             <Properties>
               <string name="Name">Summit</string>
               <string name="Source"><![CDATA[-- CUMBRE: estación de montaña nevada al atardecer, al estilo de los mapas 5 contra 5 de los
--- shooters de móvil. En el centro el refugio (dos plantas, se entra por los cuatro lados). Por el
+-- shooters de móvil. En el centro el refugio (dos plantas, una puerta para cada equipo). Por el
 -- carril central la carretera con la quitanieves y rocas; a un lado la estación del teleférico,
 -- en alto, con su cabina (puesto de tirador); al otro el laboratorio, la cúpula del radar y los
 -- depósitos de combustible. Simétrico por rotación. Siempre en estilo realista.
@@ -19123,12 +19123,12 @@ function Map.Build()
 	end
 	block("CrossPath", V(18, 0.3, WIDTH - 40), CFrame.new(0, 0.15, 0), RGB(170, 172, 180), M.Pavement)
 
-	-- Refugio en el centro: dos plantas, puertas a los cuatro lados
+	-- Refugio en el centro: dos plantas, una puerta para cada equipo
 	building(CFrame.new(0, 0, 0), 32, 24, {
 		Floors = 2,
 		Color = RGB(150, 112, 80),
 		Material = M.WoodPlanks,
-		Doors = { Front = { 7 }, Back = { -7 }, Right = { 0 } }, -- (por la izquierda va la escalera)
+		Doors = { Front = { 7 }, Back = { 7 } }, -- (una puerta a cada equipo; por la izquierda va la escalera)
 		Sign = "REFUGIO",
 	})
 	Kit.cylinder("Chimney", 6, 2.4, CFrame.new(-10, 19, 6), STONE, M.Slate, nil, true)

@@ -1,6 +1,6 @@
 -- BASE MILITAR: base de entrenamiento en un valle verde, al estilo de los mapas 5 contra 5 de los
--- shooters de móvil. Tres carriles: en el centro, el búnker de mando (dos plantas, se entra por los
--- cuatro lados) con la galería de tiro y los camiones; a un lado el hangar con una avioneta y
+-- shooters de móvil. Tres carriles: en el centro, el búnker de mando (dos plantas, una puerta para
+-- cada equipo) con la galería de tiro y los camiones; a un lado el hangar con una avioneta y
 -- contenedores; al otro los barracones (dos plantas), las trincheras y la torre de vigilancia.
 -- Simétrico por rotación. Siempre en estilo realista.
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.GameConfig)
@@ -301,12 +301,12 @@ function Map.Build()
 		deco("RoadLine", V(LENGTH - 40, 0.05, 0.5), CFrame.new(0, 0.43, z * 10), RGB(220, 200, 90), M.Concrete)
 	end
 
-	-- Búnker de mando en el centro: dos plantas y puertas a los cuatro lados
+	-- Búnker de mando en el centro: dos plantas y una puerta para cada equipo
 	building(CFrame.new(0, 0, 0), 30, 26, {
 		Floors = 2,
 		Color = CONCRETE,
 		Material = M.Concrete,
-		Doors = { Front = { 6 }, Back = { -6 }, Right = { 0 } }, -- (por la izquierda va la escalera)
+		Doors = { Front = { 6 }, Back = { 6 } }, -- (una puerta a cada equipo; por la izquierda va la escalera)
 		Sign = "MANDO",
 	})
 	Kit.cylinder("Antenna", 16, 0.5, CFrame.new(10, 25, 8), RGB(70, 72, 76), M.Metal, nil, true)
