@@ -1,4 +1,7 @@
 -- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
+-- Como en los shooters realistas, se puede "cocinar": un toque la lanza enseguida; manteniendo la
+-- tecla se le quita la anilla y la mecha corre (pitidos cada vez más rápidos y cuenta atrás) y al
+-- soltar sale con menos tiempo para que el enemigo no pueda escapar. Si se acaba, sale sola.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -24,6 +27,9 @@ local DEF = Weapons.Grenade
 
 local widget, label, fill
 local touchOnly = false
+local cookStart = nil -- os.clock() al quitar la anilla (cocinando)
+local nextBeep = 0
+local AUTO_THROW = 0.25 -- (si queda tan poca mecha, sale sola)
 
 local function readyAt()
 	return player:GetAttribute("GrenadeReadyAt") or 0
@@ -38,14 +44,39 @@ local function canThrow()
 	return humanoid ~= nil and humanoid.Health > 0 and workspace:GetServerTimeNow() >= readyAt()
 end
 
-local function throw()
+local function throw(cook)
 	if not canThrow() then
 		return
 	end
 	-- Un poco hacia arriba para que la parábola llegue más lejos
 	local direction = (camera.CFrame.LookVector + Vector3.new(0, 0.12, 0)).Unit
-	Remotes.ThrowGrenade:FireServer(direction)
+	Remotes.ThrowGrenade:FireServer(direction, cook or 0)
 	Sounds.Play("Swing", nil, 0.8, 1)
+end
+
+-- Quitar la anilla (empieza a cocinarse)
+local function startCook()
+	if cookStart or not canThrow() then
+		return
+	end
+	cookStart = os.clock()
+	nextBeep = cookStart + 0.5
+	Sounds.Play("Click", nil, 1.7, 0.7)
+end
+
+-- Soltar: sale con el tiempo que lleva cocinándose
+local function release()
+	if not cookStart then
+		return
+	end
+	local cook = math.clamp(os.clock() - cookStart, 0, DEF.Fuse - AUTO_THROW)
+	cookStart = nil
+	throw(cook)
+end
+
+-- Segundos de mecha que le quedan a la granada que se está cocinando (nil si no hay)
+function GrenadeController.CookLeft()
+	return cookStart and math.max(0, DEF.Fuse - (os.clock() - cookStart)) or nil
 end
 
 local lastKey
@@ -59,7 +90,38 @@ local function updateWidget()
 		touchButton.Visible = active and not ClientState.IsBlocked()
 	end
 	if not active then
+		cookStart = nil
 		return
+	end
+	-- Cocinando: pitidos cada vez más rápidos y, si se acaba la mecha, sale sola
+	if cookStart then
+		if not canThrow() then
+			cookStart = nil -- (muerto, bloqueado...)
+		else
+			local fuseLeft = DEF.Fuse - (os.clock() - cookStart)
+			if fuseLeft <= AUTO_THROW then
+				release()
+			else
+				if os.clock() >= nextBeep then
+					Sounds.Play("Click", nil, 2.2, 0.5)
+					nextBeep = os.clock() + math.clamp(fuseLeft * 0.25, 0.12, 0.5)
+				end
+				local key = -1000 - math.floor(fuseLeft * 10)
+				if key ~= lastKey then
+					lastKey = key
+					label.Text = string.format("💣 %.1f", fuseLeft)
+					label.TextColor3 = Color3.fromRGB(255, 220, 120)
+					fill.Size = UDim2.fromScale(fuseLeft / DEF.Fuse, 1)
+					fill.BackgroundColor3 = Color3.fromRGB(230, 40, 30)
+					if touchOnly then
+						pcall(function()
+							TouchLayout.SetTitle("Grenade", string.format("%.1f", fuseLeft))
+						end)
+					end
+				end
+				return
+			end
+		end
 	end
 	local left = readyAt() - workspace:GetServerTimeNow()
 	-- (solo se escribe cuando cambia el segundo o la barra en pasos de 1/40)
@@ -115,7 +177,9 @@ function GrenadeController.Init()
 
 	TouchLayout.BindAction("Grenade", function(_, state)
 		if state == Enum.UserInputState.Begin then
-			throw()
+			startCook()
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			release()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)

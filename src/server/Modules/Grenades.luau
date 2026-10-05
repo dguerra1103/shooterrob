@@ -55,10 +55,13 @@ local function makeGrenade(cf)
 	return ball, light
 end
 
-local function throw(player, direction)
+-- cook: segundos que el jugador la tuvo cocinándose en la mano (sale con menos mecha)
+local function throw(player, direction, cook)
 	if typeof(direction) ~= "Vector3" then
 		return
 	end
+	-- (como mucho hasta que le quede un pelín de mecha; también descarta NaN)
+	cook = (type(cook) == "number" and cook == cook) and math.clamp(cook, 0, DEF.Fuse - 0.2) or 0
 	local length = direction.Magnitude
 	if not (length >= 0.5 and length <= 1.5) then -- también descarta NaN
 		return
@@ -110,8 +113,8 @@ local function throw(player, direction)
 	grenade.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 20
 
 	task.spawn(function()
-		-- Parpadeo cada vez más rápido
-		local fuseEnd = os.clock() + DEF.Fuse
+		-- Parpadeo cada vez más rápido (con la mecha que le quede si se cocinó)
+		local fuseEnd = os.clock() + DEF.Fuse - cook
 		while os.clock() < fuseEnd and grenade.Parent do
 			light.Enabled = not light.Enabled
 			task.wait(math.max(0.06, (fuseEnd - os.clock()) * 0.15))
