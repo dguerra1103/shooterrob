@@ -49,6 +49,15 @@ local function lowQuality()
 	return ClientState.EffectiveQuality == "Baja"
 end
 
+-- Teléfono (táctil y pantalla baja): todo un poco más pequeño y más arriba, para no tapar la mira
+-- ni los botones
+local UserInputService = game:GetService("UserInputService")
+local function isPhone()
+	local camera = workspace.CurrentCamera
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and camera ~= nil and camera.ViewportSize.Y < 500
+end
+RewardFX.IsPhone = isPhone
+
 -- Bordes de la pantalla: 4 franjas con degradado (opacas en el borde, transparentes hacia dentro)
 local function buildEdges()
 	local specs = {
@@ -84,12 +93,13 @@ local function buildScore()
 	scoreLabel.Name = "ScoreTotal"
 	-- (a la derecha y algo por debajo de la mira, como en los shooters: al crecer no la tapa)
 	scoreLabel.AnchorPoint = Vector2.new(0, 0.5)
-	scoreLabel.Position = UDim2.new(0.5, 36, 0.5, 30)
+	-- (en el teléfono, a la derecha de la mira pero por encima: debajo salen los avisos)
+	scoreLabel.Position = isPhone() and UDim2.new(0.5, 36, 0.5, -24) or UDim2.new(0.5, 36, 0.5, 30)
 	scoreLabel.TextXAlignment = Enum.TextXAlignment.Left
 	scoreLabel.Size = UDim2.fromOffset(220, 36)
 	scoreLabel.BackgroundTransparency = 1
 	scoreLabel.Font = Enum.Font.GothamBlack
-	scoreLabel.TextSize = 32
+	scoreLabel.TextSize = isPhone() and 26 or 32
 	scoreLabel.TextColor3 = GOLD
 	scoreLabel.TextStrokeTransparency = 0.2
 	scoreLabel.Text = ""
@@ -209,7 +219,7 @@ local function confetti(parent, count)
 	for _ = 1, count do
 		local piece = Instance.new("Frame")
 		piece.AnchorPoint = Vector2.new(0.5, 0.5)
-		piece.Position = UDim2.fromScale(0.5 + (math.random() - 0.5) * 0.1, 0.35)
+		piece.Position = UDim2.fromScale(0.5 + (math.random() - 0.5) * 0.1, isPhone() and 0.25 or 0.35)
 		piece.Size = UDim2.fromOffset(math.random(6, 12), math.random(10, 18))
 		piece.BorderSizePixel = 0
 		piece.BackgroundColor3 = CONFETTI[math.random(1, #CONFETTI)]
@@ -270,8 +280,8 @@ function RewardFX.Punch(text, color)
 	local label = Instance.new("TextLabel")
 	label.Name = "Punch"
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.36)
-	label.Size = UDim2.new(0.9, 0, 0, 90)
+	label.Position = UDim2.fromScale(0.5, isPhone() and 0.28 or 0.36)
+	label.Size = UDim2.new(0.9, 0, 0, isPhone() and 56 or 90)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBlack
 	label.TextScaled = true
@@ -365,7 +375,9 @@ function RewardFX.Celebrate(title, subtitle, color, big, priority)
 	-- Rayos de luz girando detrás del título
 	local rays = Instance.new("Frame")
 	rays.AnchorPoint = Vector2.new(0.5, 0.5)
-	rays.Position = UDim2.fromScale(0.5, 0.33)
+	local phone = isPhone()
+	local titleY = phone and 0.22 or 0.33
+	rays.Position = UDim2.fromScale(0.5, titleY)
 	rays.Size = UDim2.fromOffset(10, 10)
 	rays.BackgroundTransparency = 1
 	rays.Parent = holder
@@ -392,7 +404,7 @@ function RewardFX.Celebrate(title, subtitle, color, big, priority)
 	local raysScale = Instance.new("UIScale")
 	raysScale.Scale = 0.2
 	raysScale.Parent = rays
-	tween(raysScale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+	tween(raysScale, 0.5, { Scale = phone and 0.6 or 1 }, Enum.EasingStyle.Back)
 	tween(rays, 3.2, { Rotation = 70 }, Enum.EasingStyle.Linear)
 	-- Destello blanco de un instante
 	local flash = Instance.new("Frame")
@@ -406,9 +418,9 @@ function RewardFX.Celebrate(title, subtitle, color, big, priority)
 	-- Título
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.33)
+	label.Position = UDim2.fromScale(0.5, titleY)
 	-- (ancho relativo y texto que se encoge: en un móvil en horizontal cabe entero)
-	label.Size = UDim2.new(0.92, 0, 0, 80)
+	label.Size = UDim2.new(0.92, 0, 0, phone and 54 or 80)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBlack
 	label.TextSize = 64
@@ -429,8 +441,8 @@ function RewardFX.Celebrate(title, subtitle, color, big, priority)
 	if subtitle then
 		sub = Instance.new("TextLabel")
 		sub.AnchorPoint = Vector2.new(0.5, 0)
-		sub.Position = UDim2.new(0.5, 0, 0.33, 44)
-		sub.Size = UDim2.new(0.9, 0, 0, 34)
+		sub.Position = UDim2.new(0.5, 0, titleY, phone and 30 or 44)
+		sub.Size = UDim2.new(0.9, 0, 0, phone and 24 or 34)
 		sub.BackgroundTransparency = 1
 		sub.Font = Enum.Font.GothamBold
 		sub.TextSize = 26
@@ -448,7 +460,7 @@ function RewardFX.Celebrate(title, subtitle, color, big, priority)
 			tween(sub, 0.3, { TextTransparency = 0 })
 		end)
 	end
-	confetti(holder, (lowQuality() and 18 or 40) * (big and 1.5 or 1))
+	confetti(holder, math.floor((lowQuality() and 18 or (phone and 28 or 40)) * (big and 1.5 or 1)))
 	fanfare(big)
 	task.delay(2.6, function()
 		tween(label, 0.5, { TextTransparency = 1, TextStrokeTransparency = 1 })

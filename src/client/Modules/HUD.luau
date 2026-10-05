@@ -485,7 +485,17 @@ local function buildPlayerPanel()
 	})
 end
 
+-- Teléfono (pantalla táctil y baja): los avisos del centro se colocan y encogen para no pisar los
+-- botones de habilidades ni la mira (en tablet y ordenador, como siempre)
+local function isPhone()
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and workspace.CurrentCamera.ViewportSize.Y < 500
+end
+local phone = false
+local killBaseScale = 1
+
 local function buildFeedsAndOverlays()
+	phone = isPhone()
+	killBaseScale = phone and 0.7 or 1
 	refs.KillFeed = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -16, 0, 60),
@@ -502,7 +512,7 @@ local function buildFeedsAndOverlays()
 
 	refs.Popups = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0.58, 0),
+		Position = phone and UDim2.new(0.5, 0, 0.5, 22) or UDim2.new(0.5, 0, 0.58, 0),
 		Size = UDim2.fromOffset(400, 140),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -514,16 +524,19 @@ local function buildFeedsAndOverlays()
 		}),
 	})
 
+	-- (ancho relativo y texto que se encoge: los avisos largos caben en el móvil)
 	refs.BigText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.3),
-		Size = UDim2.fromOffset(800, 70),
+		Position = UDim2.fromScale(0.5, phone and 0.2 or 0.3),
+		Size = UDim2.new(0.92, 0, 0, phone and 48 or 70),
 		Text = "",
 		TextSize = 54,
+		TextScaled = true,
 		TextStrokeTransparency = 0,
 		Visible = false,
 		Parent = gui,
 	})
+	refs.BigFit = UI.new("UITextSizeConstraint", { MaxTextSize = 54, Parent = refs.BigText })
 
 	refs.Banner = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -612,13 +625,14 @@ local function buildFeedsAndOverlays()
 	-- Aviso de baja propia ("ELIMINADO", doble baja...)
 	refs.KillBanner = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.7),
+		-- (en el teléfono, por encima de la mira: abajo están los botones de habilidades)
+		Position = UDim2.fromScale(0.5, phone and 0.33 or 0.7),
 		Size = UDim2.fromOffset(440, 64),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = gui,
 	})
-	refs.KillScale = UI.new("UIScale", { Parent = refs.KillBanner })
+	refs.KillScale = UI.new("UIScale", { Scale = killBaseScale, Parent = refs.KillBanner })
 	refs.KillIcon = UI.label({
 		Size = UDim2.fromOffset(64, 64),
 		Text = "💀",
@@ -647,10 +661,11 @@ local function buildFeedsAndOverlays()
 
 	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja (en móvil,
 	-- encima: debajo están los botones de habilidades)
-	local medalsAbove = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local medalsAbove = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not phone
 	refs.Medals = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, medalsAbove and 1 or 0),
-		Position = UDim2.new(0.5, 0, 0.7, medalsAbove and -38 or 38),
+		-- (teléfono: justo debajo del aviso de baja, que está por encima de la mira)
+		Position = phone and UDim2.new(0.5, 0, 0.33, 24) or UDim2.new(0.5, 0, 0.7, medalsAbove and -38 or 38),
 		Size = UDim2.fromOffset(640, 34),
 		BackgroundTransparency = 1,
 		Parent = gui,
@@ -662,6 +677,9 @@ local function buildFeedsAndOverlays()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
+	if phone then
+		UI.new("UIScale", { Scale = 0.75, Parent = refs.Medals })
+	end
 
 	-- Fin de ronda
 	refs.RoundEnd = UI.new("Frame", {
@@ -670,6 +688,7 @@ local function buildFeedsAndOverlays()
 		Size = UDim2.fromOffset(560, 220),
 		BackgroundColor3 = Color3.fromRGB(20, 22, 35),
 		BackgroundTransparency = 0.15,
+		ZIndex = 10, -- (por encima de la vida y la racha: en el móvil el panel llega hasta abajo)
 		Visible = false,
 		Parent = gui,
 	}, { UI.corner(16), UI.stroke(Color3.new(1, 1, 1), 3, 0.6) })
@@ -862,14 +881,30 @@ local function showMedal(text)
 end
 
 local function popup(text, color)
+	-- En el teléfono, más pequeños y solo 2 a la vez (debajo están los botones de habilidades)
+	if phone then
+		local list = {}
+		for _, child in refs.Popups:GetChildren() do
+			if child:IsA("TextLabel") then
+				table.insert(list, child)
+			end
+		end
+		table.sort(list, function(a, b)
+			return a.LayoutOrder < b.LayoutOrder
+		end)
+		for i = 1, #list - 1 do
+			list[i]:Destroy()
+		end
+	end
 	local label = UI.label({
-		Size = UDim2.fromOffset(400, 26),
+		Size = UDim2.fromOffset(400, phone and 20 or 26),
 		Text = text,
 		TextSize = 22,
+		TextScaled = true, -- (los avisos largos se encogen en vez de salirse)
 		TextColor3 = color or Color3.fromRGB(255, 230, 120),
 		LayoutOrder = nextOrder(),
 		Parent = refs.Popups,
-	})
+	}, { UI.new("UITextSizeConstraint", { MaxTextSize = phone and 17 or 22 }) })
 	-- (entra con un pequeño rebote)
 	local scale = UI.new("UIScale", { Scale = 1.4, Parent = label })
 	tween(scale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
@@ -880,16 +915,30 @@ local function popup(text, color)
 end
 
 local bigToken
+-- Celebración: a pantalla completa en plena partida; con el resumen de fin de partida en pantalla,
+-- solo confeti, fanfarria y destello (el texto ya sale en el panel y así no lo tapa, sobre todo en
+-- el móvil)
+local function celebrate(title, subtitle, color, big, priority)
+	if refs.RoundEnd and refs.RoundEnd.Visible then
+		RewardFX.Confetti(big and 45 or 30)
+		RewardFX.Fanfare(big)
+		RewardFX.EdgeFlash(color or Color3.fromRGB(255, 210, 60), 0.5)
+		return true
+	end
+	return RewardFX.Celebrate(title, subtitle, color, big, priority)
+end
+
 local function bigMessage(text, color)
 	local label = refs.BigText
 	label.Text = text
 	label.TextColor3 = color or Color3.new(1, 1, 1)
 	label.TextTransparency = 0
 	label.TextStrokeTransparency = 0
-	label.Size = UDim2.fromOffset(800, 70)
-	label.TextSize = 70
+	-- (entra grande y se asienta: se anima el tamaño máximo del texto, que se encoge si no cabe)
+	local maxSize = phone and 38 or 54
+	refs.BigFit.MaxTextSize = math.floor(maxSize * 1.3)
 	label.Visible = true
-	tween(label, 0.25, { TextSize = 54 }, Enum.EasingStyle.Back)
+	tween(refs.BigFit, 0.25, { MaxTextSize = maxSize }, Enum.EasingStyle.Back)
 	local token = {}
 	bigToken = token
 	task.delay(2.5, function()
@@ -947,7 +996,7 @@ local function onNotify(kind, text)
 		Sounds.Play("Kill")
 	elseif kind == "LevelUp" then
 		-- Subir de nivel: celebración a pantalla completa (rayos, confeti y fanfarria)
-		if not RewardFX.Celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0, true) then
+		if not celebrate("⬆ ¡NIVEL " .. tostring(text) .. "!", "¡Sigue así!", Color3.fromRGB(255, 210, 60), type(text) == "number" and text % 10 == 0, true) then
 			bigMessage("⬆ ¡NIVEL " .. tostring(text) .. "!", Color3.fromRGB(255, 210, 60))
 			Sounds.Play("Kill")
 		end
@@ -1037,8 +1086,8 @@ local function showKillBanner(victim, headshot)
 	refs.KillIcon.Text = headshot and "🎯" or "💀"
 	refs.KillBanner.Visible = true
 	-- (cuantas más bajas seguidas, más grande entra y más se sacude)
-	refs.KillScale.Scale = 1.5 + 0.25 * math.min(multiCount - 1, 4)
-	tween(refs.KillScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	refs.KillScale.Scale = killBaseScale * (1.5 + 0.25 * math.min(multiCount - 1, 4))
+	tween(refs.KillScale, 0.3, { Scale = killBaseScale }, Enum.EasingStyle.Back)
 	if multi then
 		refs.KillBanner.Rotation = multiCount % 2 == 0 and -6 or 6
 		tween(refs.KillBanner, 0.35, { Rotation = 0 }, Enum.EasingStyle.Elastic)
@@ -1351,6 +1400,7 @@ local function onMatchSummary(summary)
 		stats ..= "   🏆 x" .. summary.WinStreak
 	end
 	refs.SummaryStats.Text = stats
+	refs.SummaryStats.TextColor3 = Color3.new(1, 1, 1)
 	local perLevel = math.max(1, summary.XPPerLevel or 1)
 	local level = summary.StartLevel or summary.Level or 1
 	refs.SummaryLevel.Text = "NIVEL " .. level
@@ -1430,7 +1480,10 @@ local function onMatchSummary(summary)
 		-- ¡Récord personal de bajas!
 		if type(summary.NewRecord) == "number" and token == summaryToken then
 			local before = (summary.PrevRecord or 0) > 0 and ("  (antes " .. summary.PrevRecord .. ")") or ""
-			RewardFX.Celebrate("🏆 ¡NUEVO RÉCORD!", summary.NewRecord .. " bajas en una partida" .. before, Color3.fromRGB(255, 200, 40), true)
+			-- (el récord también queda escrito en el panel, encima de las estadísticas)
+			refs.SummaryStats.Text = "🏆 ¡NUEVO RÉCORD! " .. summary.NewRecord .. " bajas" .. before
+			refs.SummaryStats.TextColor3 = Color3.fromRGB(255, 210, 60)
+			celebrate("🏆 ¡NUEVO RÉCORD!", summary.NewRecord .. " bajas en una partida" .. before, Color3.fromRGB(255, 200, 40), true)
 		end
 		if rankDelta ~= 0 and token == summaryToken then
 			refs.SummaryRank.Text = rankText(endRank, rankDelta)
@@ -1446,7 +1499,7 @@ local function onMatchSummary(summary)
 				refs.SummaryLevelUp.TextColor3 = tier.Color
 				refs.SummaryLevelUp.Visible = true
 				Sounds.Play("Flag")
-				RewardFX.Celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true, true)
+				celebrate(tier.Icon .. " ¡" .. UI.upper(tier.Name) .. "!", "Has subido de rango", tier.Color, true, true)
 			end
 		end
 	end)
@@ -1859,7 +1912,7 @@ checkClutch = function(aliveA, aliveB, teamA)
 		end
 	elseif theirs == 0 and alive and ReplicatedStorage:GetAttribute("Bomb_State") ~= "Planted" then
 		-- (con la bomba plantada aún hay que desactivarla: entonces no es victoria todavía)
-		RewardFX.Celebrate("🔥 ¡CLUTCH!", "Ganaste la ronda tú solo contra " .. clutch.Enemies, Color3.fromRGB(255, 140, 40), true)
+		celebrate("🔥 ¡CLUTCH!", "Ganaste la ronda tú solo contra " .. clutch.Enemies, Color3.fromRGB(255, 140, 40), true)
 		clutch = nil
 	elseif not alive or mine > 1 then
 		clutch = nil -- (caíste, o empezó otra ronda con el equipo entero)

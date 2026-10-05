@@ -2124,15 +2124,22 @@ local function buildShopPage(data)
 			BackgroundColor3 = claimed and Color3.fromRGB(40, 110, 60) or (today and Color3.fromRGB(110, 90, 20) or Color3.fromRGB(30, 40, 30)),
 			Parent = strip,
 		}, { UI.corner(8), UI.stroke(today and GOLD or Color3.fromRGB(80, 120, 80), today and 3 or 1, 0) })
-		UI.label({ Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 3), Text = claimed and "✓" or ("Día " .. day), TextSize = 14, Parent = cell })
+		-- (texto que llena la celda: en el móvil el menú se encoge y a tamaño fijo no se leía)
 		UI.label({
-			Size = UDim2.new(1, 0, 0, 22),
-			Position = UDim2.fromOffset(0, 24),
+			Size = UDim2.new(1, -6, 0.45, 0),
+			Position = UDim2.new(0, 3, 0, 2),
+			Text = claimed and "✓" or ("Día " .. day),
+			TextScaled = true,
+			Parent = cell,
+		}, { UI.new("UITextSizeConstraint", { MaxTextSize = 20 }) })
+		UI.label({
+			Size = UDim2.new(1, -6, 0.48, 0),
+			Position = UDim2.new(0, 3, 0.5, 0),
 			Text = (day == Shop.DailyCrateDay and "🎁" or "🪙") .. coins,
-			TextSize = 14,
+			TextScaled = true,
 			TextColor3 = GOLD,
 			Parent = cell,
-		})
+		}, { UI.new("UITextSizeConstraint", { MaxTextSize = 20 }) })
 		if today then
 			-- (el de hoy late)
 			local pulse = UI.new("UIScale", { Parent = cell })

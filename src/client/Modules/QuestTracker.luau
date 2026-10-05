@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sounds = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Sounds"))
 
@@ -165,6 +166,7 @@ function QuestTracker.Init()
 	refresh(ClientState.Data)
 	RunService.Heartbeat:Connect(function()
 		gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
+			and ReplicatedStorage:GetAttribute("State") ~= "Ended" -- (no encima del resumen de la partida)
 	end)
 end
 

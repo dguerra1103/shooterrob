@@ -231,7 +231,9 @@ local function build()
 end
 
 local function update()
+	-- (tampoco con el resumen de fin de partida en pantalla: en el móvil lo tapaban)
 	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen and not ClientState.VotePanelVisible
+		and ReplicatedStorage:GetAttribute("State") ~= "Ended"
 	local now = os.clock()
 	if not gui.Enabled then
 		-- (oculto: solo se apunta si ya está lista, para que el salto no salga al volver a mostrarse)
