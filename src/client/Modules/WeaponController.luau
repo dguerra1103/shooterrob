@@ -630,6 +630,7 @@ local function fire()
 			if model and model:FindFirstChildOfClass("Humanoid") then
 				ClientState.LastHitPosition = result.Position
 				ClientState.LastHitTime = os.clock()
+				ClientState.LastHitModel = model
 			end
 		end
 	end

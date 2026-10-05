@@ -1148,6 +1148,7 @@ local function onKillFeed(info)
 end
 
 local hitToken
+local hitFlash, hitFlashTween, hitFlashToken -- destello del enemigo al impactar
 local dmgCombo -- número de daño que se va sumando sobre el enemigo al que das
 local function onHitConfirm(damage, headshot, killed, serverPosition)
 	local color = Color3.new(1, 1, 1)
@@ -1177,6 +1178,37 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		end
 	end)
 	Sounds.Play(killed and "Kill" or (headshot and "Headshot" or "Hit"))
+
+	-- El enemigo al que das destella un instante (blanco; rojo en la baja). Un solo Highlight que se
+	-- reutiliza, y sin verse a través de las paredes
+	local target = os.clock() - ClientState.LastHitTime < 0.6 and ClientState.LastHitModel
+	if target and target.Parent then
+		if not hitFlash or not hitFlash.Parent then
+			hitFlash = Instance.new("Highlight")
+			hitFlash.Name = "HitFlash"
+			hitFlash.DepthMode = Enum.HighlightDepthMode.Occluded
+			hitFlash.OutlineTransparency = 1
+			hitFlash.Parent = workspace.CurrentCamera
+		end
+		hitFlash.Adornee = target
+		hitFlash.FillColor = killed and Color3.fromRGB(255, 60, 60) or Color3.new(1, 1, 1)
+		hitFlash.FillTransparency = killed and 0.25 or 0.45
+		hitFlash.Enabled = true
+		if hitFlashTween then
+			hitFlashTween:Cancel()
+		end
+		local duration = killed and 0.35 or 0.12
+		hitFlashTween = tween(hitFlash, duration, { FillTransparency = 1 })
+		-- (y se suelta al acabar: si no, taparía otros resaltados del enemigo, como el del radar)
+		local flashToken = {}
+		hitFlashToken = flashToken
+		task.delay(duration + 0.05, function()
+			if hitFlashToken == flashToken and hitFlash then
+				hitFlash.Enabled = false
+				hitFlash.Adornee = nil
+			end
+		end)
+	end
 
 	-- Número de daño en el mundo, encima de donde le diste (si lo sabemos), con un rebote
 	-- El servidor dice dónde fue el daño; si no, el último impacto del propio cliente

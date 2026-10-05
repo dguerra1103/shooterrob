@@ -31,6 +31,7 @@ local ClientState = {
 	LastShotTime = 0,
 	LastHitPosition = nil :: Vector3?, -- dónde dio tu último disparo a un personaje (números de daño)
 	LastHitTime = 0,
+	LastHitModel = nil :: Model?, -- a quién dio ese disparo (el destello al impactar)
 	VotePanelVisible = false, -- hay votación de mapa en pantalla (la V es para votar, no para inspeccionar)
 	Dashing = false, -- impulso (E) en curso: no se puede deslizar a la vez
 	MenuClosedAt = 0, -- cuándo se cerró la tienda (la B no revive justo después)
