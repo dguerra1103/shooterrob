@@ -142,6 +142,27 @@ Materials.MallRush = {
 	RoofTop = { RGB(78, 80, 88), M.Concrete },
 }
 
+-- ROOFTOP DISTRICT: azoteas de hormigón gris, fachadas gris azulado, acentos azul y rojo
+Materials.RooftopDistrict = {
+	Roof = { RGB(112, 116, 124), M.Concrete },
+	RoofDark = { RGB(104, 108, 116), M.Concrete },
+	Parapet = { RGB(188, 190, 194), M.Concrete },
+	BuildingBrick = { RGB(146, 78, 64), M.Brick },
+	Building = { RGB(150, 156, 166), M.Concrete },
+	BuildingBlue = { RGB(96, 116, 146), M.Concrete },
+	BuildingLight = { RGB(206, 208, 212), M.Concrete },
+	Street = { RGB(66, 68, 72), M.Asphalt },
+	Steel = { RGB(120, 126, 134), M.Metal },
+	SteelDark = { RGB(60, 64, 72), M.Metal },
+	Glass = { RGB(140, 190, 220), M.Glass },
+	Red = { RGB(200, 52, 48), M.SmoothPlastic },
+	Blue = { RGB(40, 104, 210), M.SmoothPlastic },
+	Screen = { RGB(30, 80, 170), M.SmoothPlastic },
+	Deck = { RGB(120, 124, 130), M.DiamondPlate },
+	Yellow = { RGB(120, 126, 134), M.Metal }, -- (barandillas de acero gris)
+	Plywood = { RGB(176, 140, 96), M.WoodPlanks },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 

@@ -32,18 +32,23 @@ end
 -- (3 en fila, cobertura baja) o "Tower" (2 apiladas, cobertura alta)
 function P.crateStack(cf, kind)
 	kind = kind or "L"
+	local crates = {}
+	local function add(c)
+		table.insert(crates, c)
+	end
 	if kind == "Wall" then
 		for i = -1, 1 do
-			P.crate(cf * CFrame.new(i * 4.1, 0, 0) * CFrame.Angles(0, rad(i * 4), 0), 4)
+			add(P.crate(cf * CFrame.new(i * 4.1, 0, 0) * CFrame.Angles(0, rad(i * 4), 0), 4))
 		end
 	elseif kind == "Tower" then
-		P.crate(cf, 4.5)
-		P.crate(cf * CFrame.new(0.2, 4.5, 0.1) * CFrame.Angles(0, rad(12), 0), 4)
+		add(P.crate(cf, 4.5))
+		add(P.crate(cf * CFrame.new(0.2, 4.5, 0.1) * CFrame.Angles(0, rad(12), 0), 4))
 	else
-		P.crate(cf * CFrame.new(-2.2, 0, 0), 4.2)
-		P.crate(cf * CFrame.new(2.2, 0, 0.3) * CFrame.Angles(0, rad(-6), 0), 4)
-		P.crate(cf * CFrame.new(-1.6, 4.2, 0.2) * CFrame.Angles(0, rad(10), 0), 3.4)
+		add(P.crate(cf * CFrame.new(-2.2, 0, 0), 4.2))
+		add(P.crate(cf * CFrame.new(2.2, 0, 0.3) * CFrame.Angles(0, rad(-6), 0), 4))
+		add(P.crate(cf * CFrame.new(-1.6, 4.2, 0.2) * CFrame.Angles(0, rad(10), 0), 3.4))
 	end
+	return crates
 end
 
 -- Palé de madera (decorado, a ras de suelo)
@@ -517,6 +522,73 @@ function P.facadeBlock(cf, w, d, h, look, opts)
 		G.deco("RoofBox", V(4, 2.4, 3), roofCf * CFrame.new(-w * 0.22, 1.2, -d * 0.18), "SteelDark")
 	end
 	return body
+end
+
+---------------------------------------------------------------------------
+-- Azoteas
+---------------------------------------------------------------------------
+
+-- Antena de celosía (decorado alto con base que choca) y balizas
+function P.antennaTower(cf, h)
+	h = h or 24
+	local base = G.box("AntennaBase", V(4, 1.6, 4), cf * CFrame.new(0, 0.8, 0), "SteelDark")
+	local w = 2.4
+	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+		G.beam(cf * V(c[1] * w / 2, 1.6, c[2] * w / 2), cf * V(c[1] * 0.4, h, c[2] * 0.4), 0.25, 0.25, "SteelDark", true)
+	end
+	for y = 4, h - 2, 4 do
+		local k = 1 - (y / h) * 0.7
+		G.deco("AntennaRing", V(w * k, 0.2, w * k), cf * CFrame.new(0, y, 0), "SteelDark")
+	end
+	for _, y in { h * 0.55, h * 0.8 } do
+		G.deco("AntennaPanel", V(0.4, 2.4, 1.2), cf * CFrame.new(0.9, y, 0), { RGB(220, 222, 226), M.SmoothPlastic })
+	end
+	local beacon = Kit.ball("AntennaBeacon", 0.7, cf * CFrame.new(0, h + 0.5, 0), RGB(255, 40, 30), M.Neon, true)
+	beacon:SetAttribute("Blink", 1)
+	return base
+end
+
+-- Lucernario piramidal de cristal sobre un zócalo (cobertura baja)
+function P.skylight(cf, w)
+	w = w or 8
+	local curb = G.box("SkylightCurb", V(w, 1.4, w), cf * CFrame.new(0, 0.7, 0), "SteelDark")
+	local h = w * 0.35
+	local slope = math.sqrt((w / 2) ^ 2 + h * h)
+	for i = 0, 3 do
+		local face = cf * CFrame.new(0, 1.4, 0) * CFrame.Angles(0, rad(i * 90), 0)
+		local pane = G.deco("SkylightGlass", V(w * 0.7, 0.2, slope), face * CFrame.new(0, h / 2, -w / 4) * CFrame.Angles(math.atan2(h, w / 2), 0, 0), "Glass")
+		pane.Transparency = 0.35
+	end
+	return curb
+end
+
+-- Placas solares en fila (cobertura muy baja)
+function P.solarRow(cf, count)
+	for i = 0, (count or 3) - 1 do
+		local panel = cf * CFrame.new(i * 4.4, 0, 0)
+		G.deco("SolarLeg", V(0.3, 1.6, 0.3), panel * CFrame.new(0, 0.8, 1), "SteelDark")
+		G.box("SolarPanel", V(4, 0.25, 3), panel * CFrame.new(0, 1.4, 0) * CFrame.Angles(rad(25), 0, 0), { RGB(30, 50, 90), M.Glass })
+	end
+end
+
+-- Antena parabólica
+function P.dish(cf)
+	G.deco("DishPost", V(0.4, 2.4, 0.4), cf * CFrame.new(0, 1.2, 0), "SteelDark")
+	local d = Kit.cylinder("Dish", 0.4, 3, cf * CFrame.new(0, 2.8, -0.3) * CFrame.Angles(rad(-55), 0, 0), RGB(230, 232, 236), M.SmoothPlastic, nil, true)
+	d.CastShadow = true
+end
+
+-- Valla publicitaria con pantalla (cara -Z) sobre patas: el cuerpo choca
+function P.billboardScreen(cf, w, h, text, color)
+	for _, x in { -w * 0.35, w * 0.35 } do
+		G.box("BillboardLeg", V(0.6, 4, 0.6), cf * CFrame.new(x, 2, 0.4), "SteelDark")
+	end
+	local frame = G.box("BillboardFrame", V(w, h, 1), cf * CFrame.new(0, 4 + h / 2, 0.4), "SteelDark")
+	local screen = G.deco("BillboardScreen", V(w - 0.8, h - 0.8, 0.2), cf * CFrame.new(0, 4 + h / 2, -0.15), { color or RGB(30, 80, 170), M.SmoothPlastic })
+	screen.CastShadow = false
+	local gui = Kit.sign(screen, Enum.NormalId.Front, text or "", RGB(230, 244, 255), color or RGB(30, 80, 170))
+	gui.LightInfluence = 0.15
+	return frame
 end
 
 ---------------------------------------------------------------------------

@@ -274,6 +274,52 @@ end
 -- encima, del tamaño de la pieza y hasta el techo del mapa. Va en Map.Boundary (no para balas ni
 -- la vista), así que solo lo nota quien intenta subirse. part = la pieza (o lista de piezas)
 T.CEILING = 60
+-- Pieza inclinada (barandilla de escalera o de rampa): el clip va en tramos verticales de 2 studs,
+-- cada uno desde lo más alto de la pieza en ese tramo (un clip girado se tumbaría sobre la escalera)
+local function capTilted(part, cf, size)
+	local axes = { cf.RightVector * size.X, cf.UpVector * size.Y, cf.LookVector * size.Z }
+	local long, best = 1, -1
+	for i, a in axes do
+		local hl = V(a.X, 0, a.Z).Magnitude
+		if hl > best then
+			long, best = i, hl
+		end
+	end
+	local d = axes[long]
+	local length = V(d.X, 0, d.Z).Magnitude
+	if length < 0.5 then
+		return nil
+	end
+	local dir = V(d.X, 0, d.Z) / length
+	local perp = V(-dir.Z, 0, dir.X)
+	local width, extra = 0, 0
+	for i, a in axes do
+		if i ~= long then
+			width += math.abs(a:Dot(perp))
+			extra += math.abs(a.Y) / 2
+		end
+	end
+	local slope = d.Y / length
+	local center = cf.Position
+	local n = math.max(1, math.ceil(length / 2))
+	local first
+	for i = 0, n - 1 do
+		local s0 = -length / 2 + length * i / n
+		local s1 = -length / 2 + length * (i + 1) / n
+		local top = center.Y + math.max(slope * s0, slope * s1) + extra
+		if top < T.CEILING - 1 then
+			local h = T.CEILING - top
+			local mid = center + dir * ((s0 + s1) / 2)
+			local flat = CFrame.lookAt(V(mid.X, top + h / 2, mid.Z), V(mid.X, top + h / 2, mid.Z) + dir)
+			local clip = Kit.block("PlayerClip", V(width + 0.4, h, (s1 - s0) + 0.05), flat, Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
+			clip.Transparency = 1
+			clip.CastShadow = false
+			first = first or clip
+		end
+	end
+	return first
+end
+
 function T.cap(part)
 	if typeof(part) == "table" then
 		for _, p in part do
@@ -289,6 +335,9 @@ function T.cap(part)
 		return T.cap(part:FindFirstChild("Body"))
 	end
 	local cf, size = part.CFrame, part.Size
+	if math.abs(cf.UpVector.Y) < 0.995 then
+		return capTilted(part, cf, size)
+	end
 	-- Altura de la cara de arriba (piezas giradas solo en Y)
 	local top = cf.Position.Y + math.abs(cf.UpVector.Y) * size.Y / 2
 	if top >= T.CEILING - 1 then
@@ -303,6 +352,7 @@ function T.cap(part)
 end
 
 Mall.capHook = T.cap
+Geometry.capHook = T.cap
 
 -- Terreno: relleno bajo el mapa (para que nada flote) y colinas de fondo
 function T.terrain(material, sx, sz, cf)

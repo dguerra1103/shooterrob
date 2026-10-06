@@ -137,7 +137,7 @@ function Geometry.build(T)
 	G.deco("LonjaCeiling", V(34, 0.3, 14), CF(0, 7.35, 70), "Deck")
 	for _, s in { -1, 1 } do
 		G.stairs(V(s * 20.5, 0, 77), V(s * 20.5, 8.5, 64), 4, "Stone", { Rails = s > 0 and "Right" or "Left", RailLook = "Iron" })
-		G.floor(CF(s * 20.5, 8.5, 62.5), 4, 3, "Stone", 0.5)
+		G.floor(CF(s * 20.2, 8.5, 62.5), 4.6, 3, "Stone", 0.5)
 		-- Pretil de la azotea (cobertura baja con hueco donde llega la escalera)
 		G.box("LonjaParapet", V(0.8, 2.6, 13), CF(s * 17.6, 8.5 + 1.3, 71.5), "Stone")
 		G.railing(V(s * 22.6, 8.5, 61), V(s * 22.6, 8.5, 64), "Iron")

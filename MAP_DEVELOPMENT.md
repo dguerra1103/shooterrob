@@ -28,7 +28,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [x] Mall Rush
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
-- [ ] Rooftop District
+- [x] Rooftop District
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [ ] Metro Yard
 - [ ] Desert Base
 - [ ] Dockyard
@@ -37,7 +38,12 @@ y añadirlo a `MapBuilder.Order`.
 ## Cómo se valida cada mapa (Lune, sin Studio)
 - `navcheck`: mapa de alturas (0,5 studs) desde las bases: andar ≤1,1, salto ≤6,8, supersalto
   ≤16,5. Falla si un punto de juego es inalcanzable o hay trampas sin vuelta; lista lo que se
-  alcanza fuera de las alturas de diseño (0 / 10 / 20).
+  alcanza fuera de las alturas de diseño (0 / 10 / 20 por defecto; cada ficha dice las suyas).
+- `spawnsight`: rayos desde una rejilla del mapa (a la altura de los ojos) a los puntos de
+  aparición: falla si la base se ve desde fuera de su zona.
+- Clips de jugador (`T.cap`): cajas invisibles que dejan pasar las balas, desde lo alto de muros,
+  pretiles y montones hasta el techo del mapa (60): nadie se sube a donde no debe con el supersalto.
+  En piezas inclinadas (barandillas de escaleras y rampas) el clip va en tramos verticales.
 - `spawncheck`, `bombsites`, `botspots`, `zonename`, `sndround`, `votecheck`, `smoke`.
 - Renders (three.js) desde los mismos ángulos que los paneles de la referencia.
 
@@ -97,6 +103,23 @@ y añadirlo a `MapBuilder.Order`.
 - Hitos: cúpula de cristal y fuente con palmeras, banderolas MALL RUSH, puestos BITES/SODA/PIZZA/NOODLE.
 - Tiempos: base→su sitio 3,8 s, base→sitio rival 7,7 s, rotación 3,9 s, base→base 11,5 s.
 - Piezas: ~2.100 (480 chocan), 20 luces.
+
+### Rooftop District
+- Tamaño: 300 x 200 de azoteas sobre una manzana; la calle queda 40 studs abajo (decorado, todos los
+  bordes con pretil y clip: no se cae nadie).
+- Alturas: 0 (base, bloque oeste, azotea B), 4 (azotea A), 6 (centro, torre NO, plataforma del
+  puente de cristal), 8 (depósito SO) y 14 (plataforma alta de la antena). navcheck con 0,4,6,8,14.
+- Rutas: puente de cristal (centro, cubierto) hasta la azotea de la pantalla; pasarelas norte y sur
+  del centro a A y B; flancos por las esquinas (torre NO → puente → A; suroeste → puente → B);
+  el bloque oeste con tres puentes desde la base; zonas altas (antena 14, depósito 8).
+- Sitios: A en la azotea norte (franja roja, cuarto de escalera con toldo rojo); B en la azotea sur
+  entre lucernarios (franja azul, depósito de agua). Compartidos (salida 3 s antes del defensor).
+- Bases: caseta cerrada sobre la azotea, frente ciego al mapa, puertas norte y sur con vestíbulo en L.
+- Hitos: pantalla gigante del centro, puente de cristal, antena de la torre, depósitos de agua, grúa
+  lejana y la ciudad alrededor (dos anillos de torres con ventanas encendidas de noche).
+- Tiempos: base→A 7,0 s, base→B 6,9 s, rotación 6,1 s, base→base 13,8 s.
+- Piezas: ~3.050 (680 chocan), 4 luces (la ciudad no proyecta sombras).
+- Pendiente: en Studio, comprobar que el vacío entre azoteas no confunde a los bots.
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los

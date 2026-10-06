@@ -11,6 +11,7 @@ local Kit = require(script.Parent.Parent.MapKit)
 local Materials = require(script.Parent.Materials)
 
 local G = {}
+G.capHook = function(_part) end -- (TacKit lo cambia por T.cap: tapar por arriba lo que no se pisa)
 
 local V = Vector3.new
 local get = Materials.get
@@ -294,6 +295,10 @@ function G.railing(a, b, look, h, opts)
 	local collider = Kit.block("RailCollider", V(0.5, h + 0.6, length), cf * CFrame.new(0, (h + 0.6) / 2, 0), look[1], nil, Kit.shootThroughFolder())
 	collider.Transparency = 1
 	collider.CastShadow = false
+	if opts.Cap then
+		-- (borde de un vacío: nadie salta por encima, ni con el supersalto)
+		G.capHook(collider)
+	end
 	return collider
 end
 
@@ -339,10 +344,10 @@ function G.stairs(bottom, top, width, look, opts)
 		local right = face.RightVector * (width / 2 - 0.2)
 		local ext = flatDir.Unit * 0.4
 		if rails == "Both" or rails == "Left" then
-			G.railing(bottom - right - ext, top - right + ext, opts.RailLook, 3.2, { NoToe = true })
+			G.railing(bottom - right - ext, top - right + ext, opts.RailLook, 3.2, { NoToe = true, Cap = opts.Cap })
 		end
 		if rails == "Both" or rails == "Right" then
-			G.railing(bottom + right - ext, top + right + ext, opts.RailLook, 3.2, { NoToe = true })
+			G.railing(bottom + right - ext, top + right + ext, opts.RailLook, 3.2, { NoToe = true, Cap = opts.Cap })
 		end
 	end
 	return body
@@ -366,7 +371,7 @@ function G.walkway(a, b, width, opts)
 	for side, s in { Left = -1, Right = 1 } do
 		if rails[side] then
 			local offset = cf.RightVector * s * (width / 2 - 0.25)
-			G.railing(a + offset, b + offset, opts.RailLook, 3.2)
+			G.railing(a + offset, b + offset, opts.RailLook, 3.2, { Cap = opts.Cap })
 		end
 	end
 	if opts.Supports and a.Y > 2 then

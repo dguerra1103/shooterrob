@@ -2,7 +2,6 @@
 -- rótulo, quiosco, puesto de comida, mesas, palmera en jardinera, banderola colgante y cúpula de
 -- cristal. Colores fuertes pero con materiales de verdad (nada de neón por todas partes).
 local Kit = require(script.Parent.Parent.MapKit)
-local Materials = require(script.Parent.Materials)
 local G = require(script.Parent.Geometry)
 
 local Mall = {}
