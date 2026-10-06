@@ -83,6 +83,17 @@ GameConfig.EndScreenTime = 8
 -- Despliegue al empezar cada partida (todos quietos y sin daño mientras tanto): presentación de los
 -- equipos y elección rápida de clase (LineupTime) y cuenta atrás 3-2-1 (CountdownTime). En
 -- Eliminación y Buscar y destruir la cuenta atrás es la preparación de la primera ronda.
+-- Animaciones de los personajes de los menús (vista 3D del lobby, operador, escuadra, armamento y
+-- victoria). Sube la animación (R15) a Roblox y pega aquí "rbxassetid://<id>"; vacío = pose por
+-- código con el arma lista (ver Flow/Preview)
+GameConfig.UIAnimations = {
+	MenuIdle = "",
+	OperatorIdle = "",
+	WeaponInspect = "",
+	SquadIdle = "",
+	VictoryPose = "",
+}
+
 GameConfig.Deploy = {
 	Enabled = true,
 	LineupTime = 6,

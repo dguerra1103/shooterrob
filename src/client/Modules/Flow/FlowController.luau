@@ -112,11 +112,13 @@ local function cameraStep(dt)
 	end
 end
 
-function Flow.SetCamera(mode)
+-- duration: solo para "Deploy" (lo que tarda en llegar a tu espalda; por defecto, lo que queda de
+-- despliegue)
+function Flow.SetCamera(mode, duration)
 	if mode == "Deploy" then
 		deployFrom = camera.CFrame
 		deployStart = os.clock()
-		deployTime = math.max(0.5, (Flow.DeployRemaining() or 3) - 0.15)
+		deployTime = math.max(0.5, (duration or Flow.DeployRemaining() or 3) - 0.15)
 	end
 	cameraMode = mode
 	if not mode then
@@ -412,6 +414,16 @@ function Flow.Init(screens)
 	for _, attr in { "State", "LoadingMap", "Deploy" } do
 		ReplicatedStorage:GetAttributeChangedSignal(attr):Connect(onRoundChanged)
 	end
+	-- Esc / B del mando: de una pantalla del lobby (escuadra, armamento, operador) a la principal
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or not LOBBY[Flow.State] or Flow.State == "Home" or ClientState.MenuOpen then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB or input.KeyCode == Enum.KeyCode.Backspace then
+			UISound.Play("Back")
+			Flow.SetState("Home")
+		end
+	end)
 	guis.Content:SetAttribute("Ready", true)
 end
 

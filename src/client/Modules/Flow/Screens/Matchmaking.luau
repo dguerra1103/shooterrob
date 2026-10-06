@@ -20,6 +20,7 @@ local Colors = Theme.Colors
 
 local Matchmaking = {}
 
+local cancelButton
 local flow, screen, panel, timerLabel, modeLabel, statusLabel, pingLabel, scanBar, pulse, votesRow
 local voteCards = {}
 local myVote
@@ -65,6 +66,9 @@ local function refreshVotes()
 end
 
 local function step()
+	if flow.State ~= "Matchmaking" then
+		return
+	end
 	local elapsed = os.clock() - startedAt
 	timerLabel.Text = string.format("%02d:%02d", elapsed // 60, elapsed % 60)
 	-- Escáner: una línea que barre el panel y un pulso que crece y se desvanece
@@ -112,12 +116,14 @@ function Matchmaking.Build(flowController, root)
 	timerLabel = C.text({ Text = "00:00", Role = "Number", TextSize = 46, Position = UDim2.fromOffset(142, 140), Size = UDim2.fromOffset(160, 54), Parent = panel })
 	pingLabel = C.text({ Text = "", Role = "Number", TextSize = 16, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 160), Size = UDim2.fromOffset(160, 24), Parent = panel })
 	-- Votación del mapa de la siguiente partida
-	votesRow = C.new("Frame", { Name = "Votes", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.42, 130), Size = UDim2.fromOffset(780, 120), Parent = screen }, {
+	-- (título y tarjetas en un contenedor: la lista solo ordena las tarjetas)
+	votesRow = C.new("Frame", { Name = "Votes", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.42, 108), Size = UDim2.fromOffset(780, 140), Parent = screen })
+	C.text({ Name = "VotesTitle", Text = "ELIGE EL MAPA DE LA SIGUIENTE PARTIDA", Role = "Title", TextSize = 16, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Center, Anchor = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(600, 20), Parent = votesRow })
+	local cardsRow = C.new("Frame", { Name = "Cards", BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 104), Parent = votesRow }, {
 		C.list(10, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center),
 	})
-	C.text({ Name = "VotesTitle", Text = "ELIGE EL MAPA DE LA SIGUIENTE PARTIDA", Role = "Title", TextSize = 16, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Center, Anchor = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -6), Size = UDim2.fromOffset(600, 20), Parent = votesRow })
 	for i = 1, 3 do
-		local card = C.button({ Name = "Vote" .. i, Text = "", Style = "Menu", Size = UDim2.fromOffset(250, 104), Order = i, Parent = votesRow, Sound = "Equip", OnClick = function()
+		local card = C.button({ Name = "Vote" .. i, Text = "", Style = "Menu", Size = UDim2.fromOffset(250, 104), Order = i, Parent = cardsRow, Sound = "Equip", OnClick = function()
 			myVote = i
 			pcall(function()
 				Remotes.VoteMap:FireServer(i)
@@ -129,7 +135,7 @@ function Matchmaking.Build(flowController, root)
 		local count = C.text({ Name = "Count", Text = "", Role = "Number", TextSize = 15, Color = Colors.YellowText, Position = UDim2.fromOffset(14, 72), Size = UDim2.new(1, -28, 0, 20), ZIndex = 5, Parent = card })
 		voteCards[i] = { Frame = card, Map = map, Mode = mode, Count = count }
 	end
-	C.button({ Name = "Cancel", Text = "CANCELAR", Icon = "✕", Style = "Ghost", TextSize = 20, Anchor = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.fromOffset(220, 52), Parent = screen, Sound = "Back", OnClick = function()
+	cancelButton = C.button({ Name = "Cancel", Text = "CANCELAR", Icon = "✕", Style = "Ghost", TextSize = 20, Anchor = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.fromOffset(220, 52), Parent = screen, Sound = "Back", OnClick = function()
 		flow.CancelSearch()
 	end })
 	ReplicatedStorage.AttributeChanged:Connect(function(name)
@@ -139,7 +145,17 @@ function Matchmaking.Build(flowController, root)
 	end)
 end
 
+-- Teléfono (pantalla baja): panel más arriba para que quepan los votos y CANCELAR debajo
+local function applyLayout()
+	local phone = C.Breakpoint() == "PHONE"
+	panel.Position = UDim2.new(0.5, 0, phone and 0.28 or 0.42, 0)
+	votesRow.Position = UDim2.new(0.5, 0, phone and 0.28 or 0.42, phone and 120 or 108)
+	cancelButton.Size = UDim2.fromOffset(220, phone and 44 or 52)
+	cancelButton.Position = UDim2.new(0.5, 0, 1, phone and -16 or -24)
+end
+
 function Matchmaking.Show()
+	applyLayout()
 	flow.SetCamera("Orbit")
 	flow.SetBackdrop(0.6)
 	Transition.Blur(16, 0.25)

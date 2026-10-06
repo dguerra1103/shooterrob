@@ -100,6 +100,7 @@ function Squad.Refresh()
 			shown[slot] = member
 			if member then
 				preview:SetCharacter(slot, member)
+				preview:SetAnimation(slot, "SquadIdle")
 				if previous == nil and member ~= player and not filling then
 					-- Entra alguien: su tarjeta aparece y se avisa
 					UISound.Play("Join")
@@ -139,7 +140,7 @@ function Squad.Build(flowController, root)
 	screen = C.new("Frame", { Name = "Squad", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false, Parent = root })
 	preview = Preview.new(screen, { Name = "SquadPreview", Anchor = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -90), Size = UDim2.new(1, -40, 1, -150), Camera = "Squad" })
 	title = C.text({ Text = "ESCUADRA", Role = "TitleItalic", TextSize = 44, Position = UDim2.fromOffset(28, 18), Size = UDim2.fromOffset(600, 50), Stroke = 2, Parent = screen })
-	C.text({ Text = "Tu equipo en este servidor · los amigos juegan contigo · los huecos libres se llenan con bots", Role = "BodyBold", TextSize = 14, Color = Colors.TextDim, Position = UDim2.fromOffset(30, 68), Size = UDim2.fromOffset(700, 20), Parent = screen })
+	C.text({ Text = "Tu equipo en este servidor · los amigos juegan contigo · los huecos libres se llenan con bots", Role = "BodyBold", TextSize = 14, Color = Colors.TextDim, Position = UDim2.fromOffset(30, 68), Size = UDim2.new(1, -60, 0, 20), Parent = screen })
 	cardsRow = C.new("Frame", {
 		Name = "Cards",
 		BackgroundTransparency = 1,
@@ -224,6 +225,9 @@ end
 
 function Squad.Hide()
 	preview:SetActive(false)
+	-- (las copias de los personajes no se guardan ocultas: se rehacen al volver)
+	preview:Clear()
+	table.clear(shown)
 	screen.Visible = false
 end
 

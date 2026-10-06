@@ -90,7 +90,8 @@ function C.Breakpoint()
 	local camera = workspace.CurrentCamera
 	local size = camera and camera.ViewportSize or Vector2.new(1280, 720)
 	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-	if touch and size.Y < 520 then
+	-- (pantalla baja: teléfono apaisado o ventana pequeña; se compacta igual)
+	if size.Y < 520 then
 		return "PHONE"
 	elseif touch then
 		return "TABLET"
@@ -100,7 +101,7 @@ end
 
 -- Alto de diseño por tipo de pantalla: en el teléfono todo se ve más grande (menos "píxeles
 -- virtuales" en la misma altura), así ningún texto queda diminuto
-local DESIGN_HEIGHT = { PHONE = 540, TABLET = 680, DESKTOP = 720 }
+local DESIGN_HEIGHT = { PHONE = 460, TABLET = 680, DESKTOP = 720 }
 
 -- Raíz de una pantalla: un Frame del tamaño de la pantalla en píxeles virtuales con su UIScale.
 -- Los hijos se colocan con Scale y AnchorPoint (izquierda/centro/derecha) y medidas en píxeles
@@ -328,6 +329,9 @@ function C.button(opts)
 		C.corner(opts.Radius or 4),
 		C.stroke(strokeColor, style == "Primary" and 2 or 1, strokeAlpha),
 	})
+	button:SetAttribute("BaseColor", bg)
+	button:SetAttribute("BaseTextColor", fg)
+	button:SetAttribute("BaseAlpha", alpha)
 	if style == "Primary" then
 		-- Brillo de arriba y sombra de abajo: el botón amarillo tiene volumen
 		new("UIGradient", {
@@ -403,9 +407,13 @@ end
 function C.setSelected(button, selected)
 	local label = button:FindFirstChild("Label", true)
 	local icon = button:FindFirstChild("Icon", true)
-	local bg = selected and Colors.Yellow or Colors.Panel
-	local fg = selected and Color3.fromRGB(16, 14, 8) or Colors.Text
-	tween(button, Theme.Time.Fast, { BackgroundColor3 = bg, BackgroundTransparency = selected and 0 or 0.12 })
+	-- (sin seleccionar vuelve a su estilo de origen, guardado al crearlo)
+	local baseBg = button:GetAttribute("BaseColor")
+	local baseFg = button:GetAttribute("BaseTextColor")
+	local baseAlpha = button:GetAttribute("BaseAlpha")
+	local bg = selected and Colors.Yellow or (typeof(baseBg) == "Color3" and baseBg or Colors.Panel)
+	local fg = selected and Color3.fromRGB(16, 14, 8) or (typeof(baseFg) == "Color3" and baseFg or Colors.Text)
+	tween(button, Theme.Time.Fast, { BackgroundColor3 = bg, BackgroundTransparency = selected and 0 or (tonumber(baseAlpha) or 0.12) })
 	if label then
 		tween(label, Theme.Time.Fast, { TextColor3 = fg })
 	end
@@ -478,7 +486,7 @@ function C.statRow(parent, name, icon, order)
 		Parent = parent,
 	})
 	C.text({ Text = icon or "", Role = "Title", TextSize = 18, AlignX = Enum.TextXAlignment.Center, Size = UDim2.new(0, 24, 1, 0), Color = Colors.White, Parent = row })
-	C.text({ Text = name, Role = "Title", TextSize = Theme.Size.Stat - 2, Size = UDim2.new(0.38, -28, 1, 0), Position = UDim2.fromOffset(30, 0), Parent = row })
+	C.text({ Text = name, Role = "Title", TextSize = Theme.Size.Stat - 2, Scaled = true, Size = UDim2.new(0.38, -28, 1, 0), Position = UDim2.fromOffset(30, 0), Parent = row })
 	local bar = C.progress({ Size = UDim2.new(0.5, -44, 0, 8), Position = UDim2.new(0.38, 6, 0.5, 0), Anchor = Vector2.new(0, 0.5), Parent = row })
 	local number = C.text({ Text = "0", Role = "Number", TextSize = Theme.Size.Stat, AlignX = Enum.TextXAlignment.Right, Size = UDim2.new(0.12, 0, 1, 0), Position = UDim2.new(0.88, 0, 0, 0), Parent = row })
 	local current = 0
@@ -560,7 +568,7 @@ function C.playerCard(props, info)
 	local z = (props.ZIndex or 1) + 1
 	local name = C.text({ Name = "PlayerName", Text = upper(info.Name or ""), Role = "Title", TextSize = 18, Color = info.Me and Colors.YellowText or Colors.White, Scaled = true, Size = UDim2.new(1, -16, 0, 24), Position = UDim2.fromOffset(10, 5), ZIndex = z, Parent = card })
 	local level = C.text({ Name = "Level", Text = info.Level and ("NV. " .. tostring(info.Level)) or "", Role = "Number", TextSize = 14, Color = Colors.TextDim, Size = UDim2.new(0.5, -10, 0, 18), Position = UDim2.new(0, 10, 1, -22), ZIndex = z, Parent = card })
-	local status = C.text({ Name = "Status", Text = "", Role = "Title", TextSize = 14, AlignX = Enum.TextXAlignment.Right, Size = UDim2.new(0.6, -10, 0, 18), Position = UDim2.new(0.4, 0, 1, -22), ZIndex = z, Parent = card })
+	local status = C.text({ Name = "Status", Text = "", Role = "Title", TextSize = 14, Scaled = true, AlignX = Enum.TextXAlignment.Right, Size = UDim2.new(0.6, -10, 0, 18), Position = UDim2.new(0.4, 0, 1, -22), ZIndex = z, Parent = card })
 	local leader = C.text({ Name = "Leader", Text = "👑", TextSize = 14, AlignX = Enum.TextXAlignment.Right, Size = UDim2.fromOffset(20, 20), Position = UDim2.new(1, -24, 0, 4), ZIndex = z, Parent = card })
 	local api = { Frame = card }
 	function api.Update(_, newInfo)

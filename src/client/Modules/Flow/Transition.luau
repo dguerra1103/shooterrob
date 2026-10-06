@@ -44,21 +44,31 @@ end
 
 -- Entra deslizando desde un desplazamiento (en píxeles virtuales) hasta su sitio
 function Transition.SlideIn(frame, offset, time, delayTime)
-	-- (la posición de reposo se guarda la primera vez: repetir a media animación no la desplaza)
+	-- Mientras desliza, su sitio es el guardado (repetir a media animación no lo desplaza); si
+	-- está quieto, su sitio es donde está ahora (por si la pantalla cambió de tamaño)
 	local target = frame:GetAttribute("RestPosition")
-	if typeof(target) ~= "UDim2" then
+	if not frame:GetAttribute("Sliding") or typeof(target) ~= "UDim2" then
 		target = frame.Position
 		frame:SetAttribute("RestPosition", target)
 	end
+	local slide = (frame:GetAttribute("SlideToken") or 0) + 1
+	frame:SetAttribute("SlideToken", slide)
+	frame:SetAttribute("Sliding", true)
 	frame.Position = target + UDim2.fromOffset(offset.X, offset.Y)
+	local duration = time or Theme.Time.Normal
 	local function go()
-		tween(frame, time or Theme.Time.Normal, { Position = target }, Enum.EasingStyle.Quint)
+		tween(frame, duration, { Position = target }, Enum.EasingStyle.Quint)
 	end
 	if delayTime and delayTime > 0 then
 		task.delay(delayTime, go)
 	else
 		go()
 	end
+	task.delay((delayTime or 0) + duration + 0.05, function()
+		if frame:GetAttribute("SlideToken") == slide then
+			frame:SetAttribute("Sliding", nil)
+		end
+	end)
 	return target
 end
 

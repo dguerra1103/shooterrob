@@ -7,6 +7,8 @@
 --   p:SetCharacter("me", player)      -- (o un modelo de bot)
 --   p:SetWeapon("me", "ARX27", skin)  -- cambia el arma en las manos
 --   p:SetPose("me", "Ready")          -- "Ready" (arma lista) | "Relaxed" (brazos abajo)
+--   p:SetAnimation("me", "MenuIdle")  -- animación con nombre (GameConfig.UIAnimations) o su pose
+--                                        equivalente si aún no hay animación subida
 --   p:SetCameraPreset("Hero")         -- "Hero" | "Squad" | "Lineup" | "Bust"
 --   p:SetActive(true/false)           -- anima (respiración) solo mientras se ve
 --   p:Clear()
@@ -315,6 +317,54 @@ function Preview:SetPose(slot, pose)
 	if pose == "Ready" then
 		pcall(poseReady, rig.Model)
 	end
+end
+
+-- Animaciones con nombre: si GameConfig.UIAnimations tiene un id para ese nombre se reproduce en
+-- bucle (encima de la pose con el arma); si no, se usa la pose por código que le corresponde
+Preview.AnimationPoses = {
+	MenuIdle = "Ready",
+	OperatorIdle = "Ready",
+	WeaponInspect = "Ready",
+	SquadIdle = "Ready",
+	VictoryPose = "Relaxed",
+}
+
+function Preview:SetAnimation(slot, name)
+	local rig = self.Rigs[slot]
+	if not rig then
+		return false
+	end
+	rig.AnimationName = name
+	if rig.Track then
+		pcall(function()
+			rig.Track:Stop(0.2)
+		end)
+		rig.Track = nil
+	end
+	local id = GameConfig.UIAnimations and GameConfig.UIAnimations[name]
+	if type(id) == "string" and id ~= "" then
+		local humanoid = rig.Model:FindFirstChildOfClass("Humanoid")
+		local ok, track = pcall(function()
+			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+			animator.Parent = humanoid
+			local animation = Instance.new("Animation")
+			animation.AnimationId = id
+			local loaded = animator:LoadAnimation(animation)
+			loaded.Looped = name ~= "WeaponInspect"
+			loaded:Play(0.2)
+			return loaded
+		end)
+		if ok and track then
+			rig.Track = track
+			return true
+		end
+	end
+	local pose = Preview.AnimationPoses[name] or "Ready"
+	if pose == "Ready" and not weaponOf(rig.Model) then
+		pose = "Relaxed"
+	end
+	self:SetPose(slot, pose)
+	return false
 end
 
 -- Animación de reposo (respiración y un vaivén mínimo): solo mientras la vista está activa

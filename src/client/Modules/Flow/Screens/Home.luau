@@ -48,8 +48,8 @@ local function buildLogo(parent)
 	local logo = C.new("Frame", { Name = "Logo", BackgroundTransparency = 1, Position = UDim2.fromOffset(24, 14), Size = UDim2.fromOffset(380, 84), Parent = parent })
 	local title = tostring(GameConfig.GameTitle or "SHOOTER")
 	local first, rest = string.match(title, "^(%S+)%s*(.*)$")
-	C.text({
-		Text = string.format('%s<font color="%s">%s</font>', C.upper(first or title), "#" .. Colors.Yellow:ToHex(), rest ~= "" and C.upper(rest) or ""),
+	refs.LogoTitle = C.text({
+		Text = string.format('%s <font color="%s">%s</font>', C.upper(first or title), "#" .. Colors.Yellow:ToHex(), rest ~= "" and C.upper(rest) or ""),
 		Rich = true,
 		Role = "TitleItalic",
 		TextSize = 54,
@@ -59,6 +59,7 @@ local function buildLogo(parent)
 		Parent = logo,
 	})
 	local tag = C.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(4, 58), Size = UDim2.new(1, 0, 0, 22), Parent = logo })
+	refs.LogoTag = tag
 	C.new("Frame", { BackgroundColor3 = Colors.Red, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 10), Size = UDim2.fromOffset(60, 3), Parent = tag })
 	C.text({ Text = "5 V 5", Role = "TitleItalic", TextSize = 20, AlignX = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(64, 0), Size = UDim2.fromOffset(60, 22), Parent = tag })
 	C.new("Frame", { BackgroundColor3 = Colors.Red, BorderSizePixel = 0, Position = UDim2.fromOffset(128, 10), Size = UDim2.fromOffset(60, 3), Parent = tag })
@@ -98,6 +99,7 @@ local function buildTopBar(parent)
 	}, { C.list(10, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right) })
 	-- Perfil: foto, nombre, nivel y XP
 	local profile = C.panel({ Name = "Profile", Size = UDim2.fromOffset(260, 52), Order = 1, Parent = bar })
+	refs.Profile = profile
 	local thumb = C.new("ImageLabel", {
 		Name = "Avatar",
 		BackgroundColor3 = Colors.PanelLight,
@@ -520,6 +522,17 @@ local function nextWeapon(data)
 	return best
 end
 
+-- En el teléfono (pantalla baja) hay menos alto: fuera lo secundario de la derecha
+local function phoneTrim()
+	if not isPhone() then
+		return
+	end
+	refs.Promo.Visible = false
+	if refs.Daily.Visible then
+		refs.Event.Visible = false
+	end
+end
+
 function Home.Refresh()
 	local data = ClientState.Data
 	if not screen or not data then
@@ -587,6 +600,7 @@ function Home.Refresh()
 	refs.RankBar:Set(fraction)
 	refs.RankBar.Fill.BackgroundColor3 = tier.Color
 	refs.RankNext.Text = nextTier and string.format("Faltan %d RP para %s", nextTier.Min - points, nextTier.Name) or "¡Rango máximo!"
+	phoneTrim()
 	-- Personaje: se rehace si cambia el arma o el traje
 	local key = tostring(data.Primary) .. "/" .. tostring(data.EquippedOutfit) .. "/" .. tostring(data.EquippedSkin)
 	if preview and key ~= shownPreviewKey and flow.State == "Home" then
@@ -605,20 +619,31 @@ function Home.RefreshPreview()
 		-- (el arma de la clase activa, con su skin, aunque en el mundo lleve otra en la mano)
 		preview:SetWeapon("me", data.Primary, Menu.SkinFor and Menu.SkinFor(data, data.Primary) or nil)
 	end
+	preview:SetAnimation("me", "MenuIdle")
 end
 
 local function applyLayout()
 	local phone = isPhone()
 	for _, button in refs.Menu do
 		button.Visible = not (phone and button:GetAttribute("DesktopOnly"))
-		button.Size = UDim2.fromOffset(phone and 250 or 300, phone and 40 or 46)
+		button.Size = UDim2.fromOffset(phone and 240 or 300, phone and 38 or 46)
 	end
-	refs.Play.Size = UDim2.fromOffset(phone and 250 or 300, phone and 62 or 72)
-	refs.Quick.Visible = not phone
-	refs.ModeCard.Visible = not phone
-	refs.RankCard.Position = phone and UDim2.fromOffset(0, 0) or UDim2.fromOffset(282, 0)
-	refs.Right.Size = UDim2.fromOffset(phone and 300 or 350, 520)
-	refs.Promo.Visible = refs.Promo.Visible and not phone
+	refs.Play.Size = UDim2.fromOffset(phone and 240 or 300, phone and 58 or 72)
+	refs.Left.Position = UDim2.fromOffset(24, phone and 92 or 110)
+	-- (abajo: modo, rango y accesos; en el teléfono no caben y todo está en el menú)
+	refs.Bottom.Visible = not phone
+	refs.Right.Size = UDim2.fromOffset(phone and 290 or 350, 520)
+	refs.Right.Position = UDim2.new(1, -24, 0, phone and 76 or 84)
+	refs.LogoTitle.TextSize = phone and 40 or 54
+	refs.LogoTitle.Size = UDim2.new(1, 0, 0, phone and 44 or 58)
+	refs.LogoTag.Position = UDim2.fromOffset(4, phone and 44 or 58)
+	refs.Profile.Size = UDim2.fromOffset(phone and 190 or 260, 52)
+	if phone then
+		phoneTrim()
+	else
+		shownPromo = nil -- (vuelve a mostrar el arma destacada si se quitó en pantalla baja)
+		Home.Refresh()
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -691,7 +716,6 @@ function Home.Show(_, previous)
 	shownPreviewKey = nil
 	Home.Refresh()
 	preview:SetActive(true)
-	C.setSelected(refs.Play, false)
 end
 
 function Home.Hide()

@@ -39,6 +39,10 @@ local function remaining()
 	if mode == "Late" then
 		return math.max(0, lateEndsAt - os.clock())
 	elseif mode == "Prep" then
+		-- (aún en la presentación: la preparación empieza cuando el servidor quita el despliegue)
+		if ReplicatedStorage:GetAttribute("Deploy") ~= nil then
+			return nil
+		end
 		-- Preparación de la ronda: el servidor cuenta TimeLeft mientras todos están quietos
 		if ReplicatedStorage:GetAttribute("Frozen") then
 			local left = tonumber(ReplicatedStorage:GetAttribute("TimeLeft"))
@@ -55,6 +59,17 @@ local function remaining()
 		return nil
 	end
 	return flow.DeployRemaining() or 0
+end
+
+-- Lo que tarda la cámara en bajar hasta tu personaje (lo que dura la cuenta atrás)
+function Deploy.CameraTime()
+	if mode == "Late" then
+		return math.max(0.5, lateEndsAt - os.clock())
+	elseif mode == "Prep" then
+		local left = tonumber(ReplicatedStorage:GetAttribute("TimeLeft"))
+		return (left and left <= prepMax) and left or prepMax
+	end
+	return flow.DeployRemaining() or 3
 end
 
 local function show(value)
@@ -148,10 +163,12 @@ function Deploy.Show(ctx)
 	prepMax = settings.PrepTime or 5
 	local endsAt = ReplicatedStorage:GetAttribute("DeployEndsAt")
 	local justDeployed = endsAt ~= nil and math.abs(workspace:GetServerTimeNow() - endsAt) < 3
-	if deploy ~= nil then
-		mode = "Server"
-	elseif (modeCode == "ELIM" or modeCode == "SND") and (ReplicatedStorage:GetAttribute("Frozen") or justDeployed) then
+	local elimLike = modeCode == "ELIM" or modeCode == "SND"
+	if elimLike and (deploy ~= nil or ReplicatedStorage:GetAttribute("Frozen") or justDeployed) then
+		-- (en estos modos la cuenta atrás es la preparación de la ronda, no el final del despliegue)
 		mode = "Prep"
+	elseif deploy ~= nil then
+		mode = "Server"
 	else
 		mode = "Late"
 		lateEndsAt = os.clock() + flow.Times.LateCountdown
@@ -176,7 +193,7 @@ function Deploy.Show(ctx)
 	flow.SetBackdrop(0, 0.3)
 	Transition.Blur(0, 0.3)
 	-- (sin personaje todavía: la cámara sigue sobre el mapa hasta que llegue)
-	flow.SetCamera(characterReady() and "Deploy" or "Flyover")
+	flow.SetCamera(characterReady() and "Deploy" or "Flyover", Deploy.CameraTime())
 	screen.Visible = true
 	Transition.Pop(top, 1.3, 0.25)
 	Transition.Pop(sub, 0.8, 0.3, 0.1)
@@ -195,7 +212,7 @@ function Deploy.Show(ctx)
 			if mode == "Late" then
 				lateEndsAt = os.clock() + flow.Times.LateCountdown
 			end
-			flow.SetCamera("Deploy")
+			flow.SetCamera("Deploy", Deploy.CameraTime())
 		end
 		step()
 	end)

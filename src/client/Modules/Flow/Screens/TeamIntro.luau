@@ -99,6 +99,7 @@ local function fill(side, team, isMine, my)
 		if side.Shown[slot] ~= source then
 			side.Shown[slot] = source
 			side.Preview:SetCharacter(slot, source)
+			side.Preview:SetAnimation(slot, "SquadIdle")
 			if source then
 				task.wait(0.06)
 			end
@@ -189,6 +190,9 @@ function TeamIntro.Hide()
 	token += 1
 	for _, side in sides do
 		side.Preview:SetActive(false)
+		-- (diez personajes copiados: fuera en cuanto empieza la partida)
+		side.Preview:Clear()
+		table.clear(side.Shown)
 	end
 	screen.Visible = false
 end
