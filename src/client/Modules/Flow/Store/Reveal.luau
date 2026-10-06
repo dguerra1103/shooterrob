@@ -167,16 +167,17 @@ function Reveal.Show(payload)
 	end
 
 	-- Objeto(s)
-	local center = C.new("Frame", { Name = "Center", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, phone and 0.47 or 0.46), Size = UDim2.fromOffset(phone and 300 or 420, phone and 170 or 250), Parent = frame })
+	local center = C.new("Frame", { Name = "Center", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, phone and 0.4 or 0.46), Size = UDim2.fromOffset(phone and 300 or 420, phone and 140 or 250), Parent = frame })
 	-- Brillo detrás (color de la rareza), girando despacio
 	local glowColor = top and ItemArt.RarityColor(top.Rarity) or Colors.Yellow
-	local glow = C.new("Frame", { Name = "Glow", BackgroundColor3 = glowColor, BackgroundTransparency = 1, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.9, 1.1), Rotation = 45, Parent = center }, {
-		C.corner(200),
-		C.new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(1, 1) }) }),
+	local glow = C.new("Frame", { Name = "Glow", BackgroundColor3 = glowColor, BackgroundTransparency = 1, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.1, 1.1), Rotation = 45, Parent = center }, {
+		C.corner(400),
+		C.new("UIAspectRatioConstraint", { AspectRatio = 1 }),
+		C.new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(1, 1) }) }),
 	})
 	task.delay(0.2, function()
 		if glow.Parent then
-			tween(glow, 0.3, { BackgroundTransparency = 0.35 })
+			tween(glow, 0.3, { BackgroundTransparency = 0.6 })
 			tween(glow, 6, { Rotation = 405 }, Enum.EasingStyle.Linear)
 		end
 	end)
@@ -227,10 +228,10 @@ function Reveal.Show(payload)
 		nameText = "+" .. tostring(payload.Coins or 0) .. " MONEDAS"
 		rarityText = ""
 	end
-	local nameLabel = C.text({ Name = "ItemName", Text = nameText or "", Role = "TitleItalic", TextSize = phone and 30 or 44, Color = Colors.White, AlignX = Enum.TextXAlignment.Center, Stroke = 2, Scaled = true, Anchor = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.68 or 0.68, 0), Size = UDim2.new(0.8, 0, 0, phone and 34 or 50), Parent = frame })
+	local nameLabel = C.text({ Name = "ItemName", Text = nameText or "", Role = "TitleItalic", TextSize = phone and 30 or 44, Color = Colors.White, AlignX = Enum.TextXAlignment.Center, Stroke = 2, Scaled = true, Anchor = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.6 or 0.68, 0), Size = UDim2.new(0.8, 0, 0, phone and 32 or 50), Parent = frame })
 	pop(nameLabel, 0.5, 0.85)
 	if rarityText ~= "" then
-		local stamp = C.new("Frame", { Name = "RarityStamp", BackgroundColor3 = glowColor, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.68 or 0.68, phone and 38 or 56), Size = UDim2.fromOffset(legendary and 220 or 150, legendary and 34 or 26), Rotation = legendary and -3 or 0, Parent = frame }, { C.corner(3) })
+		local stamp = C.new("Frame", { Name = "RarityStamp", BackgroundColor3 = glowColor, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.6 or 0.68, phone and 34 or 56), Size = UDim2.fromOffset(legendary and (phone and 180 or 220) or 150, legendary and (phone and 28 or 34) or 26), Rotation = legendary and -3 or 0, Parent = frame }, { C.corner(3) })
 		C.text({ Text = rarityText, Role = "TitleItalic", TextSize = legendary and 24 or 16, Color = DARK, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = stamp })
 		pop(stamp, 0.7, legendary and 1.8 or 0.6)
 		if legendary then
@@ -250,7 +251,7 @@ function Reveal.Show(payload)
 		table.insert(extras, "🎁 Bonus de primera compra: tarjeta " .. C.upper(bonus.Name))
 	end
 	if #extras > 0 then
-		local extra = C.text({ Name = "Extras", Text = table.concat(extras, "   ·   "), Role = "BodyBold", TextSize = 15, Color = Colors.YellowText, AlignX = Enum.TextXAlignment.Center, Anchor = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.68 or 0.68, phone and 70 or 96), Size = UDim2.new(1, -40, 0, 20), Parent = frame })
+		local extra = C.text({ Name = "Extras", Text = table.concat(extras, "   ·   "), Role = "BodyBold", TextSize = 15, Color = Colors.YellowText, AlignX = Enum.TextXAlignment.Center, Anchor = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.6 or 0.68, phone and 66 or 96), Size = UDim2.new(1, -40, 0, 20), Parent = frame })
 		pop(extra, 0.8, 0.9)
 	end
 

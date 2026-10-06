@@ -124,7 +124,7 @@ local function renderPreview()
 			pcall(Outfits.Apply, model, selected)
 		end
 		if data then
-			preview:SetWeapon("me", data.Primary, Menu.SkinFor and Menu.SkinFor(data, data.Primary) or nil)
+			preview:SetWeapon("me", data.Primary, Menu.SkinFor and Menu.SkinFor(data, data.Primary) or nil, data.EquippedCharm)
 		end
 		preview:SetAnimation("me", "OperatorIdle")
 	end

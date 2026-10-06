@@ -129,14 +129,27 @@ local function section(text, timerEndsAt, timerPrefix)
 	return row
 end
 
-local function grid()
-	local size = isPhone() and ItemCard.Size.PHONE or ItemCard.Size.DESKTOP
-	return C.new("Frame", { Name = "Grid", BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, 0, 0, 0), LayoutOrder = nextOrder(), Parent = content }, {
+-- Cuadrícula con su alto calculado (filas que caben en el ancho de la pantalla)
+local function grid(cell)
+	local size = cell or (isPhone() and ItemCard.Size.PHONE or ItemCard.Size.DESKTOP)
+	local frame = C.new("Frame", { Name = "Grid", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, size.Y), LayoutOrder = nextOrder(), Parent = content }, {
 		C.new("UIGridLayout", { CellSize = UDim2.fromOffset(size.X, size.Y), CellPadding = UDim2.fromOffset(12, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
+	frame:SetAttribute("CellX", size.X)
+	frame:SetAttribute("CellY", size.Y)
+	return frame
+end
+
+local function fitGrid(frame, count)
+	local width = (flow.Root and tonumber(flow.Root:GetAttribute("VirtualWidth")) or 1280) - 48 - 10
+	local cellX, cellY = frame:GetAttribute("CellX") or 200, frame:GetAttribute("CellY") or 200
+	local perRow = math.max(1, math.floor((width + 12) / (cellX + 12)))
+	local rows = math.max(1, math.ceil(count / perRow))
+	frame.Size = UDim2.new(1, 0, 0, rows * cellY + (rows - 1) * 12)
 end
 
 local function addCards(parent, items)
+	fitGrid(parent, #items)
 	local keys = {}
 	for i, item in items do
 		local card = ItemCard.new(parent, item, callbacks, { Phone = isPhone(), Order = i })
@@ -215,7 +228,7 @@ local function bundleCard(bundle, opts)
 	C.text({ Name = "Price", Text = "R$ " .. tostring(robux), Role = "Number", TextSize = phone and 26 or 34, Color = Colors.Green, AlignX = Enum.TextXAlignment.Right, Size = UDim2.new(1, 0, 0, phone and 32 or 42), Parent = right })
 	local timerLabel
 	if opts.EndsAt then
-		timerLabel = C.text({ Name = "Timer", Text = "", Role = "Number", TextSize = 13, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Right, Position = UDim2.fromOffset(0, phone and 32 or 44), Size = UDim2.new(1, 0, 0, 18), Parent = right })
+		timerLabel = C.text({ Name = "Timer", Text = "", Role = "Number", TextSize = 13, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Right, Scaled = true, Position = UDim2.fromOffset(0, phone and 32 or 44), Size = UDim2.new(1, 0, 0, 18), Parent = right })
 		table.insert(timers, { Label = timerLabel, EndsAt = opts.EndsAt, Prefix = opts.TimerPrefix or "CAMBIA EN " })
 	end
 	local action = C.button({ Name = "Action", Text = "COMPRAR", Style = "Primary", TextSize = phone and 17 or 20, Anchor = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, phone and 44 or 52), Parent = right, Sound = "Click", OnClick = function()
@@ -278,7 +291,7 @@ local function renderFeatured()
 		section("⚠ " .. event.Name, event.EndsAt, "TERMINA EN ")
 		local bundle = StoreRotation.BundleById(event.Bundle)
 		if bundle then
-			bundleCard(bundle, { Tag = "EVENTO", EndsAt = event.EndsAt, TimerPrefix = "EVENTO: TERMINA EN " })
+			bundleCard(bundle, { Tag = "EVENTO", EndsAt = event.EndsAt, TimerPrefix = "TERMINA EN " })
 		end
 		local items = {}
 		for _, key in event.Items do
@@ -314,7 +327,7 @@ local function renderBundles()
 	for _, bundle in Shop.Bundles do
 		local inDates = (bundle.StartsAt == nil or now >= bundle.StartsAt) and (bundle.EndsAt == nil or now < bundle.EndsAt)
 		if inDates then
-			bundleCard(bundle, { EndsAt = bundle.EndsAt, TimerPrefix = "A LA VENTA HASTA DENTRO DE " })
+			bundleCard(bundle, { EndsAt = bundle.EndsAt, TimerPrefix = "A LA VENTA " })
 		end
 	end
 	if not shownOnce.Bundles then
@@ -326,7 +339,9 @@ end
 local function renderCoins()
 	local data = ClientState.Data
 	section("MONEDAS")
-	local packs = grid()
+	local productCell = isPhone() and Vector2.new(168, 176) or Vector2.new(200, 196)
+	local packs = grid(productCell)
+	fitGrid(packs, #Shop.CoinPacks)
 	for i, pack in Shop.CoinPacks do
 		productCard(packs, {
 			Name = pack.Name,
@@ -341,7 +356,8 @@ local function renderCoins()
 		}, i)
 	end
 	section("POTENCIADORES  ·  solo XP y monedas, el tiempo corre jugando")
-	local boosts = grid()
+	local boosts = grid(productCell)
+	fitGrid(boosts, #Shop.Boosters)
 	for i, booster in Shop.Boosters do
 		local left = data and tonumber(data[booster.Field]) or 0
 		productCard(boosts, {
@@ -358,7 +374,8 @@ local function renderCoins()
 		}, i)
 	end
 	section("VIP")
-	local vipRow = grid()
+	local vipRow = grid(productCell)
+	fitGrid(vipRow, 2)
 	local vip = data and data.VIP
 	productCard(vipRow, {
 		Name = "VIP",

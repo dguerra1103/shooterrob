@@ -51,8 +51,10 @@ function ItemCard.new(parent, item, callbacks, opts)
 		C.list(4, Enum.FillDirection.Horizontal),
 	})
 	local function tag(text, color, textColor, order)
-		local t = C.new("Frame", { Name = "Tag", BackgroundColor3 = color, BorderSizePixel = 0, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 20), LayoutOrder = order, ZIndex = 5, Parent = tags }, { C.corner(3), C.padding(0, 6, 0, 6) })
-		C.text({ Text = text, Role = "Title", TextSize = 12, Color = textColor or Colors.White, AlignX = Enum.TextXAlignment.Center, Size = UDim2.new(0, 0, 1, 0), ZIndex = 6, Parent = t }).AutomaticSize = Enum.AutomaticSize.X
+		-- (ancho según el texto: letras de título, ~7 px cada una)
+		local width = 12 + (utf8.len(text) or #text) * 7
+		local t = C.new("Frame", { Name = "Tag", BackgroundColor3 = color, BorderSizePixel = 0, Size = UDim2.fromOffset(width, 20), LayoutOrder = order, ZIndex = 5, Parent = tags }, { C.corner(3) })
+		C.text({ Text = text, Role = "Title", TextSize = 12, Color = textColor or Colors.White, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = t })
 		return t
 	end
 	if StoreData.IsNew(item) then

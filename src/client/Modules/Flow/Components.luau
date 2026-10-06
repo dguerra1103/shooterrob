@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Theme = require(script.Parent.Theme)
 local UISound = require(script.Parent.UISound)
+local PlayerCards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PlayerCards"))
 
 local C = {}
 local Colors = Theme.Colors
@@ -569,13 +570,16 @@ C.Status = {
 }
 
 -- Tarjeta de jugador (nombre, nivel, estado, líder): se usa en el party y en la presentación de
--- equipos. info = { Name, Level, Status, Leader, Me, TeamColor }
+-- equipos. info = { Name, Level, Status, Leader, Me, TeamColor, Card (tarjeta de jugador elegida) }
 function C.playerCard(props, info)
 	local card = C.panel({ Name = "PlayerCard", Size = props.Size or UDim2.fromOffset(170, 58), Position = props.Position, Anchor = props.Anchor, Order = props.Order, Parent = props.Parent, ZIndex = props.ZIndex }, {
 		Accent = info.TeamColor or (info.Me and Colors.Yellow or nil),
 		StrokeColor = info.Me and Colors.Yellow or Colors.Line,
 		StrokeAlpha = info.Me and 0.3 or Theme.LineAlpha,
 	})
+	-- Fondo con su tarjeta de jugador (lo primero: queda detrás del nombre)
+	local cardSlot = new("Frame", { Name = "CardSlot", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = props.ZIndex or 1, Parent = card }, { C.corner(4) })
+	local cardGradient = new("UIGradient", { Rotation = 90, Parent = cardSlot })
 	local z = (props.ZIndex or 1) + 1
 	local name = C.text({ Name = "PlayerName", Text = upper(info.Name or ""), Role = "Title", TextSize = 18, Color = info.Me and Colors.YellowText or Colors.White, Scaled = true, Size = UDim2.new(1, -16, 0, 24), Position = UDim2.fromOffset(10, 5), ZIndex = z, Parent = card })
 	local level = C.text({ Name = "Level", Text = info.Level and ("NV. " .. tostring(info.Level)) or "", Role = "Number", TextSize = 14, Color = Colors.TextDim, Size = UDim2.new(0.5, -10, 0, 18), Position = UDim2.new(0, 10, 1, -22), ZIndex = z, Parent = card })
@@ -583,6 +587,12 @@ function C.playerCard(props, info)
 	local leader = C.text({ Name = "Leader", Text = "👑", TextSize = 14, AlignX = Enum.TextXAlignment.Right, Size = UDim2.fromOffset(20, 20), Position = UDim2.new(1, -24, 0, 4), ZIndex = z, Parent = card })
 	local api = { Frame = card }
 	function api.Update(_, newInfo)
+		local def = newInfo.Card and newInfo.Card ~= "Default" and PlayerCards.List[newInfo.Card]
+		cardSlot.BackgroundTransparency = def and 0.3 or 1
+		if def then
+			cardSlot.BackgroundColor3 = def.Top
+			cardGradient.Color = ColorSequence.new(def.Top, def.Bottom)
+		end
 		name.Text = upper(newInfo.Name or "")
 		level.Text = newInfo.Level and ("NV. " .. tostring(newInfo.Level)) or ""
 		local st = C.Status[newInfo.Status or "NotReady"] or C.Status.NotReady

@@ -118,6 +118,7 @@ function Squad.Refresh()
 				Status = statusOf(member),
 				Leader = member == leader and #squad > 1,
 				Me = member == player,
+				Card = member:GetAttribute("Card"),
 			})
 			card.Frame.BackgroundTransparency = Theme.PanelAlpha
 		else

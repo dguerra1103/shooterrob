@@ -8,6 +8,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 local Ranks = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ranks"))
+local PlayerCards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("PlayerCards"))
 local ClientState = require(script.Parent.ClientState)
 local TouchLayout = require(script.Parent.TouchLayout)
 local UI = require(script.Parent.UI)
@@ -50,6 +51,7 @@ local function collect()
 			Captures = p:GetAttribute("Captures") or 0,
 			InMenu = p:GetAttribute("InMenu") == true,
 			IsMe = p == player,
+			Card = p:GetAttribute("Card"), -- tarjeta de jugador (franja de su color a la izquierda)
 		})
 	end
 	local bots = ReplicatedStorage:FindFirstChild("BotStats")
@@ -118,6 +120,17 @@ local function rowFrame(parent, y, row, thirdValue, color)
 		BackgroundTransparency = row.IsMe and 0.25 or 0.65,
 		Parent = parent,
 	}, { UI.corner(6) })
+	local card = row.Card and PlayerCards.List[row.Card]
+	if card then
+		UI.new("Frame", {
+			Name = "CardStripe",
+			Position = UDim2.fromOffset(0, 2),
+			Size = UDim2.new(0, 6, 1, -4),
+			BackgroundColor3 = card.Border,
+			BorderSizePixel = 0,
+			Parent = frame,
+		}, { UI.corner(3), UI.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(card.Top, card.Border) }) })
+	end
 	UI.label({
 		Position = UDim2.fromOffset(12, 0),
 		Size = UDim2.new(1, -(COLS_X + 12), 1, 0),

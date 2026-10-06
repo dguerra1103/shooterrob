@@ -41,6 +41,10 @@ local function isPhone()
 	return C.Breakpoint() == "PHONE"
 end
 
+local function cellSize()
+	return isPhone() and 72 or 104
+end
+
 local function view()
 	local data = ClientState.Data
 	return data and data.Pass or nil
@@ -152,27 +156,31 @@ local function renderDetail()
 		C.text({ Text = "Nada en este nivel", Role = "Body", TextSize = 14, Color = Colors.TextDim, Position = UDim2.fromOffset(14, 14), Size = UDim2.new(1, -28, 0, 20), Parent = detail })
 		return
 	end
-	local thumbSize = phone and 92 or 120
+	-- (en el teléfono, una tira baja: imagen, nombre y botones a la derecha)
+	local thumbSize = phone and 50 or 120
+	local pad = phone and 7 or 12
 	if info.Kind then
-		ItemArt.Thumb(detail, info, { Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(thumbSize, thumbSize) })
+		ItemArt.Thumb(detail, info, { Position = UDim2.fromOffset(pad, pad), Size = UDim2.fromOffset(thumbSize, thumbSize) })
 	else
-		local art = ItemArt.Backdrop(detail, info.Rarity, { Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(thumbSize, thumbSize) })
+		local art = ItemArt.Backdrop(detail, info.Rarity, { Position = UDim2.fromOffset(pad, pad), Size = UDim2.fromOffset(thumbSize, thumbSize) })
 		C.text({ Text = info.Icon, TextSize = 50, AlignX = Enum.TextXAlignment.Center, Scaled = true, Position = UDim2.fromScale(0.15, 0.12), Size = UDim2.fromScale(0.7, 0.7), Parent = art })
 	end
-	local x = thumbSize + 24
-	C.text({ Text = (selected.Track == "Premium" and "PREMIUM" or "GRATIS") .. "  ·  NIVEL " .. selected.Tier, Role = "Title", TextSize = 13, Color = selected.Track == "Premium" and GOLD or Colors.TextDim, Position = UDim2.fromOffset(x, 12), Size = UDim2.new(1, -x - 12, 0, 18), Parent = detail })
-	C.text({ Text = C.upper(info.Name or ""), Role = "TitleItalic", TextSize = phone and 22 or 28, Scaled = true, Position = UDim2.fromOffset(x, 30), Size = UDim2.new(1, -x - 12, 0, phone and 26 or 34), Parent = detail })
-	C.text({ Text = C.upper(info.Rarity or "") .. (info.Label and ("  ·  " .. info.Label) or ""), Role = "Title", TextSize = 13, Color = ItemArt.RarityColor(info.Rarity), Position = UDim2.fromOffset(x, phone and 58 or 66), Size = UDim2.new(1, -x - 12, 0, 18), Parent = detail })
+	local x = thumbSize + pad * 2
+	local textRight = phone and 220 or 12
+	C.text({ Text = (selected.Track == "Premium" and "PREMIUM" or "GRATIS") .. "  ·  NIVEL " .. selected.Tier, Role = "Title", TextSize = phone and 11 or 13, Color = selected.Track == "Premium" and GOLD or Colors.TextDim, Position = UDim2.fromOffset(x, pad), Size = UDim2.new(1, -x - textRight, 0, phone and 14 or 18), Parent = detail })
+	C.text({ Text = C.upper(info.Name or ""), Role = "TitleItalic", TextSize = phone and 18 or 28, Scaled = true, Position = UDim2.fromOffset(x, phone and 20 or 30), Size = UDim2.new(1, -x - textRight, 0, phone and 22 or 34), Parent = detail })
+	C.text({ Text = C.upper(info.Rarity or "") .. (info.Label and ("  ·  " .. info.Label) or ""), Role = "Title", TextSize = phone and 11 or 13, Color = ItemArt.RarityColor(info.Rarity), Scaled = phone, Position = UDim2.fromOffset(x, phone and 42 or 66), Size = UDim2.new(1, -x - textRight, 0, phone and 14 or 18), Parent = detail })
 	local state = cellState(selected.Tier, selected.Track)
 	local text = ({ Claimable = "RECLAMAR", Claimed = "✓ RECLAMADO", Locked = "LLEGA AL NIVEL " .. selected.Tier, NeedPremium = "ES DEL PASE PREMIUM", Empty = "" })[state]
-	local action = C.button({ Name = "Claim", Text = text, Style = state == "Claimable" and "Primary" or "Ghost", TextSize = phone and 15 or 17, Position = UDim2.fromOffset(x, phone and 80 or 92), Size = UDim2.fromOffset(phone and 150 or 190, phone and 40 or 44), Parent = detail, Sound = "Click", OnClick = function()
+	local actionPosition = phone and UDim2.new(1, -(pad + 44 + 6 + 160), 0, 12) or UDim2.fromOffset(x, 92)
+	local action = C.button({ Name = "Claim", Text = text, Style = state == "Claimable" and "Primary" or "Ghost", TextSize = phone and 13 or 17, Position = actionPosition, Size = UDim2.fromOffset(phone and 160 or 190, phone and 40 or 44), Parent = detail, Sound = "Click", OnClick = function()
 		if cellState(selected.Tier, selected.Track) == "Claimable" then
 			claim(selected.Tier, selected.Track)
 		end
 	end })
 	local _ = action
 	if info.Kind then
-		C.button({ Name = "Preview", Text = "", Icon = "👁", Style = "Ghost", TextSize = 18, Position = UDim2.fromOffset(x + (phone and 158 or 198), phone and 80 or 92), Size = UDim2.fromOffset(phone and 44 or 48, phone and 40 or 44), Parent = detail, OnClick = function()
+		C.button({ Name = "Preview", Text = "", Icon = "👁", Style = "Ghost", TextSize = 18, Position = phone and UDim2.new(1, -(pad + 44), 0, 12) or UDim2.fromOffset(x + 198, 92), Size = UDim2.fromOffset(phone and 44 or 48, phone and 40 or 44), Parent = detail, OnClick = function()
 			Inspect.Open(rootFrame, info, {
 				OnBuy = function() end,
 				OnEquip = function(item)
@@ -206,8 +214,7 @@ local function renderTrack()
 		return
 	end
 	local v = view()
-	local phone = isPhone()
-	local cell = phone and 82 or 104
+	local cell = cellSize()
 	for tier = 1, BattlePassConfig.Tiers do
 		local column = C.new("Frame", { Name = "Tier_" .. tier, BackgroundTransparency = 1, Size = UDim2.fromOffset(cell + 8, cell * 2 + 44), LayoutOrder = tier, Parent = track })
 		local reached = v and tier <= (v.Tier or 1)
@@ -237,7 +244,7 @@ local function renderTrack()
 					stroke.Thickness = 2.5
 					stroke.Transparency = 0
 				end
-				local tag = C.new("Frame", { Name = "ClaimTag", BackgroundColor3 = Colors.Yellow, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -10, 0, 18), ZIndex = 4, Parent = holder }, { C.corner(3) })
+				local tag = C.new("Frame", { Name = "ClaimTag", BackgroundColor3 = Colors.Yellow, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.new(1, -10, 0, 16), ZIndex = 4, Parent = holder }, { C.corner(3) })
 				C.text({ Text = "RECLAMAR", Role = "Title", TextSize = 11, Color = DARK, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), ZIndex = 5, Parent = tag })
 			end
 			if selected.Tier == tier and selected.Track == trackName then
@@ -338,7 +345,7 @@ function Pass.Render(keepScroll)
 		-- (la pista empieza en tu nivel)
 		local v = view()
 		local tier = v and v.Tier or 1
-		local cell = isPhone() and 82 or 104
+		local cell = cellSize()
 		task.defer(function()
 			trackScroller.CanvasPosition = Vector2.new(math.max(0, (tier - 2) * (cell + 8 + 6)), 0)
 		end)
@@ -349,23 +356,77 @@ end
 -- Pantalla
 ---------------------------------------------------------------------------
 
+local progressRow
+
 local function applyLayout()
 	local phone = isPhone()
+	local cell = cellSize()
 	titleLabel.TextSize = phone and 32 or 46
-	local cell = phone and 82 or 104
-	local trackTop = phone and 118 or 160
-	trackScroller.Position = UDim2.fromOffset(phone and 84 or 110, trackTop)
-	trackScroller.Size = UDim2.new(1, phone and -100 or -134, 0, cell * 2 + 56)
-	detail.Position = UDim2.fromOffset(24, trackTop + cell * 2 + 66)
-	detail.Size = UDim2.new(phone and 1 or 0.5, phone and -48 or -36, 0, phone and 136 or 146)
-	missionsPanel.Visible = not phone
+	titleLabel.Position = UDim2.fromOffset(phone and 166 or 170, phone and 6 or 10)
+	seasonLabel.Position = UDim2.fromOffset(phone and 168 or 172, phone and 44 or 60)
+	seasonLabel.TextSize = phone and 13 or 16
+	timerLabel.Position = UDim2.fromOffset(phone and 168 or 172, phone and 60 or 80)
+	-- Premium y +1 nivel arriba a la derecha (en el teléfono, en una fila)
+	premiumButton.Position = UDim2.new(1, phone and -16 or -24, 0, phone and 10 or 18)
+	premiumButton.Size = UDim2.fromOffset(phone and 210 or 280, phone and 38 or 48)
+	skipButton.Position = phone and UDim2.new(1, -234, 0, 10) or UDim2.new(1, -24, 0, 72)
+	skipButton.Size = UDim2.fromOffset(phone and 150 or 200, phone and 38 or 34)
+	-- Progreso
+	progressRow.Position = UDim2.fromOffset(phone and 16 or 24, phone and 80 or 108)
+	progressRow.Size = UDim2.new(1, phone and -32 or -48, 0, phone and 34 or 44)
+	tierLabel.TextSize = phone and 22 or 30
+	tierLabel.Size = UDim2.fromOffset(phone and 96 or 150, phone and 34 or 40)
+	claimAllButton.Size = UDim2.fromOffset(phone and 170 or 280, phone and 32 or 42)
 	missionsToggle.Visible = phone
-	missionsPanel.Position = phone and UDim2.fromOffset(24, 60) or UDim2.new(0.5, 12, 0, trackTop + cell * 2 + 66)
-	missionsPanel.Size = phone and UDim2.new(1, -48, 1, -80) or UDim2.new(0.5, -36, 1, -(trackTop + cell * 2 + 84))
-	screen:FindFirstChild("FreeLabel").Position = UDim2.fromOffset(24, trackTop + 30)
-	screen:FindFirstChild("FreeLabel").Size = UDim2.fromOffset(phone and 56 or 80, cell)
-	screen:FindFirstChild("PremiumLabel").Position = UDim2.fromOffset(24, trackTop + 30 + cell + 8)
-	screen:FindFirstChild("PremiumLabel").Size = UDim2.fromOffset(phone and 56 or 80, cell)
+	missionsToggle.Parent = phone and progressRow or screen
+	missionsToggle.AnchorPoint = Vector2.new(1, 0.5)
+	missionsToggle.Position = UDim2.new(1, -178, 0.5, 0)
+	missionsToggle.Size = UDim2.fromOffset(112, 32)
+	local barRight = phone and (170 + 120 + 70) or 300
+	xpBar.Frame.Position = UDim2.new(0, phone and 100 or 156, 0.5, 0)
+	xpBar.Frame.Size = UDim2.new(1, -((phone and 100 or 156) + barRight + 10), 0, phone and 8 or 10)
+	xpLabel.Position = UDim2.new(1, -(barRight - (phone and 64 or 0)), 0.5, 0)
+	xpLabel.Size = UDim2.fromOffset(phone and 64 or 150, 18)
+	xpLabel.TextSize = phone and 11 or 14
+	-- Pista
+	local trackTop = phone and 120 or 160
+	local left = phone and 76 or 110
+	trackScroller.Position = UDim2.fromOffset(left, trackTop)
+	trackScroller.Size = UDim2.new(1, -(left + (phone and 16 or 24)), 0, cell * 2 + 46)
+	local free, premium = screen:FindFirstChild("FreeLabel"), screen:FindFirstChild("PremiumLabel")
+	free.Position = UDim2.fromOffset(phone and 12 or 24, trackTop + 30)
+	free.Size = UDim2.fromOffset(phone and 58 or 80, cell)
+	premium.Position = UDim2.fromOffset(phone and 12 or 24, trackTop + 30 + cell + 8)
+	premium.Size = UDim2.fromOffset(phone and 58 or 80, cell)
+	-- Recompensa elegida y misiones
+	local below = trackTop + cell * 2 + (phone and 50 or 66)
+	detail.Position = UDim2.fromOffset(phone and 16 or 24, below)
+	detail.Size = UDim2.new(phone and 1 or 0.5, phone and -32 or -36, 0, phone and 64 or 146)
+	missionsPanel.Visible = not phone
+	missionsPanel.Position = phone and UDim2.fromOffset(16, 56) or UDim2.new(0.5, 12, 0, below)
+	missionsPanel.Size = phone and UDim2.new(1, -32, 1, -66) or UDim2.new(0.5, -36, 1, -(below + 18))
+	slideLayer.Position = UDim2.new(1, phone and -16 or -24, 0, trackTop)
+end
+
+-- Al entrar: la primera recompensa por reclamar, o la de tu nivel
+local function defaultSelection()
+	local v = view()
+	local tier = v and v.Tier or 1
+	for t = 1, tier do
+		for _, trackName in { "Free", "Premium" } do
+			if cellState(t, trackName) == "Claimable" then
+				return { Tier = t, Track = trackName }
+			end
+		end
+	end
+	for t = tier, BattlePassConfig.Tiers do
+		if cellState(t, "Free") ~= "Empty" then
+			return { Tier = t, Track = "Free" }
+		elseif cellState(t, "Premium") ~= "Empty" then
+			return { Tier = t, Track = "Premium" }
+		end
+	end
+	return { Tier = tier, Track = "Free" }
 end
 
 function Pass.Build(flowController, root)
@@ -406,6 +467,7 @@ function Pass.Build(flowController, root)
 	end })
 	-- Progreso
 	local progress = C.new("Frame", { Name = "Progress", BackgroundTransparency = 1, Position = UDim2.fromOffset(24, 108), Size = UDim2.new(1, -48, 0, 44), Parent = screen })
+	progressRow = progress
 	tierLabel = C.text({ Name = "Tier", Text = "NIVEL 1", Role = "TitleItalic", TextSize = 30, Color = Colors.White, Size = UDim2.fromOffset(150, 40), Parent = progress })
 	xpBar = C.progress({ Size = UDim2.new(1, -470, 0, 10), Position = UDim2.new(0, 156, 0.5, 0), Anchor = Vector2.new(0, 0.5), Parent = progress })
 	xpLabel = C.text({ Name = "XP", Text = "", Role = "Number", TextSize = 14, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Right, Anchor = Vector2.new(1, 0.5), Position = UDim2.new(1, -300, 0.5, 0), Size = UDim2.fromOffset(150, 18), Parent = progress })
@@ -431,6 +493,7 @@ function Pass.Build(flowController, root)
 	missionsList = C.new("ScrollingFrame", { Name = "List", BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 1, -30), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 3, Parent = missionsInner }, { C.list(6) })
 	missionsToggle = C.button({ Name = "MissionsToggle", Text = "MISIONES", Icon = "🎯", Style = "Ghost", TextSize = 14, Anchor = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -10), Size = UDim2.fromOffset(150, 40), ZIndex = 6, Parent = screen, OnClick = function()
 		missionsPanel.Visible = not missionsPanel.Visible
+		missionsPanel.ZIndex = 9
 		local label = missionsToggle:FindFirstChild("Label", true)
 		label.Text = missionsPanel.Visible and "CERRAR" or "MISIONES"
 	end })
@@ -460,7 +523,7 @@ end
 
 function Pass.Show()
 	local v = view()
-	selected = { Tier = v and v.Tier or 1, Track = "Free" }
+	selected = defaultSelection()
 	applyLayout()
 	flow.SetCamera("Orbit")
 	flow.SetBackdrop(0.62, 0.25)

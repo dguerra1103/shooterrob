@@ -29,7 +29,7 @@ local function roster(teamName)
 		if other.Team and other.Team.Name == teamName and inGame then
 			local stats = other:FindFirstChild("leaderstats")
 			local level = stats and stats:FindFirstChild("Nivel")
-			table.insert(list, { Name = other.DisplayName, Level = level and level.Value or nil, Source = other, Me = other == player })
+			table.insert(list, { Name = other.DisplayName, Level = level and level.Value or nil, Source = other, Me = other == player, Card = other:GetAttribute("Card") })
 		end
 	end
 	local bots = workspace:FindFirstChild("Bots")
@@ -86,6 +86,7 @@ local function fill(side, team, isMine, my)
 			Status = entry and (entry.Bot and "Bot" or "Ready") or "Loading",
 			Me = entry and entry.Me,
 			TeamColor = color,
+			Card = entry and entry.Card,
 		})
 	end
 	-- Personajes: uno a uno (y los que ya estaban no se vuelven a copiar)

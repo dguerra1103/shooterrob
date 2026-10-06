@@ -103,6 +103,8 @@ local function buildTopBar(parent)
 	-- Perfil: foto, nombre, nivel y XP
 	local profile = C.panel({ Name = "Profile", Size = UDim2.fromOffset(260, 52), Order = 1, Parent = bar })
 	refs.Profile = profile
+	-- (hueco de la tarjeta de jugador: el primero, para quedar detrás de la foto y el nombre)
+	refs.CardSlot = C.new("Frame", { Name = "CardSlot", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ClipsDescendants = true, Parent = profile }, { C.corner(4) })
 	local thumb = C.new("ImageLabel", {
 		Name = "Avatar",
 		BackgroundColor3 = Colors.PanelLight,
@@ -567,7 +569,11 @@ function Home.Refresh()
 		if refs.ProfileCard then
 			refs.ProfileCard:Destroy()
 		end
-		refs.ProfileCard = ItemArt.Card(refs.Profile, card, { Name = "CardBackground", Size = UDim2.fromScale(1, 1), ZIndex = 0 })
+		refs.ProfileCard = ItemArt.Card(refs.CardSlot, card, { Name = "CardBackground", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.15 })
+		local emblem = refs.ProfileCard:FindFirstChild("Emblem")
+		if emblem then
+			emblem.TextTransparency = 0.55
+		end
 	end
 	-- Misiones
 	local list = data.Challenges and data.Challenges.List or {}
