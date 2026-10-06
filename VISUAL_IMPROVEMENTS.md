@@ -1,5 +1,7 @@
 # VISUAL_IMPROVEMENTS
 
+> **Nota (reconstrucción de mapas):** los mapas que se citan en este registro (Encrucijada, Base Militar, Cumbre, Puesto del Desierto, Harbor Heights, etc.) se retiraron al hacer los nueve mapas 5v5 nuevos. El estado actual de los mapas está en `MAP_DEVELOPMENT.md`.
+
 Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede apagar o ajustar en
 `src/shared/GameConfig.luau`.
 

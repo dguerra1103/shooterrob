@@ -67,7 +67,7 @@ GameConfig.EnemyColors = {
 	{ Name = "Magenta", Color = Color3.fromRGB(255, 60, 220) },
 }
 -- En cada votación sale siempre un mapa de 5 contra 5 estilo shooter militar (los de Realistic = true:
--- Encrucijada, Base Militar, Cumbre) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
+-- los nueve 5v5: Construction, Coastal, Terminal...) con Duelo por equipos, Dominio o Buscar y destruir. false = votación al azar
 GameConfig.VoteRealisticMap = true
 GameConfig.VoteTime = 15 -- segundos de votación (dentro del descanso)
 

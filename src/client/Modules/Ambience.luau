@@ -1,7 +1,7 @@
 -- Sonido ambiente de los mapas realistas (atributo Ambience de workspace.Map, lo pone cada mapa):
---   "War"  (Encrucijada): explosiones y ráfagas lejanas, como una guerra en otros barrios, y algo de viento
---   "Base" (Base Militar): disparos sueltos de la galería de tiro a lo lejos y brisa
---   "Wind" (Cumbre): viento fuerte de montaña
+--   "War": explosiones y ráfagas lejanas, como una guerra en otros barrios, y algo de viento
+--   "Base" (Construction, Terminal): disparos sueltos a lo lejos y brisa
+--   "Wind" (Rooftop District): viento fuerte de altura
 --   y en los demás mapas: "Breeze" (brisa), "Snow" (viento helado), "Coast" (brisa y olas que rompen),
 --   "Night" (viento suave de noche), "Jungle", "Factory" (nave: casi nada, eco de nave) y "Desert"
 -- Y el tiempo (atributo Weather de workspace.Map): "Rain" = lluvia alrededor de la cámara, ruido de

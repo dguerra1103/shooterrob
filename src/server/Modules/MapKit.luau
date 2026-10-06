@@ -118,7 +118,7 @@ function Kit.applyStyle(part)
 		return
 	end
 	if not Kit.Cartoon then
-		-- (los mapas hechos ya realistas, como Encrucijada, tienen sus colores pensados)
+		-- (los mapas hechos ya realistas, como los de TacKit, tienen sus colores pensados)
 		if not Kit.Designed then
 			part.Color = Kit.natural(part.Color)
 		end

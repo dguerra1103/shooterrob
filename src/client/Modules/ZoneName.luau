@@ -48,7 +48,7 @@ local function readMap(map)
 			end
 		end
 		info.Length, info.Width = maxX * 2, maxZ * 2
-		-- (mapas con solo techo invisible, como Downtown: su tamaño es el del techo)
+		-- (mapas con solo techo invisible: su tamaño es el del techo)
 		if maxX <= 0 or maxZ <= 0 then
 			for _, roof in boundary:GetChildren() do
 				if roof:IsA("BasePart") and roof.Size.X * roof.Size.Z > (info.Length or 0) * (info.Width or 0) then

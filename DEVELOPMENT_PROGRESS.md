@@ -1,5 +1,7 @@
 # DEVELOPMENT_PROGRESS
 
+> **Nota (reconstrucción de mapas):** los mapas que se citan en este registro (Encrucijada, Base Militar, Cumbre, Puesto del Desierto, Harbor Heights, etc.) se retiraron al hacer los nueve mapas 5v5 nuevos. El estado actual de los mapas está en `MAP_DEVELOPMENT.md`.
+
 Estado del pase "Stylized Tactical Roblox" (shooter 5v5). Corto a propósito: sirve para recuperar contexto.
 
 ## Auditoría (lo que ya existe y funciona)

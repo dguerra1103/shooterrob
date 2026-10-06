@@ -1,5 +1,7 @@
 # NEXT_STEPS
 
+> **Nota (reconstrucción de mapas):** los mapas que se citan en este registro (Encrucijada, Base Militar, Cumbre, Puesto del Desierto, Harbor Heights, etc.) se retiraron al hacer los nueve mapas 5v5 nuevos. El estado actual de los mapas está en `MAP_DEVELOPMENT.md`.
+
 Solo lo importante que todavía tiene sentido, por orden.
 
 1. **Probar en Studio real** (2 jugadores + bots): todo está validado con luau-lsp y pruebas Lune, pero

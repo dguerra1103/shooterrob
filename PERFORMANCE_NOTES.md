@@ -1,5 +1,7 @@
 # PERFORMANCE_NOTES
 
+> **Nota (reconstrucción de mapas):** los mapas que se citan en este registro (Encrucijada, Base Militar, Cumbre, Puesto del Desierto, Harbor Heights, etc.) se retiraron al hacer los nueve mapas 5v5 nuevos. El estado actual de los mapas está en `MAP_DEVELOPMENT.md`.
+
 Sin acceso a Studio en esta sesión: no hay perfiles del MicroProfiler. Lo de abajo sale de leer el
 código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modesto** (ver al final).
 

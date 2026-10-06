@@ -111,7 +111,7 @@ local function applyDetail(inst)
 	end
 end
 
--- Fuegos del mapa (Encrucijada de noche): en calidad Baja, sin llamas (la luz se queda)
+-- Fuegos del mapa (bidones o coches ardiendo): en calidad Baja, sin llamas (la luz se queda)
 local function applyFire(inst)
 	if inst:IsA("Fire") then
 		local map = workspace:FindFirstChild("Map")

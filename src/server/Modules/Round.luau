@@ -722,7 +722,7 @@ local function makeVoteOptions()
 	table.sort(maps, function(a, b)
 		return (a ~= MapBuilder.Current and 0 or 1) < (b ~= MapBuilder.Current and 0 or 1)
 	end)
-	-- Siempre hay un mapa de 5 contra 5 estilo shooter militar (Encrucijada, Base Militar...) en la
+	-- Siempre hay un mapa de 5 contra 5 táctico (Construction, Coastal, Terminal...) en la
 	-- votación, con Duelo por equipos o Dominio (GameConfig.VoteRealisticMap)
 	local realisticFirst = false
 	if GameConfig.VoteRealisticMap ~= false then
