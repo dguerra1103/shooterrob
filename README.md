@@ -69,8 +69,8 @@ Todo está hecho con código (Luau). Los mapas, las armas y los trajes se genera
 | **Movimiento** | Correr (Shift), **agacharse** (C sin correr: más bajo, más lento y un 25 % más preciso; correr o saltar te levanta; `GameConfig.CrouchSpeed`) y deslizarse (C corriendo), con impulso. Sensación realista (`GameConfig.Movement`): se acelera al arrancar y al pasar a correr; solo se corre hacia delante; correr gasta **estamina** (barra fina bajo la mira; si se agota hay que recuperarse y se salta menos); saltar gasta un poco; balanceo de cabeza al andar y correr; golpe de cámara y sonido al aterrizar desde alto (y frena un momento si la caída es grande). |
 | **Sonido de las armas** | Cada disparo mezcla varias capas (`Sounds.WeaponShots` y `Sounds.ShotLayers`): el sonido propio del arma, un estampido grave que da cuerpo (más fuerte en francotirador, escopeta y lanzacohetes) y el clic del mecanismo. Todas pasan por el grupo **Armas** de SoundService (compresor, graves y un eco corto). Los disparos de los demás se oyen en 3D hasta 600 studs; de lejos llegan con retraso y apagados, sin clic. Recarga por pasos (sacar cargador, meterlo y montar el arma si estaba vacía; las escopetas cartucho a cartucho), sonido al sacar el arma, "tic" cuando quedan pocas balas y "fiuu" de las balas enemigas que pasan rozando. Son audios oficiales de Roblox (funcionan sin subir nada). |
 | **Animación de las armas** | Todo procedural en `WeaponController` (renderStep). Recarga con el cargador que cae y la mano izquierda que trae otro y lo encaja (y monta el arma si estaba vacía); escopetas cartucho a cartucho y bombeo; corredera de las pistolas que se queda abierta sin balas; cerrojo del francotirador con la mano derecha; bombeo tras cada tiro de escopeta. Además: inercia con muelle (las armas pesadas pesan más), respiración, balanceo en "ocho" al correr, inclinación al ir de lado, el arma se queda atrás al saltar y se hunde al caer, se recoge contra las paredes, sacar el arma con rebote y golpes cuerpo a cuerpo alternos. Las piezas móviles se reconocen por nombre (`Mag*`, `Drum*`, `Slide*`, `Pump*`, `BoltHandle`/`BoltKnob`). |
-| **Pase de batalla** | **50 niveles** con vía gratis y premium (GamePass): skins de común a mítica, camuflajes, trajes, efectos de eliminación, cajas cada 5 niveles y monedas. El progreso se guarda con DataStore.  Después del nivel 50, cada 5 niveles: +300 monedas y una caja gratis (`GameConfig.PostPassRewards`). |
-| **Tienda** | Packs de monedas con Robux, pase **VIP** (x2 XP y monedas, caja gratis cada día, etiqueta [VIP] y grafiti 👑 exclusivo), skins y trajes con monedas, **ofertas del día** con descuento, **recompensa diaria** (7 días, con caja el 7.º) **Caja Neón** (solo monedas, con las probabilidades a la vista; si toca algo repetido te devuelve parte) y **Ruleta diaria** (botón 🎡 de la pantalla de inicio: un giro gratis al día con monedas, revivir, 15 min de XP doble, cajas o el premio gordo de 2000 monedas; giros extra con Robux). En los países donde las cajas aleatorias no están permitidas se ocultan solas.  Lo recién añadido lleva la etiqueta **¡NUEVO!** hasta que lo tengas (`Shop.NewItems`: cámbialo en cada actualización). |
+| **Pase de batalla** | **Por temporadas** (Temporada 1 «Zona Roja», 1 oct → 1 ene): **50 niveles** con vía gratis y premium (399 R$), su propia XP (la mitad de la XP de cada partida, misiones diarias, semanales y de temporada; el VIP y los potenciadores de pago no lo aceleran), recompensas que se **reclaman** (casilla a casilla o RECLAMAR TODO) y sin cajas. Pantalla PASE DE BATALLA del lobby con la pista horizontal. Comprar el premium o un nivel solo se ofrece ahí. Ver [ECONOMY.md](ECONOMY.md). |
+| **Tienda** | Pantalla TIENDA del lobby: **DESTACADO** (evento, pack de la semana, pack de inicio y **tienda diaria** con reloj real), ARMAS, OPERADORES, CHARMS, EFECTOS, POSES, PACKS, PASE y MONEDAS. Tarjetas grandes con rareza, precio a la vista, **PREVISUALIZAR en 3D** (girar, zoom, cambiar de arma) y COMPRAR; escena de compra con **EQUIPAR AHORA**. Cosméticos nuevos: skins de colección (INFERNO, CYBER, ARCTIC, STREET, VOID, RED OPS), trajes, colgantes, efectos de baja, **poses de victoria**, **intros de MVP** y **tarjetas de jugador**. **Sin pay-to-win y sin azar de pago**: la ruleta, los giros y los revivir con Robux y las cajas con monedas ya no existen; las cajas se ganan jugando. Todo en [ECONOMY.md](ECONOMY.md). |
 | **Estilo** | `GameConfig.VisualStyle = "Realista"` (por defecto: piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y luz con sombras marcadas, como los shooters militares) o `"Cartoon"` (colores vivos, plástico liso, luz suave). En Realista, los mapas pensados para Cartoon se convierten solos (`MapKit.realize` y `Kit.natural`): sin tonos pastel en la luz ni en la neblina, pintura menos chillona, hierba y tierra de colores naturales y sol con brillo; cada mapa conserva su carácter (paleta y luz propias de cada mapa en `TacKit/Materials` y en su `Lighting.luau`, ambiente algo más claro de noche para verse bien en el móvil) y los colores de los equipos en las bases se quedan puros; los tres mapas militares conservan su luz y colores pensados. Texturas propias para subir en `assets/textures` (cuadrícula de paredes y 6 camuflajes de armas). |
 | **Gráficos** | Iluminación "Future", terreno por mapa (arena, asfalto, agua del puerto), agua con reflejos y olas propias de cada mapa, cielo estrellado de noche, atmósfera, nubes, rayos de sol, bloom y corrección de color distinta por mapa, agua de Terrain, neón con luces, partículas (humo, chispas, lava), armas con skins de dos colores y efectos (destellos, llamas). Realismo: materiales PBR 2022 (yeso, ladrillo, hormigón, asfalto), colinas de terreno irregulares con roca, viento que mueve hierba, nubes y partículas, sombras de contacto bajo los objetos, óxido en contenedores, alcantarillas, grietas, aceite, rodadas y juntas en los suelos, charcos que reflejan, vapor, conos de luz, coches aparcados, pinos nevados, sotobosque en la jungla, algas en el canal, impactos de bala según el material (chispas, astillas, polvo, salpicaduras), huellas en nieve y barro y polvo al deslizarse. |
 | **Ajustes** | Calidad gráfica, campo de visión, sensibilidad (normal y al apuntar) y **mira** a tu gusto: 6 colores y tamaño. |
@@ -228,35 +228,34 @@ ROBLOX_API_KEY=... ROBLOX_UNIVERSE_ID=... ROBLOX_PLACE_ID=... scripts/publish.sh
 
 ## Monetización (Robux)
 
-En el [Creator Hub](https://create.roblox.com/dashboard/creations), abre tu experiencia → **Monetización**:
+**Sin pay-to-win**: con Robux solo se compra estética (skins, trajes, colgantes, tarjetas, efectos,
+poses, intros de MVP), el pase de batalla, monedas y potenciadores de XP/monedas. Nada da ventaja en
+combate y no hay azar de pago. Todo el detalle (precios, fuentes y sumideros de monedas, pase, seguridad
+de las compras, analítica y operación en vivo) está en **[ECONOMY.md](ECONOMY.md)**.
 
-**Lista rápida de todo lo que hay que crear** (todo en `src/shared/Shop.luau` salvo donde se indica):
+En el [Creator Hub](https://create.roblox.com/dashboard/creations), abre tu experiencia → **Monetización**
+y crea cada producto; pega su id donde pone `TODO: SET IN CREATOR DASHBOARD`:
 
 | Qué | Tipo | Precio sugerido | Dónde pegar el ID |
 |---|---|---|---|
-| 4 packs de monedas (500 / 1200 / 3000 / 8000) | Developer Product | 49 / 99 / 199 / 449 R$ | `Shop.CoinPacks[1..4].ProductId` |
-| 2 packs de revivir (5 / 15) | Developer Product | 25 / 59 R$ | `Shop.RevivePacks[1..2].ProductId` |
-| 2 potenciadores (XP doble / monedas dobles, 30 min) | Developer Product | 49 / 69 R$ | `Shop.Boosters[1..2].ProductId` |
-| 3 giros de ruleta | Developer Product | 25 R$ | `Shop.Wheel.SpinProductId` |
+| 23 cosméticos sueltos (skins, trajes, colgantes, tarjetas, efectos, poses, intros) | Developer Product | 29-199 R$ (por tramos) | `src/shared/Economy/Products.luau` → `Products.Items` |
+| Pase premium de la temporada | Developer Product | 399 R$ | `src/shared/Economy/BattlePassConfig.luau` → `Seasons[i].Premium` |
+| Un nivel del pase | Developer Product | 49 R$ | `Products.TierSkip` |
+| Packs Operación Roja / Ártico / Vacío | Developer Product (uno cada uno) | 399 / 249 / 299 R$ | `src/shared/Shop.luau` → `Shop.Bundles` |
+| Packs de Halloween / Navidad / Aventurero | Developer Product (uno cada uno) | 199 / 199 / 299 R$ | `Shop.Bundles` |
 | Pack de inicio | Developer Product | 99 R$ | `Shop.StarterPack.ProductId` |
-| Pack de Halloween / Navidad / Aventurero | Developer Product (uno cada uno) | 199 / 199 / 299 R$ | `Shop.Bundles[1..3].ProductId` |
+| 4 packs de monedas (500 / 1200 / 3000 / 8000) | Developer Product | 49 / 99 / 199 / 449 R$ | `Shop.CoinPacks[1..4].ProductId` |
+| 2 potenciadores (XP doble / monedas dobles, 30 min) | Developer Product | 49 / 69 R$ | `Shop.Boosters[1..2].ProductId` |
 | VIP | Game Pass | 299 R$ | `Shop.VIPPassId` |
-| Pase de batalla premium | Game Pass | a tu gusto | `GameConfig.PremiumPassId` (`GameConfig.luau`) |
 | Grupo del juego | Grupo | — | `GameConfig.Group.Id` (`GameConfig.luau`) |
 | 8 insignias (opcional) | Badge | — | `GameConfig.Badges` (`GameConfig.luau`) |
 
-Detalle de cada uno:
+Mientras un ID valga `0`, su botón aparece como "PRÓXIMAMENTE" y no se puede comprar. Cuando existe, la
+tienda enseña el precio real de Roblox. Las compras las entrega solo el servidor, se guardan antes de
+confirmarlas y nunca se entregan dos veces (ver ECONOMY.md, "Seguridad de las compras").
 
-1. **Developer Products**: crea 4 productos (por ejemplo 500, 1200, 3000 y 8000 monedas a 49, 99, 199 y 449 Robux) y pega cada ID en `Shop.CoinPacks[i].ProductId` (`src/shared/Shop.luau`).
-2. **Revivir instantáneo**: crea 2 productos (5 revivir a 25 Robux y 15 a 59 Robux) y pega sus IDs en `Shop.RevivePacks[i].ProductId`. Cada jugador empieza con 3 gratis; al morir, "REVIVIR INSTANTÁNEO" (tecla B) le devuelve donde cayó.
-   - **Potenciadores**: crea 2 productos más (XP doble 30 min a 49 Robux y monedas dobles 30 min a 69) y pega sus IDs en `Shop.Boosters[i].ProductId`.
-3. **Ruleta**: crea un Developer Product (por ejemplo 25 Robux) y pon su ID en `Shop.Wheel.SpinProductId`: da 3 giros extra. El giro gratis diario funciona sin configurar nada.
-4. **Pack de inicio**: crea otro Developer Product (por ejemplo 99 Robux) y pon su ID en `Shop.StarterPack.ProductId`. Da 1500 monedas, el traje Blaze Runner, la skin Sakura y el efecto Confeti, se compra una sola vez y solo se ofrece hasta el nivel 15.
-5. **Packs de temporada** (`Shop.Bundles`): crea un Developer Product de 199 Robux para cada uno y pon su ID en su `ProductId`. **Pack de Halloween**: Da 2500 monedas, el efecto Calabazas, el colgante Calabacita y el grafiti Calabaza (vale unas 5000 monedas), se compra una vez y deja de ofrecerse solo el 4 de noviembre (`EndsAt`). La tarjeta sale arriba de la Tienda con los días que quedan. **Pack de Navidad** (del 1 de diciembre al 7 de enero): 2500 monedas, el efecto **Ventisca** (copos y muñeco de nieve), el colgante **Bastón de caramelo** y el grafiti **Navidad** ("HO HO HO"). Esos tres también se venden sueltos con monedas todo el año. **Pack Aventurero** (permanente, 299 Robux, otro Developer Product): los trajes **Sheriff Vaquero**, **Capitán Pirata** y **Caballero Real**, el efecto Rodadora, el colgante Calavera, el grafiti Pirata y 1500 monedas (vale unas 10500).
-6. **Grupo**: crea el grupo del juego y pon su ID en `GameConfig.Group.Id` (botón ⭐ ÚNETE AL GRUPO +500 🪙 en la pantalla de inicio).
-7. **Passes**: crea el pase **VIP** (299 Robux) y pon su ID en `Shop.VIPPassId`. Crea otro para el **pase de batalla premium** y pon su ID en `GameConfig.PremiumPassId`.
-
-Mientras un ID valga `0`, su botón aparece como "Próximamente". Las compras se guardan con un registro para no entregar dos veces la misma.
+Ya no se venden (daban ventaja o eran azar de pago): los packs de "revivir instantáneo", los giros de
+ruleta y las cajas con monedas. Se cambian en `src/shared/Economy/MonetizationConfig.luau` (`Rules`).
 
 ## Antes de abrirlo al público
 
@@ -284,7 +283,11 @@ src/
 │   ├── WeaponModels.luau    construye las armas y les aplica la skin
 │   ├── Skins.luau           skins de armas
 │   ├── Outfits.luau         trajes de operador
-│   ├── Shop.luau            tienda, VIP, diarias, cajas y ofertas
+│   ├── Shop.luau            precios en monedas, packs, VIP, diarias, cajas y ofertas
+│   ├── Economy/             monetización (ver ECONOMY.md): MonetizationConfig (reglas), Products
+│   │                        (productos de Robux), CosmeticCatalog, StoreRotation y BattlePassConfig
+│   ├── Poses.luau           poses de victoria e intros de MVP
+│   ├── PlayerCards.luau     tarjetas de jugador
 │   ├── Challenges.luau      retos diarios
 │   ├── Mastery.luau         maestría de armas (camuflajes por bajas)
 │   ├── KillEffects.luau     efectos de eliminación
@@ -296,7 +299,10 @@ src/
 │       ├── MapBuilder.luau  registro de mapas e iluminación
 │       ├── MapKit.luau      piezas para construir mapas
 │       ├── MapDefs/         Construction, Coastal, Terminal, MallRush, RooftopDistrict, MetroYard, DesertBase, Dockyard, IndustrialYard (cada uno: init, Geometry, Props, Lighting)
-│       ├── PlayerData.luau  guardado, nivel, XP, monedas, compras
+│       ├── PlayerData.luau  guardado, nivel, XP, monedas, compras (recibos de Robux)
+│       ├── Entitlements.luau qué entrega cada compra y cómo se deshace
+│       ├── BattlePass.luau  pase por temporadas: XP, reclamar, misiones, cambio de temporada
+│       ├── Analytics.luau   analítica de tienda y pase (AnalyticsService)
 │       ├── Loadout.luau     armas y traje al aparecer
 │       ├── Combat.luau      valida disparos, daño, explosiones y bajas
 │       ├── Round.luau       equipos, votación, rondas, modos, marcador, rachas

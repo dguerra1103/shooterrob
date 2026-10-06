@@ -9,7 +9,7 @@ números) y Gotham (textos).
 ## Secuencia
 
 ```
-Boot ─► Home ─┬─► Squad / Armory / Operator (y vuelta con VOLVER, Esc o B)
+Boot ─► Home ─┬─► Squad / Armory / Operator / Store / Pass (y vuelta con VOLVER, Esc o B)
               └─► JUGAR ─► Matchmaking ─► MatchFound ─► MapIntro ─► TeamIntro ─► Loadout ─► Deploy ─► Gameplay
                                                                                          (3-2-1 ¡YA!)
 Gameplay ─(fin de partida)─► Results ─┬─► JUGAR DE NUEVO / automático ─► Matchmaking
@@ -25,6 +25,8 @@ Gameplay ─(ronda nueva)─► MapIntro ─► TeamIntro ─► Loadout ─► 
 | **Squad** | Tus compañeros reales (copias 3D), nombre, nivel, estado (LISTO / NO LISTO / EN PARTIDA / BOT), líder 👑 (el primero en llegar), aviso al unirse. | `Flow/Screens/Squad.luau` |
 | **Armory** | Categorías, lista, arma en 3D con vaivén, DAÑO / PRECISIÓN / CADENCIA / MOVILIDAD / CONTROL animadas (0,25 s), maestría, equipar en cualquiera de las 5 clases, comprar, usar la clase. | `Flow/Screens/Armory.luau` |
 | **Operator** | Roles (Asalto, Recon, Pesado, Francotirador, Especial) a partir de los trajes, el traje sobre tu avatar en 3D, ficha (dice que es solo estética), habilidades con tecla y recarga reales, la clase que le va, tira de selección, equipar/comprar. | `Flow/Screens/Operator.luau` |
+| **Store** | TIENDA: DESTACADO (evento, pack de la semana, pack de inicio, tienda diaria con reloj real), ARMAS, OPERADORES, CHARMS, EFECTOS, POSES, PACKS, PASE, MONEDAS. Tarjetas con imagen, NUEVO, rareza, precio, 👁 PREVISUALIZAR (3D: girar, zoom, cambiar de arma) y COMPRAR / EQUIPAR / EQUIPADO ✓. Robux: ventana de Roblox; monedas: confirmación propia. Escena de compra con EQUIPAR AHORA en su propia capa (también en partida). Ver `ECONOMY.md`. | `Flow/Screens/Store.luau`, `Flow/Store/*` |
+| **Pass** | PASE DE BATALLA: temporada y reloj, nivel y XP, pista horizontal GRATIS / PREMIUM (empieza en tu nivel), recompensa elegida con RECLAMAR y 👁, RECLAMAR TODO, misiones de temporada, premium y +1 nivel (solo aquí). Lo reclamado entra deslizándose. | `Flow/Screens/Pass.luau` |
 | **Matchmaking** | BUSCANDO PARTIDA con escáner (barrido + pulso, sin rueda que gira), modo · 5 VS 5, tiempo, ping, votación del mapa, CANCELAR. | `Flow/Screens/Matchmaking.luau` |
 | **MatchFound** | 1,4 s: destello, barrido amarillo, golpe de sonido, modo · mapa. Sigue solo. | `Flow/Screens/MatchFound.luau` |
 | **MapIntro** | Nombre del mapa enorme, modo, 5 VS 5, luz (atardecer, noche), descripción, cámara sobre el mapa. Dura lo que tarda la carga real. | `Flow/Screens/MapIntro.luau` |
@@ -135,6 +137,8 @@ armamento y operador), `boot` (fases y salida sin esperas), `results` (pantalla 
 derrota, TDM, Buscar y destruir, nombres largos, menos de 5, con y sin recompensas, subida de nivel,
 desbloqueo, desafíos, marcador, jugar de nuevo, lobby, automático y cancelar, limpieza),
 `resultsserver` (MatchResult y resumen reales en una partida), `stagespot` (hueco de la escena en
-cada base), `hudclient`, `clientboot`, `menu`.
-Las capturas de escritorio (1280×720) y teléfono (844×390) se generan con `flowshots` +
+cada base), `hudclient`, `clientboot`, `menu`, `econ_client` (tienda, previsualización, compras,
+escena de compra, pase, puntos rojos, oferta; PC y móvil).
+Las capturas de escritorio (1280×720) y teléfono (844×390) se generan con `flowshots` (y
+`storeshots` para la tienda y el pase) +
 `render/guirender2.py`; `listaudit` avisa si algo está colocado a mano dentro de una lista.

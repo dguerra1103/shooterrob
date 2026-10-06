@@ -1143,11 +1143,13 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 	if not data or amount <= 0 then
 		return
 	end
-	-- XP del pase: la misma XP de jugar, pero sin lo que se paga (VIP, potenciadores) ni los amigos
-	local passAmount = amount
+	-- XP del pase: parte de la XP de jugar (BattlePassConfig.MatchXPRate), sin lo que se paga (VIP,
+	-- potenciadores) ni los amigos
+	local rate = BattlePassConfig.MatchXPRate or 1
+	local passAmount = math.floor(amount * rate)
 	if not fixed then
 		local free = xpBoost() * featuredBonus()
-		passAmount = math.floor(amount * (Rules.PassXPFromPaidBoosts and free * multiplier(player) * boosterMultiplier(player, data, "XP") or free))
+		passAmount = math.floor(amount * rate * (Rules.PassXPFromPaidBoosts and free * multiplier(player) * boosterMultiplier(player, data, "XP") or free))
 		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(player, data, "XP") * featuredBonus())
 		matchOf(player, data).XP += amount
 	end

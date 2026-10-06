@@ -107,7 +107,7 @@ function Data.Rewards(summary)
 	-- XP del pase de batalla (y si ha subido de nivel del pase)
 	local passXP = tonumber(summary.PassXP) or 0
 	if passXP > 0 then
-		local per = math.max(1, tonumber(summary.PassXPPerTier) or 2500)
+		local per = math.max(1, tonumber(summary.PassXPPerTier) or 3000)
 		local tiers = tonumber(summary.PassTiers) or 50
 		local before = math.min(tiers, math.floor((tonumber(summary.PassStartXP) or 0) / per) + 1)
 		local after = math.min(tiers, math.floor((tonumber(summary.PassNowXP) or 0) / per) + 1)

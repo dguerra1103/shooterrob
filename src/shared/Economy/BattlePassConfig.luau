@@ -12,7 +12,11 @@ local GameConfig = require(Shared.GameConfig)
 local BattlePassConfig = {}
 
 BattlePassConfig.Tiers = 50
-BattlePassConfig.XPPerTier = 2500
+BattlePassConfig.XPPerTier = 3000
+-- Parte de la XP de cada partida que va al pase. Con 0,5 y 3000 por nivel: jugando mucho (6 partidas
+-- al día y todas las misiones) se acaba en unas 3 semanas; jugando poco (2 partidas y una misión), en
+-- unos 2 meses. La temporada dura 3: se puede acabar sin jugar cada día. Ver ECONOMY.md.
+BattlePassConfig.MatchXPRate = 0.5
 -- XP del pase extra por completar misiones (además de la XP que ya dan)
 BattlePassConfig.DailyMissionXP = 600
 BattlePassConfig.WeeklyMissionXP = 2500

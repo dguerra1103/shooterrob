@@ -116,6 +116,32 @@ quieras probar) y vuelve a dejarlo como estaba al acabar.
 | **Tablet** | Studio → Test → **Device** → un iPad | Los botones táctiles (disparar, apuntar, recargar...) quedan a la izquierda del botón de saltar, que en tablet es más grande; ninguno lo tapa. |
 | **Móvil** | Studio → Test → **Device** (emulador de teléfono) | Botones táctiles: 😀 emotes, 📋 marcador, 🎁 pequeño arriba a la izquierda; nada tapado por el joystick. |
 
+## Tienda y pase (monetización sin pay-to-win)
+
+Todo el detalle en `ECONOMY.md`. En Studio las compras con Robux son de prueba (no cobran): para
+probarlas pon ids de productos de prueba (o los reales) en `src/shared/Economy/Products.luau` y
+`Shop.luau`; con id `0` sale "PRÓXIMAMENTE".
+
+| Qué | Cómo comprobarlo | Qué debería pasar |
+|---|---|---|
+| **Tienda** | Lobby → TIENDA | DESTACADO con el evento (Operación Zona Roja hasta el 3 nov), pack de la semana, pack de inicio (si eres nivel ≤ 15) y tienda diaria con su reloj ("NUEVA EN 5 H 12 MIN", hasta las 00:00 UTC). Pestañas ARMAS, OPERADORES, CHARMS, EFECTOS, POSES, PACKS, PASE y MONEDAS. |
+| **Previsualizar** | 👁 en cualquier objeto | Arma en 3D que se gira arrastrando y se acerca con la rueda / pellizco / + −, con ◀ ▶ para verla en tus armas; traje y poses en tu personaje; intro de MVP en bucle; PROBAR en los efectos de baja. Dice "Solo estética". Esc o CERRAR. |
+| **Compra con Robux** | COMPRAR en un objeto con id | Se abre la ventana de Roblox. Si cancelas, el botón vuelve a COMPRAR y no te dan nada. Si compras: COMPRA COMPLETADA → objeto → nombre → rareza → EQUIPAR AHORA → EQUIPADO ✓. La primera compra regala la tarjeta PRIMER GOLPE. |
+| **Compra con monedas** | COMPRAR en un objeto con 🪙 | Ventana de confirmación con lo que te queda; CANCELAR no compra; CONFIRMAR compra y sale la escena de compra. Sin monedas suficientes no deja confirmar. |
+| **Ya lo tienes** | Mira algo que ya tengas | Dice EQUIPAR / EQUIPADO ✓, nunca COMPRAR. En los packs, lo tuyo sale con ✓ TUYO y se dice cuántas monedas te devuelven. |
+| **Pase** | Lobby → PASE DE BATALLA | Temporada, reloj, tu nivel y XP, pista con GRATIS y PREMIUM (empieza en tu nivel). Toca una casilla con RECLAMAR o RECLAMAR TODO: las recompensas entran por la derecha. PREMIUM y +1 NIVEL abren la compra de Roblox. Misiones de temporada a la derecha (en el móvil, botón MISIONES). |
+| **Puntos rojos** | Lobby | TIENDA con punto si hay novedades sin ver; PASE si hay algo por reclamar. Al verlas / reclamarlo se quitan. |
+| **Pantalla final** | Acaba una partida | En RECOMPENSAS sale la XP del pase (¡NIVEL N! si sube). Si ganas, tu equipo hace sus poses de victoria y el MVP su intro. De vez en cuando (desde la 4.ª partida, si hiciste 6+ bajas con un arma), una tarjeta pequeña "DOMINASTE CON …" con ✕. |
+| **Sin ventaja de pago** | — | No hay ruleta, ni revivir con Robux (la pantalla de muerte dice "Se ganan jugando"), ni cajas con monedas (las cajas ganadas se abren igual), ni armas con monedas (se desbloquean por nivel). |
+
+Para probar el pase rápido, en la consola del **servidor**:
+
+```lua
+local PD = require(game.ServerScriptService.Server.Modules.PlayerData)
+local p = game.Players:GetPlayers()[1]
+PD.AddPassXP(p, 30000) -- 10 niveles del pase
+```
+
 ## Probar la Navidad ahora (sin esperar a diciembre)
 
 En `src/shared/GameConfig.luau`, dentro de `GameConfig.Events`: al de Halloween ponle `EndsAt = 0` y al
