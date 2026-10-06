@@ -163,6 +163,33 @@ Materials.RooftopDistrict = {
 	Plywood = { RGB(176, 140, 96), M.WoodPlanks },
 }
 
+Materials.MetroYard = {
+	Concrete = { RGB(170, 172, 176), M.Concrete },
+	ConcreteDark = { RGB(118, 122, 128), M.Concrete },
+	Platform = { RGB(186, 188, 190), M.Concrete },
+	Tile = { RGB(226, 228, 230), M.Marble },
+	TileDark = { RGB(92, 104, 122), M.Marble },
+	Wall = { RGB(214, 216, 220), M.SmoothPlastic },
+	WallBlue = { RGB(44, 92, 170), M.SmoothPlastic },
+	Orange = { RGB(240, 128, 36), M.SmoothPlastic },
+	Blue = { RGB(40, 96, 196), M.SmoothPlastic },
+	Red = { RGB(208, 58, 46), M.SmoothPlastic },
+	Ballast = { RGB(110, 102, 96), M.Pebble },
+	Rail = { RGB(150, 152, 156), M.Metal },
+	Sleeper = { RGB(96, 90, 84), M.Concrete },
+	Tunnel = { RGB(104, 108, 114), M.Concrete },
+	Steel = { RGB(128, 134, 142), M.Metal },
+	SteelDark = { RGB(62, 66, 74), M.Metal },
+	Glass = { RGB(150, 196, 220), M.Glass },
+	Asphalt = { RGB(70, 72, 76), M.Asphalt },
+	Sidewalk = { RGB(160, 160, 158), M.Concrete },
+	Brick = { RGB(150, 88, 66), M.Brick },
+	Shed = { RGB(132, 140, 150), M.DiamondPlate },
+	Train = { RGB(214, 218, 224), M.Metal },
+	Yellow = { RGB(128, 134, 142), M.Metal }, -- (barandillas de acero gris)
+	YellowPaint = { RGB(236, 196, 40), M.SmoothPlastic },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 
