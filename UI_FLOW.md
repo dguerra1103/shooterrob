@@ -12,6 +12,8 @@ números) y Gotham (textos).
 Boot ─► Home ─┬─► Squad / Armory / Operator (y vuelta con VOLVER, Esc o B)
               └─► JUGAR ─► Matchmaking ─► MatchFound ─► MapIntro ─► TeamIntro ─► Loadout ─► Deploy ─► Gameplay
                                                                                          (3-2-1 ¡YA!)
+Gameplay ─(fin de partida)─► Results ─┬─► JUGAR DE NUEVO / automático ─► Matchmaking
+                                      └─► VOLVER AL LOBBY ─► Home
 Gameplay ─(muerte: «menú»)─► Home
 Gameplay ─(ronda nueva)─► MapIntro ─► TeamIntro ─► Loadout ─► Deploy ─► Gameplay
 ```
@@ -29,6 +31,55 @@ Gameplay ─(ronda nueva)─► MapIntro ─► TeamIntro ─► Loadout ─► 
 | **TeamIntro** | Tu equipo y el rival con 5 personajes reales cada uno (jugadores y bots), tarjetas con nombre/nivel/estado, VS. Carga progresiva. Solo estética. | `Flow/Screens/TeamIntro.luau` |
 | **Loadout** | Las 5 clases (principal, secundaria, granada, ventaja), la última marcada; elegir equipa al momento; si no eliges, entras con ella. | `Flow/Screens/Loadout.luau` |
 | **Deploy** | PREPÁRATE 3-2-1 ¡YA! con la cámara bajando a tu espalda; si tu personaje aún no existe, «SINCRONIZANDO PARTIDA…». | `Flow/Screens/Deploy.luau` |
+
+## Pantalla final
+
+Sustituye al cuadro de fin de partida del HUD (que se apaga solo cuando existe esta pantalla).
+
+**Datos (servidor, todo real):** `Round.endRound` manda en `RoundEnd.Result` el MatchResult
+(`src/shared/MatchResults.luau`): modo, mapa, marcador, ganador, **motivo** (`ScoreLimit`,
+`Objectives`, `ZoneControl`, `Captures`, `Eliminated`, `DecisiveRound`, `BombDefused`,
+`BombExploded`, `TimeLimit`, `Survivors`, `Infected`, `Draw`...), MVP y todos los participantes
+(jugadores y bots) con bajas, asistencias, muertes, capturas, **puntos**, arma y skin. El resumen
+personal (`MatchSummary`) añade lo que se ha dado de verdad: XP, monedas de jugar + `BonusCoins`
+(retos, pase, maestría), `Crates`, `Challenges` completados, `Unlocks` (armas por nivel, camuflajes,
+skins/trajes/efectos del pase), nivel antes y después, RP antes y después. Si algo no llega, su panel
+no sale: nunca se enseña un premio que no se haya dado.
+
+**Avatares:** justo antes de acabar (los bots se quitan al pasar a "Ended") `ResultsCast` deja en
+`ReplicatedStorage.ResultsCast` una copia visual de cada participante (sin scripts, sonidos ni
+herramientas; quien estaba muerto sale de su HumanoidDescription con su traje). El cliente las copia
+a una escena local (`workspace.PresentationScenes.ResultsStage`) en un hueco despejado de la base de
+tu equipo (comprobado en las 18 bases de los 9 mapas), con su arma y skin y la pose de arma lista; los
+personajes reales se ocultan en local mientras dura. Todo se borra al salir.
+
+| Pieza | Archivo |
+|---|---|
+| ResultsController (secuencia, datos, acciones) | `Flow/Screens/Results.luau` |
+| ResultsPresentation (escena 3D: `SetPlayers`, `SetMVP`, `SetMap`, `SetResult`, `SetScore`, `Build`, `HighlightMVP`) | `Flow/Results/Stage.luau` |
+| ResultsCameraController (planos `Wide`, `MVP`, `Drift`, profundidad de campo) | `Flow/Results/Camera.luau` |
+| Datos de la vista (tu equipo, rivales, orden, destacado, recompensas, tramos de nivel) | `Flow/Results/Data.luau` |
+| Componentes: ResultHeader, ScoreDisplay, MVPCard, PlayerResultCard, RewardsPanel, XPProgress, UnlockCard, ChallengeProgress, ScoreboardPanel, ResultActions | `Flow/Results/Components/` |
+
+**Secuencia (~3,5 s hasta verlo todo):** 0,0 fundido · 0,3 cámara sobre el equipo · 0,8 VICTORIA /
+DERROTA + motivo + golpe de sonido · 1,3 marcador contando (de uno en uno si es pequeño, como en
+Buscar y destruir) · 1,7 tarjetas · 2,2 MVP (foco, corona, chispas, destello dorado, su sonido; la
+cámara se acerca) · 2,8 recompensas → nivel (con subida de nivel si toca) → desafíos → desbloqueo ·
+3,0 acciones. Luego la cámara deriva muy despacio.
+
+**Derrota:** gris con un toque rojo, mismo contenido; en el centro tu mejor jugador ("DESTACADO" si el
+MVP es rival). **Siguiente partida:** el servidor ya cuenta contigo, así que JUGAR DE NUEVO lleva a la
+búsqueda (con la votación) y, si no tocas nada, se hace solo al acabar la pantalla ("SIGUIENTE
+PARTIDA EN N s" = lo que queda de pantalla + descanso); CANCELAR te deja mirando hasta que empieza la
+siguiente. VOLVER AL LOBBY te saca también en el servidor (permitido fuera de la partida).
+
+**Animaciones:** `VictoryPose` (MVP) y `SquadVictoryIdle` (compañeros) en `GameConfig.UIAnimations`;
+sin id, la pose de arma lista. **👍 reconocimiento:** preparado en `PlayerResultCard` pero apagado
+(`GameConfig.ResultsHonor = false`) hasta que haya un sistema que lo guarde.
+
+**Móvil:** VICTORIA, marcador, MVP, recompensas, nivel y JUGAR DE NUEVO; compañeros, desafíos y
+desbloqueos quedan en el marcador. **Luz:** corrección de color, profundidad de campo, foco y
+partículas son instancias propias que se borran al salir; no se cambia ninguna propiedad de Lighting.
 
 ## Sincronización con el servidor
 
@@ -80,6 +131,10 @@ la pose por código (arma lista). Para usar las tuyas: sube la animación R15 a 
 ## Pruebas automáticas
 
 En el simulador (`harness/`): `flow` (secuencia completa, Eliminación, entrar tarde, sin personaje,
-armamento y operador), `boot` (fases y salida sin esperas), `hudclient`, `clientboot`, `menu`.
+armamento y operador), `boot` (fases y salida sin esperas), `results` (pantalla final: victoria,
+derrota, TDM, Buscar y destruir, nombres largos, menos de 5, con y sin recompensas, subida de nivel,
+desbloqueo, desafíos, marcador, jugar de nuevo, lobby, automático y cancelar, limpieza),
+`resultsserver` (MatchResult y resumen reales en una partida), `stagespot` (hueco de la escena en
+cada base), `hudclient`, `clientboot`, `menu`.
 Las capturas de escritorio (1280×720) y teléfono (844×390) se generan con `flowshots` +
 `render/guirender2.py`; `listaudit` avisa si algo está colocado a mano dentro de una lista.
