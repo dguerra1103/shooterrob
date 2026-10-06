@@ -121,7 +121,7 @@ end
 
 local function section(text, timerEndsAt, timerPrefix)
 	local row = C.new("Frame", { Name = "Section", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 34), LayoutOrder = nextOrder(), Parent = content })
-	C.text({ Text = text, Role = "TitleItalic", TextSize = 24, Color = Colors.YellowText, Size = UDim2.new(0.6, 0, 1, 0), Parent = row })
+	C.text({ Text = text, Role = "TitleItalic", TextSize = 24, Color = Colors.YellowText, Scaled = true, Size = UDim2.new(0.6, 0, 1, 0), Parent = row })
 	if timerEndsAt then
 		local label = C.text({ Name = "Timer", Text = "", Role = "Number", TextSize = 16, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Right, Position = UDim2.fromScale(0.4, 0), Size = UDim2.new(0.6, 0, 1, 0), Parent = row })
 		table.insert(timers, { Label = label, EndsAt = timerEndsAt, Prefix = timerPrefix or "CAMBIA EN " })
@@ -345,7 +345,7 @@ local function renderCoins()
 	for i, pack in Shop.CoinPacks do
 		productCard(packs, {
 			Name = pack.Name,
-			Icon = string.rep("🪙", math.min(i, 3)),
+			Icon = "🪙",
 			Title = tostring(pack.Coins),
 			Sub = C.upper(pack.Name) .. (pack.Tag and ("  ·  " .. pack.Tag .. " monedas por Robux") or ""),
 			Button = Products.Enabled(pack) and ("R$ " .. tostring(StoreData.Robux(pack))) or "PRÓXIMAMENTE",
@@ -355,7 +355,7 @@ local function renderCoins()
 			end,
 		}, i)
 	end
-	section("POTENCIADORES  ·  solo XP y monedas, el tiempo corre jugando")
+	section("POTENCIADORES")
 	local boosts = grid(productCell)
 	fitGrid(boosts, #Shop.Boosters)
 	for i, booster in Shop.Boosters do
@@ -364,7 +364,7 @@ local function renderCoins()
 			Name = booster.Id,
 			Icon = booster.Icon,
 			Title = booster.Name,
-			Sub = booster.Minutes .. " min de juego" .. (left > 0 and ("  ·  te quedan " .. math.ceil(left / 60) .. " min") or ""),
+			Sub = booster.Minutes .. " min jugando (solo XP o monedas)" .. (left > 0 and ("  ·  te quedan " .. math.ceil(left / 60) .. " min") or ""),
 			Button = Products.Enabled(booster) and ("R$ " .. tostring(StoreData.Robux(booster))) or "PRÓXIMAMENTE",
 			Enabled = Products.Enabled(booster),
 			Color = Colors.Blue,
