@@ -195,6 +195,8 @@ function Props.half(T)
 		G.paintLine(V(-105, 0.02, z - 12), V(-105, 0.02, z + 12), 0.5, "YellowPaint")
 	end
 	G.deco("Sidewalk", V(4, 0.3, 220), CF(-122, 0.15, 0), "Sidewalk").CastShadow = false
+	G.deco("Street", V(28, 0.1, 220), CF(-105, 0.05, 0), "Asphalt").CastShadow = false
+	G.deco("PlazaPaving", V(38, 0.1, 58), CF(-69, 0.05, -71), "Tile").CastShadow = false
 
 	------------------------------------------------------------------
 	-- PLAZA DE LA ESTACIÓN (norte)

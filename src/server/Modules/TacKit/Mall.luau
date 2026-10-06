@@ -30,6 +30,8 @@ function Mall.glassRail(a, b, h)
 	local stop = Kit.block("RailCollider", V(0.5, h + 0.4, length), cf * CFrame.new(0, (h + 0.4) / 2, 0), Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
 	stop.Transparency = 1
 	stop.CastShadow = false
+	Mall.capHook(stop)
+	return stop
 end
 
 -- Escalera mecánica de bottom a top (puntos del centro): peldaños metálicos, laterales de cristal

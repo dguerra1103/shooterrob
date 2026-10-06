@@ -184,10 +184,11 @@ Materials.MetroYard = {
 	Asphalt = { RGB(70, 72, 76), M.Asphalt },
 	Sidewalk = { RGB(160, 160, 158), M.Concrete },
 	Brick = { RGB(150, 88, 66), M.Brick },
-	Shed = { RGB(132, 140, 150), M.DiamondPlate },
+	Shed = { RGB(156, 166, 182), M.Metal },
 	Train = { RGB(214, 218, 224), M.Metal },
 	Yellow = { RGB(128, 134, 142), M.Metal }, -- (barandillas de acero gris)
 	YellowPaint = { RGB(236, 196, 40), M.SmoothPlastic },
+	Deck = { RGB(120, 124, 130), M.DiamondPlate },
 }
 
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))

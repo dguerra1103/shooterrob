@@ -30,7 +30,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [x] Rooftop District
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
-- [ ] Metro Yard
+- [x] Metro Yard
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [ ] Desert Base
 - [ ] Dockyard
 - [ ] Industrial Yard
@@ -39,6 +40,8 @@ y añadirlo a `MapBuilder.Order`.
 - `navcheck`: mapa de alturas (0,5 studs) desde las bases: andar ≤1,1, salto ≤6,8, supersalto
   ≤16,5. Falla si un punto de juego es inalcanzable o hay trampas sin vuelta; lista lo que se
   alcanza fuera de las alturas de diseño (0 / 10 / 20 por defecto; cada ficha dice las suyas).
+- `longlines`: rayos a la altura de los ojos de un extremo al otro del mapa (a lo largo de X): avisa
+  de líneas de vista de base a base o de túnel a túnel.
 - `spawnsight`: rayos desde una rejilla del mapa (a la altura de los ojos) a los puntos de
   aparición: falla si la base se ve desde fuera de su zona.
 - Clips de jugador (`T.cap`): cajas invisibles que dejan pasar las balas, desde lo alto de muros,
@@ -120,6 +123,28 @@ y añadirlo a `MapBuilder.Order`.
 - Tiempos: base→A 7,0 s, base→B 6,9 s, rotación 6,1 s, base→base 13,8 s.
 - Piezas: ~3.050 (680 chocan), 4 luces (la ciudad no proyecta sombras).
 - Pendiente: en Studio, comprobar que el vacío entre azoteas no confunde a los bots.
+
+### Metro Yard
+- Tamaño: 300 x 220. Suelo 0; las vías van en dos zanjas a −3 (se baja de un salto y se sube por
+  cualquier sitio: 3 studs); a 10 la entreplanta de la estación, la pasarela, la galería de las
+  cocheras y el techo de los túneles. navcheck con −3,0,10.
+- Rutas: plaza de la estación → puerta oeste del vestíbulo (A); patio de servicio → puerta oeste de
+  las cocheras (B); túnel (interior: andén central y zanjas) → playa de vías; andenes norte y sur
+  (puertas del vestíbulo y portones de las cocheras); pasarela elevada de la estación a las cocheras
+  con escaleras al andén central; techo del túnel (posición alta propia sobre la playa de vías).
+- Bajo la pasarela hay núcleos y una pila-muro que, con las casetas de relés de cada mitad, forman
+  una chicana en cada zanja: se cruza, pero no hay línea de vista de túnel a túnel. El faldón opaco
+  de la pasarela corta la línea entre los techos de los dos túneles; una taquilla delante de cada
+  puerta del vestíbulo corta la línea de puerta a puerta por el sitio A.
+- Sitios: A en el vestíbulo (torniquetes, columnas, máquinas, cabina de información); B en el
+  taller de las cocheras (coches en mantenimiento, banco de trabajo, cajas). Compartidos.
+- Bases: cochera de autobuses cerrada, frente ciego hacia el túnel, puertas norte y sur con
+  vestíbulo en L.
+- Hitos: trenes con franja naranja/azul, pasarela azul con letreros, letrero METRO · CENTRAL,
+  tótems "M", viaducto con tren al fondo, autobús y contenedor METRO.
+- Tiempos: base→A 6,7 s, base→B 6,6 s, rotación 7,1 s, base→base 11,8 s.
+- Piezas: ~3.070 (760 chocan), 28 luces.
+- Pendiente: en Studio, comprobar que los bots saltan bien a las zanjas y salen de ellas.
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los

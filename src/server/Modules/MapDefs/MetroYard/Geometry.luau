@@ -66,6 +66,12 @@ function Geometry.build(T)
 	local sky = G.deco("HallSkylight", V(60, 0.3, 10), CF(0, 20.8, -76), "Glass")
 	sky.Transparency = 0.4
 	T.cap(sky)
+	-- Luces del techo del vestíbulo
+	for _, x in { -30, 0, 30 } do
+		local panel = G.deco("HallLight", V(14, 0.2, 2), CF(x, 19.8, -66), { Color3.fromRGB(240, 246, 255), Enum.Material.Neon })
+		panel.CastShadow = false
+		T.Kit.light(panel, "PointLight", Color3.fromRGB(236, 242, 255), 34, 1.1)
+	end
 	-- (cabina central de la línea de torniquetes)
 	G.box("GateBooth", V(3, 4, 3), CF(0, 2, -60), "WallBlue")
 
@@ -78,8 +84,18 @@ function Geometry.build(T)
 		Left = { door(-2, 8, 9) },
 		Right = { door(-2, 8, 9) },
 	}, { Frame = "Orange" })
+	for _, x in { -30, 0, 30 } do
+		local panel = G.deco("ShedLight", V(12, 0.2, 2), CF(x, 15.7, 70), { Color3.fromRGB(255, 240, 214), Enum.Material.Neon })
+		panel.CastShadow = false
+		T.Kit.light(panel, "PointLight", Color3.fromRGB(255, 236, 206), 32, 1.1)
+	end
 	G.deco("ShedFloor", V(99, 0.1, 55), CF(0, 0.05, 72), "ConcreteDark").CastShadow = false
-	T.cap(G.slab(CF(0, 16.5, 72), 100, 56, "Shed"))
+	T.cap(G.slab(CF(0, 16.5, 72), 100, 56, "Shed", { { -24, 2, 12, 36 }, { 24, 2, 12, 36 } }))
+	for _, x in { -24, 24 } do
+		local roofLight = G.deco("ShedSkylight", V(12, 0.3, 36), CF(x, 16.8, 74), "Glass")
+		roofLight.Transparency = 0.4
+		T.cap(roofLight)
+	end
 	G.floor(CF(0, UP, 48), 28, 7.8, "Deck")
 	G.railing(V(-14, UP, 51.8), V(14, UP, 51.8), "Yellow", 3.2, { Cap = true })
 
@@ -97,21 +113,27 @@ function Geometry.build(T)
 		G.stairs(V(s * 17, 0, 0), V(s * 3, UP, 0), 4, "Steel", { Rails = "Both", Cap = true, Closed = true })
 	end
 	T.cap(G.deco("BridgeRoof", V(7, 0.4, 82), CF(0, UP + 7.2, 2), "SteelDark"))
+	-- Faldón opaco a los lados de la pasarela por encima de la barandilla: corta la línea entre
+	-- los techos de los dos túneles (de pie no se ven por encima de la playa de vías)
+	for _, s in { -1, 1 } do
+		G.box("BridgeCladding", V(0.4, 4.2, 79), CF(s * 3.2, UP + 5.3, 2), "WallBlue")
+	end
 	for _, z in { -30, -18, 18, 30 } do
 		G.deco("BridgeFrame", V(6.6, 0.5, 0.5), CF(0, UP + 6.9, z), "Orange")
 	end
 	-- Bajo la pasarela: núcleos en los andenes norte y sur, el del ascensor en el andén central y
 	-- una pila-muro en las zanjas. Con las casetas de relés de cada mitad forman una chicana: se
 	-- pasa de un lado al otro, pero no hay línea de vista de túnel a túnel por ninguna zanja
-	T.cap(G.solid("NorthCore", V(8, UP - 0.8, 10), CF(0, 0, -35), "WallBlue"))
-	T.cap(G.solid("SouthCore", V(8, UP - 0.8, 13.5), CF(0, 0, 37.25), "WallBlue"))
-	T.cap(G.solid("LiftCore", V(6, UP - 0.8, 10), CF(0, 0, 0), "WallBlue"))
-	T.cap(G.solid("BridgePier", V(3.2, UP - 0.8 - TRENCH, 30), CF(0, TRENCH, 0), "Concrete"))
-	T.cap(T.relayCabinet(CF(0, TRENCH, -28.6), 6.4))
+	-- (sin clip encima: la pasarela los cubre de lado a lado)
+	G.solid("NorthCore", V(6, UP - 0.8, 10), CF(0, 0, -35), "WallBlue")
+	G.solid("SouthCore", V(6, UP - 0.8, 13.5), CF(0, 0, 37.25), "WallBlue")
+	G.solid("LiftCore", V(6, UP - 0.8, 10), CF(0, 0, 0), "WallBlue")
+	G.solid("BridgePier", V(3.2, UP - 0.8 - TRENCH, 30), CF(0, TRENCH, 0), "Concrete")
+	T.relayCabinet(CF(0, TRENCH, -28.6), 9.4)
 	T.glassRail(V(-3.2, UP, -51.6), V(3.2, UP, -51.6))
 	for _, z in { -35, 37 } do
 		for _, s in { -1, 1 } do
-			T.sign(CF(s * 4.15, 6.5, z) * CFrame.Angles(0, -s * math.pi / 2, 0), "M", 3, 3, Color3.fromRGB(40, 96, 196), Color3.new(1, 1, 1))
+			T.sign(CF(s * 3.15, 6.5, z) * CFrame.Angles(0, -s * math.pi / 2, 0), "M", 3, 3, Color3.fromRGB(40, 96, 196), Color3.new(1, 1, 1))
 		end
 	end
 
@@ -182,6 +204,15 @@ function Geometry.half(T)
 	T.glassRail(V(-41.4, UP, -51.6), V(-3.2, UP, -51.6))
 	T.glassRail(V(-49.4, UP, -51.6), V(-46.6, UP, -51.6))
 	T.cap(T.turnstiles(CF(-19.5, 0, -60), 7))
+
+	-- Taquilla delante de la puerta oeste (desde la puerta no se ve el vestíbulo de lado a lado)
+	T.cap(G.solid("TicketOffice", V(3, 7.5, 10), CF(-40, 0, -74), "WallBlue"))
+	G.deco("TicketOfficeTop", V(3.2, 0.6, 10.2), CF(-40, 7.2, -74), "Orange").CastShadow = false
+
+	-- Muros de cierre detrás de la estación y de las cocheras (no hay paso por detrás)
+	for _, z in { -100, 100 } do
+		T.cap(G.wall(CF(-50.5, 0, z + (z < 0 and -6 or 6)) * CFrame.Angles(0, -math.pi / 2, 0), 12, 9, "Concrete"))
+	end
 
 	------------------------------------------------------------------
 	-- COCHERAS (mitad): escalera de la galería
