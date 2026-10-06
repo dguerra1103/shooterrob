@@ -36,6 +36,8 @@ local Pumpkins = require(script.Parent.Pumpkins)
 local Loot = require(script.Parent.Loot)
 local Combat = require(script.Parent.Combat)
 local Friends = require(script.Parent.Friends)
+local ResultsCast = require(script.Parent.ResultsCast)
+local MatchResults = require(Shared.MatchResults)
 
 local Round = {}
 
@@ -67,6 +69,7 @@ local lastKill = nil -- { Killer, Victim, Weapon, Time }: la última baja (para 
 local aceRound = nil -- ronda de Eliminación en juego: { Kills = { [nombre] = n }, Members = { [equipo] = n }, Done }
 local maxDeficit = {} -- [equipo] = la mayor desventaja que llegó a tener en la partida (para la remontada)
 local decidingKill = nil -- la baja que cerró la partida (desde ahí todo queda congelado hasta su repetición)
+local lastRoundHow = nil -- cómo acabó la última ronda de Eliminación / Buscar y destruir (motivo de la pantalla final)
 
 local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] = true, [20] = true }
 
@@ -298,6 +301,8 @@ local function resetStats()
 	decidingKill = nil
 	aceRound = nil
 	table.clear(maxDeficit)
+	lastRoundHow = nil
+	ResultsCast.Clear()
 	for _, team in teams do
 		ReplicatedStorage:SetAttribute("Score_" .. team.Name, 0)
 	end
@@ -1222,6 +1227,8 @@ local function eliminationRounds(s)
 				end
 				if result or (not contest and os.clock() >= roundEnd) then
 					winner = contest and result or nil
+					lastRoundHow = (Bomb.Result == "Defused" and "BombDefused") or (Bomb.Result == "Exploded" and "BombExploded")
+						or ((contest and (aliveDef == 0 or aliveAtt == 0)) and "Eliminated") or "Time"
 					decided = true
 					break
 				end
@@ -1231,12 +1238,14 @@ local function eliminationRounds(s)
 			-- Solo hay ronda si los dos equipos tienen a alguien
 			if contest and (aliveA == 0 or aliveB == 0) then
 				winner = (aliveA > 0 and a) or (aliveB > 0 and b) or nil
+				lastRoundHow = "Eliminated"
 				decided = true
 				break
 			end
 			if os.clock() >= roundEnd then
 				-- Se acaba el tiempo: gana el equipo con más supervivientes (sin rival no gana nadie)
 				winner = contest and ((aliveA > aliveB and a) or (aliveB > aliveA and b)) or nil
+				lastRoundHow = "Time"
 				decided = true
 				break
 			end
@@ -1318,6 +1327,63 @@ local function topPlayers()
 	return top
 end
 
+-- Todos los que han jugado la partida (jugadores y bots) con sus números y su arma, para la pantalla
+-- final. Como el podio, antes de cambiar de estado (los bots se quitan al acabar)
+local function matchParticipants()
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		local stats = PlayerData.GetLeaderstats(player)
+		local kills, deaths = stats.Bajas.Value, stats.Muertes.Value
+		if not player:GetAttribute("InMenu") or kills + deaths > 0 then
+			local data = PlayerData.Get(player)
+			local assists = player:GetAttribute("MatchAssists") or 0
+			local captures = player:GetAttribute("Captures") or 0
+			local weapon = data and data.Primary or nil
+			local skin = nil
+			if data and weapon then
+				local camo = data.WeaponCamos and data.WeaponCamos[weapon]
+				skin = (camo and camo ~= "Default") and camo or data.EquippedSkin
+			end
+			table.insert(list, {
+				Id = "u" .. player.UserId,
+				Name = tostring(player.DisplayName),
+				UserId = player.UserId,
+				Team = player.Team and player.Team.Name or nil,
+				Kills = kills,
+				Deaths = deaths,
+				Assists = assists,
+				Captures = captures,
+				Points = MatchResults.Points(kills, assists, captures),
+				Weapon = weapon,
+				Skin = skin,
+				Level = data and data.Level or nil,
+				Outfit = data and data.EquippedOutfit or nil,
+				Model = player.Character,
+			})
+		end
+	end
+	local botStats = ReplicatedStorage:FindFirstChild("BotStats")
+	for _, agent in Bots.Agents or {} do
+		local entry = botStats and botStats:FindFirstChild(agent.Name)
+		local kills = entry and entry:GetAttribute("Kills") or 0
+		table.insert(list, {
+			Id = "b" .. agent.Name,
+			Name = agent.Name,
+			Bot = true,
+			Team = agent.Team and agent.Team.Name or (entry and entry:GetAttribute("Team")) or nil,
+			Kills = kills,
+			Deaths = entry and entry:GetAttribute("Deaths") or 0,
+			Assists = 0,
+			Captures = 0,
+			Points = MatchResults.Points(kills, 0, 0),
+			Weapon = agent.RoleWeapon or agent.Weapon,
+			Model = agent.Model,
+		})
+	end
+	table.sort(list, MatchResults.Better)
+	return list
+end
+
 local function endRound()
 	-- Antes de nada (al cambiar de estado se quitan los bots): la repetición de la baja final
 	playFinalKillcam()
@@ -1328,6 +1394,20 @@ local function endRound()
 	if not okTop then
 		warn("[Round] podio:", top)
 		top = nil
+	end
+	-- Pantalla final: todos los participantes y la copia de sus avatares (antes de que se vayan los bots)
+	local okList, participants = pcall(matchParticipants)
+	if not okList then
+		warn("[Round] participantes:", participants)
+		participants = {}
+	end
+	local okCast, castErr = pcall(ResultsCast.Capture, participants)
+	if not okCast then
+		warn("[Round] reparto de la pantalla final:", castErr)
+	end
+	for _, entry in participants do
+		entry.Model = nil
+		entry.Outfit = nil
 	end
 	setState("Ended")
 	local teamMode = isTeamMode()
@@ -1342,11 +1422,12 @@ local function endRound()
 		end
 	end
 
-	-- MVP = más bajas (en CTF cada captura cuenta como 3 bajas)
+	-- MVP = más puntos de la partida (bajas, asistencias y objetivos: MatchResults.Points). Para el
+	-- rango cuenta el mejor jugador; en la pantalla final, el mejor de todos (bots incluidos)
 	local mvp, mvpKills, mvpScore = nil, 0, -1
 	for _, player in Players:GetPlayers() do
 		local kills = PlayerData.GetLeaderstats(player).Bajas.Value
-		local score = kills + (player:GetAttribute("Captures") or 0) * 3
+		local score = MatchResults.Points(kills, player:GetAttribute("MatchAssists") or 0, player:GetAttribute("Captures") or 0)
 		if score > mvpScore then
 			mvp, mvpKills, mvpScore = player, kills, score
 		end
@@ -1463,7 +1544,33 @@ local function endRound()
 		end
 	end
 
+	-- Resultado completo para la pantalla final (ver MatchResults)
+	local goal = ReplicatedStorage:GetAttribute("ScoreToWin") or math.huge
+	local hasWinner = if teamMode then winner ~= nil else (leader ~= nil and leaderScore > 0)
+	local reachedGoal
+	if currentMode == "INF" then
+		reachedGoal = winner ~= nil and winner ~= teams[1]
+	elseif teamMode then
+		reachedGoal = winner ~= nil and math.max(scoreA, scoreB) >= goal
+	else
+		reachedGoal = leaderScore >= goal
+	end
+	local result = {
+		Mode = currentMode,
+		ModeName = ReplicatedStorage:GetAttribute("ModeName"),
+		Map = ReplicatedStorage:GetAttribute("MapName"),
+		TeamMode = teamMode,
+		TeamA = a.Name,
+		TeamB = b.Name,
+		ScoreA = scoreA,
+		ScoreB = scoreB,
+		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
+		Reason = MatchResults.ReasonFor(currentMode, hasWinner, reachedGoal, lastRoundHow),
+		MVP = participants[1] and participants[1].Id or nil,
+		Players = participants,
+	}
 	Remotes.RoundEnd:FireAllClients({
+		Result = result,
 		TeamMode = teamMode,
 		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
 		WinnerColor = winner and winner.TeamColor.Color or Color3.fromRGB(255, 200, 60),

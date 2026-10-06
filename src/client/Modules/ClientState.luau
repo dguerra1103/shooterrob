@@ -18,6 +18,8 @@ local ClientState = {
 	MenuOpen = false, -- menú del pase/tienda abierto
 	VoteOpen = false, -- panel de votación con el ratón libre
 	InMainMenu = true, -- pantalla de inicio visible
+	ResultsScreen = false, -- la pantalla final del flujo existe (sustituye al cuadro de fin del HUD)
+	ResultsActive = false, -- la partida ha acabado y se ve (o está a punto) la pantalla final
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,

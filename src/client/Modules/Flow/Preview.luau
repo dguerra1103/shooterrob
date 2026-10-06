@@ -229,6 +229,34 @@ local function giveWeapon(model, weaponName, skin)
 	return tool
 end
 
+-- Animación con nombre (GameConfig.UIAnimations) en un modelo cualquiera; nil si no hay id configurado
+local function playNamed(model, name)
+	local id = GameConfig.UIAnimations and GameConfig.UIAnimations[name]
+	if type(id) ~= "string" or id == "" then
+		return nil
+	end
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local ok, track = pcall(function()
+		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+		animator.Parent = humanoid
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		local loaded = animator:LoadAnimation(animation)
+		loaded.Looped = name ~= "WeaponInspect"
+		loaded:Play(0.2)
+		return loaded
+	end)
+	return ok and track or nil
+end
+
+-- Piezas sueltas para otras escenas (la pantalla final usa las mismas copias, armas y poses)
+Preview.Strip = strip
+Preview.CloneCharacter = cloneCharacter
+Preview.GiveWeapon = giveWeapon
+Preview.PoseReady = poseReady
+Preview.WeaponOf = weaponOf
+Preview.PlayNamed = playNamed
+
 ---------------------------------------------------------------------------
 -- Escena
 ---------------------------------------------------------------------------
@@ -326,6 +354,8 @@ Preview.AnimationPoses = {
 	OperatorIdle = "Ready",
 	WeaponInspect = "Ready",
 	SquadIdle = "Ready",
+	VictoryIdle = "Ready",
+	SquadVictoryIdle = "Ready",
 	VictoryPose = "Relaxed",
 }
 
@@ -341,23 +371,10 @@ function Preview:SetAnimation(slot, name)
 		end)
 		rig.Track = nil
 	end
-	local id = GameConfig.UIAnimations and GameConfig.UIAnimations[name]
-	if type(id) == "string" and id ~= "" then
-		local humanoid = rig.Model:FindFirstChildOfClass("Humanoid")
-		local ok, track = pcall(function()
-			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
-			animator.Parent = humanoid
-			local animation = Instance.new("Animation")
-			animation.AnimationId = id
-			local loaded = animator:LoadAnimation(animation)
-			loaded.Looped = name ~= "WeaponInspect"
-			loaded:Play(0.2)
-			return loaded
-		end)
-		if ok and track then
-			rig.Track = track
-			return true
-		end
+	local track = playNamed(rig.Model, name)
+	if track then
+		rig.Track = track
+		return true
 	end
 	local pose = Preview.AnimationPoses[name] or "Ready"
 	if pose == "Ready" and not weaponOf(rig.Model) then

@@ -990,6 +990,10 @@ local bigToken
 -- solo confeti, fanfarria y destello (el texto ya sale en el panel y así no lo tapa, sobre todo en
 -- el móvil)
 local function celebrate(title, subtitle, color, big, priority)
+	-- (la pantalla final de la partida ya enseña nivel, rango y desbloqueos: aquí nada encima)
+	if ClientState.ResultsActive then
+		return true
+	end
 	if refs.RoundEnd and refs.RoundEnd.Visible then
 		RewardFX.Confetti(big and 45 or 30)
 		RewardFX.Fanfare(big)
@@ -1572,6 +1576,10 @@ local function onMatchSummary(summary)
 	if type(summary) ~= "table" or type(summary.XP) ~= "number" then
 		return
 	end
+	-- (con la pantalla final del flujo, el resumen va allí: este cuadro no sale)
+	if ClientState.ResultsScreen then
+		return
+	end
 	summaryToken += 1
 	local token = summaryToken
 	refs.RoundEnd.Size = UDim2.fromOffset(560, 390)
@@ -1727,6 +1735,9 @@ end
 
 local function onRoundEnd(info)
 	if type(info) ~= "table" then
+		return
+	end
+	if ClientState.ResultsScreen then
 		return
 	end
 	refs.RoundTop.Text = podiumText(info.Top)

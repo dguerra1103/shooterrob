@@ -21,6 +21,14 @@ local DEFS = {
 	Go = { Id = "rbxassetid://3149249837", Volume = 0.5, Pitch = 1.45 },
 	Join = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.35, Pitch = 1.9 },
 	Tick = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.25, Pitch = 1.5 },
+	-- Pantalla final
+	Victory = { Id = "rbxassetid://3149249837", Volume = 0.6, Pitch = 0.85 }, -- impacto grave
+	VictorySting = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Pitch = 1.05 },
+	Defeat = { Id = "rbxassetid://3149249837", Volume = 0.32, Pitch = 0.62 }, -- impacto suave
+	MVP = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.55, Pitch = 1.5 },
+	RewardPop = { Id = "rbxasset://sounds/button.wav", Volume = 0.4, Pitch = 1.6 },
+	LevelUp = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Pitch = 0.75 },
+	Unlock = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 1.6 },
 }
 UISound.Defs = DEFS
 

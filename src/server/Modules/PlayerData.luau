@@ -339,23 +339,62 @@ function PlayerData.GetLeaderstats(player)
 	return stats
 end
 
+-- Lo ganado en la partida actual (para el resumen del final de la ronda). Además de la XP y las
+-- monedas de jugar: monedas extra (retos, pase, maestría), cajas, retos completados y desbloqueos,
+-- para que la pantalla final enseñe exactamente lo que se ha dado
+local match = {} -- [player] = { XP, Coins, BonusCoins, Crates, StartLevel, StartXP, StartRank, Challenges, Unlocks }
+
+local function matchOf(player, data)
+	local entry = match[player]
+	if not entry then
+		entry = {
+			XP = 0,
+			Coins = 0,
+			BonusCoins = 0,
+			Crates = 0,
+			StartLevel = data.Level,
+			StartXP = data.XP,
+			StartRank = data.RankPoints,
+			Challenges = {},
+			Unlocks = {},
+		}
+		match[player] = entry
+	end
+	return entry
+end
+
+-- Apunta en el resumen de la partida algo que se ha dado (solo si hay partida en marcha)
+local function noteMatch(player, data, field, value)
+	local entry = matchOf(player, data)
+	if field == "BonusCoins" or field == "Crates" then
+		entry[field] += value
+	elseif #entry[field] < 8 then
+		table.insert(entry[field], value)
+	end
+end
+
 local function grant(player, data, reward)
 	if not reward then
 		return
 	end
 	if reward.Type == "Skin" then
 		data.Skins[reward.Id] = true
+		noteMatch(player, data, "Unlocks", { Kind = "Skin", Name = Skins.Get(reward.Id).Name, Sub = "SKIN DEL PASE" })
 		Remotes.Notify:FireClient(player, "Unlock", "¡Skin desbloqueada: " .. Skins.Get(reward.Id).Name .. "!")
 	elseif reward.Type == "Outfit" then
 		data.Outfits[reward.Id] = true
+		noteMatch(player, data, "Unlocks", { Kind = "Outfit", Name = Outfits.Get(reward.Id).Name, Sub = "TRAJE DEL PASE" })
 		Remotes.Notify:FireClient(player, "Unlock", "¡Traje desbloqueado: " .. Outfits.Get(reward.Id).Name .. "!")
 	elseif reward.Type == "KillEffect" then
 		data.KillEffects[reward.Id] = true
+		noteMatch(player, data, "Unlocks", { Kind = "KillEffect", Name = KillEffects.Get(reward.Id).Name, Sub = "EFECTO DEL PASE" })
 		Remotes.Notify:FireClient(player, "Unlock", "¡Efecto desbloqueado: " .. KillEffects.Get(reward.Id).Name .. "!")
 	elseif reward.Type == "Crate" then
 		data.FreeCrates += reward.Amount or 1
+		noteMatch(player, data, "Crates", reward.Amount or 1)
 	elseif reward.Type == "Coins" then
 		data.Coins += reward.Amount
+		noteMatch(player, data, "BonusCoins", reward.Amount)
 	end
 end
 
@@ -853,18 +892,6 @@ function PlayerData.UseRevive(player)
 	return true
 end
 
--- Lo ganado en la partida actual (para el resumen del final de la ronda)
-local match = {} -- [player] = { XP, Coins, StartLevel, StartXP }
-
-local function matchOf(player, data)
-	local entry = match[player]
-	if not entry then
-		entry = { XP = 0, Coins = 0, StartLevel = data.Level, StartXP = data.XP, StartRank = data.RankPoints }
-		match[player] = entry
-	end
-	return entry
-end
-
 -- Empieza una partida: se pone a cero lo ganado
 function PlayerData.StartMatch(player)
 	match[player] = nil
@@ -891,6 +918,10 @@ function PlayerData.MatchSummary(player)
 		XPPerLevel = GameConfig.XPPerLevel,
 		StartRank = entry.StartRank or data.RankPoints,
 		RankPoints = data.RankPoints,
+		BonusCoins = entry.BonusCoins,
+		Crates = entry.Crates,
+		Challenges = entry.Challenges,
+		Unlocks = entry.Unlocks,
 	}
 end
 
@@ -974,6 +1005,7 @@ function PlayerData.RollSurpriseCrate(player, roll)
 	end
 	data.CratePity = 0
 	data.FreeCrates += 1
+	noteMatch(player, data, "Crates", 1)
 	dirty[player] = true
 	sendUpdate(player)
 	return true
@@ -1063,6 +1095,7 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 		for name, def in Weapons.List do
 			if def.UnlockLevel == data.Level and not def.Hidden then
 				Remotes.Notify:FireClient(player, "Unlock", "¡Arma desbloqueada: " .. def.DisplayName .. "!")
+				noteMatch(player, data, "Unlocks", { Kind = "Weapon", Id = name, Name = def.DisplayName, Sub = string.upper(def.Category or "ARMA") })
 			end
 		end
 		grantTierRewards(player)
@@ -1141,6 +1174,8 @@ function PlayerData.Track(player, stat, amount, weaponName)
 				changed = true
 				Remotes.Notify:FireClient(player, "Challenge", "¡RETO COMPLETADO! +" .. def.Coins .. " 🪙")
 				PlayerData.AddCoins(player, def.Coins, false)
+				noteMatch(player, data, "BonusCoins", def.Coins)
+				noteMatch(player, data, "Challenges", { Text = def.Text, Goal = def.Goal, Coins = def.Coins, XP = def.XP })
 				PlayerData.AddXP(player, def.XP, "Reto diario")
 			end
 		end
@@ -1153,6 +1188,7 @@ function PlayerData.Track(player, stat, amount, weaponName)
 		if all then
 			state.Bonus = true
 			data.FreeCrates += Challenges.BonusCrates
+			noteMatch(player, data, "Crates", Challenges.BonusCrates)
 			Remotes.Notify:FireClient(player, "Unlock", "¡Todos los retos de hoy completados! Caja gratis 🎁")
 		end
 	end
@@ -1172,6 +1208,8 @@ function PlayerData.Track(player, stat, amount, weaponName)
 				weeklyChanged = true
 				Remotes.Notify:FireClient(player, "Challenge", "¡RETO SEMANAL COMPLETADO! +" .. def.Coins .. " 🪙")
 				PlayerData.AddCoins(player, def.Coins, false)
+				noteMatch(player, data, "BonusCoins", def.Coins)
+				noteMatch(player, data, "Challenges", { Text = def.Text, Goal = def.Goal, Coins = def.Coins, XP = def.XP, Weekly = true })
 				PlayerData.AddXP(player, def.XP, "Reto semanal")
 			end
 		end
@@ -1184,6 +1222,7 @@ function PlayerData.Track(player, stat, amount, weaponName)
 		if all then
 			weekly.Bonus = true
 			data.FreeCrates += Challenges.WeeklyBonusCrates
+			noteMatch(player, data, "Crates", Challenges.WeeklyBonusCrates)
 			Remotes.Notify:FireClient(player, "Unlock", "¡Retos de la semana completados! " .. Challenges.WeeklyBonusCrates .. " cajas gratis 🎁")
 		end
 	end
@@ -1208,6 +1247,8 @@ function PlayerData.AddWeaponKill(player, weaponName)
 		data.WeaponCamos[weaponName] = tier.Camo
 		Remotes.Notify:FireClient(player, "Mastery", "MAESTRÍA " .. string.upper(tier.Name) .. ": " .. Weapons.List[weaponName].DisplayName)
 		PlayerData.AddCoins(player, tier.Coins, false)
+		noteMatch(player, data, "BonusCoins", tier.Coins)
+		noteMatch(player, data, "Unlocks", { Kind = "Camo", Id = weaponName, Skin = tier.Camo, Name = Weapons.List[weaponName].DisplayName, Sub = "CAMUFLAJE: " .. string.upper(Skins.Get(tier.Camo).Name) })
 		if PlayerData.OnSkinChanged then
 			PlayerData.OnSkinChanged(player)
 		end

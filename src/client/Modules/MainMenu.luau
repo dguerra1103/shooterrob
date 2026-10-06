@@ -17,6 +17,7 @@ local SCREENS = {
 	"TeamIntro",
 	"Loadout",
 	"Deploy",
+	"Results",
 }
 
 -- "Volver al menú" (por ejemplo desde la pantalla de muerte)

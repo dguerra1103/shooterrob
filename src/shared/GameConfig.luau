@@ -91,8 +91,14 @@ GameConfig.UIAnimations = {
 	OperatorIdle = "",
 	WeaponInspect = "",
 	SquadIdle = "",
-	VictoryPose = "",
+	VictoryPose = "", -- (MVP en la pantalla final)
+	VictoryIdle = "",
+	SquadVictoryIdle = "", -- (compañeros del MVP en la pantalla final)
 }
+
+-- Pantalla final: botón 👍 de reconocimiento a compañeros. Apagado: aún no hay sistema que lo guarde
+-- (al encenderlo hay que conectar PlayerResultCard.OnHonor a un remoto real)
+GameConfig.ResultsHonor = false
 
 GameConfig.Deploy = {
 	Enabled = true,

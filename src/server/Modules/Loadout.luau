@@ -252,7 +252,9 @@ function Loadout.Init()
 		-- personaje aún tiene la protección de aparición, así que no se gana nada haciendo trampa)
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		local justSpawned = os.clock() - (spawnedAt[player] or -math.huge) < 1.5
-		if humanoid and humanoid.Health > 0 and not justSpawned then
+		-- (fuera de la partida, p. ej. en la pantalla final, se puede volver siempre: no hay pelea)
+		local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
+		if humanoid and humanoid.Health > 0 and not justSpawned and playing then
 			return
 		end
 		player:SetAttribute("InMenu", true)

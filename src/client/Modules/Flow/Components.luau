@@ -19,6 +19,17 @@ local function upper(text)
 end
 C.upper = upper
 
+-- Corta un texto largo con "…" (por caracteres UTF-8: no rompe tildes ni emojis)
+function C.short(text, max)
+	text = tostring(text)
+	local length = utf8.len(text)
+	if not length or length <= max then
+		return text
+	end
+	local cut = utf8.offset(text, max) or (#text + 1)
+	return string.sub(text, 1, cut - 1) .. "…"
+end
+
 local function new(className, props, children)
 	local inst = Instance.new(className)
 	local parent

@@ -66,7 +66,8 @@ local function getControls()
 end
 
 local orbitAngle = 0
-local cameraMode = nil -- "Orbit" | "Flyover" | "Deploy" | nil (cámara del juego)
+local cameraMode = nil -- "Orbit" | "Flyover" | "Deploy" | "Scripted" | nil (cámara del juego)
+local cameraDriver = nil -- ("Scripted": la pantalla mueve la cámara, p. ej. la pantalla final)
 local deployFrom, deployStart, deployTime
 
 local function mapCenter()
@@ -97,6 +98,10 @@ local function cameraStep(dt)
 		local position = center + Vector3.new(math.cos(orbitAngle) * radius * 0.75, 42, math.sin(orbitAngle) * radius * 0.75)
 		camera.CFrame = CFrame.lookAt(position, center + Vector3.new(0, -6, 0))
 		camera.FieldOfView = 55
+	elseif cameraMode == "Scripted" then
+		if cameraDriver then
+			cameraDriver(camera, dt)
+		end
 	elseif cameraMode == "Deploy" then
 		-- De la vista del mapa a la espalda de tu personaje, a tiempo con la cuenta atrás
 		local character = player.Character
@@ -115,6 +120,7 @@ end
 -- duration: solo para "Deploy" (lo que tarda en llegar a tu espalda; por defecto, lo que queda de
 -- despliegue)
 function Flow.SetCamera(mode, duration)
+	cameraDriver = mode == "Scripted" and duration or nil
 	if mode == "Deploy" then
 		deployFrom = camera.CFrame
 		deployStart = os.clock()
@@ -240,7 +246,23 @@ function Flow.CancelSearch()
 	pcall(function()
 		Remotes.SetReady:FireServer(false)
 	end)
+	-- (venía de una partida: de vuelta al lobby también en el servidor)
+	if not player:GetAttribute("InMenu") then
+		pcall(function()
+			Remotes.EnterMenu:FireServer()
+		end)
+	end
 	Flow.SetState("Home")
+end
+
+-- JUGAR DE NUEVO desde la pantalla final: a buscar la siguiente partida (el servidor ya te cuenta
+-- en ella; la búsqueda enseña la votación y el tiempo que falta)
+function Flow.Requeue()
+	if Flow.State == "Matchmaking" then
+		return
+	end
+	Transition.Flash(Theme.Colors.Yellow, 0.35, 0.3)
+	Flow.SetState("Matchmaking", { Requeue = true })
 end
 
 -- Entrar a jugar (al acabar la cuenta atrás): fuera el escudo del menú, cámara del juego
@@ -301,6 +323,32 @@ local function onRoundChanged()
 		-- Partida lista: el mapa nuevo se está construyendo o empieza el despliegue
 		if loading or (state == "Playing" and deploy) then
 			Flow.SetState("MatchFound")
+		end
+		return
+	end
+	if current == "Gameplay" and state == "Ended" then
+		-- Fin de partida: la pantalla final llega con el resultado; mientras, que el HUD no celebre
+		Flow.EndedAt = os.clock()
+		ClientState.ResultsActive = true
+		task.delay(4, function()
+			if Flow.State == "Gameplay" then
+				ClientState.ResultsActive = false
+			end
+		end)
+		return
+	end
+	if current == "Results" then
+		-- Acaba la pantalla final: a buscar la siguiente (salvo que se haya cancelado); si la partida
+		-- siguiente ya empieza, su presentación
+		if loading then
+			Flow.SetState("MapIntro", { Server = true })
+		elseif state == "Playing" and deploy == "Lineup" then
+			Flow.SetState("TeamIntro", { Server = true })
+		elseif state == "Intermission" then
+			local screen = Flow.Screens.Results
+			if not (screen and screen.AutoAdvance) or screen.AutoAdvance() then
+				Flow.Requeue()
+			end
 		end
 		return
 	end
