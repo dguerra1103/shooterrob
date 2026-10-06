@@ -624,6 +624,9 @@ end
 
 local function applyLayout()
 	local phone = isPhone()
+	-- (pantallas más estrechas que 16:9, como tabletas 4:3: sin la tarjeta de modo y accesos más cortos)
+	local width = root and root:GetAttribute("VirtualWidth") or 1280
+	local narrow = phone or width < 1150
 	for _, button in refs.Menu do
 		button.Visible = not (phone and button:GetAttribute("DesktopOnly"))
 		button.Size = UDim2.fromOffset(phone and 240 or 300, phone and 38 or 46)
@@ -634,10 +637,17 @@ local function applyLayout()
 	refs.Bottom.Visible = not phone
 	refs.Right.Size = UDim2.fromOffset(phone and 290 or 350, 520)
 	refs.Right.Position = UDim2.new(1, -24, 0, phone and 76 or 84)
-	refs.LogoTitle.TextSize = phone and 40 or 54
+	refs.LogoTitle.TextSize = phone and 40 or (narrow and 44 or 54)
 	refs.LogoTitle.Size = UDim2.new(1, 0, 0, phone and 44 or 58)
 	refs.LogoTag.Position = UDim2.fromOffset(4, phone and 44 or 58)
-	refs.Profile.Size = UDim2.fromOffset(phone and 190 or 260, 52)
+	refs.Profile.Size = UDim2.fromOffset(narrow and 190 or 260, 52)
+	refs.ModeCard.Visible = not narrow
+	refs.RankCard.Position = narrow and UDim2.fromOffset(0, 0) or UDim2.fromOffset(282, 0)
+	for _, button in refs.Quick:GetChildren() do
+		if button:IsA("GuiButton") then
+			button.Size = UDim2.fromOffset(narrow and 112 or 140, 50)
+		end
+	end
 	if phone then
 		phoneTrim()
 	else

@@ -96,7 +96,7 @@ GameConfig.UIAnimations = {
 
 GameConfig.Deploy = {
 	Enabled = true,
-	LineupTime = 6,
+	LineupTime = 7,
 	CountdownTime = 3,
 }
 
