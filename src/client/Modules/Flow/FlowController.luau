@@ -28,7 +28,7 @@ Flow.State = "Boot"
 Flow.Changed = Instance.new("BindableEvent")
 Flow.Screens = {}
 
-local LOBBY = { Home = true, Squad = true, Armory = true, Operator = true }
+local LOBBY = { Home = true, Squad = true, Armory = true, Operator = true, Store = true, Pass = true }
 local SEQUENCE = { Matchmaking = true, MatchFound = true, MapIntro = true, TeamIntro = true, Loadout = true, Deploy = true }
 Flow.Lobby = LOBBY
 Flow.Sequence = SEQUENCE

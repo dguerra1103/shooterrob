@@ -16,6 +16,7 @@ local Lighting = game:GetService("Lighting")
 local Teams = game:GetService("Teams")
 
 local Preview = require(script.Parent.Parent.Preview)
+local PoseRig = require(script.Parent.PoseRig)
 
 local player = Players.LocalPlayer
 
@@ -238,11 +239,17 @@ function Stage:Place(index, entry, model)
 	root.Anchored = true
 	root.CFrame = cf
 	if entry.Weapon then
-		Preview.GiveWeapon(model, entry.Weapon, entry.Skin)
+		Preview.GiveWeapon(model, entry.Weapon, entry.Skin, entry.Charm)
 	end
-	local animation = index == 1 and Stage.MVPAnimation or Stage.SquadAnimation
-	if not Preview.PlayNamed(model, animation) then
-		pcall(Preview.PoseReady, model)
+	-- Victoria: cada uno con su pose de victoria (PoseRig); si no, arma lista
+	local victory = self.View and self.View.Outcome == "Victory"
+	if victory and entry.Pose and entry.Pose ~= "Ready" then
+		PoseRig.Apply(model, entry.Pose)
+	else
+		local animation = index == 1 and Stage.MVPAnimation or Stage.SquadAnimation
+		if not Preview.PlayNamed(model, animation) then
+			pcall(Preview.PoseReady, model)
+		end
 	end
 	self.Models[index] = model
 	-- Respiración mínima (la mueve el controlador mientras se ve)
@@ -366,6 +373,11 @@ function Stage:HighlightMVP()
 	if not head then
 		return
 	end
+	-- Su intro de MVP (si eligió una; la de siempre son estas chispas)
+	local entry = self.Players and self.Players[1]
+	if entry and entry.MVPIntro and entry.MVPIntro ~= "Destello" and self.Folder then
+		PoseRig.PlayIntro(self.Folder, model, entry.MVPIntro)
+	end
 	local burst = Instance.new("ParticleEmitter")
 	burst.Rate = 0
 	burst.Lifetime = NumberRange.new(0.6, 1)
@@ -400,7 +412,7 @@ function Stage:Step(t)
 	for i, model in self.Models do
 		local base = self.Base and self.Base[i]
 		local root = model and model.Parent and model:FindFirstChild("HumanoidRootPart")
-		if base and root then
+		if base and root and not model:GetAttribute("IntroSpinning") then
 			root.CFrame = base * CFrame.new(0, math.sin(t * 1.5 + i) * 0.025, 0)
 		end
 	end

@@ -1358,6 +1358,11 @@ local function matchParticipants()
 				Skin = skin,
 				Level = data and data.Level or nil,
 				Outfit = data and data.EquippedOutfit or nil,
+				-- Cosméticos de la pantalla final (tarjeta, pose de victoria, intro de MVP y colgante)
+				Card = data and data.EquippedCard or nil,
+				Pose = data and data.EquippedPose or nil,
+				MVPIntro = data and data.EquippedMVPIntro or nil,
+				Charm = data and data.EquippedCharm or nil,
 				Model = player.Character,
 			})
 		end

@@ -20,6 +20,9 @@ local Charms = require(Shared.Charms)
 local Sprays = require(Shared.Sprays)
 local Titles = require(Shared.Titles)
 local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
+local BattlePassConfig = require(Shared.Economy.BattlePassConfig)
+local Catalog = require(Shared.Economy.CosmeticCatalog)
+local Products = require(Shared.Economy.Products)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -304,147 +307,78 @@ local function rewardCard(reward, unlocked, premium, parent, order)
 	return card
 end
 
+-- Pase de batalla (vista corta para la partida; el pase completo está en el lobby: PASE DE BATALLA)
 local function buildPassPage(data)
 	local page = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
-	local per = data.XPPerLevel or GameConfig.XPPerLevel
+	local pass = data.Pass
+	local season = pass and BattlePassConfig.Get(pass.Season)
+	if not pass or not season then
+		UI.label({ Size = UDim2.new(1, 0, 0, 40), Text = "Entre temporadas: el pase nuevo llega pronto", TextSize = 22, Parent = page })
+		return
+	end
+	local into = pass.XP - BattlePassConfig.XPFor(pass.Tier)
 	UI.label({
-		Size = UDim2.fromOffset(420, 26),
-		Text = "Nivel " .. data.Level .. "  ·  " .. data.XP .. " / " .. per .. " XP",
+		Size = UDim2.new(1, -260, 0, 26),
+		Text = season.Name .. " · " .. season.Title .. "  ·  Nivel " .. pass.Tier .. "  ·  " .. into .. " / " .. BattlePassConfig.XPPerTier .. " XP" .. (pass.HasPremium and "  ·  👑 PREMIUM" or ""),
 		TextSize = 22,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = page,
 	})
-	local bar = UI.new("Frame", {
-		Position = UDim2.fromOffset(0, 30),
-		Size = UDim2.fromOffset(420, 12),
-		BackgroundColor3 = Color3.fromRGB(10, 10, 15),
+	local bar = UI.new("Frame", { Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, -260, 0, 12), BackgroundColor3 = Color3.fromRGB(10, 10, 15), Parent = page }, { UI.corner(6) })
+	UI.new("Frame", { Size = UDim2.fromScale(math.clamp(into / BattlePassConfig.XPPerTier, 0, 1), 1), BackgroundColor3 = Color3.fromRGB(80, 170, 255), Parent = bar }, { UI.corner(6), UI.gloss() })
+	local claimAll = UI.button({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.fromOffset(240, 44),
+		Text = (pass.Claimable or 0) > 0 and ("Reclamar todo (" .. pass.Claimable .. ")") or "Nada por reclamar",
+		BackgroundColor3 = (pass.Claimable or 0) > 0 and GREEN or GREY,
 		Parent = page,
-	}, { UI.corner(6) })
-	UI.new("Frame", {
-		Size = UDim2.fromScale(math.clamp(data.XP / per, 0, 1), 1),
-		BackgroundColor3 = Color3.fromRGB(80, 170, 255),
-		Parent = bar,
-	}, { UI.corner(6), UI.gloss() })
-
-	if data.Premium then
-		UI.label({
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, 0, 0, 4),
-			Size = UDim2.fromOffset(260, 34),
-			Text = "👑 PREMIUM ACTIVO",
-			TextSize = 22,
-			TextColor3 = GOLD,
-			TextXAlignment = Enum.TextXAlignment.Right,
-			Parent = page,
-		})
-	else
-		local buyPass = UI.button({
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, 0, 0, 2),
-			Size = UDim2.fromOffset(260, 40),
-			Text = "👑 Obtener Premium",
-			BackgroundColor3 = GOLD,
-			TextColor3 = Color3.fromRGB(40, 25, 0),
-			Parent = page,
-		}, { UI.gloss() })
-		buyPass.Activated:Connect(function()
-			if GameConfig.PremiumPassId == 0 then
-				showToast("Próximamente")
-				return
-			end
-			MarketplaceService:PromptGamePassPurchase(player, GameConfig.PremiumPassId)
+	}, { UI.gloss() })
+	claimAll.Activated:Connect(function()
+		if (pass.Claimable or 0) <= 0 or busy then
+			return
+		end
+		busy = true
+		local ok, success, result = pcall(function()
+			return Remotes.ClaimPass:InvokeServer("All")
 		end)
-	end
-
-	UI.label({ Position = UDim2.fromOffset(0, 98), Size = UDim2.fromOffset(70, 116), Text = "GRATIS", TextSize = 16, Parent = page })
-	UI.label({
-		Position = UDim2.fromOffset(0, 222),
-		Size = UDim2.fromOffset(70, 116),
-		Text = "PREMIUM",
-		TextSize = 16,
-		TextColor3 = GOLD,
-		Parent = page,
-	})
-
-	local scroll = UI.new("ScrollingFrame", {
-		Position = UDim2.fromOffset(74, 56),
-		Size = UDim2.new(1, -74, 1, -56),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollingDirection = Enum.ScrollingDirection.X,
-		AutomaticCanvasSize = Enum.AutomaticSize.X,
-		CanvasSize = UDim2.new(),
-		ScrollBarThickness = 8,
-		Parent = page,
-	}, {
-		UI.new("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 10),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	})
-	-- Solo se dibujan los niveles cercanos al tuyo (cada premio lleva un modelo 3D: con 50 a la vez el
-	-- menú iría lento)
-	-- (al final del pase la ventana se queda en los últimos niveles: si no, quedaría vacía)
-	local first = math.max(1, math.min(data.Level - 2, #GameConfig.BattlePass - 14))
-	local last = math.min(#GameConfig.BattlePass, first + 14)
-	for tier = first, last do
-		local rewards = GameConfig.BattlePass[tier]
-		local reached = data.Level >= tier
-		local column = UI.new("Frame", {
-			LayoutOrder = tier,
-			Size = UDim2.fromOffset(120, 280),
-			BackgroundTransparency = 1,
-			Parent = scroll,
-		}, {
-			UI.new("UIListLayout", {
-				Padding = UDim.new(0, 8),
-				HorizontalAlignment = Enum.HorizontalAlignment.Center,
-				SortOrder = Enum.SortOrder.LayoutOrder,
-			}),
+		busy = false
+		if ok and success and type(result) == "table" then
+			Sounds.Play("Kill")
+			showToast("¡" .. #result .. " recompensas reclamadas!", GOLD)
+		end
+	end)
+	UI.label({ Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 0, 20), Text = "Lo que viene (el pase completo, con vista previa, está en el lobby):", TextSize = 15, Font = UI.FontBody, TextXAlignment = Enum.TextXAlignment.Left, Parent = page })
+	for row, track in { "Free", "Premium" } do
+		local rowFrame = UI.new("Frame", { Position = UDim2.fromOffset(0, 76 + (row - 1) * 126), Size = UDim2.new(1, 0, 0, 120), BackgroundTransparency = 1, Parent = page }, {
+			UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		})
-		UI.label({
-			LayoutOrder = 0,
-			Size = UDim2.fromOffset(120, 26),
-			Text = "NIVEL " .. tier,
-			TextSize = 18,
-			TextColor3 = reached and Color3.fromRGB(90, 230, 110) or Color3.fromRGB(180, 180, 190),
-			Parent = column,
-		})
-		rewardCard(rewards.Free, reached, false, column, 1)
-		rewardCard(rewards.Premium, reached and data.Premium, true, column, 2)
-	end
-	if last < #GameConfig.BattlePass then
-		UI.label({
-			LayoutOrder = last + 1,
-			Size = UDim2.fromOffset(120, 280),
-			Text = "… y " .. (#GameConfig.BattlePass - last) .. " niveles más\n(hasta el " .. #GameConfig.BattlePass .. ")",
-			TextSize = 16,
-			TextWrapped = true,
-			TextColor3 = Color3.fromRGB(190, 195, 220),
-			Parent = scroll,
-		})
-	end
-	-- Después del pase
-	local bonus = GameConfig.PostPassRewards
-	if bonus then
-		UI.label({
-			LayoutOrder = last + 2,
-			Size = UDim2.fromOffset(150, 280),
-			Text = "⭐ Después del nivel " .. #GameConfig.BattlePass .. ":\ncada " .. bonus.Every .. " niveles\n+" .. bonus.Coins .. " 🪙\ny " .. bonus.Crates .. " 📦",
-			TextSize = 16,
-			TextWrapped = true,
-			TextColor3 = GOLD,
-			Parent = scroll,
-		})
+		local first = math.max(1, math.min(pass.Tier - 1, BattlePassConfig.Tiers - 6))
+		for tier = first, math.min(BattlePassConfig.Tiers, first + 6) do
+			local reward = season.Tiers[tier] and season.Tiers[tier][track]
+			local claimed = pass[track] and pass[track][tostring(tier)]
+			local unlocked = tier <= pass.Tier and (track == "Free" or pass.HasPremium)
+			local legacy = reward
+			if reward and not (reward.Type == "Coins" or reward.Type == "Skin" or reward.Type == "Outfit" or reward.Type == "KillEffect" or reward.Type == "Crate") then
+				legacy = { Type = "Coins", Amount = 0, Label = reward.Id }
+			end
+			local card = rewardCard(legacy, unlocked, track == "Premium", rowFrame, tier)
+			if legacy and legacy.Label then
+				for _, child in card:GetChildren() do
+					if child:IsA("TextLabel") and child.Text == "0" then
+						child.Text = tostring(legacy.Label)
+						child.TextSize = 15
+					end
+				end
+			end
+			UI.label({ Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(70, 16), Text = "NIVEL " .. tier, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4, Parent = card })
+			if claimed then
+				UI.label({ AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 4, 1, -2), Size = UDim2.new(1, -8, 0, 16), Text = "RECLAMADO", TextSize = 12, TextColor3 = Color3.fromRGB(90, 230, 110), ZIndex = 4, Parent = card })
+			end
+		end
 	end
 end
 
----------------------------------------------------------------------------
--- Pestaña: Retos diarios
----------------------------------------------------------------------------
-
--- Logros: para cada estadística, el siguiente sin reclamar (o nil si ya están todos)
 local function nextAchievements(data)
 	local list, seen = {}, {}
 	for _, achievement in GameConfig.Achievements do
@@ -2099,14 +2033,16 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(18, 48),
 			Size = UDim2.new(1, -280, 0, 72),
-			Text = string.format(
-				"🪙 %d monedas  ·  👕 Traje %s  ·  🎨 Skin %s  ·  %s Efecto %s\n¡Vale más de 4 veces su precio!",
-				starter.Coins,
-				Outfits.Get(starter.Outfit).Name,
-				Skins.Get(starter.Skin).Name,
-				KillEffects.Get(starter.KillEffect).Icon,
-				KillEffects.Get(starter.KillEffect).Name
-			),
+			Text = (function()
+				local names = {}
+				for _, entry in Products.BundleItems(starter) do
+					local item = Catalog.Item(entry.Kind, entry.Id)
+					if item then
+						table.insert(names, item.Name)
+					end
+				end
+				return "🪙 " .. starter.Coins .. " monedas  ·  " .. table.concat(names, " · ") .. "\nSolo estética y monedas. Una sola compra."
+			end)(),
 			TextSize = 18,
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -2159,7 +2095,7 @@ local function buildShopPage(data)
 		UI.label({
 			Position = UDim2.fromOffset(18, 8),
 			Size = UDim2.new(1, -280, 0, 36),
-			Text = bundle.Icon .. " " .. bundle.Name .. "  ·  " .. (not bundle.EndsAt and "¡NUEVO!" or (daysLeft <= 1 and "¡ÚLTIMO DÍA!" or ("quedan " .. daysLeft .. " días"))),
+			Text = bundle.Icon .. " " .. bundle.Name .. (bundle.EndsAt and ("  ·  a la venta " .. daysLeft .. (daysLeft == 1 and " día más" or " días más")) or ""),
 			TextSize = 26,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = card,
@@ -2168,23 +2104,23 @@ local function buildShopPage(data)
 			Position = UDim2.fromOffset(18, 48),
 			Size = UDim2.new(1, -280, 0, 72),
 			Text = (function()
-				-- (los packs con trajes los nombran primero)
+				-- Lo que trae (nombres) y lo que vale por separado (solo precios reales)
 				local names = {}
-				for _, outfitId in bundle.Outfits or {} do
-					table.insert(names, Outfits.Get(outfitId).Name)
+				for _, entry in Products.BundleItems(bundle) do
+					local item = Catalog.Item(entry.Kind, entry.Id)
+					if item then
+						table.insert(names, item.Name)
+					end
 				end
-				local last = table.remove(names)
-				return last and ("👕 Trajes " .. (#names > 0 and (table.concat(names, ", ") .. " y ") or "") .. last .. "  ·  ") or ""
-			end)() .. string.format(
-				"🪙 %d monedas  ·  %s Efecto %s  ·  %s Colgante %s  ·  🎨 Grafiti %s\n¡Todo vale %d monedas! Solo se puede comprar una vez.",
-				bundle.Coins,
-				KillEffects.Get(bundle.KillEffect).Icon,
-				KillEffects.Get(bundle.KillEffect).Name,
-				Charms.Get(bundle.Charm).Icon,
-				Charms.Get(bundle.Charm).Name,
-				Sprays.Get(bundle.Spray).Name,
-				bundle.Value
-			),
+				local value = Catalog.BundleValue(bundle)
+				local valueText = ""
+				if value.Complete and value.Robux > bundle.Robux and value.Coins == (bundle.Coins or 0) then
+					valueText = "\nPor separado: R$ " .. value.Robux
+				elseif value.Complete and value.Robux == 0 and value.Coins > 0 then
+					valueText = "\nLo que trae vale " .. value.Coins .. " monedas en la tienda"
+				end
+				return ((bundle.Coins or 0) > 0 and ("🪙 " .. bundle.Coins .. " monedas  ·  ") or "") .. table.concat(names, " · ") .. valueText
+			end)(),
 			TextSize = 18,
 			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -2395,10 +2331,12 @@ local function buildShopPage(data)
 			Parent = card,
 		}, { UI.gloss() })
 		buyCrate.Activated:Connect(function()
-			if not data.CratesRestricted then
+			if not data.CratesRestricted and MonetizationConfig.Rules.CoinCrates then
 				openCrate(crateId, false)
 			end
 		end)
+		-- (con monedas ya no: las cajas solo se ganan jugando)
+		buyCrate.Visible = MonetizationConfig.Rules.CoinCrates
 		local free = UI.button({
 			Position = UDim2.fromOffset(240, 90),
 			Size = UDim2.fromOffset(220, 46),
@@ -2452,34 +2390,38 @@ local function buildShopPage(data)
 		end)
 	end
 
+	-- Revivir instantáneo con Robux: ya no se vende (ventaja en combate; MonetizationConfig.Rules)
+	if MonetizationConfig.Rules.SellRevives then
 	-- Revivir instantáneo con Robux (vuelves a la acción justo donde caíste)
-	local PINK_REVIVE = Color3.fromRGB(255, 70, 200)
-	sectionTitle(scroll, "💖 Revivir instantáneo", 8)
-	local revives = row(scroll, 9, 150)
-	for i, pack in Shop.RevivePacks do
-		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(200, 150), BackgroundColor3 = Color3.fromRGB(70, 20, 60), Parent = revives }, {
-			UI.corner(12),
-			UI.stroke(PINK_REVIVE, 2, 0),
-			UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 80, 170)), Rotation = 90 }),
-		})
-		UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 40), Text = string.rep("💖", i + 1), TextSize = 28, Parent = card })
-		UI.label({ Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 30), Text = "x" .. pack.Revives, TextSize = 30, TextColor3 = Color3.fromRGB(255, 200, 240), Parent = card })
-		if pack.Tag then
-			UI.label({ Position = UDim2.fromOffset(0, 78), Size = UDim2.new(1, 0, 0, 18), Text = pack.Tag, TextSize = 13, TextColor3 = Color3.fromRGB(120, 255, 140), Parent = card })
-		end
-		local buyRevive = UI.button({
-			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 1, -8),
-			Size = UDim2.new(1, -20, 0, 40),
-			Text = pack.ProductId ~= 0 and ("R$ " .. pack.Robux) or "Próximamente",
-			BackgroundColor3 = pack.ProductId ~= 0 and GREEN or GREY,
-			Parent = card,
-		}, { UI.gloss() })
-		buyRevive.Activated:Connect(function()
-			if pack.ProductId ~= 0 then
-				MarketplaceService:PromptProductPurchase(player, pack.ProductId)
+		local PINK_REVIVE = Color3.fromRGB(255, 70, 200)
+		sectionTitle(scroll, "💖 Revivir instantáneo", 8)
+		local revives = row(scroll, 9, 150)
+		for i, pack in Shop.RevivePacks do
+			local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(200, 150), BackgroundColor3 = Color3.fromRGB(70, 20, 60), Parent = revives }, {
+				UI.corner(12),
+				UI.stroke(PINK_REVIVE, 2, 0),
+				UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 80, 170)), Rotation = 90 }),
+			})
+			UI.label({ Position = UDim2.fromOffset(0, 6), Size = UDim2.new(1, 0, 0, 40), Text = string.rep("💖", i + 1), TextSize = 28, Parent = card })
+			UI.label({ Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 30), Text = "x" .. pack.Revives, TextSize = 30, TextColor3 = Color3.fromRGB(255, 200, 240), Parent = card })
+			if pack.Tag then
+				UI.label({ Position = UDim2.fromOffset(0, 78), Size = UDim2.new(1, 0, 0, 18), Text = pack.Tag, TextSize = 13, TextColor3 = Color3.fromRGB(120, 255, 140), Parent = card })
 			end
-		end)
+			local buyRevive = UI.button({
+				AnchorPoint = Vector2.new(0.5, 1),
+				Position = UDim2.new(0.5, 0, 1, -8),
+				Size = UDim2.new(1, -20, 0, 40),
+				Text = pack.ProductId ~= 0 and ("R$ " .. pack.Robux) or "Próximamente",
+				BackgroundColor3 = pack.ProductId ~= 0 and GREEN or GREY,
+				Parent = card,
+			}, { UI.gloss() })
+			buyRevive.Activated:Connect(function()
+				if pack.ProductId ~= 0 then
+					MarketplaceService:PromptProductPurchase(player, pack.ProductId)
+				end
+			end)
+		end
+	
 	end
 
 	-- VIP
@@ -2504,7 +2446,7 @@ local function buildShopPage(data)
 	UI.label({
 		Position = UDim2.fromOffset(16, 42),
 		Size = UDim2.new(1, -280, 0, 40),
-		Text = "x2 XP · x2 monedas · caja gratis cada día · grafiti 👑 exclusivo",
+		Text = "x2 XP · x2 monedas · +" .. (MonetizationConfig.Rules.VIPDailyCoins or 0) .. " 🪙 cada día · grafiti 👑 exclusivo",
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = vip,
@@ -2721,7 +2663,13 @@ function Menu.Toggle()
 end
 
 -- Abre el menú directamente en una pestaña
+-- (la tienda y el pase del lobby se abren en sus pantallas del flujo: lo pone Flow/Screens/Store)
+Menu.Redirect = nil :: ((string?) -> boolean)?
+
 function Menu.Open(tab)
+	if Menu.Redirect and Menu.Redirect(tab) then
+		return
+	end
 	if tab then
 		currentTab = tab
 	end

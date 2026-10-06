@@ -104,7 +104,45 @@ function Data.Rewards(summary)
 	if crates > 0 then
 		table.insert(list, { Kind = "Crate", Amount = crates, Label = crates == 1 and "CAJA GRATIS" or "CAJAS GRATIS" })
 	end
+	-- XP del pase de batalla (y si ha subido de nivel del pase)
+	local passXP = tonumber(summary.PassXP) or 0
+	if passXP > 0 then
+		local per = math.max(1, tonumber(summary.PassXPPerTier) or 2500)
+		local tiers = tonumber(summary.PassTiers) or 50
+		local before = math.min(tiers, math.floor((tonumber(summary.PassStartXP) or 0) / per) + 1)
+		local after = math.min(tiers, math.floor((tonumber(summary.PassNowXP) or 0) / per) + 1)
+		table.insert(list, { Kind = "Pass", Amount = passXP, Label = after > before and ("PASE · ¡NIVEL " .. after .. "!") or ("PASE · NIVEL " .. after), TierUp = after > before })
+	end
 	return list
+end
+
+-- Oferta pequeña de después de la partida (MonetizationConfig.PostMatchOffer): solo según lo que
+-- hiciste en la partida (el arma con la que más bajas hiciste) y como mucho una de cada pocas
+-- partidas. Devuelve { Weapon, Kills, Item } o nil. owns(kind, id) dice si ya lo tienes.
+function Data.PostMatchOffer(summary, config, items, owns)
+	if type(summary) ~= "table" or not config or not config.Enabled then
+		return nil
+	end
+	local matches = tonumber(summary.Matches) or 0
+	local kills = tonumber(summary.TopWeaponKills) or 0
+	if not summary.TopWeapon or matches < (config.MinMatches or 3) or kills < (config.MinWeaponKills or 6) then
+		return nil
+	end
+	if matches % math.max(1, config.EveryMatches or 4) ~= 0 then
+		return nil
+	end
+	-- Una skin que no tienes, para verla en esa arma (va cambiando de una oferta a la siguiente)
+	local candidates = {}
+	for _, item in items do
+		if item.Kind == "Skin" and not owns(item.Kind, item.Id) then
+			table.insert(candidates, item)
+		end
+	end
+	if #candidates == 0 then
+		return nil
+	end
+	local pick = candidates[(matches // math.max(1, config.EveryMatches or 4)) % #candidates + 1]
+	return { Weapon = summary.TopWeapon, Kills = kills, Item = pick }
 end
 
 -- Progreso de nivel: tramos de la barra (uno por nivel subido) para animarla de verdad

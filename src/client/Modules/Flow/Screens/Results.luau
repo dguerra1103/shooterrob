@@ -17,6 +17,8 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
+local Catalog = require(Shared.Economy.CosmeticCatalog)
+local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
 
 local Modules = script.Parent.Parent.Parent
 local ClientState = require(Modules.ClientState)
@@ -38,6 +40,7 @@ local ScoreDisplay = require(Components.ScoreDisplay)
 local PlayerResultCard = require(Components.PlayerResultCard)
 local MVPCard = require(Components.MVPCard)
 local RewardsPanel = require(Components.RewardsPanel)
+local OfferCard = require(Components.OfferCard)
 local XPProgress = require(Components.XPProgress)
 local UnlockCard = require(Components.UnlockCard)
 local ChallengeProgress = require(Components.ChallengeProgress)
@@ -50,7 +53,7 @@ local Colors = Theme.Colors
 local Results = {}
 Results.ReadyForSummary = false -- (las recompensas ya pueden entrar: pasado su momento en la secuencia)
 
-local flow, screen, header, score, cardsRow, bottomRow, rewards, xp, unlock, challenges, scoreboard, actions
+local flow, screen, header, score, cardsRow, bottomRow, rewards, xp, unlock, challenges, scoreboard, actions, offer
 local view, summary, stage
 local mvpCard
 local pendingSummary
@@ -113,6 +116,9 @@ local function applyLayout()
 	rewards.Layout(phone)
 	rewards.Frame.AnchorPoint = Vector2.new(1, 0)
 	rewards.Frame.Position = UDim2.new(1, -margin, 0, phone and 104 or 160)
+	offer.Layout(phone)
+	offer.Frame.AnchorPoint = Vector2.new(1, 0)
+	offer.Frame.Position = UDim2.new(1, -margin, 0, phone and 202 or 284)
 	actions.Layout(phone)
 	actions.Frame.AnchorPoint = Vector2.new(0.5, 1)
 	actions.Frame.Position = UDim2.new(0.5, 0, 1, phone and -10 or -14)
@@ -210,6 +216,14 @@ local function playSummary(token)
 		if Anim.Alive(token) and unlock.Frame.Visible then
 			unlock.Play(token)
 		end
+		-- Oferta pequeña (de vez en cuando, por lo que hiciste en la partida; se quita con ✕)
+		task.wait(1)
+		if Anim.Alive(token) and flow.State == "Results" then
+			local data = ClientState.Data
+			offer.Show(Data.PostMatchOffer(summary, MonetizationConfig.PostMatchOffer, Catalog.StoreItems({ "Skin" }), function(kind, id)
+				return data ~= nil and Catalog.Owns(data, kind, id)
+			end))
+		end
 	end)
 end
 
@@ -246,6 +260,17 @@ function Results.Build(flowController, root)
 	header = ResultHeader.new(screen)
 	score = ScoreDisplay.new(screen)
 	rewards = RewardsPanel.new(screen)
+	offer = OfferCard.new(screen, {
+		OnView = function(current)
+			-- (mirándola no se pasa sola a la siguiente partida)
+			autoAdvance = false
+			actions.SetCountdown(nil)
+			local ok, Store = pcall(require, script.Parent.Store)
+			if ok and Store.Preview and current then
+				Store.Preview(current.Item, { Weapon = current.Weapon })
+			end
+		end,
+	})
 	cardsRow = C.new("Frame", { Name = "Cards", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.new(1, -64, 0, 112), Parent = screen }, {
 		C.new("UIListLayout", {
 			Padding = UDim.new(0, 8),
@@ -493,6 +518,10 @@ function Results.Hide()
 	hideWorldCharacters(false)
 	clearCards()
 	scoreboard.Close()
+	offer.Show(nil)
+	pcall(function()
+		require(Flow.Store.Inspect).Close()
+	end)
 	screen.Visible = false
 	view = nil
 	summary = nil

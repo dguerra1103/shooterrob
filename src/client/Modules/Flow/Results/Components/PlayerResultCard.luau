@@ -9,6 +9,7 @@ local Flow = script.Parent.Parent.Parent
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
 local UISound = require(Flow.UISound)
+local ItemArt = require(Flow.Store.ItemArt)
 
 local Colors = Theme.Colors
 local ALLY = Color3.fromRGB(70, 160, 255)
@@ -41,6 +42,14 @@ function PlayerResultCard.new(parent, opts)
 		-- (raya de color abajo)
 		C.new("Frame", { Name = "Bottom", BackgroundColor3 = color, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 3) }),
 	})
+	-- Su tarjeta de jugador de fondo (si lleva una)
+	if opts.Entry and opts.Entry.Card and opts.Entry.Card ~= "Default" then
+		local art = ItemArt.Card(card, opts.Entry.Card, { Name = "CardArt", Size = UDim2.fromScale(1, 1), ZIndex = 0, BackgroundTransparency = 0.25 })
+		local emblem = art:FindFirstChild("Emblem")
+		if emblem then
+			emblem.TextTransparency = 0.6
+		end
+	end
 	local badge = C.new("Frame", { Name = "Rank", BackgroundColor3 = color, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(24, 24), Parent = card }, { C.corner(3) })
 	C.text({ Text = tostring(opts.Rank or ""), Role = "TitleItalic", TextSize = 17, Color = Colors.White, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = badge })
 	local entry = opts.Entry

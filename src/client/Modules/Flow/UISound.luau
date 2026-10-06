@@ -29,6 +29,9 @@ local DEFS = {
 	RewardPop = { Id = "rbxasset://sounds/button.wav", Volume = 0.4, Pitch = 1.6 },
 	LevelUp = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Pitch = 0.75 },
 	Unlock = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 1.6 },
+	-- Tienda
+	Purchase = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Pitch = 1.3 },
+	Claim = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Pitch = 1.45 },
 }
 UISound.Defs = DEFS
 

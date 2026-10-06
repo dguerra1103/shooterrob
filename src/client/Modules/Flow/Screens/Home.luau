@@ -14,6 +14,7 @@ local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
 local Weapons = require(Shared.Weapons)
+local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
 
 local Modules = script.Parent.Parent.Parent
 local ClientState = require(Modules.ClientState)
@@ -27,6 +28,8 @@ local C = require(Flow.Components)
 local Transition = require(Flow.Transition)
 local UISound = require(Flow.UISound)
 local Preview = require(Flow.Preview)
+local StoreData = require(Flow.Store.StoreData)
+local ItemArt = require(Flow.Store.ItemArt)
 
 local player = Players.LocalPlayer
 local Colors = Theme.Colors
@@ -121,7 +124,7 @@ local function buildTopBar(parent)
 	refs.XP = C.progress({ Size = UDim2.new(1, -136, 0, 6), Position = UDim2.fromOffset(126, 34), Parent = profile })
 	-- Monedas (con "+" a la tienda)
 	local _, coins = C.currency(bar, "🪙", 2, function()
-		Menu.Open("Tienda")
+		flow.SetState("Store", { Tab = "COINS" })
 	end)
 	refs.Coins = coins
 	-- Amigos (invitar), novedades, retos y ajustes
@@ -150,7 +153,7 @@ local MENU = {
 	{ Id = "Operator", Text = "OPERADOR", Icon = "🪖" },
 	{ Id = "Squad", Text = "ESCUADRA", Icon = "👥" },
 	{ Id = "Shop", Text = "TIENDA", Icon = "🛒" },
-	{ Id = "Pass", Text = "PASE DE BATALLA", Icon = "⭐" },
+	{ Id = "Pass", Text = "PASE DE BATALLA", Icon = "🎖️" },
 	{ Id = "Events", Text = "EVENTOS", Icon = "📅", Desktop = true },
 	{ Id = "Clan", Text = "CLAN", Icon = "🛡", Desktop = true },
 	{ Id = "Settings", Text = "AJUSTES", Icon = "⚙", Desktop = true },
@@ -164,11 +167,16 @@ local function onMenu(id)
 	elseif id == "Squad" then
 		flow.SetState("Squad")
 	elseif id == "Shop" then
-		Menu.Open("Tienda")
+		flow.SetState("Store")
 	elseif id == "Pass" then
-		Menu.Open("Pase")
+		flow.SetState("Pass")
 	elseif id == "Events" then
-		Wheel.Open()
+		-- (la tienda del evento está en DESTACADO; la ruleta ya no existe: estética de casino)
+		if MonetizationConfig.Rules.Wheel then
+			Wheel.Open()
+		else
+			flow.SetState("Store", { Tab = "FEATURED" })
+		end
 	elseif id == "Clan" then
 		Home.OpenClan()
 	elseif id == "Settings" then
@@ -288,7 +296,7 @@ local function buildRight(parent)
 		return button
 	end
 	refs.ChipStarter = chip("Starter", "🎁 PACK DE INICIO", Colors.Yellow, 1, function()
-		Menu.Open("Tienda")
+		flow.SetState("Store", { Tab = "FEATURED" })
 	end)
 	refs.ChipWheel = chip("Wheel", "🎡 RULETA GRATIS", Colors.RedDark, 2, function()
 		Wheel.Open()
@@ -543,12 +551,24 @@ function Home.Refresh()
 	refs.Coins.Text = tostring(data.Coins or 0)
 	refs.Daily.Visible = data.DailyAvailable == true
 	refs.ChipStarter.Visible = data.StarterPackAvailable == true
-	refs.ChipWheel.Visible = data.WheelFree == true
+	refs.ChipWheel.Visible = MonetizationConfig.Rules.Wheel and data.WheelFree == true
 	refs.ChipBoost.Visible = (ReplicatedStorage:GetAttribute("XPBoost") or 1) > 1
 	refs.ChipFirstWin.Visible = GameConfig.FirstWinOfDay ~= nil and data.FirstWinAvailable == true
 	refs.Chips.Visible = refs.ChipStarter.Visible or refs.ChipWheel.Visible or refs.ChipBoost.Visible or refs.ChipFirstWin.Visible
 	refs.NewsDot.Visible = (data.NewsSeen or 0) < ((GameConfig.ActiveNews and GameConfig.ActiveNews().Version) or 0)
 	refs.FriendsDot.Visible = (player:GetAttribute("FriendsHere") or 0) > 0
+	-- Puntos rojos solo por algo real: novedades sin ver en la tienda, recompensas del pase sin reclamar
+	C.dot(refs.Menu.Shop, StoreData.HasNews())
+	C.dot(refs.Menu.Pass, data.Pass ~= nil and (data.Pass.Claimable or 0) > 0)
+	-- Tu tarjeta de jugador de fondo en el perfil
+	local card = data.EquippedCard or "Default"
+	if card ~= refs.ProfileCardId then
+		refs.ProfileCardId = card
+		if refs.ProfileCard then
+			refs.ProfileCard:Destroy()
+		end
+		refs.ProfileCard = ItemArt.Card(refs.Profile, card, { Name = "CardBackground", Size = UDim2.fromScale(1, 1), ZIndex = 0 })
+	end
 	-- Misiones
 	local list = data.Challenges and data.Challenges.List or {}
 	local done = 0
@@ -602,7 +622,7 @@ function Home.Refresh()
 	refs.RankNext.Text = nextTier and string.format("Faltan %d RP para %s", nextTier.Min - points, nextTier.Name) or "¡Rango máximo!"
 	phoneTrim()
 	-- Personaje: se rehace si cambia el arma o el traje
-	local key = tostring(data.Primary) .. "/" .. tostring(data.EquippedOutfit) .. "/" .. tostring(data.EquippedSkin)
+	local key = tostring(data.Primary) .. "/" .. tostring(data.EquippedOutfit) .. "/" .. tostring(data.EquippedSkin) .. "/" .. tostring(data.EquippedCharm)
 	if preview and key ~= shownPreviewKey and flow.State == "Home" then
 		shownPreviewKey = key
 		Home.RefreshPreview()
@@ -617,7 +637,7 @@ function Home.RefreshPreview()
 	local data = ClientState.Data
 	if model and data then
 		-- (el arma de la clase activa, con su skin, aunque en el mundo lleve otra en la mano)
-		preview:SetWeapon("me", data.Primary, Menu.SkinFor and Menu.SkinFor(data, data.Primary) or nil)
+		preview:SetWeapon("me", data.Primary, Menu.SkinFor and Menu.SkinFor(data, data.Primary) or nil, data.EquippedCharm)
 	end
 	preview:SetAnimation("me", "MenuIdle")
 end

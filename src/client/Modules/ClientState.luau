@@ -20,6 +20,8 @@ local ClientState = {
 	InMainMenu = true, -- pantalla de inicio visible
 	ResultsScreen = false, -- la pantalla final del flujo existe (sustituye al cuadro de fin del HUD)
 	ResultsActive = false, -- la partida ha acabado y se ve (o está a punto) la pantalla final
+	StoreModal = false, -- vista previa o confirmación de la tienda abierta
+	RevealOpen = false, -- escena de compra abierta
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,

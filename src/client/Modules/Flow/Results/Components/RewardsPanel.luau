@@ -34,6 +34,14 @@ local function icon(parent, kind)
 			C.stroke(Color3.fromRGB(140, 90, 0), 2, 0.1),
 		})
 		C.text({ Text = "🪙", TextSize = 18, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = holder })
+	elseif kind == "Pass" then
+		-- Medalla del pase: escudo dorado
+		C.new("Frame", { BackgroundColor3 = Color3.fromRGB(255, 200, 60), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(30, 34), Parent = holder }, {
+			C.corner(6),
+			C.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 230, 120), Color3.fromRGB(200, 120, 0)) }),
+			C.stroke(Color3.fromRGB(120, 70, 0), 1.5, 0.2),
+		})
+		C.text({ Text = "★", Role = "Title", TextSize = 18, Color = DARK, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = holder })
 	else
 		C.new("Frame", { BackgroundColor3 = Color3.fromRGB(110, 70, 40), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromOffset(34, 26), Parent = holder }, {
 			C.corner(3),
@@ -45,7 +53,7 @@ local function icon(parent, kind)
 end
 
 function RewardsPanel.new(parent)
-	local root = C.panel({ Name = "RewardsPanel", Size = UDim2.fromOffset(420, 112), Parent = parent }, { Alpha = 0.16, StrokeColor = Colors.Yellow, StrokeAlpha = 0.45 })
+	local root = C.panel({ Name = "RewardsPanel", Size = UDim2.fromOffset(460, 112), Parent = parent }, { Alpha = 0.16, StrokeColor = Colors.Yellow, StrokeAlpha = 0.45 })
 	C.text({ Name = "Title", Text = "RECOMPENSAS", Role = "TitleItalic", TextSize = 17, Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(200, 22), Parent = root })
 	local rankLabel = C.text({ Name = "Rank", Text = "", Role = "Title", TextSize = 14, Rich = true, AlignX = Enum.TextXAlignment.Right, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(220, 20), Parent = root })
 	local row = C.new("Frame", { Name = "Items", BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 34), Size = UDim2.new(1, -20, 0, 70), Parent = root }, {
@@ -60,7 +68,7 @@ function RewardsPanel.new(parent)
 		end
 		table.clear(items)
 		for i, reward in rewards or {} do
-			local cell = C.new("Frame", { Name = "Reward_" .. reward.Kind, BackgroundColor3 = Colors.PanelLight, BackgroundTransparency = 0.35, BorderSizePixel = 0, Size = UDim2.new(1 / 3, -6, 1, 0), LayoutOrder = i, Visible = false, Parent = row }, { C.corner(4) })
+			local cell = C.new("Frame", { Name = "Reward_" .. reward.Kind, BackgroundColor3 = Colors.PanelLight, BackgroundTransparency = 0.35, BorderSizePixel = 0, Size = UDim2.new(1 / math.max(3, #(rewards or {})), -6, 1, 0), LayoutOrder = i, Visible = false, Parent = row }, { C.corner(4) })
 			local ic = icon(cell, reward.Kind)
 			ic.Position = UDim2.fromOffset(8, 15)
 			local amount = C.text({ Name = "Amount", Text = "+0", Role = "TitleItalic", TextSize = 24, Color = Colors.White, Position = UDim2.fromOffset(52, 8), Size = UDim2.new(1, -56, 0, 30), Scaled = true, Parent = cell })
@@ -102,7 +110,7 @@ function RewardsPanel.new(parent)
 		end
 	end
 	function api.Layout(phone)
-		root.Size = UDim2.fromOffset(phone and 330 or 420, phone and 92 or 112)
+		root.Size = UDim2.fromOffset(phone and 360 or 460, phone and 92 or 112)
 		row.Size = UDim2.new(1, -20, 0, phone and 52 or 70)
 	end
 	return api

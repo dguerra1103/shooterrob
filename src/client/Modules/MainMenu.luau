@@ -10,6 +10,8 @@ local SCREENS = {
 	"Home",
 	"Squad",
 	"Armory",
+	"Store",
+	"Pass",
 	"Operator",
 	"Matchmaking",
 	"MatchFound",

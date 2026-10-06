@@ -175,7 +175,9 @@ local function weaponOf(model)
 	return nil
 end
 
-local function poseReady(model)
+-- pitch (opcional, radianes): gira el arma alrededor del hombro (negativo = apuntando al suelo,
+-- positivo = al cielo); lo usan las poses de victoria (PoseRig)
+local function poseReady(model, pitch)
 	local torso = model:FindFirstChild("UpperTorso")
 	local tool = weaponOf(model)
 	if not (torso and tool) then
@@ -185,6 +187,12 @@ local function poseReady(model)
 	if not grip then
 		return false
 	end
+	if pitch and pitch ~= 0 then
+		local pivot = CFrame.new(0.9, 0.45, 0)
+		local turn = pivot * CFrame.Angles(pitch, 0, 0) * pivot:Inverse()
+		grip = turn * grip
+		left = turn * left
+	end
 	local worldGrip = torso.CFrame * grip
 	local worldLeft = torso.CFrame * left
 	local ok1 = solveArm(model, "Right", worldGrip, nil, (torso.CFrame * CFrame.new(2.2, -1.6, 0.6)).Position)
@@ -193,7 +201,7 @@ local function poseReady(model)
 end
 
 -- Arma nueva en la mano derecha (como la Tool del juego: mismo agarre y escala)
-local function giveWeapon(model, weaponName, skin)
+local function giveWeapon(model, weaponName, skin, charm)
 	local old = weaponOf(model)
 	if old then
 		old:Destroy()
@@ -204,7 +212,7 @@ local function giveWeapon(model, weaponName, skin)
 		return nil
 	end
 	local scale = GameConfig.WorldWeaponScale or 1
-	local ok, weapon = pcall(WeaponModels.Build, weaponName, skin, false, nil, scale)
+	local ok, weapon = pcall(WeaponModels.Build, weaponName, skin, false, charm ~= "Default" and charm or nil, scale)
 	if not ok or not weapon then
 		return nil
 	end
@@ -256,6 +264,7 @@ Preview.GiveWeapon = giveWeapon
 Preview.PoseReady = poseReady
 Preview.WeaponOf = weaponOf
 Preview.PlayNamed = playNamed
+Preview.SolveArm = solveArm
 
 ---------------------------------------------------------------------------
 -- Escena
@@ -327,12 +336,12 @@ function Preview:SetCharacter(slot, source)
 	return model
 end
 
-function Preview:SetWeapon(slot, weaponName, skin)
+function Preview:SetWeapon(slot, weaponName, skin, charm)
 	local rig = self.Rigs[slot]
 	if not rig then
 		return
 	end
-	giveWeapon(rig.Model, weaponName, skin)
+	giveWeapon(rig.Model, weaponName, skin, charm)
 	self:SetPose(slot, "Ready")
 end
 

@@ -4,6 +4,7 @@
 local Flow = script.Parent.Parent.Parent
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
+local ItemArt = require(Flow.Store.ItemArt)
 local Transition = require(Flow.Transition)
 local UISound = require(Flow.UISound)
 local Anim = require(script.Parent.Parent.Anim)
@@ -28,6 +29,14 @@ function MVPCard.new(parent, opts)
 		C.new("UIStroke", { Color = Colors.Yellow, Thickness = 2, Transparency = 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
 		C.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 236, 170), Color3.fromRGB(150, 120, 40)) }),
 	})
+	-- Su tarjeta de jugador de fondo, suave (el dorado del MVP manda)
+	if opts.Entry and opts.Entry.Card and opts.Entry.Card ~= "Default" then
+		local art = ItemArt.Card(card, opts.Entry.Card, { Name = "CardArt", Size = UDim2.fromScale(1, 1), ZIndex = 0, BackgroundTransparency = 0.55 })
+		local emblem = art:FindFirstChild("Emblem")
+		if emblem then
+			emblem.TextTransparency = 0.5
+		end
+	end
 	-- Placa con corona arriba, sobresaliendo
 	local plate = C.new("Frame", { Name = "Plate", BackgroundColor3 = Colors.Yellow, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.fromOffset(110, 30), ZIndex = 3, Parent = card }, {
 		C.corner(3),
