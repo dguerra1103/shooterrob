@@ -13,7 +13,7 @@ for _, module in script.Parent.MapDefs:GetChildren() do
 end
 
 -- Orden de rotación (también son las opciones de la votación)
-MapBuilder.Order = { "Construction", "Coastal", "Terminal" }
+MapBuilder.Order = { "Construction", "Coastal", "Terminal", "MallRush" }
 
 MapBuilder.Current = nil
 

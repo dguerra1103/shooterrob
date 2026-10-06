@@ -1145,7 +1145,9 @@ local function eliminationRounds(s)
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
 		-- Buscar y destruir: los sitios están a la misma distancia de las dos bases, así que los
 		-- atacantes salen unos segundos después para que los defensores puedan colocarse
-		local headStart = snd and (s.DefenderHeadStart or 0) or 0
+		local map = workspace:FindFirstChild("Map")
+		local sharedSites = map ~= nil and map:GetAttribute("SharedSites") == true
+		local headStart = (snd and sharedSites) and (s.DefenderHeadStart or 0) or 0
 		if headStart > 0 then
 			ReplicatedStorage:SetAttribute("HeldTeam", attackers.Name)
 			for _, player in Players:GetPlayers() do

@@ -116,6 +116,32 @@ Materials.Terminal = {
 	Grass = { RGB(96, 130, 70), M.Grass },
 }
 
+-- MALL RUSH: blanco brillante con cian, magenta y naranja; pasillos de servicio grises
+Materials.MallRush = {
+	Floor = { RGB(232, 232, 236), M.Marble },
+	FloorTile = { RGB(226, 226, 230), M.CeramicTiles },
+	Wall = { RGB(240, 240, 244), M.SmoothPlastic },
+	WallGray = { RGB(196, 200, 208), M.SmoothPlastic },
+	Ceiling = { RGB(236, 236, 240), M.SmoothPlastic },
+	Facade = { RGB(220, 222, 228), M.Concrete },
+	FacadeDark = { RGB(64, 68, 78), M.Metal },
+	Cyan = { RGB(0, 186, 214), M.SmoothPlastic },
+	Magenta = { RGB(226, 40, 140), M.SmoothPlastic },
+	Orange = { RGB(250, 140, 30), M.SmoothPlastic },
+	Purple = { RGB(130, 70, 200), M.SmoothPlastic },
+	Service = { RGB(150, 152, 156), M.Concrete },
+	ServiceFloor = { RGB(120, 122, 126), M.Concrete },
+	Parking = { RGB(70, 72, 76), M.Asphalt },
+	Concrete = { RGB(190, 190, 192), M.Concrete },
+	ConcreteDark = { RGB(130, 132, 136), M.Concrete },
+	Steel = { RGB(200, 204, 210), M.Metal },
+	Glass = { RGB(170, 220, 236), M.Glass },
+	Red = { RGB(214, 50, 60), M.SmoothPlastic },
+	Blue = { RGB(40, 120, 220), M.SmoothPlastic },
+	Grass = { RGB(90, 140, 70), M.Grass },
+	RoofTop = { RGB(78, 80, 88), M.Concrete },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 

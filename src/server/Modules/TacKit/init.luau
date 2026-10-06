@@ -16,6 +16,7 @@ local Geometry = require(script.Geometry)
 local Props = require(script.Props)
 local Town = require(script.Town)
 local Airport = require(script.Airport)
+local Mall = require(script.Mall)
 
 local T = {}
 for k, v in Geometry do
@@ -30,12 +31,16 @@ end
 for k, v in Airport do
 	T[k] = v
 end
+for k, v in Mall do
+	T[k] = v
+end
 T.Kit = Kit
 T.Materials = Materials
 T.G = Geometry
 T.P = Props
 T.Town = Town
 T.Airport = Airport
+T.Mall = Mall
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -207,7 +212,15 @@ end
 function T.site(position, letter, opts)
 	opts = opts or {}
 	local radius = opts.Radius or 7
+	-- (opts.Defender: el sitio es solo de ese equipo, en su mitad del mapa; si no, lo defiende el
+	-- equipo que defienda en cada ronda y los atacantes esperan unos segundos: ver Round)
+	if not opts.Defender then
+		Kit.folder:SetAttribute("SharedSites", true)
+	end
 	for defender = 1, 2 do
+		if opts.Defender and defender ~= opts.Defender then
+			continue
+		end
 		local p = Kit.deco("BombSite", V(1, 1, 1), CFrame.new(position + V(0, 0.5, 0)), Kit.C.White, Enum.Material.SmoothPlastic)
 		p.Transparency = 1
 		p:SetAttribute("Letter", letter)
@@ -288,6 +301,8 @@ function T.cap(part)
 	clip.CastShadow = false
 	return clip
 end
+
+Mall.capHook = T.cap
 
 -- Terreno: relleno bajo el mapa (para que nada flote) y colinas de fondo
 function T.terrain(material, sx, sz, cf)

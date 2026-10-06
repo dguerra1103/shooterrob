@@ -26,7 +26,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Tested (Lune; falta Studio real)
 - [x] Terminal
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
-- [ ] Mall Rush
+- [x] Mall Rush
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [ ] Rooftop District
 - [ ] Metro Yard
 - [ ] Desert Base
@@ -82,6 +83,20 @@ y añadirlo a `MapBuilder.Order`.
 - Hitos: avión con la deriva azul, torre de control, terminal de cristal, pista con marcas.
 - Tiempos: base→A 6,1 s, base→B 6,6 s, rotación 6,4 s, base→base 11,0 s.
 - Piezas: ~1.900 (360 chocan), ~20 luces.
+
+### Mall Rush
+- Tamaño: 236 x 160 de centro comercial + aparcamientos (300 x 180 en total). Dos plantas (0 y 12).
+- Rutas: galería central (vestíbulo → patio → atrio), flancos por las tiendas grandes (BLOX MART al
+  norte con el pasaje de servicio "A →", PIXEL WEAR al sur con el pasillo sur), pasillo de servicio
+  hasta la zona de comida, planta alta (galería, anillos y el puente sobre el atrio, escaleras
+  mecánicas desde la fuente).
+- Sitios (como en la referencia): cada equipo defiende el de su mitad (A el Rojo en el patio oeste,
+  B el Azul en el este). Aquí no hay ventaja de salida extra (el defensor ya está cerca).
+- Bases: marquesina del aparcamiento; el camión, un tótem y la furgoneta tapan las puertas, y dentro
+  hay un vestíbulo-esclusa con las puertas desplazadas.
+- Hitos: cúpula de cristal y fuente con palmeras, banderolas MALL RUSH, puestos BITES/SODA/PIZZA/NOODLE.
+- Tiempos: base→su sitio 3,8 s, base→sitio rival 7,7 s, rotación 3,9 s, base→base 11,5 s.
+- Piezas: ~2.100 (480 chocan), 20 luces.
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los

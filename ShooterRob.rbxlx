@@ -12591,7 +12591,7 @@ for _, module in script.Parent.MapDefs:GetChildren() do
 end
 
 -- Orden de rotación (también son las opciones de la votación)
-MapBuilder.Order = { "Construction", "Coastal", "Terminal" }
+MapBuilder.Order = { "Construction", "Coastal", "Terminal", "MallRush" }
 
 MapBuilder.Current = nil
 
@@ -14312,6 +14312,572 @@ return Props
           </Item>
           <Item class="ModuleScript" referent="60">
             <Properties>
+              <string name="Name">MallRush</string>
+              <string name="Source"><![CDATA[-- MALL RUSH (5v5 · Duelo por equipos · Buscar y destruir): centro comercial compacto de dos
+-- plantas. Atrio central con cúpula, fuente, escaleras mecánicas y puente superior; patios a cada
+-- lado con el sitio de cada equipo (como en la referencia: el A junto a la base A y el B junto a
+-- la B); zona de comida al norte, entrada principal al sur, pasillo de servicio y tiendas grandes
+-- como flancos. Reconstruido de la hoja de referencia (vista superior, vista general, atrio,
+-- tiendas laterales, puente superior, pasillo de servicio y zona de comida).
+local T = require(script.Parent.Parent.TacKit)
+local Lighting = require(script.Lighting)
+local Geometry = require(script.Geometry)
+local Props = require(script.Props)
+
+local Map = {
+	Id = "MallRush",
+	Name = "Mall Rush",
+	Icon = "🛍️",
+	Description = "Centro comercial · dos plantas · 5 contra 5",
+	Realistic = true,
+	Bomb = true,
+	Palette = "MallRush",
+	Ambience = "Factory",
+	Modes = { "TDM", "SND" },
+	RecommendedPlayers = 10,
+	Bounds = Vector3.new(300, 40, 180),
+}
+
+Map.Lighting = Lighting.Default
+Map.LightingVariants = Lighting.Variants
+
+local V = Vector3.new
+local CF = CFrame.new
+local L = 12
+
+function Map.Build()
+	local folder = T.begin(Map)
+	Geometry.build(T)
+	Props.build(T)
+
+	-- Bases: el aparcamiento de cada lado
+	local redBase = CFrame.lookAt(V(-143, 0, 0), V(-100, 0, 0))
+	local points = { V(-10, 0, 1), V(-5, 0, -3), V(0, 0, 1), V(5, 0, -3), V(10, 0, 1) }
+	T.spawnZone(1, redBase, { Size = Vector2.new(32, 14), Floor = Color3.fromRGB(84, 86, 92), Points = points })
+	T.spawnZone(2, T.mirrorCFrame(redBase), { Size = Vector2.new(32, 14), Floor = Color3.fromRGB(84, 86, 92), Points = points })
+	T.flagBase(1, CF(-140, 0, 30))
+	T.flagBase(2, CF(140, 0, 30))
+
+	-- Sitios: cada equipo defiende el de su mitad (A el Rojo, B el Azul)
+	T.site(V(-50, 0, 0), "A", { Defender = 1 })
+	T.site(V(50, 0, 0), "B", { Defender = 2, Color = Color3.fromRGB(46, 110, 220) })
+
+	-- Zonas
+	T.zone(V(0, 0, -28), 9, 1)
+	T.zone(V(-50, 0, 0), 8, 2)
+	T.zone(V(0, 0, -58), 9, 3)
+	T.zone(V(50, 0, 0), 8, 4)
+	T.zone(V(0, 0, 54), 9, 5)
+
+	-- Nombres de zona
+	T.callout("ATRIO", CF(0, 6, 0), V(72, 12, 72))
+	T.callout("FUENTE", CF(0, 5, 0), V(14, 10, 14))
+	T.callout("PUENTE", CF(0, L + 3, -12), V(44, 6, 6))
+	T.callout("ANILLO", CF(0, L + 4, 0), V(76, 8, 72))
+	T.callout("ZONA DE COMIDA", CF(0, 8, -58), V(80, 16, 44))
+	T.callout("ENTRADA", CF(0, 8, 58), V(40, 16, 44))
+	for _, m in { -1, 1 } do
+		local function at(x, y, z)
+			return CF(m * x, y, z)
+		end
+		T.callout(m < 0 and "PATIO A" or "PATIO B", at(50, 6, 0), V(28, 12, 40))
+		T.callout("GALERÍA", at(91, 6, 0), V(54, 12, 40))
+		T.callout("PLANTA ALTA", at(78, L + 4, 0), V(84, 8, 72))
+		T.callout(m < 0 and "BLOX MART" or "MEGA TOYS", at(95, 6, -46), V(46, 12, 52))
+		T.callout(m < 0 and "PIXEL WEAR" or "SPORT HUB", at(95, 6, 46), V(46, 12, 52))
+		T.callout("PASILLO DE SERVICIO", at(79, 5, -76), V(78, 10, 8))
+		T.callout("PASAJE", at(68, 5, -46), V(8, 10, 52))
+		T.callout("PASILLO NORTE", at(50, 5, -28), V(28, 10, 16))
+		T.callout("PASILLO SUR", at(54, 5, 28), V(36, 10, 16))
+		T.callout("APARCAMIENTO", at(134, 6, 0), V(32, 14, 120))
+	end
+
+	-- Puntos libres
+	for _, p in {
+		V(-140, 0.5, -30), V(-120, 0.5, 30), V(-110, 0.5, -14), V(-88, 0.5, 8), V(-100, 0.5, -64),
+		V(-84, 0.5, 60), V(-68, 0.5, -50), V(-60, 0.5, -76), V(-50, 0.5, 28), V(-30, 0.5, -28),
+		V(-28, 0.5, 20), V(-34, 0.5, -60), V(-46, 0.5, 72), V(-90, L + 0.5, 0), V(-64, L + 0.5, -28),
+		V(-30, L + 0.5, 28), V(-8, 0.5, 58),
+	} do
+		T.ffa(p)
+		T.ffa(T.mirrorPoint(p))
+	end
+	-- Puestos de los bots
+	for _, spot in {
+		{ V(-64, L, -18), V(-50, 4, 0) }, -- anillo del patio, sobre el sitio
+		{ V(-26, L, -28), V(10, 4, -50) }, -- anillo del atrio, sobre la zona de comida
+		{ V(-8, L, -12), V(-40, 4, 0) }, -- puente
+		{ V(-86, L, -10), V(-60, L + 4, 0) }, -- galería alta
+	} do
+		T.botSpot(spot[1], spot[2])
+		T.botSpot(T.mirrorPoint(spot[1]), T.mirrorPoint(spot[2]))
+	end
+
+	T.Kit.bounds(Map.Bounds.X, Map.Bounds.Z, Map.Bounds.Y)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+            <Item class="ModuleScript" referent="61">
+              <Properties>
+                <string name="Name">Geometry</string>
+                <string name="Source"><![CDATA[-- MALL RUSH · geometría jugable (blockout). Centro comercial de dos plantas (suelo 0, planta alta 12):
+--
+--   z -80 ┌─ PASILLO DE SERVICIO ──────────┬──── ZONA DE COMIDA (doble altura) ────┬─ ... ─┐
+--         │ BLOX MART      │ pasaje │ tienda│                                       │       │
+--   z -36 │ (tienda grande)│        ├ PASILLO NORTE ┬──────── ATRIO ─────────┬─────┤       │
+--  APARCA-│ VESTÍBULO ─── GALERÍA ─ PATIO A (sitio A) │ fuente, escaleras,  │ PATIO B │ ... APARCA-
+--  MIENTO │ (escalera)     │        ├ PASILLO SUR   ┤ puente arriba       ├─────┤       MIENTO
+--  (base  │ PIXEL WEAR     │ tiendas│ tienda│              ENTRADA (vestíbulo)          │  (base
+--   roja) │ (tienda grande)├─ pasillo sur B ────────┴──────────────────────────────────┘   azul)
+--   z  80 └──────────────────────────────────────────────────────────────────────────────┘
+--
+-- Como en la referencia, cada sitio está en la mitad de un equipo: el Rojo defiende el A y el Azul
+-- el B. Simétrico en X = 0. Planta alta: galería sobre el vestíbulo, anillo sobre los patios y el
+-- atrio y un puente que cruza el atrio (escaleras mecánicas desde la fuente).
+local Geometry = {}
+
+local V = Vector3.new
+local CF = CFrame.new
+
+local L = 12 -- planta alta
+local TOP = 24 -- techo
+
+function Geometry.build(T)
+	local G = T.G
+	local M = Enum.Material
+
+	T.terrain(M.Grass, 1200, 1200, CF(0, -0.3, 0))
+	G.floor(CF(0, 0, 0), 236, 160, "Floor")
+	-- Cúpula sobre el atrio y lucernario de la zona de comida
+	T.glassDome(CF(0, TOP + 1, 0), 44, 12)
+	for _, x in { -20, 20 } do
+		local sky = G.deco("FoodSkylight", V(20, 0.3, 24), CF(x, TOP + 0.6, -58), "Glass")
+		sky.Transparency = 0.45
+	end
+	-- Puertas de cristal de la entrada principal (cerradas: el exterior sur no se juega)
+	local doors = G.deco("EntranceGlass", V(24, 9, 0.3), CF(0, 4.5, 80.2), "Glass")
+	doors.Transparency = 0.4
+	G.box("EntranceStop", V(24, 12, 1), CF(0, 6, 80.5), "Facade").Transparency = 1
+	G.wall(CF(0, 9, 80.5), 24, TOP - 9, "Facade")
+
+	T.mirrored("MallHalf", function()
+		Geometry.half(T)
+	end)
+end
+
+function Geometry.half(T)
+	local G = T.G
+	local door, window = G.door, G.window
+
+	------------------------------------------------------------------
+	-- Fachadas (oeste con 4 puertas; norte y sur) y aparcamiento
+	------------------------------------------------------------------
+	T.cap(G.wall(CF(-118.5, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), 162, TOP, "Facade", {
+		door(-76, 6, 8), door(-9, 6, 8), door(9, 6, 8), door(68, 6, 8),
+	}, { Frame = "FacadeDark" }))
+	T.cap(G.wall(CF(-59.5, 0, -80.5), 119, TOP, "Facade"))
+	T.cap(G.wall(CF(-65.5, 0, 80.5), 107, TOP, "Facade"))
+	G.floor(CF(-134, 0, 0), 32, 120, "Parking", 1)
+	-- Marquesina del aparcamiento (la base): paredes a los lados y techo; delante, aparcados, el
+	-- camión y la furgoneta (ver Props) tapan las puertas del centro comercial
+	for _, z in { -24.5, 24.5 } do
+		T.cap(G.wall(CF(-141, 0, z), 22, 8, "FacadeDark"))
+		G.column(CF(-130.4, 0, z), 8.6, 1, "Steel")
+	end
+	T.cap(G.floor(CF(-141, 9, 0), 23, 50, "FacadeDark", 0.8))
+	G.deco("CarportStripe", V(0.4, 1, 50), CF(-129.8, 8.4, 0), "Magenta")
+	G.box("ParkingCurb", V(32, 0.8, 1), CF(-134, 0.4, -60.5), "Concrete")
+	G.box("ParkingCurb", V(32, 0.8, 1), CF(-134, 0.4, 60.5), "Concrete")
+	T.cap(G.hoarding(V(-150, 0, -61), V(-150, 0, 61), 10, "FacadeDark", { Stripe = "Magenta" }))
+	T.cap(G.hoarding(V(-150, 0, -61), V(-119, 0, -61), 6, "FacadeDark", { Stripe = "Magenta" }))
+	T.cap(G.hoarding(V(-150, 0, 61), V(-119, 0, 61), 6, "FacadeDark", { Stripe = "Magenta" }))
+
+	------------------------------------------------------------------
+	-- Tiendas grandes con interior: BLOX MART (norte) y PIXEL WEAR (sur)
+	------------------------------------------------------------------
+	G.wall(CF(-95, 0, -72), 46, L, "WallGray")
+	G.wall(CF(-72, 0, -46) * CFrame.Angles(0, -math.pi / 2, 0), 52, L, "WallGray", { door(6) })
+	G.wall(CF(-95, 0, -20), 46, L, "Wall", { door(-13, 8, 8), window(7, 1, 10, 7) })
+	G.box("BloxUpper", V(46, L, 52), CF(-95, L + L / 2, -46), "Wall")
+	G.wall(CF(-95, 0, 20), 46, L, "Wall", { door(5, 8, 8), window(-11, 1, 10, 7) })
+	G.wall(CF(-72, 0, 46) * CFrame.Angles(0, -math.pi / 2, 0), 52, L, "WallGray", { door(-18), door(24) })
+	G.box("PixelUpper", V(46, L, 52), CF(-95, L + L / 2, 46), "Wall")
+
+	------------------------------------------------------------------
+	-- Pasillo de servicio (norte), pasaje al patio y pasillo sur B: techos bajos (10)
+	------------------------------------------------------------------
+	G.box("ServiceUpper", V(78, 14, 8), CF(-79, 17, -76), "Service")
+	G.box("PassageUpper", V(8, 14, 36), CF(-68, 17, -54), "Service")
+	T.cap(G.wall(CF(-40, 0, -76) * CFrame.Angles(0, -math.pi / 2, 0), 8, 10, "Service", { door(0) }))
+	G.box("SouthCorridorUpper", V(52, 14, 14), CF(-46, 17, 73), "Wall")
+
+	------------------------------------------------------------------
+	-- Bloques de tiendas macizos (dos plantas)
+	------------------------------------------------------------------
+	G.solid("ShopN2", V(24, TOP, 36), CF(-52, 0, -54), "Wall")
+	G.solid("ShopS2", V(36, TOP, 30), CF(-54, 0, 51), "Wall")
+	G.solid("ShopS4", V(16, TOP, 30), CF(-28, 0, 51), "Wall")
+
+	------------------------------------------------------------------
+	-- Planta alta: galería (con la escalera del vestíbulo), anillo del patio y del atrio, puente
+	------------------------------------------------------------------
+	G.slab(CF(-94.5, L, 0), 45, 40, "Floor", { { -5.5, -3, 4.8, 11 } })
+	G.stairs(V(-100, 0, 12), V(-100, L, -8), 4.4, "WallGray", { Rails = "Both", RailLook = "Steel" })
+	-- Vestíbulo-esclusa: pared interior con las puertas desplazadas respecto a las de la fachada
+	-- (desde dentro no se ve el aparcamiento de la base)
+	T.cap(G.wall(CF(-110, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), 40, L, "Wall", { door(-15, 6, 8), door(15, 6, 8) }, { Frame = "FacadeDark" }))
+	G.slab(CF(-54, L, 0), 36, 72, "Floor", { { 4, 0, 20, 28 } })
+	G.slab(CF(-18, L, 0), 36, 72, "Floor", { { 7, 0, 22, 44 } })
+	G.floor(CF(-11, L, -12), 22, 6, "Floor")
+	-- Barandillas de cristal: hueco del patio, hueco del atrio, puente y bordes sobre la comida y
+	-- la entrada (los bordes con tiendas tienen la pared de la tienda)
+	T.glassRail(V(-60, L, -14), V(-60, L, 14))
+	T.glassRail(V(-40, L, -14), V(-40, L, 14))
+	T.glassRail(V(-60, L, -14), V(-40, L, -14))
+	T.glassRail(V(-60, L, 14), V(-40, L, 14))
+	T.glassRail(V(-22, L, -22), V(-22, L, -15.2))
+	T.glassRail(V(-22, L, -8.8), V(-22, L, 22))
+	T.glassRail(V(-22, L, -22), V(0, L, -22))
+	T.glassRail(V(-22, L, 22), V(-16.6, L, 22))
+	T.glassRail(V(-11.4, L, 22), V(0, L, 22))
+	T.glassRail(V(-22, L, -15), V(0, L, -15))
+	T.glassRail(V(-22, L, -9), V(0, L, -9))
+	T.glassRail(V(-40, L, -36), V(0, L, -36))
+	T.glassRail(V(-20, L, 36), V(0, L, 36))
+	T.glassRail(V(-97.8, L, 2.6), V(-102.2, L, 2.6))
+	-- Falsos techos blancos bajo la planta alta (el interior se ve claro)
+	for _, spec in { { -94.5, 0, 44, 39 }, { -54, -28, 35, 15 }, { -54, 28, 35, 15 }, { -66, 0, 11, 26 }, { -29, 0, 13, 71 }, { -11, -29, 21, 13 }, { -11, 29, 21, 13 } } do
+		local panel = G.deco("CeilingPanel", V(spec[3], 0.15, spec[4]), CF(spec[1], L - 1.1, spec[2]), "Ceiling")
+		panel.CastShadow = false
+	end
+	-- Escalera mecánica del atrio (sube hacia el sur, hasta el anillo)
+	T.escalator(V(-14, 0, 0), V(-14, L, 22), 4.4)
+
+	------------------------------------------------------------------
+	-- Techo (con huecos: patio, atrio y lucernario de la comida)
+	------------------------------------------------------------------
+	T.cap(G.slab(CF(-59, TOP + 0.5, 0), 118, 160, "RoofTop", {
+		{ 9, 0, 20, 28 },
+		{ 48, 0, 22, 44 },
+		{ 39, -58, 20, 24 },
+	}))
+	local sky = G.deco("CourtSkylight", V(20, 0.3, 28), CF(-50, TOP + 0.6, 0), "Glass")
+	sky.Transparency = 0.45
+	T.cap(sky)
+end
+
+return Geometry
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="62">
+              <Properties>
+                <string name="Name">Lighting</string>
+                <string name="Source"><![CDATA[-- MALL RUSH · luz. Día luminoso por dentro (ambiente alto: el centro comercial está iluminado) y
+-- variantes de tarde y de noche (las tiendas encendidas; fuera, la ciudad con ventanas).
+local RGB = Color3.fromRGB
+local V = Vector3.new
+
+local Lighting = {}
+
+Lighting.Default = {
+	ClockTime = 14.2,
+	Latitude = 30,
+	Brightness = 2.8,
+	Exposure = 0.05,
+	Ambient = RGB(150, 150, 160),
+	OutdoorAmbient = RGB(160, 160, 170),
+	ShadowSoftness = 0.2,
+	Atmosphere = { Density = 0.22, Offset = 0.1, Color = RGB(206, 220, 236), Decay = RGB(130, 150, 176), Glare = 0.15, Haze = 0.8 },
+	Color = { Saturation = 0.16, Contrast = 0.1, Brightness = 0.02, Tint = RGB(255, 250, 248) },
+	Bloom = { Intensity = 0.4, Size = 22, Threshold = 1.9 },
+	Clouds = 0.35,
+	CloudColor = RGB(255, 255, 255),
+	SunRays = 0.06,
+	Wind = V(4, 0, 2),
+	TerrainColors = { Grass = RGB(96, 146, 72) },
+}
+
+Lighting.Variants = {
+	{
+		Name = "Atardecer",
+		Chance = 0.3,
+		ClockTime = 17.9,
+		Brightness = 2.2,
+		Ambient = RGB(150, 130, 136),
+		OutdoorAmbient = RGB(170, 140, 130),
+		Atmosphere = { Density = 0.26, Offset = 0.08, Color = RGB(250, 190, 160), Decay = RGB(160, 110, 130), Glare = 0.5, Haze = 1.2 },
+		Color = { Saturation = 0.16, Contrast = 0.1, Brightness = 0.02, Tint = RGB(255, 238, 226) },
+		CloudColor = RGB(255, 196, 170),
+		SunRays = 0.1,
+	},
+	{
+		Name = "Noche",
+		Chance = 0.25,
+		ClockTime = 21.5,
+		Brightness = 1.2,
+		Exposure = 0.3,
+		Ambient = RGB(120, 120, 150),
+		OutdoorAmbient = RGB(80, 88, 124),
+		Atmosphere = { Density = 0.26, Offset = 0.06, Color = RGB(62, 70, 108), Decay = RGB(26, 30, 56), Glare = 0, Haze = 1 },
+		Color = { Saturation = 0.12, Contrast = 0.12, Brightness = 0.03, Tint = RGB(230, 232, 255) },
+		Bloom = { Intensity = 0.6, Size = 24, Threshold = 1.5 },
+		Clouds = 0.25,
+		CloudColor = RGB(70, 76, 104),
+		SunRays = 0,
+	},
+}
+
+return Lighting
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="63">
+              <Properties>
+                <string name="Name">Props</string>
+                <string name="Source"><![CDATA[-- MALL RUSH · props: identidad de color (escaparates con rótulos cian, magenta, naranja y morado,
+-- banderolas del atrio, puestos de comida), cobertura de interior (quioscos, mesas, jardineras,
+-- estanterías, mostradores) y el aparcamiento de cada base. Los rótulos se ponen fuera del espejo
+-- para que cada lado tenga sus tiendas.
+local Props = {}
+
+local V = Vector3.new
+local CF = CFrame.new
+local RGB = Color3.fromRGB
+local rad = math.rad
+local M = Enum.Material
+
+local L = 12
+local TOP = 24
+
+local CYAN, MAGENTA, ORANGE, PURPLE = RGB(0, 186, 214), RGB(226, 40, 140), RGB(250, 140, 30), RGB(130, 70, 200)
+
+function Props.build(T)
+	local G = T.G
+	local night = T.isNight()
+
+	---------------------------------------------------------------------------
+	-- Atrio: fuente, palmeras, jardineras y banderolas (MALL RUSH en el centro)
+	---------------------------------------------------------------------------
+	T.fountain(CF(0, 0, 0), 10)
+	for _, s in { -1, 1 } do
+		T.palmPlanter(CF(s * 7, 0, 15), 11)
+		T.planter(CF(s * 6, 0, -6) * CFrame.Angles(0, rad(90), 0), 5, 2.6)
+	end
+	T.hangingBanner(CF(-10, TOP - 1, -21.4), 4.6, 9, CYAN, nil)
+	T.hangingBanner(CF(0, TOP - 1, -21.4), 5.4, 9, MAGENTA, "MALL RUSH")
+	T.hangingBanner(CF(10, TOP - 1, -21.4), 4.6, 9, ORANGE, nil)
+	for _, z in { -12, 12 } do
+		local lamp = G.deco("AtriumLight", V(2, 0.4, 2), CF(0, TOP - 0.6, z), { RGB(255, 248, 236), M.Neon })
+		T.Kit.light(lamp, "PointLight", RGB(255, 246, 230), 30, 1)
+	end
+
+	---------------------------------------------------------------------------
+	-- Zona de comida: puestos al fondo, mesas y una palmera en medio
+	---------------------------------------------------------------------------
+	for i, spec in { { -28, "BITES", ORANGE }, { -10, "SODA", MAGENTA }, { 10, "PIZZA", RGB(214, 50, 40) }, { 28, "NOODLE", CYAN } } do
+		T.foodStall(CF(spec[1], 0, -70) * CFrame.Angles(0, math.pi, 0), spec[2], spec[3], 12)
+	end
+	for _, x in { -30, -18, -6, 6, 18, 30 } do
+		for _, z in { -58, -47 } do
+			T.tableSet(CF(x, 0, z) * CFrame.Angles(0, rad((x + z) % 30), 0), ({ ORANGE, CYAN, MAGENTA })[((x // 12) % 3) + 1])
+		end
+	end
+	T.palmPlanter(CF(0, 0, -52), 12)
+	for _, x in { -20, 20 } do
+		local lamp = G.deco("FoodLight", V(14, 0.4, 2), CF(x, TOP - 0.6, -46), { RGB(255, 244, 226), M.Neon })
+		T.Kit.light(lamp, "PointLight", RGB(255, 240, 220), 30, 1)
+	end
+
+	---------------------------------------------------------------------------
+	-- Entrada principal (vestíbulo sur): jardineras, directorio y el rótulo de fuera
+	---------------------------------------------------------------------------
+	for _, s in { -1, 1 } do
+		T.palmPlanter(CF(s * 12, 0, 70), 10)
+	end
+	T.sign(CF(0, 6, 44) , "DIRECTORIO · PLANTA BAJA Y ALTA", 10, 1.6, RGB(36, 40, 52), RGB(255, 255, 255), { PPS = 18, Back = true })
+	G.box("DirectoryStand", V(10, 4.6, 1), CF(0, 2.3, 44), "WallGray")
+	local sunrise = T.sign(CF(0, 15, 81.2) * CFrame.Angles(0, math.pi, 0), "♛ SUNRISE MALL", 30, 4, RGB(30, 32, 40), RGB(255, 214, 90), { PPS = 12 })
+	sunrise.CastShadow = false
+
+	---------------------------------------------------------------------------
+	-- Rótulos, escaparates y lonas de cada lado (fuera del espejo: nombres distintos)
+	---------------------------------------------------------------------------
+	local names = {
+		[-1] = { North = "NEXUS", South = "STYLE", Trend = "TREND", Lobby = "PIXEL", Upper = "GAME ZONE", Big = "BLOX MART", Big2 = "PIXEL WEAR", Facade = "BLOX MART" },
+		[1] = { North = "VOLTA", South = "URBAN", Trend = "ARCADE", Lobby = "BEATS", Upper = "SKATE CO.", Big = "MEGA TOYS", Big2 = "SPORT HUB", Facade = "LOADING BAY" },
+	}
+	for _, s in { -1, 1 } do
+		local n = names[s]
+		local turnIn = s < 0 and CFrame.Angles(0, -math.pi / 2, 0) or CFrame.Angles(0, math.pi / 2, 0)
+		T.storefront(CF(s * 52, 0, -35.6) * CFrame.Angles(0, math.pi, 0), 18, 8, n.North, CYAN, { Depth = 0.7, Shallow = true })
+		T.storefront(CF(s * 54, 0, 35.6), 20, 8, n.South, ORANGE, { Depth = 0.7, Shallow = true })
+		T.storefront(CF(s * 28, 0, 35.6), 12, 8, n.Trend, MAGENTA, { Depth = 0.7, Shallow = true })
+		T.storefront(CF(s * 19.6, 0, 51) * turnIn, 22, 8, n.Lobby, PURPLE, { Depth = 0.7, Shallow = true })
+		-- Planta alta
+		T.storefront(CF(s * 95, L, -19.6) * CFrame.Angles(0, math.pi, 0), 30, 8, n.Upper, PURPLE, { Depth = 0.7, Shallow = true })
+		T.storefront(CF(s * 95, L, 19.6), 30, 8, n.Big2, ORANGE, { Depth = 0.7, Shallow = true })
+		T.storefront(CF(s * 52, L, -35.6) * CFrame.Angles(0, math.pi, 0), 18, 8, n.North .. " +", MAGENTA, { Depth = 0.7, Shallow = true })
+		T.storefront(CF(s * 54, L, 35.6), 20, 8, n.South .. " +", CYAN, { Depth = 0.7, Shallow = true })
+		-- Rótulos de las tiendas grandes (sobre sus escaparates de la galería)
+		T.sign(CF(s * 88, 9.4, -19.4) * CFrame.Angles(0, math.pi, 0), n.Big, 10, 1.8, s < 0 and RGB(30, 110, 200) or RGB(214, 50, 40), RGB(255, 255, 255), { PPS = 18 })
+		T.sign(CF(s * 106, 9.4, 19.4), n.Big2, 10, 1.8, ORANGE, RGB(255, 255, 255), { PPS = 18 })
+		-- Fachada exterior (sobre las puertas del aparcamiento)
+		local facade = T.sign(CF(s * 119.2, 16, 0) * turnIn * CFrame.Angles(0, math.pi, 0), n.Facade, 26, 4, s < 0 and RGB(30, 110, 200) or RGB(36, 40, 52), RGB(255, 255, 255), { PPS = 12 })
+		facade.CastShadow = false
+		-- Lona del sitio colgando sobre el patio y letrero del pasillo de servicio
+		local letter = s < 0 and "A" or "B"
+		T.hangingBanner(CF(s * 50, TOP - 1, -13.4), 6, 8, s < 0 and RGB(214, 50, 60) or RGB(40, 120, 220), letter)
+		T.sign(CF(s * 64.4, 5, -60) * turnIn * CFrame.Angles(0, math.pi, 0), letter .. " →", 3, 1.4, s < 0 and RGB(214, 50, 60) or RGB(40, 120, 220), RGB(255, 255, 255), { PPS = 30 })
+	end
+
+	T.mirrored("MallProps", function()
+		Props.half(T)
+	end)
+
+	-- Fondo: árboles y calles alrededor del centro comercial, ciudad baja
+	for x = -140, 140, 28 do
+		for _, z in { -96, 96 } do
+			T.tree(CF(x + (z > 0 and 10 or 0), 0, z))
+		end
+	end
+	G.deco("Street", V(600, 0.1, 18), CF(0, 0.05, 112), "Parking").CastShadow = false
+	G.deco("Street", V(600, 0.1, 18), CF(0, 0.05, -112), "Parking").CastShadow = false
+	T.skylineRing(V(0, 0, 0), 230, 0, 355, 12, { RGB(214, 206, 196), RGB(190, 196, 206), RGB(224, 214, 200), RGB(200, 184, 176) }, { Lit = night, MinH = 18, VarH = 30, TowerEvery = 5, TowerExtra = 40, FloorH = 7 })
+end
+
+-- Mitad del Rojo (X < 0)
+function Props.half(T)
+	local G = T.G
+
+	------------------------------------------------------------------
+	-- Vestíbulo: mostrador de información delante de las puertas (tapa la vista desde fuera)
+	------------------------------------------------------------------
+	G.box("InfoDesk", V(3, 3.4, 8), CF(-114, 1.7, 0), "WallGray")
+	G.deco("InfoStripe", V(3.1, 0.8, 8.1), CF(-114, 2.6, 0), "Magenta")
+	T.planter(CF(-114, 0, -16), 5, 2.6)
+	T.planter(CF(-114, 0, 16), 5, 2.6)
+	G.box("Bench", V(6, 1.6, 2), CF(-84, 0.8, 14), "WallGray")
+	G.box("Bench", V(6, 1.6, 2), CF(-84, 0.8, -14), "WallGray")
+	for _, x in { -104, -84 } do
+		local lamp = G.deco("HallLight", V(10, 0.4, 2), CF(x, L - 0.6, 0), { RGB(255, 248, 236), M.Neon })
+		if x == -84 then
+			T.Kit.light(lamp, "PointLight", RGB(255, 246, 230), 26, 0.9)
+		end
+	end
+
+	------------------------------------------------------------------
+	-- Patio (sitio): quioscos que cortan la galería, jardineras y bancos
+	------------------------------------------------------------------
+	T.kiosk(CF(-50, 0, -10), RGB(0, 186, 214), "CAFÉ")
+	T.kiosk(CF(-50, 0, 11), RGB(250, 140, 30), "ZUMOS")
+	T.planter(CF(-62, 0, 0) * CFrame.Angles(0, rad(90), 0), 6, 2.6)
+	T.planter(CF(-38, 0, -18), 6, 2.6)
+	T.planter(CF(-38, 0, 18), 6, 2.6)
+	local courtLamp = G.deco("CourtLight", V(2, 0.4, 2), CF(-50, TOP - 0.6, 0), { RGB(255, 248, 236), M.Neon })
+	T.Kit.light(courtLamp, "PointLight", RGB(255, 246, 230), 30, 1)
+
+	------------------------------------------------------------------
+	-- BLOX MART: estanterías en hileras (cobertura alta con pasillos) y cajas registradoras
+	------------------------------------------------------------------
+	for _, z in { -34, -46, -58 } do
+		for _, seg in { { -114, -96 }, { -92, -78 } } do
+			G.box("Shelf", V(seg[2] - seg[1], 6, 2.4), CF((seg[1] + seg[2]) / 2, 3, z), "WallGray")
+			G.deco("ShelfGoods", V(seg[2] - seg[1] - 0.4, 4.6, 2.6), CF((seg[1] + seg[2]) / 2, 3.4, z), { z == -46 and RGB(230, 120, 40) or RGB(40, 140, 200), M.SmoothPlastic })
+		end
+	end
+	for _, x in { -112, -104 } do
+		G.box("Checkout", V(3, 3, 6), CF(x, 1.5, -25), "Wall")
+	end
+	local bloxLamp = G.deco("StoreLight", V(30, 0.4, 2), CF(-95, L - 0.6, -46), { RGB(255, 252, 244), M.Neon })
+	T.Kit.light(bloxLamp, "PointLight", RGB(255, 250, 240), 30, 0.9)
+
+	------------------------------------------------------------------
+	-- PIXEL WEAR: percheros, mesas de exposición y maniquíes
+	------------------------------------------------------------------
+	for _, spec in { { -108, 32 }, { -92, 32 }, { -108, 48 }, { -84, 50 }, { -100, 62 } } do
+		G.box("DisplayTable", V(8, 2.6, 4), CF(spec[1], 1.3, spec[2]), "Wall")
+		G.deco("Clothes", V(7, 0.6, 3.4), CF(spec[1], 2.9, spec[2]), { RGB(226, 40, 140), M.Fabric })
+	end
+	for _, z in { 30, 42, 54, 66 } do
+		G.box("ClothesRack", V(1, 5, 7), CF(-78, 2.5, z), "Steel")
+	end
+	local pixelLamp = G.deco("StoreLight", V(30, 0.4, 2), CF(-95, L - 0.6, 46), { RGB(255, 252, 244), M.Neon })
+	T.Kit.light(pixelLamp, "PointLight", RGB(255, 250, 240), 30, 0.9)
+
+	------------------------------------------------------------------
+	-- Pasillo de servicio: cajas, carro y luz fría
+	------------------------------------------------------------------
+	T.crateStack(CF(-96, 0, -76) * CFrame.Angles(0, rad(90), 0), "L")
+	T.crateStack(CF(-56, 0, -76) * CFrame.Angles(0, rad(90), 0), "Wall")
+	T.crate(CF(-68, 0, -64), 4)
+	T.crate(CF(-68.4, 0, -28) * CFrame.Angles(0, rad(10), 0), 3.6)
+	local serviceLamp = G.deco("ServiceLight", V(1.2, 0.3, 12), CF(-68, 9.7, -46), { RGB(220, 236, 255), M.Neon })
+	T.Kit.light(serviceLamp, "PointLight", RGB(210, 230, 255), 18, 0.7)
+
+	------------------------------------------------------------------
+	-- Pasillos sur, zona de la escalera mecánica y jardineras del anillo
+	------------------------------------------------------------------
+	G.box("Bench", V(6, 1.6, 2), CF(-50, 0.8, 28), "WallGray")
+	T.planter(CF(-40, 0, 72), 6, 2.6)
+	T.planter(CF(-30, L, -30), 6, 2.6)
+	T.planter(CF(-66, L, -30), 6, 2.6)
+	T.planter(CF(-30, L, 30), 6, 2.6)
+
+	------------------------------------------------------------------
+	-- Exterior: azotea con máquinas y pretil blanco; fachada con paneles de color y cristal
+	------------------------------------------------------------------
+	for _, spec in { { -100, -60 }, { -84, -40 }, { -100, 40 }, { -76, 64 }, { -56, -60 }, { -40, 50 } } do
+		T.hvac(CF(spec[1], TOP + 1, spec[2]) * CFrame.Angles(0, rad(spec[1] % 90), 0))
+	end
+	G.deco("RoofEdge", V(1.2, 1.4, 162), CF(-118.2, TOP + 1.2, 0), "Wall")
+	G.deco("RoofEdge", V(118, 1.4, 1.2), CF(-59, TOP + 1.2, -80.2), "Wall")
+	G.deco("RoofEdge", V(118, 1.4, 1.2), CF(-59, TOP + 1.2, 80.2), "Wall")
+	for _, spec in { { -40, "Cyan" }, { -24, "Orange" }, { 24, "Magenta" }, { 40, "Cyan" } } do
+		G.deco("FacadePanel", V(0.6, TOP - 2, 8), CF(-118.9, (TOP - 2) / 2 + 1, spec[1]), spec[2]).CastShadow = false
+	end
+	local glass = G.deco("FacadeGlass", V(0.4, 9, 30), CF(-118.9, 15, 0), "Glass")
+	glass.Transparency = 0.3
+
+	------------------------------------------------------------------
+	-- Aparcamiento (base): camión de reparto, coches, carros de la compra, árboles y farolas
+	------------------------------------------------------------------
+	-- (camión y furgoneta a lo largo de la fachada: pasillo de 6 entre ellos y las puertas)
+	local truck = CF(-127, 0, -6)
+	T.cap(G.solid("BoxTruck", V(6, 7, 15), truck * CF(0, 0.8, 2), "Wall"))
+	G.solid("TruckCab", V(6, 5.6, 4.6), truck * CF(0, 0.8, -8), "Magenta")
+	G.deco("TruckLogo", V(6.1, 3, 8), truck * CF(0, 5, 2), "Cyan")
+	for _, z in { -8, 0, 6 } do
+		for _, x in { -2.9, 2.9 } do
+			T.Kit.pipe("TruckWheel", 0.9, 2.2, truck * CF(x, 1.1, z), RGB(24, 24, 26), M.Rubber, true)
+		end
+	end
+	T.cap(T.van(CF(-127, 0, 14), RGB(226, 40, 140)))
+	-- Tótem publicitario entre el camión y la furgoneta
+	T.cap(G.box("AdTotem", V(2.6, 9, 4), CF(-127, 4.5, 5.5), "Magenta"))
+	T.sign(CF(-125.6, 6, 5.5) * CFrame.Angles(0, -math.pi / 2, 0), "SALE -50%", 3.6, 5, RGB(226, 40, 140), RGB(255, 255, 255), { PPS = 20 })
+	T.Kit.car(CF(-142, 0, 40) * CFrame.Angles(0, rad(90), 0), RGB(40, 120, 220))
+	T.Kit.car(CF(-142, 0, -42) * CFrame.Angles(0, rad(-90), 0), RGB(240, 240, 244))
+	for z = -54, 54, 12 do
+		G.paintLine(V(-150, 0, z), V(-138, 0, z), 0.4, "Paint")
+	end
+	T.lampPost(CF(-122, 0, -30) * CFrame.Angles(0, rad(90), 0))
+	T.lampPost(CF(-122, 0, 30) * CFrame.Angles(0, rad(90), 0))
+	for i = 0, 2 do
+		G.deco("ShoppingCart", V(2, 2.4, 3), CF(-121, 1.2, 30 + i * 1.2), "Steel")
+	end
+end
+
+return Props
+]]></string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="ModuleScript" referent="64">
+            <Properties>
               <string name="Name">Terminal</string>
               <string name="Source"><![CDATA[-- TERMINAL (5v5 · Duelo por equipos · Buscar y destruir): aeropuerto al atardecer. El avión parte la
 -- plataforma por la mitad; el sitio A está en la plataforma delante de la terminal (cristalera y
@@ -14426,7 +14992,7 @@ end
 return Map
 ]]></string>
             </Properties>
-            <Item class="ModuleScript" referent="61">
+            <Item class="ModuleScript" referent="65">
               <Properties>
                 <string name="Name">Geometry</string>
                 <string name="Source"><![CDATA[-- TERMINAL · geometría jugable (blockout). Aeropuerto con el avión en el centro de la plataforma:
@@ -14594,7 +15160,7 @@ return Geometry
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="62">
+            <Item class="ModuleScript" referent="66">
               <Properties>
                 <string name="Name">Lighting</string>
                 <string name="Source"><![CDATA[-- TERMINAL · luz. Por defecto, atardecer naranja con el sol bajo sobre la pista, como la
@@ -14658,7 +15224,7 @@ return Lighting
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="63">
+            <Item class="ModuleScript" referent="67">
               <Properties>
                 <string name="Name">Props</string>
                 <string name="Source"><![CDATA[-- TERMINAL · props: el avión (hito y gran divisor del centro), cobertura de plataforma (contenedores
@@ -14865,7 +15431,7 @@ return Props
             </Item>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="64">
+        <Item class="ModuleScript" referent="68">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -16549,7 +17115,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="65">
+        <Item class="ModuleScript" referent="69">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -18580,7 +19146,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="66">
+        <Item class="ModuleScript" referent="70">
           <Properties>
             <string name="Name">Pumpkins</string>
             <string name="Source"><![CDATA[-- Modo Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza con el color de su equipo.
@@ -18783,7 +19349,7 @@ return Pumpkins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="67">
+        <Item class="ModuleScript" referent="71">
           <Properties>
             <string name="Name">Ragdoll</string>
             <string name="Source"><![CDATA[-- Muñeco de trapo al morir (como en los shooters): en vez de romperse en piezas, las articulaciones
@@ -18909,7 +19475,7 @@ return Ragdoll
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="68">
+        <Item class="ModuleScript" referent="72">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -19116,7 +19682,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="69">
+        <Item class="ModuleScript" referent="73">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -20266,7 +20832,9 @@ local function eliminationRounds(s)
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
 		-- Buscar y destruir: los sitios están a la misma distancia de las dos bases, así que los
 		-- atacantes salen unos segundos después para que los defensores puedan colocarse
-		local headStart = snd and (s.DefenderHeadStart or 0) or 0
+		local map = workspace:FindFirstChild("Map")
+		local sharedSites = map ~= nil and map:GetAttribute("SharedSites") == true
+		local headStart = (snd and sharedSites) and (s.DefenderHeadStart or 0) or 0
 		if headStart > 0 then
 			ReplicatedStorage:SetAttribute("HeldTeam", attackers.Name)
 			for _, player in Players:GetPlayers() do
@@ -20912,7 +21480,7 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="70">
+        <Item class="ModuleScript" referent="74">
           <Properties>
             <string name="Name">SpawnPicker</string>
             <string name="Source"><![CDATA[-- Apariciones dinámicas en los modos por equipos (como en los shooters de móvil): al reaparecer
@@ -21014,7 +21582,7 @@ return SpawnPicker
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="75">
           <Properties>
             <string name="Name">TacKit</string>
             <string name="Source"><![CDATA[-- TacKit: kit modular de los mapas 5v5 (generación determinista por código, sin modelos de la
@@ -21035,6 +21603,7 @@ local Geometry = require(script.Geometry)
 local Props = require(script.Props)
 local Town = require(script.Town)
 local Airport = require(script.Airport)
+local Mall = require(script.Mall)
 
 local T = {}
 for k, v in Geometry do
@@ -21049,12 +21618,16 @@ end
 for k, v in Airport do
 	T[k] = v
 end
+for k, v in Mall do
+	T[k] = v
+end
 T.Kit = Kit
 T.Materials = Materials
 T.G = Geometry
 T.P = Props
 T.Town = Town
 T.Airport = Airport
+T.Mall = Mall
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -21226,7 +21799,15 @@ end
 function T.site(position, letter, opts)
 	opts = opts or {}
 	local radius = opts.Radius or 7
+	-- (opts.Defender: el sitio es solo de ese equipo, en su mitad del mapa; si no, lo defiende el
+	-- equipo que defienda en cada ronda y los atacantes esperan unos segundos: ver Round)
+	if not opts.Defender then
+		Kit.folder:SetAttribute("SharedSites", true)
+	end
 	for defender = 1, 2 do
+		if opts.Defender and defender ~= opts.Defender then
+			continue
+		end
 		local p = Kit.deco("BombSite", V(1, 1, 1), CFrame.new(position + V(0, 0.5, 0)), Kit.C.White, Enum.Material.SmoothPlastic)
 		p.Transparency = 1
 		p:SetAttribute("Letter", letter)
@@ -21308,6 +21889,8 @@ function T.cap(part)
 	return clip
 end
 
+Mall.capHook = T.cap
+
 -- Terreno: relleno bajo el mapa (para que nada flote) y colinas de fondo
 function T.terrain(material, sx, sz, cf)
 	workspace.Terrain:FillBlock((cf or CFrame.new()) * CFrame.new(0, -3, 0), V(sx, 6, sz), material)
@@ -21316,7 +21899,7 @@ end
 return T
 ]]></string>
           </Properties>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">Airport</string>
               <string name="Source"><![CDATA[-- Piezas de aeropuerto (Terminal): avión de pasajeros estilizado, carros de equipaje con tractor,
@@ -21559,7 +22142,7 @@ return Airport
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">Geometry</string>
               <string name="Source"><![CDATA[-- Geometría modular de los mapas 5v5: suelos y forjados (con huecos de escalera), muros con huecos
@@ -22055,7 +22638,194 @@ return G
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="78">
+            <Properties>
+              <string name="Name">Mall</string>
+              <string name="Source"><![CDATA[-- Piezas de centro comercial (Mall Rush): escalera mecánica, barandilla de cristal, escaparate con
+-- rótulo, quiosco, puesto de comida, mesas, palmera en jardinera, banderola colgante y cúpula de
+-- cristal. Colores fuertes pero con materiales de verdad (nada de neón por todas partes).
+local Kit = require(script.Parent.Parent.MapKit)
+local Materials = require(script.Parent.Materials)
+local G = require(script.Parent.Geometry)
+
+local Mall = {}
+Mall.capHook = function(_part) end -- (lo sustituye TacKit por T.cap: tapar por arriba)
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local rad = math.rad
+local get = Materials.get
+local M = Enum.Material
+
+-- Barandilla de cristal entre dos puntos del suelo: vidrio (decorado), pasamanos de acero y un panel
+-- invisible que choca pero deja pasar balas y vista
+function Mall.glassRail(a, b, h)
+	h = h or 3.4
+	local mid = (a + b) / 2
+	local length = (b - a).Magnitude
+	if length < 0.5 then
+		return
+	end
+	local cf = CFrame.lookAt(mid, b)
+	local glass = G.deco("RailGlass", V(0.15, h - 0.3, length), cf * CFrame.new(0, (h - 0.3) / 2, 0), { RGB(170, 220, 236), M.Glass })
+	glass.Transparency = 0.6
+	glass.CastShadow = false
+	G.deco("RailTop", V(0.35, 0.25, length), cf * CFrame.new(0, h, 0), { RGB(210, 214, 220), M.Metal })
+	G.deco("RailShoe", V(0.4, 0.3, length), cf * CFrame.new(0, 0.15, 0), { RGB(150, 154, 160), M.Metal })
+	local stop = Kit.block("RailCollider", V(0.5, h + 0.4, length), cf * CFrame.new(0, (h + 0.4) / 2, 0), Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
+	stop.Transparency = 1
+	stop.CastShadow = false
+end
+
+-- Escalera mecánica de bottom a top (puntos del centro): peldaños metálicos, laterales de cristal
+-- y pasamanos negros
+function Mall.escalator(bottom, top, width)
+	width = width or 4.4
+	local body = G.stairs(bottom, top, width, { RGB(120, 124, 132), M.DiamondPlate }, { StepLook = { RGB(150, 154, 162), M.DiamondPlate }, NosingLook = { RGB(240, 200, 40), M.SmoothPlastic } })
+	local flat = V(top.X - bottom.X, 0, top.Z - bottom.Z)
+	local face = CFrame.lookAt(bottom, bottom + flat)
+	local right = face.RightVector * (width / 2 + 0.3)
+	for _, s in { -1, 1 } do
+		local a, b = bottom + right * s, top + right * s
+		local mid = (a + b) / 2
+		local cf = CFrame.lookAt(mid, b)
+		local side = G.deco("EscalatorSide", V(0.25, 3, (b - a).Magnitude), cf * CFrame.new(0, 1.2, 0), { RGB(170, 220, 236), M.Glass })
+		side.Transparency = 0.55
+		G.deco("EscalatorRail", V(0.4, 0.4, (b - a).Magnitude + 1), cf * CFrame.new(0, 3, 0), { RGB(24, 24, 28), M.Rubber })
+		G.deco("EscalatorSkirt", V(0.35, 1.2, (b - a).Magnitude), cf * CFrame.new(0, -0.3, 0), { RGB(200, 204, 210), M.Metal })
+		local stop = Kit.block("RailCollider", V(0.5, 3.6, (b - a).Magnitude), cf * CFrame.new(0, 1.8, 0), Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
+		stop.Transparency = 1
+	end
+	-- Cuerpo inferior (la "caja" de la escalera)
+	local run = flat.Magnitude
+	local rise = top.Y - bottom.Y
+	-- (macizo: tapa la vista por debajo y no se pasa por debajo de la escalera)
+	for i = 2, 4 do
+		local h = rise * (i - 1) / 4 - 0.6 -- (por debajo de la rampa en todo el tramo)
+		G.box("EscalatorTruss", V(width + 0.6, h, run / 4), face * CFrame.new(0, h / 2, -(run * (i - 0.5) / 4)), { RGB(200, 204, 210), M.Metal })
+	end
+	return body
+end
+
+-- Escaparate: cristal en el hueco de una fachada de tienda (cara -Z), rótulo encima y un fondo de
+-- color dentro (la tienda no se entra). cf = centro de la base del hueco; w = ancho
+function Mall.storefront(cf, w, h, name, color, opts)
+	opts = opts or {}
+	h = h or 8
+	local glass = G.deco("ShopGlass", V(w, h - 1, 0.2), cf * CFrame.new(0, (h - 1) / 2 + 0.2, 0), { RGB(180, 220, 236), M.Glass })
+	glass.Transparency = 0.5
+	glass.CastShadow = false
+	local stop = Kit.block("GlassCollider", V(w, h, 0.4), cf * CFrame.new(0, h / 2, 0), Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
+	stop.Transparency = 1
+	stop.CastShadow = false
+	-- Interior (fondo de color y estantes) para que el cristal tenga algo detrás
+	G.deco("ShopBack", V(w, h, 0.4), cf * CFrame.new(0, h / 2, (opts.Depth or 6)), { color:Lerp(Color3.new(1, 1, 1), 0.35), M.SmoothPlastic })
+	if not opts.Shallow then
+		for i = -1, 1 do
+			G.deco("ShopShelf", V(w * 0.22, 4, 1.4), cf * CFrame.new(i * w * 0.3, 2, (opts.Depth or 6) - 1.2), { color, M.SmoothPlastic })
+		end
+	else
+		-- (escaparate sobre un bloque macizo: maniquíes y género pegados al fondo)
+		for i = -1, 1, 2 do
+			G.deco("Mannequin", V(1.2, 5, 0.4), cf * CFrame.new(i * w * 0.25, 2.7, 0.35), { RGB(236, 236, 240), M.SmoothPlastic })
+		end
+	end
+	-- Rótulo de la tienda (franja de color con letras blancas)
+	local board = G.deco("ShopSign", V(w, 1.8, 0.4), cf * CFrame.new(0, h + 1.1, -0.2), { color, M.SmoothPlastic })
+	local gui = Kit.sign(board, Enum.NormalId.Front, name, RGB(255, 255, 255), color:Lerp(Color3.new(0, 0, 0), 0.3))
+	gui.LightInfluence = 0.3
+	gui.PixelsPerStud = 16
+	local strip = G.deco("ShopLight", V(w, 0.2, 0.3), cf * CFrame.new(0, h + 2.1, -0.4), { RGB(255, 246, 230), M.Neon })
+	strip.CastShadow = false
+	return board
+end
+
+-- Quiosco (isla en medio del pasillo): mostrador redondo de color con techo (cobertura media)
+function Mall.kiosk(cf, color, name)
+	local body = Kit.cylinder("Kiosk", 3.6, 6, cf * CFrame.new(0, 1.8, 0), color, M.SmoothPlastic)
+	Kit.cylinder("KioskTop", 0.4, 6.4, cf * CFrame.new(0, 3.8, 0), RGB(240, 240, 244), M.SmoothPlastic, nil, true)
+	G.deco("KioskPole", V(0.4, 4, 0.4), cf * CFrame.new(0, 6, 0), { RGB(200, 204, 210), M.Metal })
+	local roof = Kit.cylinder("KioskRoof", 0.5, 7, cf * CFrame.new(0, 8.2, 0), color, M.SmoothPlastic, nil, true)
+	roof.CastShadow = true
+	if name then
+		local board = G.deco("KioskSign", V(5, 1.2, 0.2), cf * CFrame.new(0, 9.2, 0), { color, M.SmoothPlastic })
+		Kit.sign(board, Enum.NormalId.Front, name, RGB(255, 255, 255)).LightInfluence = 0.3
+		Kit.sign(board, Enum.NormalId.Back, name, RGB(255, 255, 255)).LightInfluence = 0.3
+	end
+	return body
+end
+
+-- Puesto de la zona de comida: mostrador, trasera alta con el nombre y menú (cobertura alta)
+function Mall.foodStall(cf, name, color, w)
+	w = w or 12
+	local counter = G.box("FoodCounter", V(w, 3.4, 2.6), cf * CFrame.new(0, 1.7, 0), { RGB(240, 240, 244), M.SmoothPlastic })
+	G.deco("CounterFront", V(w + 0.1, 1, 2.7), cf * CFrame.new(0, 2.2, 0), { color, M.SmoothPlastic })
+	local back = G.box("FoodBack", V(w, 9, 1), cf * CFrame.new(0, 4.5, 5), { color:Lerp(Color3.new(1, 1, 1), 0.15), M.SmoothPlastic })
+	Mall.capHook(back)
+	local board = G.deco("FoodSign", V(w * 0.7, 2.4, 0.4), cf * CFrame.new(0, 10.4, 4.6), { color, M.SmoothPlastic })
+	Kit.sign(board, Enum.NormalId.Front, name, RGB(255, 255, 255), color:Lerp(Color3.new(0, 0, 0), 0.35)).LightInfluence = 0.2
+	for i = -1, 1 do
+		G.deco("Menu", V(w * 0.22, 1.6, 0.1), cf * CFrame.new(i * w * 0.28, 7.2, 4.45), { RGB(30, 30, 36), M.SmoothPlastic })
+	end
+	G.deco("FoodCanopy", V(w + 1, 0.4, 3), cf * CFrame.new(0, 8.6, 3.2) * CFrame.Angles(rad(-15), 0, 0), { color, M.Fabric })
+	return counter
+end
+
+-- Mesa con cuatro sillas (cobertura muy baja)
+function Mall.tableSet(cf, color)
+	G.box("Table", V(3.4, 2.6, 3.4), cf * CFrame.new(0, 1.3, 0), { RGB(236, 236, 240), M.SmoothPlastic })
+	for i = 0, 3 do
+		local seat = cf * CFrame.Angles(0, rad(i * 90), 0) * CFrame.new(0, 0, -2.8)
+		G.deco("Chair", V(1.4, 1.6, 1.4), seat * CFrame.new(0, 0.8, 0), { color or RGB(240, 120, 40), M.SmoothPlastic })
+		G.deco("ChairBack", V(1.4, 1.6, 0.25), seat * CFrame.new(0, 2.4, -0.6), { color or RGB(240, 120, 40), M.SmoothPlastic })
+	end
+end
+
+-- Palmera en jardinera cuadrada (cobertura baja)
+function Mall.palmPlanter(cf, h)
+	local box = G.box("PalmPlanter", V(5, 2.4, 5), cf * CFrame.new(0, 1.2, 0), { RGB(70, 74, 82), M.Concrete })
+	G.deco("PlanterSoil", V(4.4, 0.2, 4.4), cf * CFrame.new(0, 2.42, 0), { RGB(70, 52, 38), M.Ground })
+	Kit.palm(cf * CFrame.new(0, 2.4, 0), h or 12)
+	for _, p in { V(-1.4, 2.8, -1.4), V(1.4, 2.8, 1.2) } do
+		Kit.ball("PlanterShrub", 1.6, cf * CFrame.new(p), RGB(60, 140, 70), M.Grass, true)
+	end
+	return box
+end
+
+-- Banderola colgante (cara -Z; la cuelga de cf, que es el centro de arriba)
+function Mall.hangingBanner(cf, w, h, color, text)
+	G.deco("BannerRod", V(w + 0.6, 0.3, 0.3), cf, { RGB(200, 204, 210), M.Metal })
+	local cloth = G.deco("HangBanner", V(w, h, 0.15), cf * CFrame.new(0, -h / 2 - 0.2, 0), { color, M.Fabric })
+	cloth.CastShadow = false
+	if text then
+		local gui = Kit.sign(cloth, Enum.NormalId.Front, text, RGB(255, 255, 255), color:Lerp(Color3.new(0, 0, 0), 0.3))
+		gui.LightInfluence = 0.5
+		local back = Kit.sign(cloth, Enum.NormalId.Back, text, RGB(255, 255, 255), color:Lerp(Color3.new(0, 0, 0), 0.3))
+		back.LightInfluence = 0.5
+	end
+	G.deco("BannerCable", V(0.08, 8, 0.08), cf * CFrame.new(0, 4, 0), { RGB(40, 40, 44), M.Metal })
+end
+
+-- Cúpula de cristal (pirámide de paneles con nervios) sobre un hueco cuadrado de lado w
+function Mall.glassDome(cf, w, h)
+	h = h or w * 0.35
+	local slope = math.sqrt((w / 2) ^ 2 + h * h)
+	local angle = math.atan2(h, w / 2)
+	for i = 0, 3 do
+		local face = cf * CFrame.Angles(0, rad(i * 90), 0)
+		local pane = G.deco("DomeGlass", V(w * 0.72, 0.3, slope), face * CFrame.new(0, h / 2, -w / 4) * CFrame.Angles(angle, 0, 0), { RGB(170, 220, 240), M.Glass })
+		pane.Transparency = 0.45
+		pane.CastShadow = false
+		G.deco("DomeRib", V(0.4, 0.4, slope * 1.42), face * CFrame.Angles(0, rad(45), 0) * CFrame.new(0, h / 2, -w * 0.35) * CFrame.Angles(math.atan2(h, w * 0.707), 0, 0), { RGB(230, 234, 240), M.Metal })
+	end
+	G.deco("DomeFrame", V(w + 1, 0.8, w + 1), cf * CFrame.new(0, -0.2, 0), { RGB(230, 234, 240), M.Metal })
+end
+
+return Mall
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">Materials</string>
               <string name="Source"><![CDATA[-- Biblioteca de materiales de los mapas 5v5: cada "look" es { color, material } y cada mapa tiene
@@ -22176,6 +22946,32 @@ Materials.Terminal = {
 	Grass = { RGB(96, 130, 70), M.Grass },
 }
 
+-- MALL RUSH: blanco brillante con cian, magenta y naranja; pasillos de servicio grises
+Materials.MallRush = {
+	Floor = { RGB(232, 232, 236), M.Marble },
+	FloorTile = { RGB(226, 226, 230), M.CeramicTiles },
+	Wall = { RGB(240, 240, 244), M.SmoothPlastic },
+	WallGray = { RGB(196, 200, 208), M.SmoothPlastic },
+	Ceiling = { RGB(236, 236, 240), M.SmoothPlastic },
+	Facade = { RGB(220, 222, 228), M.Concrete },
+	FacadeDark = { RGB(64, 68, 78), M.Metal },
+	Cyan = { RGB(0, 186, 214), M.SmoothPlastic },
+	Magenta = { RGB(226, 40, 140), M.SmoothPlastic },
+	Orange = { RGB(250, 140, 30), M.SmoothPlastic },
+	Purple = { RGB(130, 70, 200), M.SmoothPlastic },
+	Service = { RGB(150, 152, 156), M.Concrete },
+	ServiceFloor = { RGB(120, 122, 126), M.Concrete },
+	Parking = { RGB(70, 72, 76), M.Asphalt },
+	Concrete = { RGB(190, 190, 192), M.Concrete },
+	ConcreteDark = { RGB(130, 132, 136), M.Concrete },
+	Steel = { RGB(200, 204, 210), M.Metal },
+	Glass = { RGB(170, 220, 236), M.Glass },
+	Red = { RGB(214, 50, 60), M.SmoothPlastic },
+	Blue = { RGB(40, 120, 220), M.SmoothPlastic },
+	Grass = { RGB(90, 140, 70), M.Grass },
+	RoofTop = { RGB(78, 80, 88), M.Concrete },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 
@@ -22202,7 +22998,7 @@ return Materials
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Props</string>
               <string name="Source"><![CDATA[-- Props reutilizables de los mapas 5v5. Cada prop está pensado para dar escala, cobertura o
@@ -22766,7 +23562,7 @@ return P
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="81">
             <Properties>
               <string name="Name">Town</string>
               <string name="Source"><![CDATA[-- Piezas de pueblo (Costa y mapas urbanos): tejado de teja a dos aguas, casa encalada con
@@ -23010,7 +23806,7 @@ return Town
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="77">
+        <Item class="ModuleScript" referent="82">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -23084,22 +23880,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="78">
+  <Item class="StarterPlayer" referent="83">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="79">
+    <Item class="StarterPlayerScripts" referent="84">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="80">
+      <Item class="Folder" referent="85">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="81">
+        <Item class="LocalScript" referent="86">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -23231,11 +24027,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="82">
+        <Item class="Folder" referent="87">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="83">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -23546,7 +24342,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">AimAssist</string>
               <string name="Source"><![CDATA[-- Asistencia de apuntado (como en los shooters de móvil): con pantalla táctil o mando, si un enemigo
@@ -23784,7 +24580,7 @@ return AimAssist
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">AimFX</string>
               <string name="Source"><![CDATA[-- Apuntar con realismo: al apuntar con la mira, el fondo se desenfoca un poco más allá de lo que
@@ -23966,7 +24762,7 @@ return AimFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">AimPitch</string>
               <string name="Source"><![CDATA[-- Manda al servidor hacia dónde miras arriba/abajo (unas pocas veces por segundo y solo si cambia), para
@@ -24030,7 +24826,7 @@ return AimPitch
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="92">
             <Properties>
               <string name="Name">Ambience</string>
               <string name="Source"><![CDATA[-- Sonido ambiente de los mapas realistas (atributo Ambience de workspace.Map, lo pone cada mapa):
@@ -24445,7 +25241,7 @@ return Ambience
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">BodyView</string>
               <string name="Source"><![CDATA[-- Tu cuerpo en primera persona: al mirar hacia abajo ves tus piernas y tus botas (con lo que lleve el
@@ -24595,7 +25391,7 @@ return BodyView
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">BombHUD</string>
               <string name="Source"><![CDATA[-- Buscar y destruir: qué te toca (atacar o defender), la cuenta atrás de la bomba plantada y la
@@ -24769,7 +25565,7 @@ return BombHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">BoostHUD</string>
               <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
@@ -24857,7 +25653,7 @@ return BoostHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="91">
+          <Item class="ModuleScript" referent="96">
             <Properties>
               <string name="Name">BotFootsteps</string>
               <string name="Source"><![CDATA[-- Pasos de los bots (solo en el cliente). Los personajes de los jugadores ya suenan al correr con los
@@ -24959,7 +25755,7 @@ return BotFootsteps
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="92">
+          <Item class="ModuleScript" referent="97">
             <Properties>
               <string name="Name">Callouts</string>
               <string name="Source"><![CDATA[-- Avisos de los compañeros (como en los shooters por equipos): encima de la cabeza de un compañero
@@ -25122,7 +25918,7 @@ return Callouts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="93">
+          <Item class="ModuleScript" referent="98">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -25191,7 +25987,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="94">
+          <Item class="ModuleScript" referent="99">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -25306,7 +26102,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="95">
+          <Item class="ModuleScript" referent="100">
             <Properties>
               <string name="Name">CombatFX</string>
               <string name="Source"><![CDATA[-- Sensaciones de combate (realismo), solo en este cliente:
@@ -25497,7 +26293,7 @@ return CombatFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="96">
+          <Item class="ModuleScript" referent="101">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -25674,7 +26470,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -26217,7 +27013,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">DominationHUD</string>
               <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
@@ -26328,7 +27124,7 @@ return DominationHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -27843,7 +28639,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -28019,7 +28815,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">EnemyName</string>
               <string name="Source"><![CDATA[-- Nombre del enemigo al que apuntas (como en los shooters): normalmente los enemigos no llevan nombre
@@ -28127,7 +28923,7 @@ return EnemyName
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">EnemySounds</string>
               <string name="Source"><![CDATA[-- Sonidos de los demás que dan información, como en los shooters: si alguien recarga cerca (jugador o
@@ -28238,7 +29034,7 @@ return EnemySounds
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -28379,7 +29175,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">Flashlights</string>
               <string name="Source"><![CDATA[-- Linternas de noche (mapas nocturnos y versiones de noche): el arma de fuego lleva una linterna, como
@@ -28575,7 +29371,7 @@ return Flashlights
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -28728,7 +29524,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -28800,7 +29596,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -29018,7 +29814,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">GrenadeWarning</string>
               <string name="Source"><![CDATA[-- Aviso de granada cercana (como en los shooters): cuando una granada enemiga cae cerca, sale un
@@ -29131,7 +29927,7 @@ return GrenadeWarning
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -31555,7 +32351,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -31627,7 +32423,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -31692,7 +32488,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">Killcam</string>
               <string name="Source"><![CDATA[-- Killcam (como en los shooters): repetición desde los ojos de quien hizo una baja, mirando hacia su
@@ -32203,7 +32999,7 @@ return Killcam
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -32446,7 +33242,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -32564,7 +33360,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -33303,7 +34099,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -33553,7 +34349,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -36508,7 +37304,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -36903,7 +37699,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -37359,7 +38155,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -37486,7 +38282,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -37663,7 +38459,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -37857,7 +38653,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -38350,7 +39146,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">RiflePose</string>
               <string name="Source"><![CDATA[-- Postura realista: los personajes (bots y los demás jugadores) sujetan el arma de fuego con las dos
@@ -38707,7 +39503,7 @@ return RiflePose
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -38840,7 +39636,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">ScopeSway</string>
               <string name="Source"><![CDATA[-- Visor de francotirador realista: con el visor puesto la mira nunca está del todo quieta (el pulso y
@@ -38941,7 +39737,7 @@ return ScopeSway
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -39273,7 +40069,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="133">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -39521,7 +40317,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="134">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -39607,7 +40403,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="135">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -39841,7 +40637,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="136">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -39998,7 +40794,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="132">
+          <Item class="ModuleScript" referent="137">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -40263,7 +41059,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="133">
+          <Item class="ModuleScript" referent="138">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -40457,7 +41253,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="134">
+          <Item class="ModuleScript" referent="139">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -41984,7 +42780,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="135">
+          <Item class="ModuleScript" referent="140">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -42041,7 +42837,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="136">
+          <Item class="ModuleScript" referent="141">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -42342,7 +43138,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="137">
+          <Item class="ModuleScript" referent="142">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -42603,7 +43399,7 @@ return WorldFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="138">
+          <Item class="ModuleScript" referent="143">
             <Properties>
               <string name="Name">ZoneName</string>
               <string name="Source"><![CDATA[-- Dónde estás (como en los shooters por equipos): debajo del minimapa, el nombre de la zona del mapa
@@ -42803,19 +43599,19 @@ return ZoneName
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="139">
+  <Item class="Teams" referent="144">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="140">
+  <Item class="Workspace" referent="145">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="141">
+    <Item class="Terrain" referent="146">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>
