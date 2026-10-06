@@ -22,6 +22,7 @@ local ClientState = {
 	ResultsActive = false, -- la partida ha acabado y se ve (o está a punto) la pantalla final
 	StoreModal = false, -- vista previa o confirmación de la tienda abierta
 	RevealOpen = false, -- escena de compra abierta
+	ConfirmOpen = false, -- confirmación de compra con monedas abierta
 	Aiming = false,
 	AimAlpha = 0, -- 0 = cadera, 1 = apuntando
 	Sprinting = false,

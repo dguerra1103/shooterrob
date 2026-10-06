@@ -214,8 +214,16 @@ function StoreData.PromptRobux(what)
 	if StoreData.Pending then
 		return false, "COMPRA EN CURSO"
 	end
-	StoreData.Pending = { ProductId = product.ProductId, Key = product.Key, Started = os.clock() }
+	local pending = { ProductId = product.ProductId, Key = product.Key, Started = os.clock() }
+	StoreData.Pending = pending
 	StoreData.Changed:Fire()
+	-- (si Roblox no avisara de que se cerró la ventana, el botón no se queda bloqueado)
+	task.delay(90, function()
+		if StoreData.Pending == pending then
+			StoreData.Pending = nil
+			StoreData.Changed:Fire()
+		end
+	end)
 	StoreData.Track("purchase_prompt", { key = product.Key, robux = product.Robux })
 	local ok = pcall(function()
 		if product.GamePass then

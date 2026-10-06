@@ -467,6 +467,10 @@ function Flow.Init(screens)
 		if processed or not LOBBY[Flow.State] or Flow.State == "Home" or ClientState.MenuOpen then
 			return
 		end
+		-- (con la vista previa, la confirmación o la escena de compra abiertas, Esc cierra solo eso)
+		if ClientState.StoreModal or ClientState.ConfirmOpen or ClientState.RevealOpen then
+			return
+		end
 		if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.ButtonB or input.KeyCode == Enum.KeyCode.Backspace then
 			UISound.Play("Back")
 			Flow.SetState("Home")

@@ -222,10 +222,16 @@ function Reveal.Show(payload)
 		pop(badge, 0.2, 0.5)
 		nameText = payload.Title or "PASE"
 		rarityText = ""
-	else
+	elseif (payload.Coins or 0) > 0 then
 		local coin = C.text({ Text = "🪙", TextSize = 120, AlignX = Enum.TextXAlignment.Center, Scaled = true, Size = UDim2.fromScale(1, 0.8), Parent = center })
 		pop(coin, 0.2, 0.5)
 		nameText = "+" .. tostring(payload.Coins or 0) .. " MONEDAS"
+		rarityText = ""
+	else
+		-- (potenciadores y otros productos sin objeto: su icono y su nombre)
+		local glyph = C.text({ Text = payload.Icon or "⚡", TextSize = 120, AlignX = Enum.TextXAlignment.Center, Scaled = true, Size = UDim2.fromScale(1, 0.8), Parent = center })
+		pop(glyph, 0.2, 0.5)
+		nameText = payload.Title and C.upper(payload.Title) or "COMPRA COMPLETADA"
 		rarityText = ""
 	end
 	local nameLabel = C.text({ Name = "ItemName", Text = nameText or "", Role = "TitleItalic", TextSize = phone and 30 or 44, Color = Colors.White, AlignX = Enum.TextXAlignment.Center, Stroke = 2, Scaled = true, Anchor = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, phone and 0.6 or 0.68, 0), Size = UDim2.new(0.8, 0, 0, phone and 32 or 50), Parent = frame })
@@ -244,7 +250,7 @@ function Reveal.Show(payload)
 	local extras = {}
 	if (payload.Compensation or 0) > 0 then
 		table.insert(extras, "+" .. payload.Compensation .. " 🪙 por lo que ya tenías")
-	elseif #items > 0 and (payload.Coins or 0) > 0 then
+	elseif #items > 0 and (payload.Coins or 0) > 0 and payload.Title ~= nil then
 		table.insert(extras, "+" .. payload.Coins .. " 🪙")
 	end
 	if bonus then

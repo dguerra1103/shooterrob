@@ -19,6 +19,7 @@ local Confirm = {}
 local modal, connection
 
 function Confirm.Close()
+	ClientState.ConfirmOpen = false
 	if connection then
 		connection:Disconnect()
 		connection = nil
@@ -40,6 +41,7 @@ function Confirm.Open(root, item, onConfirm, onCoins)
 	local coins = data and data.Coins or 0
 	local price = item.Coins or 0
 	local enough = coins >= price
+	ClientState.ConfirmOpen = true
 	modal = C.new("TextButton", { Name = "Confirm", Text = "", AutoButtonColor = false, BackgroundColor3 = Colors.Black, BackgroundTransparency = 0.35, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 30, Parent = root })
 	local box = C.panel({ Name = "Box", Anchor = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(460, 300), Parent = modal }, { Alpha = 0.02, StrokeColor = Colors.Yellow, StrokeAlpha = 0.5 })
 	C.text({ Text = "CONFIRMAR COMPRA", Role = "TitleItalic", TextSize = 26, Color = Colors.YellowText, AlignX = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(0, 12), Size = UDim2.new(1, 0, 0, 32), Parent = box })

@@ -63,9 +63,13 @@ function Entitlements.Plan(data, resolved, ctx)
 	elseif resolved.Type == "Booster" then
 		table.insert(plan.Add, { Path = { def.Field }, Amount = def.Minutes * 60 })
 		plan.Message = def.Icon .. " ¡" .. string.upper(def.Name) .. " " .. def.Minutes .. " MIN!"
+		plan.Reveal.Title = string.upper(def.Name) .. " · " .. def.Minutes .. " MIN"
+		plan.Reveal.Icon = def.Icon
 	elseif resolved.Type == "Revives" then
 		table.insert(plan.Add, { Path = { "Revives" }, Amount = def.Revives })
 		plan.Message = "+" .. def.Revives .. " REVIVIR INSTANTÁNEO"
+		plan.Reveal.Title = plan.Message
+		plan.Reveal.Icon = "💖"
 	elseif resolved.Type == "WheelSpins" then
 		local shop = require(Shared.Shop)
 		table.insert(plan.Add, { Path = { "WheelSpins" }, Amount = shop.Wheel.SpinsPerPurchase })
