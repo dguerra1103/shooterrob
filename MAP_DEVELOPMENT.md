@@ -24,7 +24,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Lighting (tarde soleada; atardecer y noche)
     - [x] Optimization
     - [x] Tested (Lune; falta Studio real)
-- [ ] Terminal
+- [x] Terminal
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [ ] Mall Rush
 - [ ] Rooftop District
 - [ ] Metro Yard
@@ -67,6 +68,20 @@ y añadirlo a `MapBuilder.Order`.
 - Tiempos: base→A 6,9 s, base→B 6,8 s, rotación 7,5 s, base→base 10,6 s.
 - Piezas: ~4.100 (580 chocan), 24 luces.
 - Pendiente: Studio real (agua, reflejos y parras).
+
+### Terminal
+- Tamaño: 300 x 260. El avión (84 de largo) parte la plataforma: se cruza por el morro (lado A) o
+  por la cola (lado B); no se pasa por debajo del fuselaje.
+- Alturas: plataforma 0, muelle de carga 4, salidas de la terminal y pasarelas de embarque 10.
+- Rutas: carretera de servicio y muelle cubierto (norte, a la terminal), plataforma (centro:
+  cisterna, contenedores, deflectores), catering (sur, a la carga), interior (vestíbulo de la
+  terminal entre el muelle cubierto y la plataforma A), elevada (salidas + dos pasarelas).
+- Sitios: A en la plataforma delante de la terminal (lona roja, cristalera encima); B bajo la
+  marquesina de carga (furgoneta, contenedores, muelle).
+- Bases: hangares con tres portones; mamparas dentro (todas las salidas en zigzag).
+- Hitos: avión con la deriva azul, torre de control, terminal de cristal, pista con marcas.
+- Tiempos: base→A 6,1 s, base→B 6,6 s, rotación 6,4 s, base→base 11,0 s.
+- Piezas: ~1.900 (360 chocan), ~20 luces.
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los

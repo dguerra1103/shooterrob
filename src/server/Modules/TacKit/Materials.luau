@@ -95,6 +95,27 @@ Materials.Coastal = {
 	Yellow = { RGB(36, 36, 40), M.Metal }, -- (barandillas: de forja en la Costa)
 }
 
+-- TERMINAL: hormigón de plataforma, blanco y gris del edificio, cristal azulado, rojo/azul de A/B
+Materials.Terminal = {
+	Apron = { RGB(186, 186, 182), M.Concrete },
+	Tarmac = { RGB(88, 90, 94), M.Asphalt },
+	TerminalWall = { RGB(226, 228, 232), M.SmoothPlastic },
+	TerminalPanel = { RGB(196, 200, 206), M.Metal },
+	TerminalDark = { RGB(62, 68, 78), M.Metal },
+	Tile = { RGB(206, 208, 212), M.CeramicTiles },
+	Carpet = { RGB(66, 76, 104), M.Fabric },
+	Glass = { RGB(110, 160, 200), M.Glass },
+	HangarWall = { RGB(170, 176, 184), M.CorrodedMetal },
+	Concrete = { RGB(190, 188, 184), M.Concrete },
+	ConcreteDark = { RGB(130, 132, 136), M.Concrete },
+	Slab = { RGB(176, 176, 174), M.Concrete },
+	Red = { RGB(196, 46, 38), M.SmoothPlastic },
+	Blue = { RGB(40, 92, 190), M.SmoothPlastic },
+	YellowPaint = { RGB(246, 194, 40), M.SmoothPlastic },
+	Yellow = { RGB(244, 188, 30), M.Metal },
+	Grass = { RGB(96, 130, 70), M.Grass },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 
