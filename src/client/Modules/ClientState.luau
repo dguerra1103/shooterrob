@@ -62,7 +62,15 @@ function ClientState.ReducedFX()
 end
 
 function ClientState.Frozen()
-	return game:GetService("ReplicatedStorage"):GetAttribute("Frozen") == true
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+	if ReplicatedStorage:GetAttribute("Frozen") == true then
+		return true
+	end
+	-- (Buscar y destruir: los atacantes esperan unos segundos más en su base, ver Round)
+	local held = ReplicatedStorage:GetAttribute("HeldTeam")
+	local localPlayer = held and game:GetService("Players").LocalPlayer
+	local team = localPlayer and localPlayer.Team
+	return team ~= nil and team.Name == held
 end
 
 -- El cursor se ve siempre que haya algún menú abierto (cada menú llama a esto al abrirse o cerrarse)

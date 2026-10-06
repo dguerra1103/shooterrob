@@ -194,11 +194,11 @@ function Geometry.build(T)
 	for _, s in { -1, 1 } do
 		G.floor(CF(s * 29.5, L, 100), 11, 46, "Slab")
 		G.railing(V(s * 24, L, 81), V(s * 24, L, 108))
-		G.stairs(V(s * 18, 0, 91), V(s * 18, L, 107.6), 4, "Concrete", { Rails = "Both" })
-		G.railing(V(s * 20.2, L, 108), V(s * 24, L, 108))
+		G.stairs(V(s * 18, 0, 91), V(s * 18, L, 107.6), 5, "Concrete", { Rails = "Both" })
+		G.railing(V(s * 20.7, L, 108), V(s * 24, L, 108))
 	end
 	G.railing(V(-24, L, 81), V(24, L, 81))
-	G.railing(V(-15.8, L, 108), V(15.8, L, 108)) -- (entre las dos escaleras)
+	G.railing(V(-15.3, L, 108), V(15.3, L, 108)) -- (entre las dos escaleras)
 	G.floor(CF(0, L, 116), 48, 16, "Slab")
 	G.floor(CF(0, L, 79), 48, 4, "Slab")
 	-- Cubierta con lucernario sobre el atrio
@@ -226,7 +226,7 @@ end
 -- Mitad del Rojo (X < 0): base, almacén, carriles, andamios, muelle y bordes
 function Geometry.half(T)
 	local G = T.G
-	local door, window = G.door, G.window
+	local door = G.door
 	-- (vallas, tapias y bloques del borde no se pisan: se tapan por arriba)
 	local function hoarding(a, b, h)
 		return T.cap(G.hoarding(a, b, h))
@@ -243,6 +243,10 @@ function Geometry.half(T)
 	hoarding(V(-112, 0, 4), V(-112, 0, 26), 10)
 	hoarding(V(-112, 0, -50), V(-112, 0, -40), 10)
 	hoarding(V(-112, 0, 40), V(-112, 0, 50), 10)
+	-- Mamparas dentro de la base: las salidas laterales quedan en L y desde fuera no se ve el
+	-- suelo de la base en diagonal (pasillo de 6 entre mampara y frente)
+	hoarding(V(-118, 0, -32), V(-118, 0, -15), 10)
+	hoarding(V(-118, 0, 15), V(-118, 0, 32), 10)
 
 	------------------------------------------------------------------
 	-- ALMACÉN (35 x 40): nave de paso entre la base y el patio, sin subir al tejado
@@ -282,10 +286,10 @@ function Geometry.half(T)
 	------------------------------------------------------------------
 	-- MUELLE (lado oeste del edificio B): escalera exterior a la entreplanta
 	------------------------------------------------------------------
-	G.stairs(V(-39, 0, 84), V(-39, L, 100), 4, "Concrete", { Rails = "Right" })
-	G.floor(CF(-39, L, 104.5), 4.4, 9, "Slab", 0.8)
-	G.railing(V(-41.2, L, 100), V(-41.2, L, 109))
-	G.railing(V(-41.2, L, 109), V(-36.4, L, 109))
+	G.stairs(V(-39, 0, 84), V(-39, L, 100), 5, "Concrete", { Rails = "Right" })
+	G.floor(CF(-39, L, 104.5), 5, 9, "Slab", 0.8)
+	G.railing(V(-41.3, L, 100), V(-41.3, L, 109))
+	G.railing(V(-41.3, L, 109), V(-36.4, L, 109))
 	G.beam(V(-41, 0, 108.6), V(-41, L - 0.8, 108.6), 0.7, 0.7, "SteelDark")
 	hoarding(V(-75, 0, 120), V(-36, 0, 120), 10)
 

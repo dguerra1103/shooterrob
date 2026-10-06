@@ -34,7 +34,7 @@ GameConfig.ModeSettings = {
 	-- Buscar y destruir: rondas de una vida; atacan y defienden por turnos. Los atacantes plantan la
 	-- bomba en A o B (PlantTime s dentro del sitio) y explota a los BombTime s; los defensores la
 	-- desactivan (DefuseTime s junto a ella). Solo en mapas con sitios (si no, es Eliminación).
-	SND = { Name = "Buscar y destruir", ScoreToWin = 4, RoundTime = 12 * 60, Teams = true, SubRoundTime = 100, PrepTime = 5, PlantTime = 4, DefuseTime = 6, BombTime = 35 },
+	SND = { Name = "Buscar y destruir", ScoreToWin = 4, RoundTime = 12 * 60, Teams = true, SubRoundTime = 100, PrepTime = 5, PlantTime = 4, DefuseTime = 6, BombTime = 35, DefenderHeadStart = 3 }, -- (los atacantes salen 3 s después: los sitios están a la misma distancia de las dos bases)
 	ELIM = { Name = "Eliminación", ScoreToWin = 5, RoundTime = 10 * 60, Teams = true, SubRoundTime = 75, PrepTime = 4 },
 	-- Infección (Halloween): todos empiezan como supervivientes (equipo A) y tras PrepTime uno de cada
 	-- ZombieRatio se convierte en zombi (equipo B: garras, más vida y algo más rápidos). Quien cae ante

@@ -304,12 +304,17 @@ function Combat.WatchHumanoid(humanoid, victimPlayer, victimName, victimBot)
 	end)
 end
 
-local function frozen()
-	return ReplicatedStorage:GetAttribute("Frozen") == true -- cuenta atrás de Eliminación
+local function frozen(player)
+	if ReplicatedStorage:GetAttribute("Frozen") == true then -- cuenta atrás de Eliminación
+		return true
+	end
+	-- (Buscar y destruir: los atacantes que aún esperan en su base no disparan)
+	local held = ReplicatedStorage:GetAttribute("HeldTeam")
+	return held ~= nil and player ~= nil and player.Team ~= nil and player.Team.Name == held
 end
 
 local function onFire(player, tool, origin, rays)
-	if frozen() then
+	if frozen(player) then
 		return
 	end
 	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") or typeof(origin) ~= "Vector3" or type(rays) ~= "table" then
@@ -497,7 +502,7 @@ local function findMelee(player)
 end
 
 local function onMelee(player, part)
-	if frozen() then
+	if frozen(player) then
 		return
 	end
 	local character = player.Character

@@ -19,6 +19,27 @@ Materials.Common = {
 	WoodDark = { RGB(116, 80, 50), M.Wood },
 	Fabric = { RGB(200, 60, 50), M.Fabric },
 	Leaf = { RGB(70, 132, 62), M.Grass },
+	Iron = { RGB(36, 36, 40), M.Metal },
+	-- (genéricos que usan los props del kit; cada paleta puede cambiarlos)
+	Concrete = { RGB(196, 192, 184), M.Concrete },
+	ConcreteDark = { RGB(150, 147, 141), M.Concrete },
+	Slab = { RGB(182, 178, 170), M.Concrete },
+	Block = { RGB(168, 166, 160), M.Concrete },
+	Plywood = { RGB(204, 168, 116), M.WoodPlanks },
+	Hoarding = { RGB(72, 82, 96), M.WoodPlanks },
+	Yellow = { RGB(244, 188, 30), M.Metal },
+	YellowPaint = { RGB(246, 194, 40), M.SmoothPlastic },
+	Red = { RGB(196, 46, 38), M.SmoothPlastic },
+	Blue = { RGB(40, 92, 190), M.SmoothPlastic },
+	RedSteel = { RGB(156, 40, 32), M.Metal },
+	ContainerRed = { RGB(172, 46, 38), M.CorrodedMetal },
+	ContainerGray = { RGB(112, 116, 120), M.CorrodedMetal },
+	ContainerTan = { RGB(150, 126, 94), M.CorrodedMetal },
+	ContainerBlue = { RGB(44, 86, 150), M.CorrodedMetal },
+	ContainerYellow = { RGB(214, 168, 40), M.CorrodedMetal },
+	ContainerGreen = { RGB(60, 110, 76), M.CorrodedMetal },
+	Corrugated = { RGB(132, 138, 146), M.CorrodedMetal },
+	Dirt = { RGB(138, 116, 90), M.Ground },
 }
 
 -- CONSTRUCCIÓN: hormigón claro, amarillo de seguridad y acero rojo
@@ -47,6 +68,31 @@ Materials.Construction = {
 	BuildingGray = { RGB(176, 174, 172), M.Concrete },
 	BuildingBrick = { RGB(160, 98, 78), M.Brick },
 	Corrugated = { RGB(132, 138, 146), M.CorrodedMetal },
+}
+
+-- COSTA: encalado, arena, terracota, teja roja y piedra; azul del mar y verde de contraventanas
+Materials.Coastal = {
+	Whitewash = { RGB(238, 232, 220), M.Plaster },
+	Sand = { RGB(226, 204, 164), M.Plaster },
+	Terracotta = { RGB(196, 96, 66), M.Plaster },
+	Ochre = { RGB(216, 164, 86), M.Plaster },
+	Rose = { RGB(222, 168, 150), M.Plaster },
+	RoofTile = { RGB(184, 78, 52), M.ClayRoofTiles },
+	Stone = { RGB(186, 174, 152), M.Limestone },
+	StoneDark = { RGB(146, 136, 120), M.Limestone },
+	Cobble = { RGB(178, 166, 146), M.Cobblestone },
+	Paving = { RGB(200, 188, 166), M.Limestone },
+	Quay = { RGB(164, 156, 142), M.Granite },
+	Deck = { RGB(140, 100, 66), M.WoodPlanks },
+	Iron = { RGB(36, 36, 40), M.Metal },
+	Red = { RGB(196, 46, 38), M.Fabric },
+	Blue = { RGB(40, 92, 190), M.Fabric },
+	Shutter = { RGB(70, 120, 92), M.WoodPlanks },
+	Crate = { RGB(150, 110, 70), M.WoodPlanks },
+	Tarp = { RGB(60, 110, 80), M.Fabric },
+	Plywood = { RGB(196, 160, 110), M.WoodPlanks },
+	YellowPaint = { RGB(246, 194, 40), M.SmoothPlastic },
+	Yellow = { RGB(36, 36, 40), M.Metal }, -- (barandillas: de forja en la Costa)
 }
 
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))

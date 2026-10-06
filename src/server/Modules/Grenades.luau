@@ -79,6 +79,9 @@ local function throw(player, direction, cook)
 	if player:GetAttribute("InMenu") or ReplicatedStorage:GetAttribute("Mode") == "GUN" or ReplicatedStorage:GetAttribute("Frozen") then
 		return
 	end
+	if player.Team and player.Team.Name == ReplicatedStorage:GetAttribute("HeldTeam") then
+		return -- (Buscar y destruir: atacantes aún en la base)
+	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local head = character and character:FindFirstChild("Head")

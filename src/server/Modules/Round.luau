@@ -1057,6 +1057,7 @@ local function clearElimination()
 	Bomb.Stop()
 	ReplicatedStorage:SetAttribute("NoRespawn", false)
 	ReplicatedStorage:SetAttribute("Frozen", false)
+	ReplicatedStorage:SetAttribute("HeldTeam", nil)
 	ReplicatedStorage:SetAttribute("AliveA", nil)
 	ReplicatedStorage:SetAttribute("AliveB", nil)
 	for _, player in Players:GetPlayers() do
@@ -1142,6 +1143,22 @@ local function eliminationRounds(s)
 		end
 		Bots.RespawnDead()
 		ReplicatedStorage:SetAttribute("NoRespawn", true)
+		-- Buscar y destruir: los sitios están a la misma distancia de las dos bases, así que los
+		-- atacantes salen unos segundos después para que los defensores puedan colocarse
+		local headStart = snd and (s.DefenderHeadStart or 0) or 0
+		if headStart > 0 then
+			ReplicatedStorage:SetAttribute("HeldTeam", attackers.Name)
+			for _, player in Players:GetPlayers() do
+				if player.Team == attackers then
+					Remotes.Notify:FireClient(player, "Big", "Los defensores se colocan · salís en " .. headStart)
+				end
+			end
+			task.delay(headStart, function()
+				if ReplicatedStorage:GetAttribute("HeldTeam") == attackers.Name then
+					ReplicatedStorage:SetAttribute("HeldTeam", nil)
+				end
+			end)
+		end
 		ReplicatedStorage:SetAttribute("Frozen", false)
 		do
 			local _, membersA = aliveCount(a)

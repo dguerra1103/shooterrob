@@ -1065,7 +1065,7 @@ local function think(agent)
 	if not humanoid or humanoid.Health <= 0 or not root or not root.Parent then
 		return
 	end
-	if frozen() then
+	if frozen() or (agent.Team and agent.Team.Name == ReplicatedStorage:GetAttribute("HeldTeam")) then
 		humanoid:MoveTo(root.Position)
 		return
 	end
