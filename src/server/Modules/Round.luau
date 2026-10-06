@@ -72,6 +72,12 @@ local STREAK_ANNOUNCE = { [3] = true, [5] = true, [7] = true, [10] = true, [15] 
 
 local function setState(state)
 	ReplicatedStorage:SetAttribute("State", state)
+	if state ~= "Playing" then
+		-- (por si una partida se corta en pleno despliegue)
+		ReplicatedStorage:SetAttribute("Deploy", nil)
+		ReplicatedStorage:SetAttribute("CountdownAt", nil)
+		ReplicatedStorage:SetAttribute("DeployEndsAt", nil)
+	end
 end
 
 local function settings(mode)
@@ -1553,7 +1559,7 @@ local function playRound()
 		local mode = choice.Mode
 		-- Comprueba que el mapa soporta el modo
 		if choice.Map ~= "Custom" and choice.Map ~= MapBuilder.Current then
-			-- Pantalla de carga en los clientes (ver LoadingScreen): se tapa la construcción del mapa
+			-- Presentación del mapa en los clientes (ver Flow/Screens/MapIntro): se tapa la construcción del mapa
 			ReplicatedStorage:SetAttribute("LoadingMap", MapBuilder.Get(choice.Map).Name)
 			task.wait(0.6)
 			Flags.Stop()
@@ -1598,6 +1604,25 @@ local function playRound()
 		end
 		if mode ~= "ELIM" and mode ~= "SND" then
 			respawnAll() -- (Eliminación reaparece a todos al empezar cada ronda)
+		end
+		-- Despliegue: todos quietos y sin daño mientras se presentan los equipos, cada uno elige
+		-- clase y cuenta atrás 3-2-1 (el cliente lo sincroniza con DeployEndsAt). En Eliminación y
+		-- Buscar y destruir la cuenta atrás es la preparación de la primera ronda
+		local deploy = GameConfig.Deploy
+		if deploy and deploy.Enabled ~= false then
+			local elimLike = mode == "ELIM" or mode == "SND"
+			local now = workspace:GetServerTimeNow()
+			ReplicatedStorage:SetAttribute("Frozen", true)
+			ReplicatedStorage:SetAttribute("Deploy", "Lineup")
+			ReplicatedStorage:SetAttribute("CountdownAt", now + deploy.LineupTime)
+			ReplicatedStorage:SetAttribute("DeployEndsAt", now + deploy.LineupTime + (elimLike and 0 or deploy.CountdownTime))
+			task.wait(deploy.LineupTime)
+			if not elimLike then
+				ReplicatedStorage:SetAttribute("Deploy", "Countdown")
+				task.wait(deploy.CountdownTime)
+			end
+			ReplicatedStorage:SetAttribute("Deploy", nil)
+			ReplicatedStorage:SetAttribute("Frozen", false)
 		end
 		local s = settings(mode)
 		local goal = ReplicatedStorage:GetAttribute("ScoreToWin")

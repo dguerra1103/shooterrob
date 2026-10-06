@@ -205,8 +205,12 @@ local function makeSpectatorIfLate(player, character)
 	end
 end
 
+local joinOrder = 0
 local function onPlayer(player)
 	player:SetAttribute("InMenu", true)
+	-- Orden de llegada al servidor (el primero de una escuadra es su líder en la interfaz)
+	joinOrder += 1
+	player:SetAttribute("JoinOrder", joinOrder)
 	player.CharacterAdded:Connect(function(character)
 		spawnedAt[player] = os.clock()
 		addMenuShield(player, character)
@@ -223,7 +227,22 @@ local function onPlayer(player)
 	end
 end
 
+-- Clase elegida: en el menú o durante el despliegue antes de la partida se cambian las armas ya
+-- mismo; en plena partida, al reaparecer
+local function onClassApplied(player)
+	local data = PlayerData.Get(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local deploying = ReplicatedStorage:GetAttribute("Deploy") ~= nil
+	if humanoid and humanoid.Health > 0 and (player:GetAttribute("InMenu") or deploying) and not Loadout.Override then
+		Loadout.Give(player, Loadout.DefaultList(data))
+	elseif not player:GetAttribute("InMenu") then
+		Remotes.Notify:FireClient(player, "Info", "Clase equipada (al reaparecer)")
+	end
+end
+
 function Loadout.Init()
+	PlayerData.OnClassApplied = onClassApplied
 	PlayerData.OnSkinChanged = onSkinChanged
 	PlayerData.OnOutfitChanged = onOutfitChanged
 	-- "Volver al menú": vuelve a ser invulnerable y queda fuera de los objetivos
@@ -237,12 +256,14 @@ function Loadout.Init()
 			return
 		end
 		player:SetAttribute("InMenu", true)
+		player:SetAttribute("Ready", nil)
 		if player.Character then
 			addMenuShield(player, player.Character)
 		end
 	end)
 	Remotes.LeaveMenu.OnServerEvent:Connect(function(player)
 		player:SetAttribute("InMenu", false)
+		player:SetAttribute("Ready", nil)
 		-- Desde cuándo juega esta partida (para el rango; Round lo pone a cero al empezar cada una)
 		if not player:GetAttribute("MatchJoinedAt") then
 			player:SetAttribute("MatchJoinedAt", workspace:GetServerTimeNow())

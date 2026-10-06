@@ -1687,7 +1687,7 @@ local function previewKillEffect(effectId)
 	panel.Visible = false
 	local mainGui = player.PlayerGui:FindFirstChild("MainMenu")
 	local mainWasEnabled = mainGui and mainGui.Enabled
-	local blur = game:GetService("Lighting"):FindFirstChild("MainMenuBlur")
+	local blur = game:GetService("Lighting"):FindFirstChild("FlowBlur")
 	local blurSize = blur and blur.Size
 	if mainGui then
 		mainGui.Enabled = false

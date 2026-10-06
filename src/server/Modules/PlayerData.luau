@@ -32,6 +32,7 @@ local PlayerData = {}
 PlayerData.OnSkinChanged = nil -- function(player, skinId)
 PlayerData.OnOutfitChanged = nil -- function(player, outfitId)
 PlayerData.OnLeaving = nil :: ((player: Player) -> ())? -- justo antes del guardado final al salir
+PlayerData.OnClassApplied = nil :: ((player: Player) -> ())? -- al equipar una clase (Loadout cambia las armas si toca)
 
 local store
 do
@@ -60,6 +61,29 @@ local SAVE_COOLDOWN = 7 -- Roblox permite ~1 escritura por clave cada 6 s
 local saving = {} -- jugadores con un guardado en curso
 local dirty = {} -- jugadores con cambios pendientes de guardar
 local pendingPerk = {} -- [jugador] = true: la ventaja cambiada se aplica al reaparecer
+
+-- La ventaja (Settings.Perk) pasa al atributo Perk que leen los demás sistemas: ya mismo si está en
+-- el menú, muerto o en el despliegue antes de la partida; si no, al reaparecer (no se cambia a
+-- mitad de un tiroteo)
+local function applyPerk(player)
+	local data = profiles and profiles[player]
+	if not data then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local deploying = game:GetService("ReplicatedStorage"):GetAttribute("Deploy") ~= nil
+	if player:GetAttribute("InMenu") or deploying or not humanoid or humanoid.Health <= 0 then
+		player:SetAttribute("Perk", math.floor(data.Settings.Perk or 0))
+	elseif not pendingPerk[player] then
+		pendingPerk[player] = true
+		player.CharacterAdded:Once(function()
+			pendingPerk[player] = nil
+			local current = profiles[player]
+			player:SetAttribute("Perk", math.floor((current and current.Settings.Perk) or 0))
+		end)
+	end
+end
 local saveScheduled = {}
 
 local function defaults()
@@ -230,6 +254,8 @@ local function publicView(player, data)
 		Primary = data.Primary,
 		Secondary = data.Secondary,
 		Melee = data.Melee,
+		Classes = data.Classes,
+		ActiveClass = data.ActiveClass,
 		OwnedWeapons = data.OwnedWeapons,
 		Outfits = data.Outfits,
 		EquippedOutfit = data.EquippedOutfit,
@@ -488,6 +514,28 @@ local function load(player)
 	end
 	if not table.find(Weapons.Melees, merged.Melee) or not Weapons.IsUnlocked(merged.Melee, merged) then
 		merged.Melee = Weapons.Melee
+	end
+	-- Clases (5 huecos: principal, secundaria y ventaja). La primera vez, la clase 1 es lo que ya
+	-- llevaba equipado (no cambia nada para quien ya jugaba); las demás, las de partida
+	local hadClasses = type(merged.Classes) == "table"
+	local classes = hadClasses and merged.Classes or {}
+	merged.Classes = {}
+	for i = 1, GameConfig.ClassCount do
+		local default = GameConfig.DefaultClasses[i]
+		local class = type(classes[i]) == "table" and classes[i] or {}
+		if not hadClasses and i == 1 then
+			class = { Primary = merged.Primary, Secondary = merged.Secondary, Perk = merged.Settings.Perk }
+		end
+		local perk = class.Perk
+		merged.Classes[i] = {
+			Name = default.Name,
+			Primary = (type(class.Primary) == "string" and table.find(Weapons.Primaries, class.Primary)) and class.Primary or default.Primary,
+			Secondary = (type(class.Secondary) == "string" and table.find(Weapons.Secondaries, class.Secondary)) and class.Secondary or default.Secondary,
+			Perk = (type(perk) == "number" and perk == perk and perk >= 0 and perk <= #GameConfig.Perks) and math.floor(perk) or default.Perk,
+		}
+	end
+	if type(merged.ActiveClass) ~= "number" or not merged.Classes[merged.ActiveClass] then
+		merged.ActiveClass = 1
 	end
 	if type(merged.RankPoints) ~= "number" or merged.RankPoints ~= merged.RankPoints then
 		merged.RankPoints = 0
@@ -1830,20 +1878,67 @@ function PlayerData.Init()
 			end
 		end
 		data.Settings = clean
-		-- La ventaja nueva vale desde la próxima aparición (no se cambia a mitad de un tiroteo)
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if player:GetAttribute("InMenu") or not humanoid or humanoid.Health <= 0 then
-			player:SetAttribute("Perk", math.floor(clean.Perk or 0))
-		elseif not pendingPerk[player] then
-			pendingPerk[player] = true
-			player.CharacterAdded:Once(function()
-				pendingPerk[player] = nil
-				local current = profiles[player]
-				player:SetAttribute("Perk", math.floor((current and current.Settings.Perk) or 0))
-			end)
-		end
+		applyPerk(player)
 		dirty[player] = true
+	end)
+
+	-- Clases: elegir una (se equipa su principal, secundaria y ventaja) o cambiar una pieza
+	local function applyClass(player, data, index)
+		local class = data.Classes[index]
+		if not class then
+			return
+		end
+		data.ActiveClass = index
+		if Weapons.IsUnlocked(class.Primary, data) then
+			data.Primary = class.Primary
+		end
+		if Weapons.IsUnlocked(class.Secondary, data) then
+			data.Secondary = class.Secondary
+		end
+		data.Settings.Perk = class.Perk
+		applyPerk(player)
+		dirty[player] = true
+		if PlayerData.OnClassApplied then
+			PlayerData.OnClassApplied(player)
+		end
+		sendUpdate(player)
+	end
+	Remotes.SelectClass.OnServerEvent:Connect(function(player, index)
+		local data = profiles[player]
+		if data and type(index) == "number" and data.Classes[index] then
+			applyClass(player, data, index)
+		end
+	end)
+	Remotes.EditClass.OnServerEvent:Connect(function(player, index, field, value)
+		local data = profiles[player]
+		local class = data and type(index) == "number" and data.Classes[index]
+		if not class then
+			return
+		end
+		if field == "Primary" or field == "Secondary" then
+			local list = field == "Primary" and Weapons.Primaries or Weapons.Secondaries
+			if type(value) ~= "string" or not table.find(list, value) or not Weapons.IsUnlocked(value, data) then
+				return
+			end
+			class[field] = value
+		elseif field == "Perk" then
+			if type(value) ~= "number" or value ~= value or value < 0 or value > #GameConfig.Perks then
+				return
+			end
+			class.Perk = math.floor(value)
+		else
+			return
+		end
+		if index == data.ActiveClass then
+			applyClass(player, data, index)
+		else
+			dirty[player] = true
+			sendUpdate(player)
+		end
+	end)
+	-- Listo para jugar (buscando partida): lo ve su escuadra
+	Remotes.SetReady.OnServerEvent:Connect(function(player, ready)
+		player:SetAttribute("Ready", ready == true and player:GetAttribute("InMenu") == true or nil)
 	end)
 
 	Remotes.EquipCharm.OnServerEvent:Connect(function(player, charmId)

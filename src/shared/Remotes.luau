@@ -41,6 +41,9 @@ local EVENTS = {
 	"AimPitch", -- cliente -> servidor: hacia dónde mira arriba/abajo (los demás ven el arma inclinada)
 	"Flashlight", -- cliente -> servidor: linterna del arma encendida o apagada (de noche; Flashlights)
 	"MatchSummary", -- servidor -> cliente: resumen de tu partida (XP, monedas, bajas, mejor racha)
+	"SelectClass", -- cliente -> servidor: elegir una de las 5 clases (arma principal, secundaria y ventaja)
+	"EditClass", -- cliente -> servidor: cambiar una pieza de una clase (índice, "Primary"|"Secondary"|"Perk", valor)
+	"SetReady", -- cliente -> servidor: listo para jugar (buscando partida) o no (estado en la escuadra)
 }
 local FUNCTIONS = {
 	"GetData",

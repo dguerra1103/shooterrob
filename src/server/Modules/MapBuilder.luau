@@ -90,6 +90,9 @@ function MapBuilder.Build(id)
 	MapBuilder.Current = def.Id
 	ReplicatedStorage:SetAttribute("MapName", def.Name)
 	ReplicatedStorage:SetAttribute("MapId", def.Id)
+	-- (para la presentación del mapa en el cliente)
+	ReplicatedStorage:SetAttribute("MapDescription", def.Description or "")
+	ReplicatedStorage:SetAttribute("MapIcon", def.Icon or "")
 	return def
 end
 

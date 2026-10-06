@@ -79,6 +79,26 @@ GameConfig.Flag = {
 	CarrierSpeedMultiplier = 0.9, -- el portador va un poco más lento
 }
 GameConfig.EndScreenTime = 8
+
+-- Despliegue al empezar cada partida (todos quietos y sin daño mientras tanto): presentación de los
+-- equipos y elección rápida de clase (LineupTime) y cuenta atrás 3-2-1 (CountdownTime). En
+-- Eliminación y Buscar y destruir la cuenta atrás es la preparación de la primera ronda.
+GameConfig.Deploy = {
+	Enabled = true,
+	LineupTime = 6,
+	CountdownTime = 3,
+}
+
+-- Clases (5 huecos): arma principal, secundaria y ventaja. Las de partida se guardan con el progreso
+-- y se cambian en Armamento o en la elección rápida antes de desplegar.
+GameConfig.ClassCount = 5
+GameConfig.DefaultClasses = {
+	{ Name = "ASALTO", Primary = "ARX27", Secondary = "Viper", Perk = 1 },
+	{ Name = "CQB", Primary = "Specter9", Secondary = "Viper", Perk = 1 },
+	{ Name = "ESCOPETA", Primary = "HavocPump", Secondary = "Viper", Perk = 2 },
+	{ Name = "TIRADOR", Primary = "Signal7", Secondary = "Viper", Perk = 3 },
+	{ Name = "PESADO", Primary = "TitanLMG", Secondary = "Viper", Perk = 2 },
+}
 -- Killcam final: si una baja cierra la partida o una ronda de Eliminación / Buscar y destruir, todos ven
 -- su repetición desde los ojos de quien la hizo (con todo congelado este rato). false = sin ella
 GameConfig.FinalKillcam = true
