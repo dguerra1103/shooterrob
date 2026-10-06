@@ -111,6 +111,10 @@ end
 -- Desenfoque del mundo detrás de los menús (nunca durante el combate)
 function Transition.Blur(size, time)
 	if not blur or not blur.Parent then
+		-- (la pantalla de arranque deja el suyo con el mismo nombre: se reutiliza)
+		blur = Lighting:FindFirstChild("FlowBlur")
+	end
+	if not blur or not blur.Parent then
 		blur = Instance.new("BlurEffect")
 		blur.Name = "FlowBlur"
 		blur.Size = 0
