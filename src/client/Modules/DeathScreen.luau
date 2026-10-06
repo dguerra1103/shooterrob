@@ -479,6 +479,12 @@ function DeathScreen.Init()
 	originalZoom = { player.CameraMinZoomDistance, player.CameraMaxZoomDistance }
 	build()
 	Remotes.Died.OnClientEvent:Connect(open)
+	-- Fin de partida: la pantalla final ocupa todo (si no, esta se quedaría debajo de la escena)
+	ReplicatedStorage:GetAttributeChangedSignal("State"):Connect(function()
+		if ReplicatedStorage:GetAttribute("State") == "Ended" and ClientState.ResultsScreen then
+			close()
+		end
+	end)
 	player.CharacterAdded:Connect(function(character)
 		close()
 		local humanoid = character:WaitForChild("Humanoid", 5)

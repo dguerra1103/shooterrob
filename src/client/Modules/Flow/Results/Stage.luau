@@ -118,9 +118,10 @@ local function mapRay(origin, direction)
 	return ok and hit or nil
 end
 
--- Suelo bajo un punto (o nil si no hay)
+-- Suelo bajo un punto, buscando desde poco más arriba de él (si se busca desde muy alto, se
+-- encuentra el tejado de la caseta de aparición en vez del suelo donde se está de pie)
 local function groundAt(position)
-	local hit = mapRay(position + Vector3.new(0, 12, 0), Vector3.new(0, -60, 0))
+	local hit = mapRay(position + Vector3.new(0, 3, 0), Vector3.new(0, -12, 0))
 	return hit and hit.Position or nil
 end
 
@@ -128,7 +129,7 @@ end
 local function fits(origin, forward, right)
 	local floorY = origin.Y
 	for _, slot in Stage.Formation do
-		local p = origin + right * slot.X + forward * slot.Z
+		local p = origin + right * slot.X + forward * slot.Z + Vector3.new(0, 0.2, 0)
 		local g = groundAt(p)
 		if not g or math.abs(g.Y - floorY) > 1.2 then
 			return false
@@ -170,6 +171,7 @@ function Stage:FindSpot(teamName)
 					local forward = (CFrame.Angles(0, math.rad(yaw), 0) * dir).Unit
 					local right = forward:Cross(Vector3.yAxis).Unit * -1
 					if fits(g, forward, right) then
+						self.SpotQuality = "Fit"
 						return CFrame.lookAt(g, g - forward)
 					end
 				end
@@ -178,6 +180,7 @@ function Stage:FindSpot(teamName)
 		end
 	end
 	-- Sin hueco perfecto: el primero con suelo (o el centro de la base)
+	self.SpotQuality = best and "Ground" or "None"
 	local origin = best or base
 	return CFrame.lookAt(origin, origin - dir)
 end
