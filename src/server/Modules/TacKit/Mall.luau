@@ -11,7 +11,6 @@ Mall.capHook = function(_part) end -- (lo sustituye TacKit por T.cap: tapar por 
 local V = Vector3.new
 local RGB = Color3.fromRGB
 local rad = math.rad
-local get = Materials.get
 local M = Enum.Material
 
 -- Barandilla de cristal entre dos puntos del suelo: vidrio (decorado), pasamanos de acero y un panel
