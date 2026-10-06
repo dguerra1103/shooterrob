@@ -21,7 +21,7 @@ Lighting.Default = {
 	CloudColor = RGB(255, 196, 176),
 	SunRays = 0.1,
 	Wind = V(5, 0, 2),
-	TerrainColors = { Ground = RGB(128, 112, 92), Rock = RGB(112, 100, 108), Pavement = RGB(150, 146, 140), Concrete = RGB(160, 156, 150) },
+	TerrainColors = { Ground = RGB(128, 112, 92), Rock = RGB(112, 100, 108), Pavement = RGB(150, 146, 140) },
 }
 
 Lighting.Variants = {

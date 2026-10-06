@@ -79,6 +79,29 @@ local HIDE_BELOW = {
 	SignalLamp = "Media",
 	AntennaBar = "Media",
 	RubblePile = "Media",
+	-- (mapas 5v5 nuevos, TacKit: juntas, nervios de chapa, peldaños vistos, flejes, rodadas...;
+	-- la forma y la cobertura no cambian, solo el detalle)
+	Step = "Media",
+	StepNosing = "Media",
+	Joint = "Media",
+	WallRib = "Media",
+	BlockJoint = "Media",
+	Strap = "Media",
+	Rubble = "Media",
+	TireMark = "Media",
+	OilStain = "Media",
+	HazardStripe = "Media",
+	SteelFlange = "Media",
+	Rebar = "Media",
+	ScaffoldGuard = "Media",
+	HoistRing = "Media",
+	Plinth = "Media",
+	JambStripe = "Media",
+	SackRow = "Media",
+	EdgeSlab = "Media",
+	CityCornice = "Media",
+	CityRoofBox = "Media",
+	SkylightBar = "Media",
 }
 local RANK = { Baja = 1, Media = 2, Alta = 3, Ultra = 4 }
 local function applyDetail(inst)

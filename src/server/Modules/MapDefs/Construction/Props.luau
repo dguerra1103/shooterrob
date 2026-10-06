@@ -67,6 +67,22 @@ function Props.build(T)
 	T.sign(CF(0, 2 * L + 4, -107.3) * CFrame.Angles(0, math.pi, 0), "ROBUILD · OBRA 05", 14, 2.2, RGB(240, 186, 30), RGB(30, 30, 34), { PPS = 18 })
 	T.sign(CF(0, 2 * L + 0.6, 75.4), "NUEVAS OFICINAS · 2027", 18, 2.4, RGB(36, 44, 60), RGB(244, 190, 40), { PPS = 18 })
 
+	-- Azoteas: máquinas, depósitos, barandilla amarilla y un contenedor rojo en la nave B
+	for _, x in { -22, 22 } do
+		T.hvac(CF(x, 2 * L + 8, -124))
+		T.hvac(CF(x * 0.5, 2 * L + 2, 118) * CFrame.Angles(0, rad(90), 0))
+	end
+	T.waterTank(CF(10, 2 * L + 8, -122))
+	G.railing(V(-30, 2 * L + 8, -108.5), V(30, 2 * L + 8, -108.5), "Yellow", 2.6, { NoToe = true })
+	local roofBox = T.container(CF(-20, 2 * L + 2, 116), "ContainerRed")
+	for _, part in roofBox:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+		end
+	end
+	T.hvac(CF(-78, 15.8, -8) * CFrame.Angles(0, rad(90), 0))
+	T.hvac(CF(78, 15.8, 8) * CFrame.Angles(0, rad(90), 0))
+
 	---------------------------------------------------------------------------
 	-- Luz: focos de obra en patios y sitios, tubos fríos en el atrio B y cálidos en el A
 	---------------------------------------------------------------------------
@@ -103,10 +119,10 @@ function Props.build(T)
 	-- Fondo: ciudad (bloques sin interior), sierra y otra grúa lejos
 	---------------------------------------------------------------------------
 	local palette = { RGB(196, 184, 176), RGB(170, 160, 168), RGB(214, 200, 184), RGB(150, 146, 156), RGB(186, 170, 160) }
-	T.skylineRing(V(0, 0, 0), 250, 0, 350, 11, palette, { Lit = night, MinH = 28, VarH = 50, TowerEvery = 5, TowerExtra = 70 })
-	T.skylineRing(V(0, 0, 0), 340, 5, 355, 9, palette, { Lit = night, MinH = 50, VarH = 70, TowerEvery = 4, TowerExtra = 90 })
-	-- (anillo cercano y bajo: tejados de la manzana de alrededor)
-	T.skylineRing(V(0, 0, 0), 196, 0, 355, 9, palette, { Lit = night, MinH = 14, VarH = 18, TowerEvery = 100 })
+	-- (tres anillos: la manzana de alrededor baja, la ciudad media y unas pocas torres lejos)
+	T.skylineRing(V(0, 0, 0), 205, 0, 355, 10, palette, { Lit = night, MinH = 16, VarH = 18, TowerEvery = 100, FloorH = 6 })
+	T.skylineRing(V(0, 0, 0), 270, 4, 356, 12, palette, { Lit = night, MinH = 26, VarH = 34, TowerEvery = 5, TowerExtra = 40, FloorH = 8 })
+	T.skylineRing(V(0, 0, 0), 380, 8, 352, 16, palette, { Lit = night, MinH = 40, VarH = 50, TowerEvery = 3, TowerExtra = 80, FloorH = 12 })
 	-- Sierra lejana (la neblina la vuelve malva al atardecer)
 	for _, spec in { { V(-520, -70, -380), 170 }, { V(120, -80, -640), 200 }, { V(640, -70, 120), 180 }, { V(-580, -80, 300), 190 }, { V(260, -60, 620), 160 } } do
 		T.Kit.naturalHill(spec[1], spec[2], M.Rock)
@@ -146,6 +162,52 @@ function Props.half(T)
 	T.blockPallet(CF(-71.4, 0, -66), 2)
 	T.barrel(CF(-92, 0, -66))
 	T.barrel(CF(-90, 0, -67.5), { RGB(200, 60, 40), M.Metal })
+	T.skip(CF(-62, 0, -44) * CFrame.Angles(0, rad(90), 0))
+	T.sackPallet(CF(-80, 0, -24))
+	T.cableSpool(CF(-92, 0, -24) * CFrame.Angles(0, rad(20), 0))
+	-- Suelo del carril: asfalto de acceso con rodadas y manchas
+	G.deco("AccessRoad", V(30, 0.05, 12), CF(-80, 0.03, -63), "Asphalt").CastShadow = false
+	T.Kit.tireMarks(CF(-94, 0, -62) * CFrame.Angles(0, rad(-90), 0), 26, 0.2)
+	T.Kit.oilStain(V(-74, 0, -45), 3)
+
+	------------------------------------------------------------------
+	-- ALMACÉN (fuera): chapa ondulada sobre zócalo de hormigón, portón con cajón de persiana y
+	-- franjas de peligro, rótulo y apliques sobre las puertas
+	------------------------------------------------------------------
+	local function ribbedFace(a, b, outward, openings)
+		local length = (b - a).Magnitude
+		local dir = (b - a).Unit
+		G.deco("Plinth", V(0.3, 2.4, length), CFrame.lookAt((a + b) / 2, b) * CF(0, 1.2, 0) + outward * 0.15, "ConcreteDark").CastShadow = false
+		for d = 1.2, length - 1.2, 2.4 do
+			local blocked = false
+			for _, o in openings do
+				if d > o[1] - 0.5 and d < o[2] + 0.5 then
+					blocked = true
+				end
+			end
+			if not blocked then
+				local p = a + dir * d + outward * 0.2
+				G.deco("WallRib", V(0.35, 12.6, 0.35), CF(p + V(0, 2.4 + 6.3, 0)), "SteelDark").CastShadow = false
+			end
+		end
+	end
+	ribbedFace(V(-95, 0, -20), V(-60, 0, -20), V(0, 0, -1), { { 22, 28 } })
+	ribbedFace(V(-95, 0, 20), V(-60, 0, 20), V(0, 0, 1), { { 8, 14 } })
+	ribbedFace(V(-95, 0, -20), V(-95, 0, 20), V(-1, 0, 0), { { 7, 13 }, { 27, 33 } })
+	ribbedFace(V(-60, 0, -20), V(-60, 0, 20), V(1, 0, 0), { { 1, 7 }, { 24, 32 } })
+	-- Portón (lado del patio): cajón de la persiana, persiana a medio subir y franjas en las jambas
+	G.deco("ShutterBox", V(1.4, 1.6, 9.4), CF(-59.4, 9.8, 8), "SteelDark")
+	G.deco("Shutter", V(0.25, 1.4, 8), CF(-59.6, 8.3, 8), "Corrugated")
+	for _, z in { 3.6, 12.4 } do
+		for k = 0, 3 do
+			G.deco("JambStripe", V(0.5, 1, 0.9), CF(-59.6, 0.5 + k * 2, z), k % 2 == 0 and "YellowPaint" or "Black").CastShadow = false
+		end
+	end
+	T.sign(CF(-59.6, 12.2, 8) * CFrame.Angles(0, -math.pi / 2, 0), "ALMACÉN · NAVE 2", 10, 1.6, RGB(36, 44, 60), RGB(244, 190, 40), { PPS = 18 })
+	T.wallLamp(CF(-59.5, 7.6, -16) * CFrame.Angles(0, -math.pi / 2, 0))
+	T.wallLamp(CF(-70, 8.6, -20.5))
+	T.wallLamp(CF(-95.5, 8.6, 10) * CFrame.Angles(0, math.pi / 2, 0))
+	T.wallLamp(CF(-95.5, 8.6, -10) * CFrame.Angles(0, math.pi / 2, 0))
 
 	------------------------------------------------------------------
 	-- ALMACÉN (dentro): cajas y palés que rompen la vista de puerta a puerta, carretilla y luz
@@ -171,6 +233,11 @@ function Props.half(T)
 	T.rebarBundle(CF(-48, 0, 26) * CFrame.Angles(0, rad(80), 0), 10)
 	T.cementMixer(CF(-52, 0, -24) * CFrame.Angles(0, rad(30), 0))
 	T.cones(V(-20, 0, -18), V(-20, 0, -14), 2)
+	T.sackPallet(CF(-38, 0, -30) * CFrame.Angles(0, rad(15), 0))
+	T.cableSpool(CF(-24, 0, 24) * CFrame.Angles(0, rad(70), 0), 3.4)
+	T.Kit.floorJoints(CF(-38, 0, 0), 44, 76, 8, RGB(132, 128, 120))
+	T.Kit.crack(V(-36, 0, -6), 9, 4)
+	T.Kit.oilStain(V(-50, 0, 12), 2.6)
 
 	------------------------------------------------------------------
 	-- PASILLO A y ESTRUCTURA: palés abajo, cajas y palés arriba (cobertura en la primera)
@@ -202,6 +269,9 @@ function Props.half(T)
 	T.crateStack(CF(-29, 0, -97), "Tower")
 	T.barrel(CF(-33, 0, -84))
 	T.cones(V(-24, 0, -100), V(-20, 0, -100), 2)
+	T.Kit.floorJoints(CF(-17.5, 0, -88), 35, 36, 6, RGB(150, 144, 134))
+	T.sackPallet(CF(-30, 0, -90) * CFrame.Angles(0, rad(-10), 0))
+	T.wallLamp(CF(-12, 7.6, -107.5) * CFrame.Angles(0, math.pi, 0))
 
 	------------------------------------------------------------------
 	-- ACOPIO (carril B): palés de bloques en hileras, vigas, tubos, ferralla y silo
@@ -215,6 +285,13 @@ function Props.half(T)
 	T.rebarBundle(CF(-48.6, 0, 46.4), 9)
 	T.crateStack(CF(-70, 0, 70) * CFrame.Angles(0, rad(-5), 0), "L")
 	T.blockPallet(CF(-46, 0, 66), 3)
+	T.skip(CF(-86, 0, 44))
+	T.sackPallet(CF(-56, 0, 32))
+	T.sackPallet(CF(-51.4, 0, 32.4) * CFrame.Angles(0, rad(8), 0))
+	T.cableSpool(CF(-66, 0, 38))
+	-- Suelo de tierra del acopio (el material se descarga aquí)
+	G.deco("DirtPatch", V(40, 0.06, 34), CF(-72, 0.03, 56), "Dirt").CastShadow = false
+	T.Kit.tireMarks(CF(-92, 0, 50) * CFrame.Angles(0, rad(-80), 0), 30, 0.3)
 	-- Silo de cemento (decorado alto en la esquina)
 	local siloShape = G.solid("SiloShape", V(7, 24, 7), CF(-90, 0, 70), "Steel")
 	T.cap(siloShape)
@@ -253,6 +330,9 @@ function Props.half(T)
 	T.Kit.forklift(CF(-22, 0, 60) * CFrame.Angles(0, rad(30), 0))
 	T.blockPallet(CF(-28, 0, 44), 3)
 	T.crateStack(CF(-14, 0, 68) * CFrame.Angles(0, rad(10), 0), "Wall")
+	T.Kit.floorJoints(CF(-17.5, 0, 57), 35, 38, 8, RGB(140, 134, 126))
+	T.skip(CF(-30, 0, 70) * CFrame.Angles(0, rad(90), 0))
+	T.wallLamp(CF(-10, 7.6, 75.5))
 end
 
 return Props

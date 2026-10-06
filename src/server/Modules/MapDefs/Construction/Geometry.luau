@@ -75,6 +75,24 @@ function Geometry.build(T)
 	G.railing(V(-15.6, y2, 15.6), V(15.6, y2, 15.6))
 	G.railing(V(-15.6, y2, -15.6), V(-15.6, y2, 15.6))
 	G.railing(V(15.6, y2, -15.6), V(15.6, y2, 15.6))
+	-- Obra vista: pilares en las esquinas, cantos de forjado y dos plantas más sin terminar encima
+	-- (pilares, forjado y barandilla, decorado) para la silueta alta de la referencia
+	for _, p in { V(-15.6, 0, -15.6), V(15.6, 0, -15.6), V(-15.6, 0, 15.6), V(15.6, 0, 15.6) } do
+		G.box("TowerPier", V(2.4, 3 * L + 1, 2.4), CF(p + V(0, (3 * L + 1) / 2, 0)), "Concrete")
+		for _, y in { 3 * L + 1, 4 * L + 1 } do
+			G.deco("UpperColumn", V(1.6, L, 1.6), CF(p + V(0, y + L / 2, 0)), "Concrete")
+		end
+	end
+	for _, y in { L, 2 * L } do
+		G.deco("SlabEdge", V(33.2, 0.9, 33.2), CF(0, y - 0.45, 0), "Slab").CastShadow = false
+	end
+	G.deco("UpperSlab", V(33, 0.8, 33), CF(0, 4 * L + 0.6, 0), "Slab")
+	G.deco("UpperSlab", V(20, 0.8, 33), CF(-6.5, 5 * L + 0.6, 0), "Slab")
+	for _, y in { 4 * L + 1, 5 * L + 1 } do
+		G.deco("UpperRail", V(33, 0.3, 0.3), CF(0, y + 3, -16.4), "Yellow")
+		G.deco("UpperRail", V(33, 0.3, 0.3), CF(0, y + 3, 16.4), "Yellow")
+	end
+	T.hoist(CF(-19, 0, 8), 4 * L + 4)
 	-- Barandillas de los huecos de la primera (para no caer por el hueco de la escalera)
 	for _, s in { -1, 1 } do
 		G.railing(V(s * 11, L, -6), V(s * 11, L, 4))
@@ -230,9 +248,9 @@ function Geometry.half(T)
 	-- ALMACÉN (35 x 40): nave de paso entre la base y el patio, sin subir al tejado
 	------------------------------------------------------------------
 	local wh = CF(-77.5, 0, 0)
-	G.shell(wh, 35, 40, 15, "ConcreteDark", {
-		Front = { door(7.5), window(-7, 10, 6, 3), window(12, 10, 4, 3) }, -- (cara norte, al carril A: X del edificio)
-		Back = { door(-6.5), window(8, 10, 6, 3) }, -- (cara sur, al acopio)
+	G.shell(wh, 35, 40, 15, "Corrugated", {
+		Front = { door(7.5) }, -- (cara norte, al carril A: X del edificio)
+		Back = { door(-6.5) }, -- (cara sur, al acopio)
 		Left = { door(-10), door(10) }, -- (oeste, a la base)
 		Right = { door(8, 8, 9), door(-16) }, -- (este, al patio)
 	}, { Frame = "Concrete" })
@@ -274,23 +292,34 @@ function Geometry.half(T)
 	------------------------------------------------------------------
 	-- Edificios del borde (macizos): cierran el mapa en forma de cruz
 	------------------------------------------------------------------
-	local function filler(x0, x1, z0, z1, h, look)
-		T.cap(G.solid("Filler", V(x1 - x0, h, z1 - z0), CF((x0 + x1) / 2, 0, (z0 + z1) / 2), look))
-		-- Bandas de ventanas (sugieren plantas) y cornisa
-		for f = 1, math.floor(h / 7) do
-			G.deco("FillerWindows", V(x1 - x0 + 0.2, 1.6, z1 - z0 + 0.2), CF((x0 + x1) / 2, f * 7 - 2.5, (z0 + z1) / 2), { Color3.fromRGB(70, 74, 82), Enum.Material.SmoothPlastic })
+	-- Bloques de borde: tramos de ~26 con alturas y colores distintos (manzana de ciudad)
+	local looks = { "BuildingSand", "BuildingGray", "BuildingRose", "ConcreteWarm", "BuildingBrick" }
+	local count = 0
+	local function filler(x0, x1, z0, z1, h)
+		local alongX = (x1 - x0) >= (z1 - z0)
+		local length = alongX and (x1 - x0) or (z1 - z0)
+		local pieces = math.max(1, math.floor(length / 26 + 0.5))
+		for k = 0, pieces - 1 do
+			count += 1
+			local a0 = (alongX and x0 or z0) + k * length / pieces
+			local a1 = a0 + length / pieces
+			local cx = alongX and (a0 + a1) / 2 or (x0 + x1) / 2
+			local cz = alongX and (z0 + z1) / 2 or (a0 + a1) / 2
+			local sx = alongX and (a1 - a0) or (x1 - x0)
+			local sz = alongX and (z1 - z0) or (a1 - a0)
+			local height = h + ((count * 7) % 5 - 2) * 2.5
+			T.cap(T.facadeBlock(CF(cx, 0, cz), sx, sz, height, looks[(count % #looks) + 1], { Lit = T.isNight(), Roof = count % 2 == 0 }))
 		end
-		G.deco("FillerCornice", V(x1 - x0 + 0.8, 0.8, z1 - z0 + 0.8), CF((x0 + x1) / 2, h + 0.1, (z0 + z1) / 2), "ConcreteDark")
 	end
-	filler(-160, -150.3, -130, 130, 24, "ConcreteDark")
-	filler(-150.3, -95, -140, -50.3, 22, "Concrete")
-	filler(-150.3, -95, 50.3, 140, 26, "ConcreteWarm")
-	filler(-95, -70, -140, -70, 18, "ConcreteWarm")
-	filler(-70, -30, -140, -108.5, 14, "Concrete")
-	filler(-95, -75, 76, 140, 20, "Concrete")
-	filler(-75, -36, 120.3, 140, 12, "ConcreteDark")
-	filler(-36, 0, 124.5, 140, 12, "ConcreteDark")
-	filler(-30, 0, -140, -130.2, 16, "ConcreteDark")
+	filler(-162, -150.3, -50, 50, 24)
+	filler(-150.3, -95, -140, -50.3, 22)
+	filler(-150.3, -95, 50.3, 140, 26)
+	filler(-95, -70, -140, -70, 18)
+	filler(-70, -30, -140, -108.5, 14)
+	filler(-95, -75, 76, 140, 20)
+	filler(-75, -36, 120.3, 140, 12)
+	filler(-36, 0, 124.5, 140, 13)
+	filler(-30, 0, -140, -130.2, 17)
 end
 
 return Geometry

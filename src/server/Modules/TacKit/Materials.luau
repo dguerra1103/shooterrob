@@ -41,6 +41,12 @@ Materials.Construction = {
 	ContainerTan = { RGB(150, 126, 94), M.CorrodedMetal },
 	Block = { RGB(168, 166, 160), M.Concrete }, -- bloques de hormigón apilados
 	Tarp = { RGB(70, 110, 160), M.Fabric },
+	-- Edificios de alrededor (ciudad cálida al atardecer)
+	BuildingSand = { RGB(214, 196, 164), M.Plaster },
+	BuildingRose = { RGB(204, 168, 156), M.Plaster },
+	BuildingGray = { RGB(176, 174, 172), M.Concrete },
+	BuildingBrick = { RGB(160, 98, 78), M.Brick },
+	Corrugated = { RGB(132, 138, 146), M.CorrodedMetal },
 }
 
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))

@@ -349,23 +349,25 @@ end
 -- ventanas brillan (de noche), opts.Roof = trastos en la azotea, opts.Material
 function P.cityBlock(cf, w, d, h, color, opts)
 	opts = opts or {}
-	G.deco("CityBlock", V(w, h, d), cf * CFrame.new(0, h / 2, 0), { color, opts.Material or M.Concrete })
-	local floorH = opts.FloorH or 4.5
-	local windowColor = opts.Lit and RGB(255, 214, 150) or (opts.WindowColor or color:Lerp(RGB(40, 50, 62), 0.7))
+	local body = G.deco("CityBlock", V(w, h, d), cf * CFrame.new(0, h / 2, 0), { color, opts.Material or M.Concrete })
+	body.CastShadow = false -- (lejos: su sombra solo oscurecería el mapa al atardecer)
+	local floorH = opts.FloorH or 6
+	local windowColor = opts.Lit and RGB(150, 112, 72) or (opts.WindowColor or color:Lerp(RGB(40, 50, 62), 0.7))
 	local material = opts.Lit and M.Neon or M.SmoothPlastic
 	local floors = math.floor((h - 3) / floorH)
 	for f = 1, floors do
 		local y = f * floorH
 		-- (de noche no todas las plantas están encendidas)
 		local lit = opts.Lit and ((f * 7 + math.floor(w)) % 3 ~= 0)
-		local band = G.deco("CityWindows", V(w + 0.15, floorH * 0.42, d + 0.15), cf * CFrame.new(0, y - floorH * 0.35, 0), {
+		local band = G.deco("CityWindows", V(w + 0.15, floorH * 0.32, d + 0.15), cf * CFrame.new(0, y - floorH * 0.4, 0), {
 			lit and windowColor or (opts.WindowColor or color:Lerp(RGB(40, 50, 62), 0.7)),
 			lit and material or M.SmoothPlastic,
 		})
 		band.CastShadow = false
 	end
+	G.deco("CityCornice", V(w + 0.6, 0.8, d + 0.6), cf * CFrame.new(0, h + 0.2, 0), { color:Lerp(Color3.new(0, 0, 0), 0.25), M.Concrete }).CastShadow = false
 	if opts.Roof then
-		G.deco("CityRoofBox", V(w * 0.3, 2.5, d * 0.3), cf * CFrame.new(w * 0.18, h + 1.25, -d * 0.12), "SteelDark")
+		G.deco("CityRoofBox", V(w * 0.3, 2.5, d * 0.3), cf * CFrame.new(w * 0.18, h + 1.25, -d * 0.12), "SteelDark").CastShadow = false
 	end
 end
 
@@ -385,8 +387,136 @@ function P.skylineRing(center, radius, fromDeg, toDeg, step, palette, opts)
 			h = h + (opts.TowerExtra or 60)
 		end
 		local cf = CFrame.lookAt(p, V(center.X, 0, center.Z))
-		P.cityBlock(cf, w, d, h, palette[(i % #palette) + 1], { Lit = opts.Lit, Roof = i % 2 == 0 })
+		P.cityBlock(cf, w, d, h, palette[(i % #palette) + 1], { Lit = opts.Lit, Roof = i % 2 == 0, FloorH = opts.FloorH })
 	end
+end
+
+
+---------------------------------------------------------------------------
+-- Más obra y edificios de borde
+---------------------------------------------------------------------------
+
+-- Contenedor de escombros (rojo, abierto por arriba con escombro dentro): cobertura baja-media
+function P.skip(cf, look)
+	look = get(look or "ContainerRed")
+	local body = G.box("Skip", V(5.6, 3.4, 10), cf * CFrame.new(0, 1.9, 0), look)
+	G.deco("SkipRim", V(6, 0.4, 10.4), cf * CFrame.new(0, 3.65, 0), { look[1]:Lerp(Color3.new(0, 0, 0), 0.3), M.Metal })
+	for _, s in { -1, 1 } do
+		G.deco("SkipSlope", V(5.6, 0.3, 2.4), cf * CFrame.new(0, 1.2, s * 5.6) * CFrame.Angles(s * rad(40), 0, 0), look)
+	end
+	for i, p in { V(-1.2, 3.8, -2), V(1, 3.9, 1.5), V(0, 3.7, 3.2) } do
+		G.deco("Rubble", V(1.6 + i * 0.3, 0.8, 1.4), cf * CFrame.new(p) * CFrame.Angles(i * 0.4, i, 0.2), i % 2 == 0 and "ConcreteDark" or "Plywood")
+	end
+	Kit.contactShadow(cf, 6, 11)
+	return body
+end
+
+-- Palé de sacos de cemento (cobertura baja)
+function P.sackPallet(cf)
+	P.pallet(cf)
+	local body = G.box("Sacks", V(4, 1.8, 4), cf * CFrame.new(0, 1.4, 0), { RGB(214, 204, 186), M.Fabric })
+	for l = 0, 2 do
+		G.deco("SackRow", V(4.1, 0.08, 4.1), cf * CFrame.new(0, 0.55 + l * 0.6, 0), { RGB(176, 166, 150), M.Fabric })
+	end
+	G.deco("SackLabel", V(1.6, 0.6, 0.05), cf * CFrame.new(0, 1.4, -2.03), { RGB(200, 60, 40), M.SmoothPlastic })
+	return body
+end
+
+-- Bobina de cable (cobertura baja, redonda)
+function P.cableSpool(cf, d)
+	d = d or 3.6
+	for _, x in { -0.9, 0.9 } do
+		Kit.pipe("SpoolSide", 0.3, d, cf * CFrame.new(x, d / 2, 0), RGB(150, 110, 70), M.WoodPlanks, false)
+	end
+	local core = Kit.pipe("SpoolCable", 1.6, d * 0.7, cf * CFrame.new(0, d / 2, 0), RGB(40, 40, 44), M.SmoothPlastic, false)
+	return core
+end
+
+-- Depósito de agua de azotea sobre patas (decorado)
+function P.waterTank(cf)
+	for _, x in { -1.4, 1.4 } do
+		for _, z in { -1.4, 1.4 } do
+			G.deco("TankLeg", V(0.3, 3, 0.3), cf * CFrame.new(x, 1.5, z), "SteelDark")
+		end
+	end
+	Kit.cylinder("WaterTank", 4, 4.2, cf * CFrame.new(0, 5, 0), RGB(150, 140, 128), M.Metal, nil, true)
+	Kit.cylinder("TankLid", 0.4, 4.6, cf * CFrame.new(0, 7.2, 0), RGB(90, 86, 82), M.Metal, nil, true)
+end
+
+-- Aplique de pared con luz cálida (cara -Z)
+function P.wallLamp(cf, color)
+	color = color or RGB(255, 210, 150)
+	G.deco("LampArm", V(0.3, 0.3, 0.8), cf * CFrame.new(0, 0, -0.4), "SteelDark")
+	local bulb = G.deco("LampBulb", V(0.8, 0.5, 0.6), cf * CFrame.new(0, -0.2, -0.9), { color, M.Neon })
+	Kit.light(bulb, "PointLight", color, 12, 0.8)
+end
+
+-- Chapa ondulada: nervios verticales sobre una cara de muro (decorado). a, b = extremos al pie
+function P.ribs(a, b, h, look, spacing)
+	spacing = spacing or 2.4
+	local length = (b - a).Magnitude
+	local count = math.floor(length / spacing)
+	for i = 1, count - 1 do
+		local p = a:Lerp(b, i / count)
+		G.deco("Rib", V(0.35, h, 0.35), CFrame.lookAt(p, p + (b - a)) * CFrame.new(0, h / 2, 0), look).CastShadow = false
+	end
+end
+
+-- Montacargas de obra (jaula amarilla adosada a una fachada, decorado). cf = centro de la base
+function P.hoist(cf, h)
+	local look = get("Yellow")
+	for _, x in { -2, 2 } do
+		for _, z in { -2, 2 } do
+			G.box("HoistPost", V(0.5, h, 0.5), cf * CFrame.new(x, h / 2, z), look)
+		end
+	end
+	for y = 4, h, 4 do
+		G.deco("HoistRing", V(4.4, 0.3, 0.3), cf * CFrame.new(0, y, -2), look)
+		G.deco("HoistRing", V(4.4, 0.3, 0.3), cf * CFrame.new(0, y, 2), look)
+		G.deco("HoistRing", V(0.3, 0.3, 4.4), cf * CFrame.new(-2, y, 0), look)
+		G.deco("HoistRing", V(0.3, 0.3, 4.4), cf * CFrame.new(2, y, 0), look)
+	end
+	local car = G.deco("HoistCar", V(3.6, 3.4, 3.6), cf * CFrame.new(0, h * 0.55, 0), { RGB(230, 226, 214), M.Metal })
+	car.CastShadow = false
+	G.deco("HoistMesh", V(3.7, 2.6, 3.7), cf * CFrame.new(0, h * 0.55 + 0.2, 0), { RGB(60, 60, 64), M.DiamondPlate }).Transparency = 0.5
+end
+
+-- Edificio de borde (macizo, se ve pero no se entra): plantas con ventanas en bandas, cornisa,
+-- azotea con pretil y trastos. Cierra el mapa con la escala de una ciudad. Devuelve el cuerpo
+-- (para taparlo con T.cap). opts: FloorH, Windows (color), Lit, Roof = false
+function P.facadeBlock(cf, w, d, h, look, opts)
+	opts = opts or {}
+	look = get(look)
+	local body = G.box("EdgeBuilding", V(w, h, d), cf * CFrame.new(0, h / 2, 0), look)
+	local floorH = opts.FloorH or 5
+	local windowLook = { opts.Windows or RGB(58, 70, 84), M.Glass }
+	for f = 1, math.floor((h - 2) / floorH) do
+		local y = (f - 1) * floorH + floorH * 0.55
+		local band = G.deco("EdgeWindows", V(w + 0.2, floorH * 0.38, d + 0.2), cf * CFrame.new(0, y, 0), windowLook)
+		band.CastShadow = false
+		band.Reflectance = 0.12
+		if opts.Lit then
+			-- De noche, algunas ventanas encendidas (sueltas, no la banda entera)
+			local seed = f * 7 + math.floor(w * 3 + d)
+			for k, spec in { { -0.3, -1 }, { 0.15, -1 }, { 0.32, 1 }, { -0.1, 1 } } do
+				if (seed + k) % 3 ~= 0 then
+					local alongX = k <= 2
+					local offset = alongX and V(spec[1] * w, y, spec[2] * (d / 2 + 0.15)) or V(spec[2] * (w / 2 + 0.15), y, spec[1] * d)
+					local size = alongX and V(math.min(5, w * 0.16), floorH * 0.34, 0.12) or V(0.12, floorH * 0.34, math.min(5, d * 0.16))
+					G.deco("LitWindow", size, cf * CFrame.new(offset), { RGB(226, 176, 112), M.Neon }).CastShadow = false
+				end
+			end
+		end
+		-- Losa entre plantas (línea más clara)
+		G.deco("EdgeSlab", V(w + 0.3, 0.35, d + 0.3), cf * CFrame.new(0, f * floorH, 0), { look[1]:Lerp(Color3.new(1, 1, 1), 0.12), look[2] }).CastShadow = false
+	end
+	G.deco("EdgeCornice", V(w + 0.8, 0.7, d + 0.8), cf * CFrame.new(0, h + 0.35, 0), { look[1]:Lerp(Color3.new(0, 0, 0), 0.2), look[2] }).CastShadow = false
+	if opts.Roof ~= false then
+		local roofCf = cf * CFrame.new(0, h, 0)
+		P.waterTank(roofCf * CFrame.new(w * 0.25, 0, d * 0.2))
+		G.deco("RoofBox", V(4, 2.4, 3), roofCf * CFrame.new(-w * 0.22, 1.2, -d * 0.18), "SteelDark")
+	end
+	return body
 end
 
 ---------------------------------------------------------------------------
