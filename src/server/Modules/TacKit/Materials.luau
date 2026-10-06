@@ -245,6 +245,34 @@ Materials.Dockyard = {
 	Yellow = { RGB(236, 186, 36), M.Metal }, -- (barandillas amarillas de muelle)
 }
 
+Materials.IndustrialYard = {
+	Ground = { RGB(120, 116, 110), M.Concrete },
+	Concrete = { RGB(168, 164, 156), M.Concrete },
+	ConcreteDark = { RGB(116, 112, 106), M.Concrete },
+	Asphalt = { RGB(78, 76, 74), M.Asphalt },
+	Building = { RGB(186, 180, 168), M.Concrete },
+	Brick = { RGB(150, 84, 62), M.Brick },
+	Shed = { RGB(96, 112, 120), M.Metal },
+	Roof = { RGB(108, 106, 102), M.Metal },
+	Rust = { RGB(164, 88, 48), M.CorrodedMetal },
+	Orange = { RGB(226, 120, 36), M.SmoothPlastic },
+	Red = { RGB(190, 52, 42), M.SmoothPlastic },
+	Blue = { RGB(52, 92, 150), M.SmoothPlastic },
+	Paint = { RGB(234, 232, 226), M.SmoothPlastic },
+	Tank = { RGB(204, 200, 190), M.Metal },
+	PipeBlue = { RGB(70, 110, 150), M.Metal },
+	PipeGreen = { RGB(90, 128, 96), M.Metal },
+	MachineGreen = { RGB(78, 116, 104), M.Metal },
+	Gravel = { RGB(132, 124, 114), M.Pebble },
+	Steel = { RGB(132, 134, 136), M.Metal },
+	SteelDark = { RGB(64, 66, 70), M.Metal },
+	Deck = { RGB(118, 120, 122), M.DiamondPlate },
+	Glass = { RGB(150, 186, 200), M.Glass },
+	Wood = { RGB(150, 116, 78), M.WoodPlanks },
+	Yellow = { RGB(226, 176, 40), M.Metal }, -- (barandillas amarillas)
+	YellowPaint = { RGB(230, 180, 40), M.SmoothPlastic },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 

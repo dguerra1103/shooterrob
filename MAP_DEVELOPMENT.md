@@ -36,7 +36,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [x] Dockyard
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
-- [ ] Industrial Yard
+- [x] Industrial Yard
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 
 ## Cómo se valida cada mapa (Lune, sin Studio)
 - `navcheck`: mapa de alturas (0,5 studs) desde las bases: andar ≤1,1, salto ≤6,8, supersalto
@@ -189,6 +190,26 @@ y añadirlo a `MapBuilder.Order`.
 - Tiempos: base→A 6,7 s, base→B 6,8 s, rotación 7,0 s, base→base 11,8 s.
 - Piezas: ~2.500 (650 chocan), 12 luces.
 - Pendiente: en Studio, el agua y las defensas del canto del muelle.
+
+### Industrial Yard
+- Tamaño: 300 x 240, planta industrial vallada. Luz por defecto de atardecer (variantes Día y Noche).
+- Alturas: suelo 0; pasarela de la planta (sobre A) y entreplanta de la nave (sobre B) a 8.
+  navcheck con 0,8.
+- Rutas: montones de grava (norte, con cinta y pala) → planta de proceso (A) entre depósitos y
+  rack de tuberías; centro: sala de calderas (puertas desplazadas, la caldera corta la línea de
+  puerta a puerta) y calle central; patio de almacenaje (sur) → puerta lateral de la nave (B);
+  caseta de bombas en cada mitad (se cruza por dentro); escaleras a la pasarela y a la entreplanta.
+- Líneas largas cortadas: transformador, unidad de refrigeración, depósitos horizontales,
+  filtros verticales a los lados de A, contenedores a lo largo de Z, armario de carga frente a la
+  nave, máquina frente a las puertas laterales y muros de cierre detrás de la planta y la nave.
+  Los montones de grava llevan un clip desde 1,5 studs (no se suben por la rampa).
+- Sitios: A en la planta (depósitos, bombas, válvulas); B en la nave (prensas, palés, cinta).
+- Bases: caseta cerrada (T.spawnHouse) con puertas norte y sur.
+- Hitos: chimenea de la sala de calderas, torres de refrigeración y chimeneas al fondo, pasarela
+  amarilla, nave con "NAVE 2 · PRODUCCIÓN".
+- Tiempos: base→A 6,7 s, base→B 6,7 s, rotación 6,9 s, base→base 12,0 s.
+- Piezas: ~1.640 (540 chocan), 13 luces.
+- Pendiente: en Studio, el aspecto de las rampas de grava (cuñas) y la luz del atardecer.
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los
