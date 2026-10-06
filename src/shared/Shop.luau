@@ -6,12 +6,13 @@
 -- Con ID 0 el botón aparece desactivado ("Próximamente").
 local Shop = {}
 
--- Packs de monedas (Developer Products, se pueden comprar varias veces)
+-- Packs de monedas (Developer Products, se pueden comprar varias veces). Tag solo dice algo que es
+-- verdad (cuántas monedas más por Robux que el pack pequeño).
 Shop.CoinPacks = {
-	{ Name = "Puñado", Coins = 500, Robux = 49, ProductId = 0 },
-	{ Name = "Bolsa", Coins = 1200, Robux = 99, ProductId = 0, Tag = "+20%" },
-	{ Name = "Cofre", Coins = 3000, Robux = 199, ProductId = 0, Tag = "MÁS VENDIDO" },
-	{ Name = "Bóveda", Coins = 8000, Robux = 449, ProductId = 0, Tag = "MEJOR VALOR" },
+	{ Name = "Puñado", Coins = 500, Robux = 49, ProductId = 0 }, -- TODO: SET IN CREATOR DASHBOARD
+	{ Name = "Bolsa", Coins = 1200, Robux = 99, ProductId = 0, Tag = "+19%" }, -- TODO: SET IN CREATOR DASHBOARD
+	{ Name = "Cofre", Coins = 3000, Robux = 199, ProductId = 0, Tag = "+48%" }, -- TODO: SET IN CREATOR DASHBOARD
+	{ Name = "Bóveda", Coins = 8000, Robux = 449, ProductId = 0, Tag = "+75%" }, -- TODO: SET IN CREATOR DASHBOARD
 }
 
 -- Packs de "Revivir instantáneo" (Developer Products): vuelves a la acción justo donde caíste
@@ -21,15 +22,18 @@ Shop.RevivePacks = {
 }
 
 -- Pack de inicio (Developer Product de compra única): solo se ofrece a jugadores nuevos.
--- Vale mucho más que su precio en Robux para que sea la primera compra fácil.
+-- Vale mucho más que su precio en Robux para que sea la primera compra fácil. Solo estética y monedas.
 Shop.StarterPack = {
-	ProductId = 0, -- pega aquí el ID del Developer Product
+	ProductId = 0, -- TODO: SET IN CREATOR DASHBOARD
 	Robux = 99,
 	MaxLevel = 15, -- se deja de ofrecer a partir de este nivel
 	Coins = 1500,
-	Outfit = "BlazeRunner",
-	Skin = "Sakura",
+	Outfit = "BlazeRunner", -- traje de operador
+	Skin = "Sakura", -- skin de arma
 	KillEffect = "Confeti",
+	Charm = "Bala", -- colgante
+	Card = "Tactico", -- tarjeta de jugador
+	Pose = "Bajada", -- pose de victoria
 }
 
 -- Packs de temporada (Developer Product de compra única cada uno): cosas de la tienda por mucho
@@ -79,6 +83,39 @@ Shop.Bundles = {
 		Spray = "Pirata",
 		Value = 10500,
 		Colors = { RGB(170, 100, 50), RGB(25, 60, 110) },
+	},
+	-- Packs de colección (solo Robux). Items = "Tipo:Id" (ver Economy/CosmeticCatalog). La tienda
+	-- enseña lo que valen por separado (suma real de Economy/Products) y lo que ya tienes.
+	{
+		Id = "RedOps",
+		Name = "PACK OPERACIÓN ROJA",
+		Icon = "🟥",
+		ProductId = 0, -- TODO: SET IN CREATOR DASHBOARD
+		Robux = 399,
+		Premium = true, -- (el pack grande: escena de compra de legendario)
+		Collection = "RED OPS",
+		Items = { "Skin:OperacionRoja", "Outfit:OperacionRoja", "KillEffect:ChoqueRojo", "Card:Infierno", "Pose:Senala" },
+		Colors = { RGB(200, 20, 30), RGB(20, 20, 24) },
+	},
+	{
+		Id = "Artico",
+		Name = "PACK ÁRTICO",
+		Icon = "❄️",
+		ProductId = 0, -- TODO: SET IN CREATOR DASHBOARD
+		Robux = 249,
+		Collection = "ARCTIC",
+		Items = { "Skin:ArticoTactico", "Outfit:ArticoTactico", "Card:Glaciar", "Charm:Chapa" },
+		Colors = { RGB(90, 200, 255), RGB(30, 50, 80) },
+	},
+	{
+		Id = "Vacio",
+		Name = "PACK DEL VACÍO",
+		Icon = "🌌",
+		ProductId = 0, -- TODO: SET IN CREATOR DASHBOARD
+		Robux = 299,
+		Collection = "VOID",
+		Items = { "Skin:GrietaVacio", "Card:Vacio", "MVPIntro:Columna", "Charm:Calaverita" },
+		Colors = { RGB(160, 70, 255), RGB(10, 6, 24) },
 	},
 }
 Shop.HalloweenBundle = Shop.Bundles[1] -- (nombre antiguo)
@@ -230,6 +267,8 @@ local KillEffects = require(script.Parent.KillEffects)
 local Charms = require(script.Parent.Charms)
 local Sprays = require(script.Parent.Sprays)
 local Titles = require(script.Parent.Titles)
+local Poses = require(script.Parent.Poses)
+local PlayerCards = require(script.Parent.PlayerCards)
 
 function Shop.GetDailyOffers(day)
 	day = day or dayNumber()
@@ -257,8 +296,8 @@ function Shop.GetDailyOffers(day)
 	return offers
 end
 
--- Precio actual (con descuento si está en oferta hoy)
-function Shop.GetPrice(kind, id, day)
+-- Precio en monedas sin ofertas (nil: no se vende con monedas)
+function Shop.BasePrice(kind, id)
 	local base
 	if kind == "Skin" then
 		base = Shop.SkinPrices[id]
@@ -276,7 +315,22 @@ function Shop.GetPrice(kind, id, day)
 	elseif kind == "Title" then
 		local title = Titles.List[id]
 		base = title and title.Price
+	elseif kind == "Pose" then
+		local pose = Poses.List[id]
+		base = pose and pose.Price
+	elseif kind == "MVPIntro" then
+		local intro = Poses.Intros[id]
+		base = intro and intro.Price
+	elseif kind == "Card" then
+		local card = PlayerCards.List[id]
+		base = card and card.Price
 	end
+	return base
+end
+
+-- Precio actual (con descuento si está en oferta hoy)
+function Shop.GetPrice(kind, id, day)
+	local base = Shop.BasePrice(kind, id)
 	if not base then
 		return nil, false
 	end

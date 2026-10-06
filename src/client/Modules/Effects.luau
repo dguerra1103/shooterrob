@@ -1494,6 +1494,48 @@ function Effects.DeathPuff(position)
 	}, 3)
 end
 
+-- Premium: cortos (menos de 1,5 s) y sin tapar la pantalla
+KILL_FX.Pixel = function(position)
+	debrisBurst(position, 18, function()
+		return fxPart({
+			Size = Vector3.one * (0.35 + math.random() * 0.25),
+			Color = CONFETTI_COLORS[math.random(1, #CONFETTI_COLORS)],
+			Material = Enum.Material.Neon,
+		})
+	end, 14, 1.2)
+	flashBall(position, Color3.fromRGB(200, 120, 255), 5, 0.25)
+end
+
+KILL_FX.OroFlash = function(position)
+	flashBall(position, Color3.fromRGB(255, 210, 80), 8, 0.35)
+	local anchor = emitterAnchor(position, Vector3.yAxis, 1.6)
+	emit(anchor, {
+		Texture = TEX.Sparkle,
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 170), Color3.fromRGB(255, 180, 40)),
+		LightEmission = 1,
+		Size = seq(0.7, 0),
+		Lifetime = NumberRange.new(0.5, 1),
+		Speed = NumberRange.new(5, 11),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+	}, 26)
+end
+
+KILL_FX.ChoqueRojo = function(position)
+	-- Anillo rojo que se abre a ras de suelo y un destello
+	local ring = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 1, 1),
+		Color = Color3.fromRGB(255, 40, 50),
+		Material = Enum.Material.Neon,
+		Transparency = 0.1,
+		CFrame = CFrame.new(position - Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+	})
+	TweenService:Create(ring, TweenInfo.new(0.45, Enum.EasingStyle.Quad), { Size = Vector3.new(0.2, 11, 11), Transparency = 1 }):Play()
+	Debris:AddItem(ring, 0.5)
+	flashBall(position, Color3.fromRGB(255, 60, 60), 5, 0.3)
+end
+
 function Effects.KillEffect(effectId, position, color)
 	local fn = KILL_FX[effectId]
 	if fn then

@@ -160,6 +160,30 @@ Outfits.List = {
 	},
 }
 
+-- Trajes premium (Robux: ver Economy/Products). Mismas piezas que los demás: solo aspecto.
+Outfits.List.OperacionRoja = {
+	Name = "Operación Roja",
+	Rarity = "Legendario",
+	Class = "Clase asalto",
+	Collection = "RED OPS",
+	Body = RGB(20, 20, 22),
+	Cloth = RGB(150, 18, 26),
+	Glow = RGB(255, 50, 60),
+	Plate = RGB(40, 40, 44),
+	Pieces = { Vest = true, Pouches = true, Backpack = true, Shoulders = true, Belt = true, Knees = true, Boots = true, Gloves = true, Headset = true, Mask = true },
+}
+Outfits.List.ArticoTactico = {
+	Name = "Ártico táctico",
+	Rarity = "Épico",
+	Class = "Clase reconocimiento",
+	Collection = "ARCTIC",
+	Body = RGB(230, 236, 244),
+	Cloth = RGB(160, 175, 192),
+	Glow = RGB(90, 210, 255),
+	Plate = RGB(250, 252, 255),
+	Pieces = { Vest = true, Belt = true, Knees = true, Boots = true, Gloves = true, Visor = true, Scarf = true, Pouches = true },
+}
+
 function Outfits.Get(id)
 	return Outfits.List[id] or Outfits.List.Default
 end

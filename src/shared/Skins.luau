@@ -440,6 +440,86 @@ Skins.RarityColors = {
 	["Mítico"] = Color3.fromRGB(255, 60, 90),
 }
 
+-- Colección premium (se compran con Robux: ver Economy/Products, ItemProducts). Solo cambian el
+-- aspecto: el arma dispara, retrocede y daña exactamente igual.
+local RGB = Color3.fromRGB
+Skins.List.Inferno = {
+	Name = "Inferno",
+	Rarity = "Legendario",
+	Collection = "INFERNO",
+	Body = RGB(34, 30, 30),
+	BodyMaterial = Enum.Material.Slate,
+	Panel = RGB(70, 22, 14),
+	Accent = RGB(255, 110, 20),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = RGB(16, 12, 12),
+	Accent2 = RGB(255, 210, 60),
+	Effect = "Flame",
+}
+Skins.List.Ciber = {
+	Name = "Ciber",
+	Rarity = "Épico",
+	Collection = "CYBER",
+	Body = RGB(18, 20, 28),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = RGB(36, 40, 60),
+	Accent = RGB(0, 235, 255),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = RGB(8, 8, 14),
+	Accent2 = RGB(255, 40, 200),
+	Pulse = true,
+}
+Skins.List.ArticoTactico = {
+	Name = "Ártico táctico",
+	Rarity = "Épico",
+	Collection = "ARCTIC",
+	Camo = "Artico",
+	Body = RGB(225, 232, 240),
+	Panel = RGB(150, 165, 180),
+	Accent = RGB(90, 200, 255),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = RGB(60, 70, 84),
+	Accent2 = RGB(255, 255, 255),
+}
+Skins.List.Callejero = {
+	Name = "Callejero",
+	Rarity = "Épico",
+	Collection = "STREET",
+	Body = RGB(70, 40, 140),
+	BodyMaterial = Enum.Material.SmoothPlastic,
+	Panel = RGB(255, 210, 40),
+	Accent = RGB(255, 70, 170),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = RGB(24, 18, 40),
+	Accent2 = RGB(60, 230, 160),
+}
+Skins.List.GrietaVacio = {
+	Name = "Grieta del vacío",
+	Rarity = "Mítico",
+	Collection = "VOID",
+	Body = RGB(12, 8, 20),
+	BodyMaterial = Enum.Material.Glass,
+	Panel = RGB(40, 14, 70),
+	Accent = RGB(180, 70, 255),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = RGB(4, 2, 8),
+	Accent2 = RGB(90, 220, 255),
+	Effect = "Sparkle",
+	Pulse = true,
+}
+Skins.List.OperacionRoja = {
+	Name = "Operación Roja",
+	Rarity = "Legendario",
+	Collection = "RED OPS",
+	Body = RGB(22, 22, 24),
+	BodyMaterial = Enum.Material.Metal,
+	Panel = RGB(120, 16, 22),
+	Accent = RGB(255, 40, 50),
+	AccentMaterial = Enum.Material.Neon,
+	Dark = RGB(10, 10, 12),
+	Accent2 = RGB(230, 230, 235),
+}
+
 function Skins.Get(id)
 	return Skins.List[id] or Skins.List.Default
 end

@@ -93,6 +93,35 @@ Charms.List = {
 			part("HookEnd", V(0.05, 0.06, 0.05), V(0.07, -0.13, 0), RGB(230, 40, 50)),
 		},
 	},
+	-- Colgantes premium (Robux: ver Economy/Products)
+	Chapa = {
+		Name = "Chapa militar",
+		Rarity = "Raro",
+		Icon = "🏷️",
+		Parts = {
+			part("Tag", V(0.12, 0.17, 0.02), V(0, -0.2, 0), RGB(200, 205, 215), Enum.Material.Metal),
+			part("Hole", V(0.03, 0.03, 0.03), V(0, -0.13, 0), RGB(40, 40, 44)),
+		},
+	},
+	Bala = {
+		Name = "Bala dorada",
+		Rarity = "Raro",
+		Icon = "🔸",
+		Parts = {
+			part("Case", V(0.07, 0.15, 0.07), V(0, -0.21, 0), RGB(230, 180, 60), Enum.Material.Foil),
+			part("Tip", V(0.06, 0.07, 0.06), V(0, -0.11, 0), RGB(200, 120, 60), Enum.Material.Metal, "Ball"),
+		},
+	},
+	Calaverita = {
+		Name = "Calavera roja",
+		Rarity = "Épico",
+		Icon = "☠️",
+		Parts = {
+			part("Skull", V(0.15, 0.14, 0.13), V(0, -0.2, 0), RGB(230, 40, 50), Enum.Material.Neon, "Ball"),
+			part("EyeL", V(0.04, 0.04, 0.02), V(-0.035, -0.19, -0.065), RGB(20, 20, 25)),
+			part("EyeR", V(0.04, 0.04, 0.02), V(0.035, -0.19, -0.065), RGB(20, 20, 25)),
+		},
+	},
 	Diamante = {
 		Name = "Diamante",
 		Rarity = "Legendario",
