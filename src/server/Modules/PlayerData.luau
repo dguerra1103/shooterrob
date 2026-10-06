@@ -25,6 +25,17 @@ local Charms = require(Shared.Charms)
 local Sprays = require(Shared.Sprays)
 local Titles = require(Shared.Titles)
 local Remotes = require(Shared.Remotes)
+local Poses = require(Shared.Poses)
+local PlayerCards = require(Shared.PlayerCards)
+local Catalog = require(Shared.Economy.CosmeticCatalog)
+local Products = require(Shared.Economy.Products)
+local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
+local BattlePassConfig = require(Shared.Economy.BattlePassConfig)
+local BattlePass = require(script.Parent.BattlePass)
+local Entitlements = require(script.Parent.Entitlements)
+local Analytics = require(script.Parent.Analytics)
+
+local Rules = MonetizationConfig.Rules
 
 local PlayerData = {}
 
@@ -149,6 +160,16 @@ local function defaults()
 		Gifts = { Day = -1, Claimed = 0, Seconds = 0 }, -- regalos por tiempo jugado de hoy (ver Gifts)
 		WheelDay = -1, -- último día con giro gratis de la ruleta usado
 		WheelSpins = 0, -- giros de ruleta comprados sin usar
+		Poses = { [Poses.Default] = true }, -- poses de victoria (pantalla final)
+		EquippedPose = Poses.Default,
+		MVPIntros = { [Poses.DefaultIntro] = true }, -- intros de MVP
+		EquippedMVPIntro = Poses.DefaultIntro,
+		Cards = { [PlayerCards.Default] = true }, -- tarjetas de jugador
+		EquippedCard = PlayerCards.Default,
+		Pass = nil, -- pase de batalla por temporadas (ver BattlePass); se crea al cargar
+		SeenItems = {}, -- novedades de la tienda ya vistas (["Tipo:Id"] = true): sin etiqueta NUEVO
+		FirstPurchase = false, -- ya hizo su primera compra con Robux (bonus: tarjeta PRIMER GOLPE)
+		StarterSeen = false, -- ya vio la tarjeta grande del pack de inicio (no se repite)
 		Settings = table.clone(GameConfig.DefaultSettings),
 	}
 end
@@ -302,7 +323,20 @@ local function publicView(player, data)
 		RankSeasonName = seasonView and seasonView.Name or nil,
 		RankSeasonEndsAt = seasonView and seasonView.EndsAt or nil,
 		EventCandy = (type(data.EventProgress) == "table" and data.EventProgress.Id == GameConfig.Event.Id) and data.EventProgress.Count or 0,
-		StarterPackAvailable = Shop.StarterPack.ProductId ~= 0 and not data.StarterPack and data.Level <= Shop.StarterPack.MaxLevel,
+		StarterPackAvailable = Products.Enabled(Shop.StarterPack) and not data.StarterPack and data.Level <= MonetizationConfig.StarterPack.MaxLevel,
+		StarterPackEligible = not data.StarterPack and data.Level <= MonetizationConfig.StarterPack.MaxLevel,
+		StarterPack = data.StarterPack == true,
+		StarterSeen = data.StarterSeen == true,
+		Bundles = data.Bundles,
+		Poses = data.Poses,
+		EquippedPose = data.EquippedPose,
+		MVPIntros = data.MVPIntros,
+		EquippedMVPIntro = data.EquippedMVPIntro,
+		Cards = data.Cards,
+		EquippedCard = data.EquippedCard,
+		SeenItems = data.SeenItems,
+		FirstPurchase = data.FirstPurchase == true,
+		Pass = BattlePass.View(data),
 		BundlesAvailable = (function()
 			local list = {}
 			for _, bundle in Shop.Bundles do
@@ -357,6 +391,9 @@ local function matchOf(player, data)
 			StartRank = data.RankPoints,
 			Challenges = {},
 			Unlocks = {},
+			PassXP = 0, -- XP del pase ganada en la partida
+			PassStartXP = type(data.Pass) == "table" and data.Pass.XP or 0,
+			WeaponKills = {}, -- bajas con cada arma en la partida (oferta de después: "DOMINASTE CON...")
 		}
 		match[player] = entry
 	end
@@ -366,56 +403,44 @@ end
 -- Apunta en el resumen de la partida algo que se ha dado (solo si hay partida en marcha)
 local function noteMatch(player, data, field, value)
 	local entry = matchOf(player, data)
-	if field == "BonusCoins" or field == "Crates" then
+	if field == "BonusCoins" or field == "Crates" or field == "PassXP" then
 		entry[field] += value
 	elseif #entry[field] < 8 then
 		table.insert(entry[field], value)
 	end
 end
 
-local function grant(player, data, reward)
-	if not reward then
-		return
+-- XP del pase (con aviso al subir de nivel y apuntada en el resumen de la partida)
+local function addPassXP(player, data, amount)
+	local before, after, added = BattlePass.AddXP(data, amount)
+	if added <= 0 then
+		return 0
 	end
-	if reward.Type == "Skin" then
-		data.Skins[reward.Id] = true
-		noteMatch(player, data, "Unlocks", { Kind = "Skin", Name = Skins.Get(reward.Id).Name, Sub = "SKIN DEL PASE" })
-		Remotes.Notify:FireClient(player, "Unlock", "¡Skin desbloqueada: " .. Skins.Get(reward.Id).Name .. "!")
-	elseif reward.Type == "Outfit" then
-		data.Outfits[reward.Id] = true
-		noteMatch(player, data, "Unlocks", { Kind = "Outfit", Name = Outfits.Get(reward.Id).Name, Sub = "TRAJE DEL PASE" })
-		Remotes.Notify:FireClient(player, "Unlock", "¡Traje desbloqueado: " .. Outfits.Get(reward.Id).Name .. "!")
-	elseif reward.Type == "KillEffect" then
-		data.KillEffects[reward.Id] = true
-		noteMatch(player, data, "Unlocks", { Kind = "KillEffect", Name = KillEffects.Get(reward.Id).Name, Sub = "EFECTO DEL PASE" })
-		Remotes.Notify:FireClient(player, "Unlock", "¡Efecto desbloqueado: " .. KillEffects.Get(reward.Id).Name .. "!")
-	elseif reward.Type == "Crate" then
-		data.FreeCrates += reward.Amount or 1
-		noteMatch(player, data, "Crates", reward.Amount or 1)
-	elseif reward.Type == "Coins" then
-		data.Coins += reward.Amount
-		noteMatch(player, data, "BonusCoins", reward.Amount)
+	if match[player] then
+		noteMatch(player, data, "PassXP", added)
 	end
+	if after > before then
+		Remotes.Notify:FireClient(player, "Unlock", "🎖️ ¡NIVEL " .. after .. " DEL PASE! Reclama tus recompensas en PASE")
+	end
+	dirty[player] = true
+	return added
+end
+PlayerData.AddPassXP = function(player, amount)
+	local data = profiles[player]
+	if data then
+		local added = addPassXP(player, data, amount)
+		PlayerData.SendUpdate(player)
+		return added
+	end
+	return 0
 end
 
--- Entrega todas las recompensas del pase hasta el nivel actual que aún no se hayan reclamado
+-- Premios por nivel de cuenta después del nivel 50 (GameConfig.PostPassRewards). El pase de batalla
+-- ya no va por nivel de cuenta: tiene su propia XP y sus recompensas se reclaman (ver BattlePass).
 local function grantTierRewards(player)
 	local data = profiles[player]
 	if not data then
 		return
-	end
-	local maxTier = math.min(data.Level, #GameConfig.BattlePass)
-	for tier = 1, maxTier do
-		local t = GameConfig.BattlePass[tier]
-		local k = tostring(tier)
-		if not data.ClaimedFree[k] then
-			data.ClaimedFree[k] = true
-			grant(player, data, t.Free)
-		end
-		if data.Premium and not data.ClaimedPremium[k] then
-			data.ClaimedPremium[k] = true
-			grant(player, data, t.Premium)
-		end
 	end
 	-- Tras el pase: premio cada pocos niveles (GameConfig.PostPassRewards). BonusLevel = último nivel
 	-- ya revisado; 0 = sin empezar (los que ya estaban por encima del pase empiezan a contar desde ahora)
@@ -616,6 +641,22 @@ local function load(player)
 	if type(merged.WheelDay) ~= "number" then
 		merged.WheelDay = -1
 	end
+	-- Cosméticos nuevos (poses, intros de MVP, tarjetas): lo básico siempre, y lo equipado debe existir
+	for _, kind in { "Pose", "MVPIntro", "Card" } do
+		local spec = Catalog.Kinds[kind]
+		if type(merged[spec.Owned]) ~= "table" then
+			merged[spec.Owned] = {}
+		end
+		merged[spec.Owned][spec.Default] = true
+		if not Catalog.Owns(merged, kind, merged[spec.Equipped]) then
+			merged[spec.Equipped] = spec.Default
+		end
+	end
+	if type(merged.SeenItems) ~= "table" then
+		merged.SeenItems = {}
+	end
+	merged.FirstPurchase = merged.FirstPurchase == true
+	merged.StarterSeen = merged.StarterSeen == true
 	-- (los guardados de antes de existir RankBest: su rango actual)
 	if type(merged.RankBest) ~= "number" or (not isNew and type(data) == "table" and data.RankBest == nil) then
 		merged.RankBest = math.max(type(merged.RankBest) == "number" and merged.RankBest or 1, Ranks.Index(merged.RankPoints))
@@ -632,6 +673,8 @@ local function load(player)
 		merged.TutorialDone = true
 	end
 	merged.Premium = merged.Premium or ownsPass(player, GameConfig.PremiumPassId)
+	-- Pase de batalla de la temporada (la primera vez se pasa del pase por nivel de antes)
+	local leftovers = BattlePass.Ensure(merged)
 	player:SetAttribute("VIP", ownsPass(player, Shop.VIPPassId))
 	PlayerData.UpdatePremium(player)
 	checkPolicy(player)
@@ -660,6 +703,14 @@ local function load(player)
 		end)
 	end
 	profiles[player] = merged
+	PlayerData.PublishCosmetics(player)
+	if leftovers and #leftovers > 0 then
+		task.delay(10, function()
+			if player.Parent then
+				Remotes.Notify:FireClient(player, "Big", "🎖️ Fin de temporada: te entregamos " .. #leftovers .. " recompensas del pase que no habías reclamado")
+			end
+		end)
+	end
 	Badges.Check(player, merged)
 	PlayerData.GetLeaderstats(player).Nivel.Value = merged.Level
 	player:SetAttribute("Rank", Ranks.Index(merged.RankPoints))
@@ -908,6 +959,12 @@ function PlayerData.MatchSummary(player)
 		return nil
 	end
 	local entry = matchOf(player, data)
+	local topWeapon, topKills = nil, 0
+	for weaponName, kills in entry.WeaponKills do
+		if kills > topKills or (kills == topKills and topWeapon and weaponName < topWeapon) then
+			topWeapon, topKills = weaponName, kills
+		end
+	end
 	return {
 		XP = entry.XP,
 		Coins = entry.Coins,
@@ -922,6 +979,17 @@ function PlayerData.MatchSummary(player)
 		Crates = entry.Crates,
 		Challenges = entry.Challenges,
 		Unlocks = entry.Unlocks,
+		-- Pase de batalla: XP ganada y dónde estaba / está
+		PassXP = entry.PassXP,
+		PassStartXP = entry.PassStartXP,
+		PassNowXP = type(data.Pass) == "table" and data.Pass.XP or 0,
+		PassXPPerTier = BattlePassConfig.XPPerTier,
+		PassTiers = BattlePassConfig.Tiers,
+		PassClaimable = BattlePass.Claimable(data),
+		-- El arma con la que más bajas hizo (para la oferta pequeña de después de la partida)
+		TopWeapon = topWeapon,
+		TopWeaponKills = topKills,
+		Matches = data.Matches,
 	}
 end
 
@@ -999,7 +1067,7 @@ function PlayerData.RollSurpriseCrate(player, roll)
 		return false
 	end
 	data.CratePity = (tonumber(data.CratePity) or 0) + 1
-	local chance = config.Chance * (player:GetAttribute("VIP") and (config.VIPMultiplier or 1) or 1)
+	local chance = config.Chance * ((Rules.VIPCrates and player:GetAttribute("VIP")) and (config.VIPMultiplier or 1) or 1)
 	if (roll or math.random()) >= chance and data.CratePity < config.Pity then
 		return false
 	end
@@ -1075,10 +1143,15 @@ function PlayerData.AddXP(player, amount, reason, fixed)
 	if not data or amount <= 0 then
 		return
 	end
+	-- XP del pase: la misma XP de jugar, pero sin lo que se paga (VIP, potenciadores) ni los amigos
+	local passAmount = amount
 	if not fixed then
+		local free = xpBoost() * featuredBonus()
+		passAmount = math.floor(amount * (Rules.PassXPFromPaidBoosts and free * multiplier(player) * boosterMultiplier(player, data, "XP") or free))
 		amount = math.floor(amount * multiplier(player) * xpBoost() * boosterMultiplier(player, data, "XP") * featuredBonus())
 		matchOf(player, data).XP += amount
 	end
+	addPassXP(player, data, passAmount)
 	data.XP += amount
 	Remotes.Notify:FireClient(player, "XP", "+" .. amount .. " XP  " .. (reason or ""))
 	local leveled = false
@@ -1153,6 +1226,18 @@ function PlayerData.PublishTitle(player)
 	player:SetAttribute("TitleColor", title.Color)
 end
 
+-- Cosméticos que ven los demás (tarjeta, pose de victoria e intro de MVP): atributos del jugador que
+-- leen la escuadra, el marcador y la pantalla final
+function PlayerData.PublishCosmetics(player)
+	local data = profiles[player]
+	if not data then
+		return
+	end
+	player:SetAttribute("Card", data.EquippedCard ~= PlayerCards.Default and data.EquippedCard or nil)
+	player:SetAttribute("Pose", data.EquippedPose ~= Poses.Default and data.EquippedPose or nil)
+	player:SetAttribute("MVPIntro", data.EquippedMVPIntro ~= Poses.DefaultIntro and data.EquippedMVPIntro or nil)
+end
+
 -- Progreso de los retos diarios. stat: ver Challenges.luau. Para "Streak" amount es la racha actual.
 function PlayerData.Track(player, stat, amount, weaponName)
 	local data = profiles[player]
@@ -1177,6 +1262,7 @@ function PlayerData.Track(player, stat, amount, weaponName)
 				noteMatch(player, data, "BonusCoins", def.Coins)
 				noteMatch(player, data, "Challenges", { Text = def.Text, Goal = def.Goal, Coins = def.Coins, XP = def.XP })
 				PlayerData.AddXP(player, def.XP, "Reto diario")
+				addPassXP(player, data, BattlePassConfig.DailyMissionXP)
 			end
 		end
 	end
@@ -1211,6 +1297,7 @@ function PlayerData.Track(player, stat, amount, weaponName)
 				noteMatch(player, data, "BonusCoins", def.Coins)
 				noteMatch(player, data, "Challenges", { Text = def.Text, Goal = def.Goal, Coins = def.Coins, XP = def.XP, Weekly = true })
 				PlayerData.AddXP(player, def.XP, "Reto semanal")
+				addPassXP(player, data, BattlePassConfig.WeeklyMissionXP)
 			end
 		end
 	end
@@ -1226,7 +1313,17 @@ function PlayerData.Track(player, stat, amount, weaponName)
 			Remotes.Notify:FireClient(player, "Unlock", "¡Retos de la semana completados! " .. Challenges.WeeklyBonusCrates .. " cajas gratis 🎁")
 		end
 	end
-	if changed or weeklyChanged then
+	-- Misiones de temporada del pase
+	local seasonDone = BattlePass.Track(data, stat, amount)
+	for _, mission in seasonDone do
+		Remotes.Notify:FireClient(player, "Challenge", "🎖️ ¡MISIÓN DE TEMPORADA! " .. mission.Text .. "  +" .. mission.XP .. " XP del pase")
+		if match[player] then
+			noteMatch(player, data, "PassXP", mission.XP)
+			noteMatch(player, data, "Challenges", { Text = mission.Text, Goal = mission.Goal, Coins = 0, XP = mission.XP, Season = true })
+		end
+		dirty[player] = true
+	end
+	if changed or weeklyChanged or #seasonDone > 0 then
 		sendUpdate(player)
 	end
 end
@@ -1240,6 +1337,10 @@ function PlayerData.AddWeaponKill(player, weaponName)
 	local before = data.WeaponKills[weaponName] or 0
 	local after = before + 1
 	data.WeaponKills[weaponName] = after
+	if match[player] then
+		local kills = match[player].WeaponKills
+		kills[weaponName] = (kills[weaponName] or 0) + 1
+	end
 	local oldLevel, newLevel = Mastery.Level(before), Mastery.Level(after)
 	if newLevel > oldLevel then
 		local tier = Mastery.Tiers[newLevel]
@@ -1267,70 +1368,44 @@ end
 -- Tienda
 ---------------------------------------------------------------------------
 
+-- Compra con monedas. Lo que se vende con Robux no se puede comprar con monedas (y al revés), y las
+-- armas se desbloquean solo por nivel (MonetizationConfig.Rules.WeaponsForCoins).
+local AUTO_EQUIP = { KillEffect = true, Charm = true, Spray = true, Title = true } -- (como siempre)
 local function buyItem(player, kind, id)
 	local data = profiles[player]
 	if not data or type(kind) ~= "string" or type(id) ~= "string" then
 		return false, "Datos no cargados"
 	end
-	local price
 	if kind == "Weapon" then
 		local def = Weapons.List[id]
+		if not Rules.WeaponsForCoins then
+			return false, def and def.UnlockLevel and ("Se desbloquea en el nivel " .. def.UnlockLevel) or "No está a la venta"
+		end
 		if not def or not def.Price then
 			return false, "No está a la venta"
 		end
 		if Weapons.IsUnlocked(id, data) then
 			return false, "Ya la tienes"
 		end
-		price = def.Price
-	elseif kind == "Skin" then
-		if not Skins.List[id] then
-			return false, "No existe"
+		if data.Coins < def.Price then
+			return false, "Te faltan " .. (def.Price - data.Coins) .. " monedas"
 		end
-		if data.Skins[id] then
-			return false, "Ya la tienes"
-		end
-		price = Shop.GetPrice("Skin", id)
-	elseif kind == "Outfit" then
-		if not Outfits.List[id] then
-			return false, "No existe"
-		end
-		if data.Outfits[id] then
-			return false, "Ya lo tienes"
-		end
-		price = Shop.GetPrice("Outfit", id)
-	elseif kind == "KillEffect" then
-		if not KillEffects.List[id] then
-			return false, "No existe"
-		end
-		if data.KillEffects[id] then
-			return false, "Ya lo tienes"
-		end
-		price = Shop.GetPrice("KillEffect", id)
-	elseif kind == "Charm" then
-		if not Charms.List[id] then
-			return false, "No existe"
-		end
-		if data.Charms[id] then
-			return false, "Ya lo tienes"
-		end
-		price = Shop.GetPrice("Charm", id)
-	elseif kind == "Spray" then
-		if not Sprays.List[id] then
-			return false, "No existe"
-		end
-		if data.Sprays[id] then
-			return false, "Ya lo tienes"
-		end
-		price = Shop.GetPrice("Spray", id)
-	elseif kind == "Title" then
-		if not Titles.List[id] then
-			return false, "No existe"
-		end
-		if data.Titles[id] then
-			return false, "Ya lo tienes"
-		end
-		price = Shop.GetPrice("Title", id)
+		data.Coins -= def.Price
+		data.OwnedWeapons[id] = true
+		sendUpdate(player)
+		requestSave(player)
+		return true, "¡Comprado!"
 	end
+	if not Catalog.Kinds[kind] or not Catalog.Exists(kind, id) then
+		return false, "No existe"
+	end
+	if Catalog.Owns(data, kind, id, player:GetAttribute("VIP") == true) then
+		return false, "Ya lo tienes"
+	end
+	if Products.Item(kind, id) then
+		return false, "Se compra con Robux"
+	end
+	local price = Catalog.CoinPrice(kind, id)
 	if not price then
 		return false, "No está a la venta"
 	end
@@ -1338,28 +1413,20 @@ local function buyItem(player, kind, id)
 		return false, "Te faltan " .. (price - data.Coins) .. " monedas"
 	end
 	data.Coins -= price
-	if kind == "Weapon" then
-		data.OwnedWeapons[id] = true
-	elseif kind == "Skin" then
-		data.Skins[id] = true
-	elseif kind == "KillEffect" then
-		data.KillEffects[id] = true
-		data.EquippedKillEffect = id -- se equipa al comprarlo
-	elseif kind == "Charm" then
-		data.Charms[id] = true
-		data.EquippedCharm = id -- se equipa al comprarlo (se ve al reaparecer)
-	elseif kind == "Spray" then
-		data.Sprays[id] = true
-		data.EquippedSpray = id -- se equipa al comprarlo
-	elseif kind == "Title" then
-		data.Titles[id] = true
-		data.EquippedTitle = id
-		PlayerData.PublishTitle(player)
-	else
-		data.Outfits[id] = true
+	Catalog.Grant(data, kind, id)
+	local equipped = false
+	if AUTO_EQUIP[kind] then
+		data[Catalog.Kinds[kind].Equipped] = id
+		equipped = true
+		if kind == "Title" then
+			PlayerData.PublishTitle(player)
+		end
 	end
 	sendUpdate(player)
 	requestSave(player)
+	Analytics.Event(player, "purchase_success", { item = Catalog.Key(kind, id), coins = price })
+	Analytics.Economy(player, "Sink", price, data.Coins, "Shop", Catalog.Key(kind, id))
+	Remotes.PurchaseGranted:FireClient(player, { Type = "CoinItem", Items = { { Kind = kind, Id = id } }, Equipped = equipped, Price = price })
 	return true, "¡Comprado!"
 end
 
@@ -1385,7 +1452,13 @@ local function claimDaily(player)
 		data.FreeCrates += 1
 	end
 	if player:GetAttribute("VIP") then
-		data.FreeCrates += 1 -- caja diaria extra del VIP
+		-- (antes una caja: el azar no va ligado a un pase de pago; ahora monedas)
+		if Rules.VIPCrates then
+			data.FreeCrates += 1
+		else
+			data.Coins += Rules.VIPDailyCoins or 0
+			given += Rules.VIPDailyCoins or 0
+		end
 	end
 	sendUpdate(player)
 	-- (el evento en marcha regala también unos objetos; lo pone Event)
@@ -1405,13 +1478,16 @@ local function spinWheel(player)
 	if not data then
 		return false, "Cargando..."
 	end
+	if not Rules.Wheel then
+		return false, "No disponible"
+	end
 	if os.clock() - (lastSpin[player] or 0) < 3 then
 		return false, "Espera a que pare la ruleta"
 	end
 	local today = Shop.DayNumber()
 	if data.WheelDay ~= today then
 		data.WheelDay = today
-	elseif data.WheelSpins > 0 and not cratesRestricted[player] and not pendingReceipt[player] then
+	elseif Rules.PaidWheelSpins and data.WheelSpins > 0 and not cratesRestricted[player] and not pendingReceipt[player] then
 		-- (los giros comprados son premios al azar de pago: no donde no se permiten; y no mientras se
 		-- guarda una compra, por si hay que deshacerla)
 		data.WheelSpins -= 1
@@ -1468,6 +1544,10 @@ local function openCrate(player, crateId, useFree)
 		end
 		data.FreeCrates -= 1
 	else
+		-- (con monedas no: las monedas se venden con Robux y sería azar de pago)
+		if not Rules.CoinCrates then
+			return false, "Las cajas solo se consiguen jugando"
+		end
 		if cratesRestricted[player] then
 			return false, "Las cajas de pago no están disponibles en tu región"
 		end
@@ -1494,18 +1574,18 @@ local function openCrate(player, crateId, useFree)
 	-- Objeto aleatorio de esa rareza (skins y trajes)
 	local pool = {}
 	for id, skin in Skins.List do
-		if id ~= "Default" and not skin.Mastery and not skin.Event and skin.Rarity == rarity then
+		if id ~= "Default" and not skin.Mastery and not skin.Event and skin.Rarity == rarity and not Products.Item("Skin", id) then
 			table.insert(pool, { Kind = "Skin", Id = id })
 		end
 	end
 	for id, outfit in Outfits.List do
-		if id ~= "Default" and not outfit.Event and outfit.Rarity == rarity then
+		if id ~= "Default" and not outfit.Event and outfit.Rarity == rarity and not Products.Item("Outfit", id) then
 			table.insert(pool, { Kind = "Outfit", Id = id })
 		end
 	end
 	if #pool == 0 then
 		for id, skin in Skins.List do
-			if id ~= "Default" and not skin.Mastery and not skin.Event then
+			if id ~= "Default" and not skin.Mastery and not skin.Event and not Products.Item("Skin", id) then
 				table.insert(pool, { Kind = "Skin", Id = id })
 			end
 		end
@@ -1531,7 +1611,15 @@ local function openCrate(player, crateId, useFree)
 	return true, { Kind = prize.Kind, Id = prize.Id, Rarity = rarity, Duplicate = owned, Refund = refund }
 end
 
--- Compras con Robux (Developer Products). Idempotente: cada PurchaseId se entrega una sola vez.
+-- Compras con Robux (Developer Products). Las decide SOLO el servidor a partir del recibo de Roblox:
+--   · Idempotente: cada PurchaseId se entrega una vez (data.Purchases). Un recibo repetido se confirma
+--     sin volver a entregar.
+--   · Una compra por jugador a la vez (receiptBusy): dos recibos seguidos no se pisan.
+--   · Se entrega, se guarda y SOLO si el guardado sale bien se confirma a Roblox. Si el DataStore
+--     falla, se deshace lo entregado y Roblox lo reintenta más tarde (en este servidor o en otro, al
+--     volver a entrar): nunca se pierden Robux ni se entrega dos veces.
+--   · Si el jugador no está (se desconectó), no se confirma: se entrega cuando vuelva.
+local receiptBusy = {} -- [UserId] = true mientras se procesa un recibo suyo
 local function processReceipt(receipt)
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
 	if not player then
@@ -1541,168 +1629,40 @@ local function processReceipt(receipt)
 	if not data then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
+	local waited = 0
+	while receiptBusy[receipt.PlayerId] and waited < 30 do
+		task.wait(0.1)
+		waited += 0.1
+	end
+	if receiptBusy[receipt.PlayerId] or profiles[player] ~= data then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 	if table.find(data.Purchases, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
-	-- Qué se entrega: un pack de monedas, de revivir o el pack de inicio
-	local revivePack
-	for _, p in Shop.RevivePacks do
-		if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
-			revivePack = p
-		end
+	local resolved = Products.Resolve(receipt.ProductId)
+	if not resolved then
+		warn("[PlayerData] Producto desconocido:", receipt.ProductId)
+		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	local grant, undo, message
-	local starter = Shop.StarterPack
-	local wheel = Shop.Wheel
-	local bundle
-	for _, b in Shop.Bundles do
-		if b.ProductId ~= 0 and b.ProductId == receipt.ProductId then
-			bundle = b
-		end
-	end
-	local booster
-	for _, b in Shop.Boosters do
-		if b.ProductId ~= 0 and b.ProductId == receipt.ProductId then
-			booster = b
-		end
-	end
-	if bundle then
-		-- Pack de temporada (si ya lo tenía, Roblox ya cobró: se entregan solo las monedas). Al
-		-- deshacer solo se quita lo que se dio.
-		local repeated = data.Bundles[bundle.Id] == true
-		local had = {
-			Effect = data.KillEffects[bundle.KillEffect] == true,
-			Charm = data.Charms[bundle.Charm] == true,
-			Spray = data.Sprays[bundle.Spray] == true,
-			Outfits = {},
-		}
-		for _, outfitId in bundle.Outfits or {} do
-			had.Outfits[outfitId] = data.Outfits[outfitId] == true
-		end
-		grant = function()
-			data.Coins += bundle.Coins
-			if not repeated then
-				data.KillEffects[bundle.KillEffect] = true
-				data.Charms[bundle.Charm] = true
-				data.Sprays[bundle.Spray] = true
-				for _, outfitId in bundle.Outfits or {} do
-					data.Outfits[outfitId] = true
-				end
-				data.Bundles[bundle.Id] = true
-			end
-		end
-		undo = function()
-			data.Coins -= bundle.Coins
-			if not repeated then
-				for outfitId, hadIt in had.Outfits do
-					if not hadIt then
-						data.Outfits[outfitId] = nil
-					end
-				end
-				if not had.Effect then
-					data.KillEffects[bundle.KillEffect] = nil
-				end
-				if not had.Charm then
-					data.Charms[bundle.Charm] = nil
-				end
-				if not had.Spray then
-					data.Sprays[bundle.Spray] = nil
-				end
-				data.Bundles[bundle.Id] = nil
-			end
-		end
-		message = repeated and ("+" .. bundle.Coins .. " MONEDAS") or (bundle.Icon .. " ¡" .. bundle.Name .. " DESBLOQUEADO!")
-	elseif booster then
-		local seconds = booster.Minutes * 60
-		grant = function()
-			data[booster.Field] = (tonumber(data[booster.Field]) or 0) + seconds
-		end
-		undo = function()
-			data[booster.Field] = math.max(0, (tonumber(data[booster.Field]) or 0) - seconds)
-		end
-		message = booster.Icon .. " ¡" .. string.upper(booster.Name) .. " " .. booster.Minutes .. " MIN!"
-	elseif wheel.SpinProductId ~= 0 and receipt.ProductId == wheel.SpinProductId then
-		grant = function()
-			data.WheelSpins += wheel.SpinsPerPurchase
-		end
-		undo = function()
-			data.WheelSpins -= wheel.SpinsPerPurchase
-		end
-		message = "+" .. wheel.SpinsPerPurchase .. " GIROS DE RULETA"
-	elseif starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId and data.StarterPack then
-		-- Ya lo tenía (compra repetida): Roblox ya cobró, así que se entregan solo las monedas
-		grant = function()
-			data.Coins += starter.Coins
-		end
-		undo = function()
-			data.Coins -= starter.Coins
-		end
-		message = "+" .. starter.Coins .. " MONEDAS"
-	elseif starter.ProductId ~= 0 and receipt.ProductId == starter.ProductId then
-		-- Al deshacer solo se quita lo que se dio (no se vuelve a un saldo antiguo:
-		-- mientras se guardaba pudo ganar o gastar monedas)
-		local had = {
-			Outfit = data.Outfits[starter.Outfit] == true,
-			Skin = data.Skins[starter.Skin] == true,
-			Effect = data.KillEffects[starter.KillEffect] == true,
-		}
-		grant = function()
-			data.Coins += starter.Coins
-			data.Outfits[starter.Outfit] = true
-			data.Skins[starter.Skin] = true
-			data.KillEffects[starter.KillEffect] = true
-			data.StarterPack = true
-		end
-		undo = function()
-			data.Coins -= starter.Coins
-			if not had.Outfit then
-				data.Outfits[starter.Outfit] = nil
-			end
-			if not had.Skin then
-				data.Skins[starter.Skin] = nil
-			end
-			if not had.Effect then
-				data.KillEffects[starter.KillEffect] = nil
-			end
-			data.StarterPack = false
-		end
-		message = "¡PACK DE INICIO DESBLOQUEADO!"
-	elseif revivePack then
-		local pack = revivePack
-		grant = function()
-			data.Revives += pack.Revives
-		end
-		undo = function()
-			data.Revives -= pack.Revives
-		end
-		message = "+" .. pack.Revives .. " REVIVIR INSTANTÁNEO"
-	else
-		local pack
-		for _, p in Shop.CoinPacks do
-			if p.ProductId ~= 0 and p.ProductId == receipt.ProductId then
-				pack = p
-			end
-		end
-		if not pack then
-			warn("[PlayerData] Producto desconocido:", receipt.ProductId)
-			return Enum.ProductPurchaseDecision.NotProcessedYet
-		end
-		grant = function()
-			data.Coins += pack.Coins
-		end
-		undo = function()
-			data.Coins -= pack.Coins
-		end
-		message = "+" .. pack.Coins .. " MONEDAS"
-	end
+	receiptBusy[receipt.PlayerId] = true
 	pendingReceipt[player] = true
-	grant()
+	-- (la temporada del pase al día antes de entregar algo del pase)
+	BattlePass.Ensure(data)
+	local plan = Entitlements.Plan(data, resolved, { IsVIP = player:GetAttribute("VIP") == true, Now = os.time() })
+	if not plan then
+		receiptBusy[receipt.PlayerId] = nil
+		pendingReceipt[player] = nil
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local undo = Entitlements.Apply(data, plan)
 	table.insert(data.Purchases, receipt.PurchaseId)
 	while #data.Purchases > MAX_PURCHASE_LOG do
 		table.remove(data.Purchases, 1)
 	end
 	local saved = store and not noSave[player] and save(player)
 	pendingReceipt[player] = nil
+	receiptBusy[receipt.PlayerId] = nil
 	if not saved then
 		-- No se pudo guardar: deshacemos y Roblox lo reintentará más tarde (así nunca se pierden Robux)
 		undo()
@@ -1712,8 +1672,18 @@ local function processReceipt(receipt)
 		end
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	Remotes.Notify:FireClient(player, "Big", message)
+	PlayerData.PublishCosmetics(player)
+	Remotes.Notify:FireClient(player, "Big", plan.Message)
+	Remotes.PurchaseGranted:FireClient(player, plan.Reveal)
 	sendUpdate(player)
+	local robux = resolved.Def and resolved.Def.Robux or 0
+	Analytics.Event(player, plan.Event, { product = resolved.Type, key = resolved.Key, robux = robux })
+	if plan.Event ~= "purchase_success" then
+		Analytics.Event(player, "purchase_success", { product = resolved.Type, key = resolved.Key, robux = robux })
+	end
+	if plan.Coins > 0 then
+		Analytics.Economy(player, "Source", plan.Coins, data.Coins, "IAP", resolved.Type .. ":" .. tostring(resolved.Key))
+	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -1756,9 +1726,18 @@ function PlayerData.Init()
 	task.spawn(function()
 		while true do
 			ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
-			-- (la temporada de rango puede acabar con el servidor encendido)
-			for player in profiles do
+			-- (la temporada de rango y la del pase pueden acabar con el servidor encendido)
+			for player, data in profiles do
 				PlayerData.CheckSeason(player)
+				local before = type(data.Pass) == "table" and data.Pass.Season
+				local leftovers = BattlePass.Ensure(data)
+				if type(data.Pass) == "table" and data.Pass.Season ~= before then
+					dirty[player] = true
+					sendUpdate(player)
+					if leftovers and #leftovers > 0 then
+						Remotes.Notify:FireClient(player, "Big", "🎖️ ¡Nueva temporada! Te entregamos " .. #leftovers .. " recompensas del pase que no habías reclamado")
+					end
+				end
 			end
 			task.wait(60)
 		end
@@ -2136,6 +2115,92 @@ function PlayerData.Init()
 	Remotes.OpenCrate.OnServerInvoke = openCrate
 	MarketplaceService.ProcessReceipt = processReceipt
 
+	-- Equipar cualquier cosmético (tarjeta, pose, intro de MVP... y también los de siempre). El
+	-- servidor comprueba que lo tienes; si no, no hace nada.
+	Remotes.EquipCosmetic.OnServerEvent:Connect(function(player, kind, id)
+		local data = profiles[player]
+		if not data or type(kind) ~= "string" or type(id) ~= "string" or not Catalog.Kinds[kind] then
+			return
+		end
+		if not Catalog.Equippable(kind, id) or not Catalog.Owns(data, kind, id, player:GetAttribute("VIP") == true) then
+			return
+		end
+		data[Catalog.Kinds[kind].Equipped] = id
+		dirty[player] = true
+		if kind == "Skin" and PlayerData.OnSkinChanged then
+			PlayerData.OnSkinChanged(player)
+		elseif kind == "Outfit" and PlayerData.OnOutfitChanged then
+			PlayerData.OnOutfitChanged(player, id)
+		elseif kind == "Title" then
+			PlayerData.PublishTitle(player)
+		end
+		PlayerData.PublishCosmetics(player)
+		sendUpdate(player)
+	end)
+
+	-- Ya vio novedades de la tienda (quita NUEVO) o la tarjeta del pack de inicio ("Starter")
+	Remotes.MarkSeen.OnServerEvent:Connect(function(player, keys)
+		local data = profiles[player]
+		if not data or type(keys) ~= "table" then
+			return
+		end
+		local changed = false
+		for i, key in keys do
+			if i > 60 then
+				break
+			end
+			if key == "Starter" then
+				changed = changed or not data.StarterSeen
+				data.StarterSeen = true
+			elseif type(key) == "string" and Catalog.IsNewItem(key) and not data.SeenItems[key] then
+				data.SeenItems[key] = true
+				changed = true
+			end
+		end
+		if changed then
+			dirty[player] = true
+			sendUpdate(player)
+		end
+	end)
+
+	-- Reclamar recompensas del pase: (nivel, "Free"|"Premium") o ("All")
+	local lastClaim = {}
+	Remotes.ClaimPass.OnServerInvoke = function(player, tier, track)
+		local data = profiles[player]
+		if not data then
+			return false, "Cargando..."
+		end
+		local now = os.clock()
+		if now - (lastClaim[player] or 0) < 0.25 then
+			return false, "Espera un momento"
+		end
+		lastClaim[player] = now
+		BattlePass.Ensure(data)
+		local granted
+		if tier == "All" then
+			granted = BattlePass.ClaimAll(data)
+			if #granted == 0 then
+				return false, "No hay nada por reclamar"
+			end
+		else
+			local one, err = BattlePass.Claim(data, tier, track)
+			if not one then
+				return false, err
+			end
+			granted = { one }
+		end
+		dirty[player] = true
+		requestSave(player)
+		PlayerData.PublishCosmetics(player)
+		sendUpdate(player)
+		Analytics.Event(player, "battlepass_claim", { count = #granted, tier = BattlePass.Tier(data) })
+		return true, granted
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		lastClaim[player] = nil
+	end)
+	Analytics.Init()
+
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
 		if not purchased then
 			return
@@ -2144,11 +2209,16 @@ function PlayerData.Init()
 		if not data then
 			return
 		end
-		if passId == GameConfig.PremiumPassId and GameConfig.PremiumPassId ~= 0 then
+		-- Pase premium antiguo (Game Pass): da el premium de la temporada que lo admita (LegacyPremium)
+		if passId == GameConfig.PremiumPassId and GameConfig.PremiumPassId ~= 0 and ownsPass(player, passId) then
 			data.Premium = true
+			local season = BattlePassConfig.Current()
+			if season and season.LegacyPremium and type(data.Pass) == "table" and data.Pass.Season == season.Id then
+				data.Pass.HasPremium = true
+			end
 			Remotes.Notify:FireClient(player, "Big", "¡PASE PREMIUM ACTIVADO!")
-			grantTierRewards(player)
-		elseif passId == Shop.VIPPassId and Shop.VIPPassId ~= 0 then
+		elseif passId == Shop.VIPPassId and Shop.VIPPassId ~= 0 and ownsPass(player, passId) then
+			-- (el servidor comprueba que de verdad es suyo: no se fía del aviso)
 			player:SetAttribute("VIP", true)
 			PlayerData.PublishTitle(player)
 			Remotes.Notify:FireClient(player, "Big", "¡VIP ACTIVADO! x2 XP y monedas")

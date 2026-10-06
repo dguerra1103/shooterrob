@@ -44,6 +44,10 @@ local EVENTS = {
 	"SelectClass", -- cliente -> servidor: elegir una de las 5 clases (arma principal, secundaria y ventaja)
 	"EditClass", -- cliente -> servidor: cambiar una pieza de una clase (índice, "Primary"|"Secondary"|"Perk", valor)
 	"SetReady", -- cliente -> servidor: listo para jugar (buscando partida) o no (estado en la escuadra)
+	"PurchaseGranted", -- servidor -> cliente: compra entregada de verdad (escena de compra)
+	"EquipCosmetic", -- cliente -> servidor: equipar un cosmético cualquiera (tipo, id); el servidor comprueba que lo tienes
+	"MarkSeen", -- cliente -> servidor: ya vio unas novedades de la tienda (quita la etiqueta NUEVO)
+	"Track", -- cliente -> servidor: evento de analítica de la tienda (solo los permitidos, con límite)
 }
 local FUNCTIONS = {
 	"GetData",
@@ -57,6 +61,7 @@ local FUNCTIONS = {
 	"SpinWheel", -- girar la ruleta diaria (gratis o gastando un giro comprado)
 	"ClaimAchievement", -- reclamar el premio de un logro (GameConfig.Achievements)
 	"ClaimGroup", -- reclamar el premio por unirse al grupo (GameConfig.Group)
+	"ClaimPass", -- reclamar recompensas del pase (nivel y vía, o "All")
 }
 
 local Remotes = {}

@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Shop = require(Shared.Shop)
+local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
 local Sounds = require(Shared.Sounds)
 
 local ClientState = require(script.Parent.ClientState)
@@ -225,8 +226,9 @@ local function tryRevive()
 		return
 	end
 	if revivesLeft() <= 0 then
+		-- (revivir donde caíste es ventaja en combate: ya no se vende con Robux, solo se gana jugando)
 		local pack = Shop.RevivePacks[1]
-		if pack and pack.ProductId ~= 0 then
+		if MonetizationConfig.Rules.SellRevives and pack and pack.ProductId ~= 0 then
 			MarketplaceService:PromptProductPurchase(player, pack.ProductId)
 		else
 			toast("No te quedan revivir")
@@ -463,7 +465,7 @@ local function update()
 	local reviveWindow = math.clamp(1 - elapsed / GameConfig.RespawnTime, 0, 1)
 	refs.ReviveFill.Size = UDim2.fromScale(reviveWindow, 1)
 	local left = revivesLeft()
-	refs.ReviveBadge.Text = left > 0 and (left .. " restantes") or "¡Consigue más!"
+	refs.ReviveBadge.Text = left > 0 and (left .. " restantes") or (MonetizationConfig.Rules.SellRevives and "¡Consigue más!" or "Se ganan jugando")
 	refs.ReviveButton.AutoButtonColor = reviveWindow > 0
 	-- Regenerar: la barra se llena hasta que se puede pulsar
 	local charge = math.clamp(elapsed / GameConfig.RespawnNowDelay, 0, 1)

@@ -10,6 +10,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Weapons = require(Shared.Weapons)
+-- (las armas se desbloquean solo por nivel, igual para todos: no se compran)
+local WEAPONS_FOR_COINS = require(Shared.Economy.MonetizationConfig).Rules.WeaponsForCoins
 local Mastery = require(Shared.Mastery)
 
 local Modules = script.Parent.Parent.Parent
@@ -259,7 +261,7 @@ local function renderWeapon(animate)
 		actionLabel.Text = "EQUIPAR EN CLASE " .. editClass
 		actionButton.BackgroundColor3 = Colors.Yellow
 		actionLabel.TextColor3 = DARK
-	elseif def.Price then
+	elseif def.Price and WEAPONS_FOR_COINS then
 		actionLabel.Text = string.format("COMPRAR  🪙 %d", def.Price)
 		actionButton.BackgroundColor3 = (data and (data.Coins or 0) >= def.Price) and Colors.Yellow or Colors.PanelLight
 		actionLabel.TextColor3 = (data and (data.Coins or 0) >= def.Price) and DARK or Colors.TextDim
@@ -342,7 +344,7 @@ local function act()
 			Remotes.EditClass:FireServer(editClass, slotField(), name)
 		end)
 		Transition.Pulse(iconHolder, 1.08, 0.2)
-	elseif def.Price then
+	elseif def.Price and WEAPONS_FOR_COINS then
 		busy = true
 		local ok, result, message = pcall(function()
 			return Remotes.BuyItem:InvokeServer("Weapon", name)

@@ -19,6 +19,7 @@ local Ranks = require(Shared.Ranks)
 local Charms = require(Shared.Charms)
 local Sprays = require(Shared.Sprays)
 local Titles = require(Shared.Titles)
+local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -1194,7 +1195,7 @@ local function buildWeaponsPage(data)
 					Remotes.SetSecondary:FireServer(weaponName)
 				end
 			end)
-		elseif def.Price then
+		elseif def.Price and MonetizationConfig.Rules.WeaponsForCoins then
 			button.Text = "🔒 Nv " .. def.UnlockLevel .. "  ·  " .. coinsText(def.Price)
 			button.BackgroundColor3 = data.Coins >= def.Price and Color3.fromRGB(230, 140, 20) or GREY
 			button.Activated:Connect(function()
