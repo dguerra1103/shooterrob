@@ -12591,7 +12591,7 @@ for _, module in script.Parent.MapDefs:GetChildren() do
 end
 
 -- Orden de rotación (también son las opciones de la votación)
-MapBuilder.Order = { "Construction", "Coastal", "Terminal", "MallRush", "RooftopDistrict", "MetroYard" }
+MapBuilder.Order = { "Construction", "Coastal", "Terminal", "MallRush", "RooftopDistrict", "MetroYard", "DesertBase" }
 
 MapBuilder.Current = nil
 
@@ -14312,6 +14312,493 @@ return Props
           </Item>
           <Item class="ModuleScript" referent="60">
             <Properties>
+              <string name="Name">DesertBase</string>
+              <string name="Source"><![CDATA[-- DESERT BASE (5v5 · Duelo por equipos · Buscar y destruir): base militar en el desierto. El sitio
+-- A está en el parque de vehículos (marquesina al norte) y el B dentro del almacén (sur). En medio,
+-- el patio de armas con el cuartel general (azotea a 9 con antena) y la torre de agua; por los
+-- lados, los barracones (norte), las torres de vigilancia y el depósito de combustible (sur).
+local T = require(script.Parent.Parent.TacKit)
+local Lighting = require(script.Lighting)
+local Geometry = require(script.Geometry)
+local Props = require(script.Props)
+
+local Map = {
+	Id = "DesertBase",
+	Name = "Desert Base",
+	Icon = "🏜️",
+	Description = "Base militar en el desierto · 5 contra 5",
+	Realistic = true,
+	Bomb = true,
+	Palette = "DesertBase",
+	Ambience = "Desert",
+	Modes = { "TDM", "SND" },
+	RecommendedPlayers = 10,
+	Bounds = Vector3.new(300, 70, 240),
+}
+
+Map.Lighting = Lighting.Default
+Map.LightingVariants = Lighting.Variants
+
+local V = Vector3.new
+local CF = CFrame.new
+
+function Map.Build()
+	local folder = T.begin(Map)
+	Geometry.build(T)
+	Props.build(T)
+
+	local redBase = CFrame.lookAt(V(-140, 0, 0), V(-100, 0, 0))
+	local points = { V(-8, 0, 2), V(-4, 0, -3), V(0, 0, 2), V(4, 0, -3), V(8, 0, 2) }
+	T.spawnZone(1, redBase, { Size = Vector2.new(24, 14), Points = points })
+	T.spawnZone(2, T.mirrorCFrame(redBase), { Size = Vector2.new(24, 14), Points = points })
+	T.flagBase(1, CF(-136, 0, -34))
+	T.flagBase(2, CF(136, 0, -34))
+
+	T.site(V(0, 0, -78), "A")
+	T.site(V(0, 0, 80), "B", { Color = Color3.fromRGB(46, 110, 220) })
+
+	T.zone(V(0, 0, -25), 8, 1)
+	T.zone(V(0, 0, 80), 9, 2)
+	T.zone(V(-76, 0, -6), 8, 3)
+	T.zone(V(0, 0, -78), 9, 4)
+	T.zone(V(76, 0, -6), 8, 5)
+
+	T.callout("PARQUE DE VEHÍCULOS", CF(0, 6, -80), V(76, 12, 44))
+	T.callout("ALMACÉN", CF(0, 7, 82), V(76, 14, 52))
+	T.callout("CUARTEL", CF(0, 4, 0), V(28, 9, 32))
+	T.callout("AZOTEA DEL CUARTEL", CF(0, 12, 0), V(28, 8, 32))
+	T.callout("TORRE DE AGUA", CF(0, 4, -44), V(16, 10, 16))
+	T.callout("HELIPUERTO", CF(0, 4, 36), V(24, 10, 24))
+	for _, m in { -1, 1 } do
+		local function at(x, y, z)
+			return CF(m * x, y, z)
+		end
+		T.callout("PATIO", at(60, 4, 4), V(60, 10, 70))
+		T.callout("BARRACONES", at(78, 4, -84), V(50, 10, 54))
+		T.callout("TORRE", at(54, 14, -44), V(8, 8, 8))
+		T.callout("COMBUSTIBLE", at(78, 4, 84), V(50, 10, 60))
+		T.callout("CONTROL", at(110, 4, 0), V(20, 10, 90))
+	end
+
+	for _, p in {
+		V(-136, 0.5, -34), V(-110, 0.5, -60), V(-110, 0.5, 60), V(-80, 0.5, -84), V(-74, 0.5, -70),
+		V(-54, 12.5, -44), V(-60, 0.5, 0), V(-40, 0.5, -40), V(-40, 0.5, 40), V(-26, 0.5, -74),
+		V(-8, 9.5, -12), V(-24, 0.5, 90), V(-74, 6.5, 70), V(-60, 0.5, 62), V(-20, 0.5, 8),
+	} do
+		T.ffa(p)
+		T.ffa(T.mirrorPoint(p))
+	end
+	for _, spot in {
+		{ V(-54, 12, -44), V(0, 0, -70) }, -- torre, al parque de vehículos
+		{ V(-10, 9, 10), V(0, 0, 40) }, -- azotea del cuartel, al helipuerto
+		{ V(-74, 6, 70), V(-38, 0, 80) }, -- pasarela del combustible, a la puerta del almacén
+		{ V(-60, 0, -4), V(0, 0, 0) }, -- patio, al cuartel
+	} do
+		T.botSpot(spot[1], spot[2])
+		T.botSpot(T.mirrorPoint(spot[1]), T.mirrorPoint(spot[2]))
+	end
+
+	T.Kit.bounds(Map.Bounds.X, Map.Bounds.Z, Map.Bounds.Y)
+	return folder
+end
+
+return Map
+]]></string>
+            </Properties>
+            <Item class="ModuleScript" referent="61">
+              <Properties>
+                <string name="Name">Geometry</string>
+                <string name="Source"><![CDATA[-- DESERT BASE · geometría jugable (blockout). Base militar vallada en el desierto:
+--
+--   z -116 ═══════════════════════ muro de hormigón (T-wall) ═══════════════════════════════
+--          BARRACONES (oeste)  ┌── PARQUE DE VEHÍCULOS (marquesina, sitio A) ──┐  BARRACONES (este)
+--   z  -58 torre ▲             └───────────────────────────────────────────────┘          ▲ torre
+--  BASE    control ─ HESCO ─ PATIO DE ARMAS ── torre de agua ── HQ (azotea 9, antena) ── ... BASE
+--  ROJA    calle interior                         helipuerto                               AZUL
+--   z   56 DEPÓSITO DE         ┌──────────────── ALMACÉN (sitio B) ──────────────┐   DEPÓSITO DE
+--          COMBUSTIBLE         │                                                 │   COMBUSTIBLE
+--   z  116 ═════════════════════════════════════════════════════════════════════════════════
+--
+-- Simétrico en X = 0. Alturas: suelo 0, azotea del cuartel general 9, plataforma del depósito de
+-- combustible 6 y torres de vigilancia 12.
+local Geometry = {}
+
+local V = Vector3.new
+local CF = CFrame.new
+
+local HQ_TOP = 9
+local TOWER = 12
+local GANTRY = 6
+
+function Geometry.build(T)
+	local G = T.G
+	local M = Enum.Material
+	local door = G.door
+
+	T.terrain(M.Sand, 1400, 1400, CF(0, 0, 0))
+	G.floor(CF(0, 0, 0), 304, 244, "Sand", 1)
+	-- Losas: parque de vehículos, patio de armas y almacén
+	G.deco("MotorPoolPad", V(80, 0.12, 50), CF(0, 0.06, -80), "Pad").CastShadow = false
+	G.deco("ParadePad", V(120, 0.1, 100), CF(0, 0.05, 0), "Asphalt").CastShadow = false
+	for _, x in { -40, -20, 20, 40 } do
+		G.paintLine(V(x, 0.1, -46), V(x, 0.1, 46), 0.4, "Paint")
+	end
+	-- Helipuerto (pintado) entre el cuartel y el almacén
+	G.deco("Helipad", V(0.1, 22, 22), CF(0, 0.12, 36) * CFrame.Angles(0, 0, math.pi / 2), "Paint").Shape = Enum.PartType.Cylinder
+	G.deco("HelipadInner", V(0.1, 20.4, 20.4), CF(0, 0.13, 36) * CFrame.Angles(0, 0, math.pi / 2), "Asphalt").Shape = Enum.PartType.Cylinder
+	for _, spec in { { -2.4, 0, 0.8, 8 }, { 2.4, 0, 0.8, 8 }, { 0, 0, 4, 0.8 } } do
+		G.deco("HelipadH", V(spec[3], 0.05, spec[4]), CF(spec[1], 0.16, 36 + spec[2]), "Paint").CastShadow = false
+	end
+
+	---------------------------------------------------------------------------
+	-- CUARTEL GENERAL (HQ): dos salas, puertas desplazadas, azotea a 9 con antena
+	---------------------------------------------------------------------------
+	G.shell(CF(0, 0, 0), 28, 32, HQ_TOP, "Building", {
+		Front = { door(-8, 4, 7), door(8, 4, 7) },
+		Back = { door(-8, 4, 7), door(8, 4, 7) },
+		Left = { door(-8, 4, 7), door(8, 4, 7) },
+		Right = { door(-8, 4, 7), door(8, 4, 7) },
+	}, { Frame = "MilGreenDark" })
+	G.wall(CF(0, 0, 0), 26.2, HQ_TOP, "Tan", { door(0, 4, 7) })
+	-- Consolas (cortan la línea de puerta a puerta en cada sala)
+	for _, z in { -8, 8 } do
+		G.solid("Console", V(4, 5.4, 7), CF(0, 0, z), "MilGreenDark")
+		G.deco("ConsoleScreen", V(4.1, 1.4, 6), CF(0, 4.2, z), { Color3.fromRGB(80, 200, 120), M.Neon }).CastShadow = false
+	end
+	G.floor(CF(0, HQ_TOP, 0), 28, 32, "Roof", 1)
+	G.deco("HQFloor", V(27, 0.1, 31), CF(0, 0.05, 0), "Concrete").CastShadow = false
+	-- Pretil de sacos en la azotea (hueco al oeste y al este donde llegan las escaleras)
+	T.cap(T.sandbags(V(-13, HQ_TOP, -15), V(13, HQ_TOP, -15), 2.2))
+	T.cap(T.sandbags(V(-13, HQ_TOP, 15), V(13, HQ_TOP, 15), 2.2))
+	for _, x in { -13, 13 } do
+		T.cap(T.sandbags(V(x, HQ_TOP, -14), V(x, HQ_TOP, -4.6), 2.2))
+		T.cap(T.sandbags(V(x, HQ_TOP, 0.6), V(x, HQ_TOP, 14), 2.2))
+	end
+	T.cap(T.radioMast(CF(0, HQ_TOP, 0), 26))
+	T.cap(G.solid("RoofHut", V(6, 4.5, 4), CF(0, HQ_TOP, -8), "Building"))
+	T.cap(G.solid("RoofHut", V(6, 4.5, 4), CF(0, HQ_TOP, 8), "Building"))
+
+	---------------------------------------------------------------------------
+	-- PARQUE DE VEHÍCULOS (A): marquesina sobre pilares
+	---------------------------------------------------------------------------
+	T.cap(G.box("MotorPoolRoof", V(76, 0.8, 44), CF(0, 10.4, -80), "Roof"))
+	G.deco("MotorPoolFascia", V(76.4, 1.4, 0.4), CF(0, 9.6, -57.8), "MilGreenDark")
+	for _, x in { -36, -12, 12, 36 } do
+		for _, z in { -100, -60 } do
+			G.column(CF(x, 0, z), 10, 1.2, "SteelDark")
+		end
+	end
+
+	---------------------------------------------------------------------------
+	-- ALMACÉN (B): nave con portones al norte, puertas laterales y lucernarios
+	---------------------------------------------------------------------------
+	G.shell(CF(0, 0, 82), 76, 52, 14, "Tan", {
+		Front = { door(-20, 8, 9), door(20, 8, 9) },
+		Back = {},
+		Left = { door(-2, 8, 9) },
+		Right = { door(-2, 8, 9) },
+	}, { Frame = "MilGreenDark" })
+	G.deco("WarehouseFloor", V(75, 0.1, 51), CF(0, 0.05, 82), "Concrete").CastShadow = false
+	T.cap(G.slab(CF(0, 14.5, 82), 76, 52, "Roof", { { -18, 0, 10, 34 }, { 18, 0, 10, 34 } }))
+	for _, x in { -18, 18 } do
+		local sky = G.deco("WarehouseSkylight", V(10, 0.3, 34), CF(x, 14.8, 82), "Glass")
+		sky.Transparency = 0.4
+		T.cap(sky)
+	end
+
+	---------------------------------------------------------------------------
+	-- Torre de agua (centro norte): corta la línea entre las dos torres de vigilancia
+	---------------------------------------------------------------------------
+	-- Búnker de comunicaciones con la torre de agua encima: corta la línea norte del patio y, con el
+	-- depósito, la de torre de vigilancia a torre de vigilancia
+	T.cap(G.solid("CommsBunker", V(12, 6, 27), CF(0, 0, -41.5), "Concrete"))
+	G.deco("BunkerBand", V(12.2, 0.8, 27.2), CF(0, 5, -41.5), "MilGreenDark").CastShadow = false
+	G.deco("BunkerDoor", V(4, 4.6, 0.2), CF(0, 2.3, -27.95), "SteelDark")
+	T.cap(T.waterTower(CF(0, 6, -44), 8, 9))
+	-- Taller del parque de vehículos (fondo de A): de lado a lado no se ve por detrás de A
+	T.cap(G.solid("Workshop", V(4, 7.5, 27.4), CF(0, 0, -102.7), "Building"))
+	G.deco("WorkshopBand", V(4.2, 0.8, 27.6), CF(0, 6.6, -102.7), "Red").CastShadow = false
+	T.cap(G.solid("Generator", V(8, 5.6, 13), CF(0, 0, -62.5), "MilGreen"))
+	-- Helicóptero en el helipuerto (corta la línea sur del patio)
+	T.cap(T.helicopter(CF(0, 0, 33)))
+
+	-- Muros perimetrales norte y sur
+	for _, z in { -117, 117 } do
+		T.cap(T.tWall(V(-150, 0, z), V(150, 0, z), 9))
+	end
+
+	T.mirrored("DesertHalf", function()
+		Geometry.half(T)
+	end)
+end
+
+-- Mitad del Rojo (X < 0)
+function Geometry.half(T)
+	local G = T.G
+
+	------------------------------------------------------------------
+	-- BASE: caseta cerrada (barracón de entrada) y muro trasero
+	------------------------------------------------------------------
+	T.spawnHouse({ Back = -150, Front = -122.5, Half = 24, Height = 9, Look = "Building", RoofLook = "Roof", Stripe = "Red" })
+	for _, seg in { { -117, -24 }, { 24, 117 } } do
+		T.cap(T.tWall(V(-149.4, 0, seg[1]), V(-149.4, 0, seg[2]), 9))
+	end
+
+	------------------------------------------------------------------
+	-- Escalera a la azotea del cuartel general (por el oeste)
+	------------------------------------------------------------------
+	G.stairs(V(-30, 0, -2), V(-14, HQ_TOP, -2), 4.4, "Concrete", { Rails = "Both", Cap = true, Closed = true })
+
+	------------------------------------------------------------------
+	-- BARRACONES (norte): dos barracones que se cruzan por dentro
+	------------------------------------------------------------------
+	T.barrack(T, CF(-80, 0, -98), 30, 12)
+	T.barrack(T, CF(-74, 0, -70), 30, 12, { Awning = false })
+
+	------------------------------------------------------------------
+	-- TORRE DE VIGILANCIA (norte, junto al patio): escalera desde el sur
+	------------------------------------------------------------------
+	local _, roof, walls = T.watchtower(CF(-54, 0, -44), TOWER, "Back")
+	T.cap(roof)
+	T.cap(walls)
+	G.stairs(V(-54, 0, -24.6), V(-54, TOWER, -40.6), 3.6, "Wood", { Rails = "Both", Cap = true, RailLook = "WoodDark" })
+
+	------------------------------------------------------------------
+	-- DEPÓSITO DE COMBUSTIBLE (sur): pasarela de carga a 6 con escalera
+	------------------------------------------------------------------
+	G.floor(CF(-74, GANTRY, 70), 16, 6, "Deck", 1.4)
+	for _, x in { -81.5, -66.5 } do
+		for _, z in { 67.5, 72.5 } do
+			G.column(CF(x, 0, z), GANTRY - 1.4, 0.6, "SteelDark")
+		end
+	end
+	G.railing(V(-82, GANTRY, 72.8), V(-66, GANTRY, 72.8), "Yellow", 3.2, { Cap = true })
+	G.railing(V(-82, GANTRY, 67.2), V(-66, GANTRY, 67.2), "Yellow", 3.2, { Cap = true })
+	G.railing(V(-81.8, GANTRY, 67.2), V(-81.8, GANTRY, 72.8), "Yellow", 3.2, { Cap = true })
+	G.stairs(V(-56, 0, 69), V(-66, GANTRY, 69), 3.6, "Steel", { Rails = "Both", Cap = true })
+end
+
+return Geometry
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="62">
+              <Properties>
+                <string name="Name">Lighting</string>
+                <string name="Source"><![CDATA[-- DESERT BASE · luz. Sol alto y seco (sombras marcadas, cielo pálido con calima); variantes de
+-- atardecer anaranjado y de noche (focos del patio encendidos).
+local RGB = Color3.fromRGB
+local V = Vector3.new
+
+local Lighting = {}
+
+Lighting.Default = {
+	ClockTime = 13.4,
+	Latitude = 28,
+	Brightness = 3.2,
+	Exposure = -0.05,
+	Ambient = RGB(120, 108, 92),
+	OutdoorAmbient = RGB(170, 156, 136),
+	ShadowSoftness = 0.12,
+	Atmosphere = { Density = 0.34, Offset = 0.15, Color = RGB(232, 214, 184), Decay = RGB(176, 150, 112), Glare = 0.3, Haze = 1.8 },
+	Color = { Saturation = 0.06, Contrast = 0.14, Brightness = 0.01, Tint = RGB(255, 246, 232) },
+	Bloom = { Intensity = 0.35, Size = 22, Threshold = 2 },
+	Clouds = 0.1,
+	CloudColor = RGB(255, 248, 236),
+	SunRays = 0.08,
+	Wind = V(14, 0, 4),
+	TerrainColors = { Sand = RGB(214, 188, 140), Sandstone = RGB(176, 128, 92) },
+}
+
+Lighting.Variants = {
+	{
+		Name = "Atardecer",
+		Chance = 0.3,
+		ClockTime = 17.9,
+		Brightness = 2.4,
+		Ambient = RGB(124, 92, 80),
+		OutdoorAmbient = RGB(180, 128, 106),
+		Atmosphere = { Density = 0.36, Offset = 0.1, Color = RGB(250, 172, 120), Decay = RGB(170, 96, 80), Glare = 0.7, Haze = 1.8 },
+		Color = { Saturation = 0.14, Contrast = 0.14, Brightness = 0.01, Tint = RGB(255, 226, 200) },
+		CloudColor = RGB(255, 180, 130),
+		SunRays = 0.14,
+	},
+	{
+		Name = "Noche",
+		Chance = 0.25,
+		ClockTime = 22,
+		Brightness = 1.1,
+		Exposure = 0.35,
+		Ambient = RGB(72, 74, 96),
+		OutdoorAmbient = RGB(88, 92, 120),
+		Atmosphere = { Density = 0.3, Offset = 0.06, Color = RGB(64, 70, 100), Decay = RGB(30, 30, 50), Glare = 0, Haze = 1 },
+		Color = { Saturation = 0.06, Contrast = 0.14, Brightness = 0.03, Tint = RGB(220, 226, 255) },
+		Bloom = { Intensity = 0.6, Size = 24, Threshold = 1.5 },
+		Clouds = 0.1,
+		CloudColor = RGB(70, 76, 100),
+		SunRays = 0,
+	},
+}
+
+return Lighting
+]]></string>
+              </Properties>
+            </Item>
+            <Item class="ModuleScript" referent="63">
+              <Properties>
+                <string name="Name">Props</string>
+                <string name="Source"><![CDATA[-- DESERT BASE · props: camiones y todoterrenos (A), estanterías y carretilla (B), barreras HESCO y
+-- sacos terreros (cobertura del patio), depósitos de combustible, control de acceso, palmeras,
+-- focos y montañas de arenisca alrededor.
+local Props = {}
+
+local V = Vector3.new
+local CF = CFrame.new
+local RGB = Color3.fromRGB
+local rad = math.rad
+local M = Enum.Material
+
+local ALONG_X = CFrame.Angles(0, math.pi / 2, 0)
+
+function Props.build(T)
+	local G = T.G
+
+	---------------------------------------------------------------------------
+	-- Centro: mástil con bandera, letras A y B, contenedor del almacén
+	---------------------------------------------------------------------------
+	G.box("FlagBase", V(3, 1, 3), CF(0, 0.5, -21), "Concrete")
+	G.deco("FlagPole", V(0.4, 18, 0.4), CF(0, 9.5, -21), "Steel")
+	G.deco("Flag", V(0.15, 3, 5), CF(0, 16.5, -18.4), "Red").CastShadow = false
+	T.letterBanner(CF(0, 8.4, -57.6) * CFrame.Angles(0, math.pi, 0), "A", "Red", 5, 5.4)
+	T.letterBanner(CF(0, 9, 55.6), "B", "Blue", 5, 5.4)
+	T.cap(T.container(CF(0, 0, 102) * ALONG_X, "ContainerGreen", "ARMORY"))
+	T.sign(CF(0, 12, 55.4), "ALMACÉN · DEPOT 7", 22, 2.6, RGB(92, 104, 68), RGB(240, 232, 210), { PPS = 16 })
+	T.sign(CF(0, 7.4, -15.6), "MANDO · HQ", 10, 1.6, RGB(92, 104, 68), RGB(240, 232, 210))
+	T.sign(CF(0, 7.4, 15.6) * CFrame.Angles(0, math.pi, 0), "MANDO · HQ", 10, 1.6, RGB(92, 104, 68), RGB(240, 232, 210))
+
+	T.mirrored("DesertProps", function()
+		Props.half(T)
+	end)
+
+	---------------------------------------------------------------------------
+	-- Fondo: montañas de arenisca y dunas
+	---------------------------------------------------------------------------
+	for _, spec in {
+		{ V(-120, -40, -330), 120 }, { V(140, -50, -360), 140 }, { V(380, -50, -120), 130 },
+		{ V(400, -60, 180), 150 }, { V(80, -50, 360), 130 }, { V(-260, -50, 330), 140 },
+		{ V(-420, -60, 60), 150 }, { V(-360, -50, -220), 120 },
+	} do
+		T.Kit.naturalHill(spec[1], spec[2], M.Sandstone, { Top = M.Sand, TopCount = 3 })
+	end
+	for _, spec in { { V(-220, -6, -170), 26 }, { V(230, -6, 160), 30 }, { V(200, -6, -190), 24 }, { V(-210, -6, 190), 28 } } do
+		workspace.Terrain:FillBall(spec[1], spec[2], M.Sand)
+	end
+end
+
+-- Mitad del Rojo (X < 0)
+function Props.half(T)
+	local G = T.G
+	local night = T.isNight()
+
+	------------------------------------------------------------------
+	-- PARQUE DE VEHÍCULOS (A)
+	------------------------------------------------------------------
+	T.cap(T.truck(CF(-24, 0, -86)))
+	T.cap(T.jeep(CF(-14, 0, -67) * ALONG_X))
+	for i, p in { V(-10, 0, -96), V(-12.6, 0, -96.4), V(-11, 0, -93.6) } do
+		T.barrel(CF(p) * CFrame.Angles(0, rad(i * 30), 0), "MilGreen")
+	end
+	T.cap(T.crateStack(CF(-33, 0, -66), "L"))
+	T.cap(T.hesco(CF(-24, 0, -54), 2, 3.4))
+	T.cap(T.sandbags(V(-8, 0, -104), V(-18, 0, -104), 2.6))
+
+	------------------------------------------------------------------
+	-- PATIO DE ARMAS (centro de cada mitad)
+	------------------------------------------------------------------
+	T.cap(T.hesco(CF(-76, 0, 10) * ALONG_X, 3, 4))
+	T.cap(T.hesco(CF(-58, 0, -16), 3, 4))
+	T.cap(T.container(CF(-64, 0, 28) * ALONG_X, "ContainerTan", "SUPPLY"))
+	T.cap(T.jeep(CF(-92, 0, -8)))
+	-- Barreras escalonadas: cada franja del patio queda cortada en algún punto (ver longlines)
+	T.cap(T.hesco(CF(-40, 0, 20.4) * ALONG_X, 3, 5.4))
+	T.cap(T.hesco(CF(-30, 0, -22.5) * ALONG_X, 3, 5.4))
+	T.cap(T.hesco(CF(-34, 0, -72) * ALONG_X, 2, 5.4))
+	T.cap(T.tWall(V(-46, 0, 42.5), V(-46, 0, 56), 6))
+	T.cap(T.sandbags(V(-50, 0, -50), V(-50, 0, -40), 2.6))
+	for _, z in { -22, 22 } do
+		T.palm(CF(-20, 0, z), 15)
+	end
+	T.cap(T.crateStack(CF(-34, 0, -30) * CFrame.Angles(0, rad(10), 0), "Wall"))
+
+	------------------------------------------------------------------
+	-- CONTROL DE ACCESO (calle interior) y entrada de la base
+	------------------------------------------------------------------
+	T.barrierGate(CF(-112, 0, -36), 14)
+	T.barrierGate(CF(-112, 0, 36), 14)
+	T.cap(G.solid("GuardBooth", V(4, 7, 4), CF(-102, 0, -40), "Building"))
+	G.deco("GuardWindow", V(4.1, 1.6, 3), CF(-102, 4.6, -40), { RGB(60, 70, 80), M.Glass }).CastShadow = false
+	T.cap(G.solid("GuardBooth", V(4, 7, 4), CF(-102, 0, 40), "Building"))
+	G.deco("GuardWindow", V(4.1, 1.6, 3), CF(-102, 4.6, 40), { RGB(60, 70, 80), M.Glass }).CastShadow = false
+	G.deco("InnerRoad", V(16, 0.1, 230), CF(-112, 0.05, 0), "Asphalt").CastShadow = false
+	for _, z in { -30, 30 } do
+		T.palm(CF(-119, 0, z), 14)
+	end
+	local lamp = G.deco("BaseLight", V(14, 0.3, 1.2), CF(-136, 9.1, 0), { RGB(255, 240, 210), M.Neon })
+	T.Kit.light(lamp, "PointLight", RGB(255, 236, 200), 20, 0.8)
+	T.cap(T.crateStack(CF(-145, 0, -14), "L"))
+
+	------------------------------------------------------------------
+	-- BARRACONES (norte)
+	------------------------------------------------------------------
+	T.cap(T.truck(CF(-104, 0, -82)))
+	T.campNet(CF(-104, 0, -82), 10, 24, 9)
+	T.cap(T.crateStack(CF(-62, 0, -88) * CFrame.Angles(0, rad(-12), 0), "Wall"))
+	T.cap(T.sandbags(V(-96, 0, -56), V(-86, 0, -56), 2.6))
+	T.barrel(CF(-58, 0, -100), "Red")
+	T.barrel(CF(-56, 0, -102), "MilGreen")
+
+	------------------------------------------------------------------
+	-- DEPÓSITO DE COMBUSTIBLE (sur)
+	------------------------------------------------------------------
+	T.cap(T.fuelTank(CF(-94, 0, 98), 12, 10))
+	T.cap(T.fuelTank(CF(-72, 0, 102), 10, 9))
+	T.cap(T.container(CF(-56, 0, 92), "ContainerGreen", "FUEL · 07"))
+	T.cap(T.hesco(CF(-94, 0, 84), 3, 3.4))
+	T.fuelTruck(CF(-90, 0, 60) * ALONG_X)
+	T.cap(T.crateStack(CF(-64, 0, 52), "Wall"))
+
+	------------------------------------------------------------------
+	-- ALMACÉN (B, mitad): estanterías, carretilla, palés
+	------------------------------------------------------------------
+	T.cap(G.solid("Rack", V(3, 8, 10), CF(-30, 0, 80), "MilGreenDark"))
+	for _, y in { 2.6, 5.2 } do
+		G.deco("RackShelf", V(3.2, 0.2, 10.2), CF(-30, y, 80), "Wood").CastShadow = false
+	end
+	T.cap(T.crateStack(CF(-20, 0, 66) * CFrame.Angles(0, rad(-8), 0), "L"))
+	T.Kit.forklift(CF(-14, 0, 96) * CFrame.Angles(0, math.pi, 0))
+	T.cap(G.solid("PalletStack", V(6, 3.4, 6), CF(-12, 0, 74), "Wood"))
+	T.cap(G.solid("Rack", V(14, 8, 3), CF(-26, 0, 103), "MilGreenDark"))
+	for _, x in { -18 } do
+		local panel = G.deco("WarehouseLight", V(10, 0.2, 2), CF(x, 13.6, 70), { RGB(255, 240, 214), M.Neon })
+		panel.CastShadow = false
+		T.Kit.light(panel, "PointLight", RGB(255, 236, 206), 30, 1)
+	end
+
+	------------------------------------------------------------------
+	-- Focos (de noche iluminan el patio)
+	------------------------------------------------------------------
+	for _, p in { V(-100, 0, -48), V(-50, 0, 50), V(-120, 0, 100) } do
+		T.floodTower(CF(p), 14, night and RGB(255, 236, 200) or nil)
+	end
+end
+
+return Props
+]]></string>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="ModuleScript" referent="64">
+            <Properties>
               <string name="Name">MallRush</string>
               <string name="Source"><![CDATA[-- MALL RUSH (5v5 · Duelo por equipos · Buscar y destruir): centro comercial compacto de dos
 -- plantas. Atrio central con cúpula, fuente, escaleras mecánicas y puente superior; patios a cada
@@ -14420,7 +14907,7 @@ end
 return Map
 ]]></string>
             </Properties>
-            <Item class="ModuleScript" referent="61">
+            <Item class="ModuleScript" referent="65">
               <Properties>
                 <string name="Name">Geometry</string>
                 <string name="Source"><![CDATA[-- MALL RUSH · geometría jugable (blockout). Centro comercial de dos plantas (suelo 0, planta alta 12):
@@ -14573,7 +15060,7 @@ return Geometry
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="62">
+            <Item class="ModuleScript" referent="66">
               <Properties>
                 <string name="Name">Lighting</string>
                 <string name="Source"><![CDATA[-- MALL RUSH · luz. Día luminoso por dentro (ambiente alto: el centro comercial está iluminado) y
@@ -14635,7 +15122,7 @@ return Lighting
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="63">
+            <Item class="ModuleScript" referent="67">
               <Properties>
                 <string name="Name">Props</string>
                 <string name="Source"><![CDATA[-- MALL RUSH · props: identidad de color (escaparates con rótulos cian, magenta, naranja y morado,
@@ -14876,7 +15363,7 @@ return Props
               </Properties>
             </Item>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">MetroYard</string>
               <string name="Source"><![CDATA[-- METRO YARD (5v5 · Duelo por equipos · Buscar y destruir): estación de metro con su playa de vías.
@@ -14978,7 +15465,7 @@ end
 return Map
 ]]></string>
             </Properties>
-            <Item class="ModuleScript" referent="65">
+            <Item class="ModuleScript" referent="69">
               <Properties>
                 <string name="Name">Geometry</string>
                 <string name="Source"><![CDATA[-- METRO YARD · geometría jugable (blockout). Estación de metro con su playa de vías:
@@ -15215,7 +15702,7 @@ return Geometry
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="66">
+            <Item class="ModuleScript" referent="70">
               <Properties>
                 <string name="Name">Lighting</string>
                 <string name="Source"><![CDATA[-- METRO YARD · luz. Tarde urbana templada (sol bajo que entra por la playa de vías, cielo algo
@@ -15277,7 +15764,7 @@ return Lighting
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="67">
+            <Item class="ModuleScript" referent="71">
               <Properties>
                 <string name="Name">Props</string>
                 <string name="Source"><![CDATA[-- METRO YARD · props: trenes (la gran cobertura y el hito), marquesina del andén central, mobiliario
@@ -15510,7 +15997,7 @@ return Props
               </Properties>
             </Item>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">RooftopDistrict</string>
               <string name="Source"><![CDATA[-- ROOFTOP DISTRICT (5v5 · Duelo por equipos · Buscar y destruir): azoteas de una manzana unidas
@@ -15609,7 +16096,7 @@ end
 return Map
 ]]></string>
             </Properties>
-            <Item class="ModuleScript" referent="69">
+            <Item class="ModuleScript" referent="73">
               <Properties>
                 <string name="Name">Geometry</string>
                 <string name="Source"><![CDATA[-- ROOFTOP DISTRICT · geometría jugable (blockout). Azoteas de una manzana de ciudad unidas por
@@ -15814,7 +16301,7 @@ return Geometry
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="70">
+            <Item class="ModuleScript" referent="74">
               <Properties>
                 <string name="Name">Lighting</string>
                 <string name="Source"><![CDATA[-- ROOFTOP DISTRICT · luz. Día claro y frío como la referencia (cielo azul, ciudad con neblina azul
@@ -15876,7 +16363,7 @@ return Lighting
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="71">
+            <Item class="ModuleScript" referent="75">
               <Properties>
                 <string name="Name">Props</string>
                 <string name="Source"><![CDATA[-- ROOFTOP DISTRICT · props: máquinas de aire, depósitos, antenas, placas solares, lucernarios y
@@ -16000,7 +16487,7 @@ return Props
               </Properties>
             </Item>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">Terminal</string>
               <string name="Source"><![CDATA[-- TERMINAL (5v5 · Duelo por equipos · Buscar y destruir): aeropuerto al atardecer. El avión parte la
@@ -16116,7 +16603,7 @@ end
 return Map
 ]]></string>
             </Properties>
-            <Item class="ModuleScript" referent="73">
+            <Item class="ModuleScript" referent="77">
               <Properties>
                 <string name="Name">Geometry</string>
                 <string name="Source"><![CDATA[-- TERMINAL · geometría jugable (blockout). Aeropuerto con el avión en el centro de la plataforma:
@@ -16284,7 +16771,7 @@ return Geometry
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="74">
+            <Item class="ModuleScript" referent="78">
               <Properties>
                 <string name="Name">Lighting</string>
                 <string name="Source"><![CDATA[-- TERMINAL · luz. Por defecto, atardecer naranja con el sol bajo sobre la pista, como la
@@ -16348,7 +16835,7 @@ return Lighting
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="75">
+            <Item class="ModuleScript" referent="79">
               <Properties>
                 <string name="Name">Props</string>
                 <string name="Source"><![CDATA[-- TERMINAL · props: el avión (hito y gran divisor del centro), cobertura de plataforma (contenedores
@@ -16555,7 +17042,7 @@ return Props
             </Item>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="76">
+        <Item class="ModuleScript" referent="80">
           <Properties>
             <string name="Name">MapKit</string>
             <string name="Source"><![CDATA[-- Kit de construcción de mapas: piezas reutilizables (contenedores, edificios, palmeras, grúas...),
@@ -18239,7 +18726,7 @@ return Kit
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="77">
+        <Item class="ModuleScript" referent="81">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[-- Datos persistentes del jugador (nivel, XP, monedas, skins, trajes, armas) guardados con DataStore,
@@ -20270,7 +20757,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="78">
+        <Item class="ModuleScript" referent="82">
           <Properties>
             <string name="Name">Pumpkins</string>
             <string name="Source"><![CDATA[-- Modo Calabazas (como "Kill Confirmed"): quien cae suelta una calabaza con el color de su equipo.
@@ -20473,7 +20960,7 @@ return Pumpkins
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="79">
+        <Item class="ModuleScript" referent="83">
           <Properties>
             <string name="Name">Ragdoll</string>
             <string name="Source"><![CDATA[-- Muñeco de trapo al morir (como en los shooters): en vez de romperse en piezas, las articulaciones
@@ -20599,7 +21086,7 @@ return Ragdoll
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="80">
+        <Item class="ModuleScript" referent="84">
           <Properties>
             <string name="Name">Respawn</string>
             <string name="Source"><![CDATA[-- Reaparición controlada por el juego (Players.CharacterAutoLoads = false en default.project.json):
@@ -20806,7 +21293,7 @@ return Respawn
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="81">
+        <Item class="ModuleScript" referent="85">
           <Properties>
             <string name="Name">Round</string>
             <string name="Source"><![CDATA[-- Rondas, modos de juego, votación de mapa/modo, equipos, marcador, rachas y recompensas.
@@ -22604,7 +23091,7 @@ return Round
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="82">
+        <Item class="ModuleScript" referent="86">
           <Properties>
             <string name="Name">SpawnPicker</string>
             <string name="Source"><![CDATA[-- Apariciones dinámicas en los modos por equipos (como en los shooters de móvil): al reaparecer
@@ -22706,7 +23193,7 @@ return SpawnPicker
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="83">
+        <Item class="ModuleScript" referent="87">
           <Properties>
             <string name="Name">TacKit</string>
             <string name="Source"><![CDATA[-- TacKit: kit modular de los mapas 5v5 (generación determinista por código, sin modelos de la
@@ -22729,6 +23216,7 @@ local Town = require(script.Town)
 local Airport = require(script.Airport)
 local Mall = require(script.Mall)
 local Rail = require(script.Rail)
+local Military = require(script.Military)
 
 local T = {}
 for k, v in Geometry do
@@ -22749,6 +23237,9 @@ end
 for k, v in Rail do
 	T[k] = v
 end
+for k, v in Military do
+	T[k] = v
+end
 T.Kit = Kit
 T.Materials = Materials
 T.G = Geometry
@@ -22757,6 +23248,7 @@ T.Town = Town
 T.Airport = Airport
 T.Mall = Mall
 T.Rail = Rail
+T.Military = Military
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -22966,6 +23458,28 @@ function T.site(position, letter, opts)
 	return box
 end
 
+-- Caseta de base cerrada para el equipo 1 (en -X; la del 2 sale con T.mirrored): frente ciego hacia
+-- el mapa en x = Front, fondo en x = Back, laterales en z = ±Half con una puerta junto al frente y
+-- un muro interior (vestíbulo en L) detrás de cada puerta. Así no se ve la base desde fuera.
+-- opts: Back, Front, Half, Height, Look, RoofLook, Stripe
+function T.spawnHouse(opts)
+	local G = Geometry
+	local back, front = opts.Back or -150, opts.Front or -122.5
+	local half, h = opts.Half or 24, opts.Height or 9
+	local look = opts.Look or "Building"
+	local length = front - back
+	for _, z in { -half, half } do
+		T.cap(G.wall(CFrame.new((back + front) / 2, 0, z), length, h, look, { G.door(length / 2 - 3, 5, 7.4) }))
+		T.cap(G.wall(CFrame.new(front - 5.25, 0, z * (half - 4.56) / half), 10.5, h, look))
+	end
+	T.cap(G.wall(CFrame.new(front, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), half * 2 + 0.6, h, look))
+	T.cap(G.wall(CFrame.new(back + 0.5, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), half * 2 + 0.6, h, look))
+	T.cap(G.floor(CFrame.new((back + front) / 2, h + 0.6, 0), length + 0.5, half * 2 + 1, opts.RoofLook or "SteelDark", 0.6))
+	if opts.Stripe then
+		G.deco("BaseStripe", V(0.3, 1.2, half * 2 - 8), CFrame.new(front + 0.4, h - 2.5, 0), opts.Stripe)
+	end
+end
+
 T.ffa = Kit.ffaSpawn
 T.botSpot = Kit.botSpot
 T.zone = Kit.zone
@@ -23078,7 +23592,7 @@ end
 return T
 ]]></string>
           </Properties>
-          <Item class="ModuleScript" referent="84">
+          <Item class="ModuleScript" referent="88">
             <Properties>
               <string name="Name">Airport</string>
               <string name="Source"><![CDATA[-- Piezas de aeropuerto (Terminal): avión de pasajeros estilizado, carros de equipaje con tractor,
@@ -23321,7 +23835,7 @@ return Airport
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="85">
+          <Item class="ModuleScript" referent="89">
             <Properties>
               <string name="Name">Geometry</string>
               <string name="Source"><![CDATA[-- Geometría modular de los mapas 5v5: suelos y forjados (con huecos de escalera), muros con huecos
@@ -23822,7 +24336,7 @@ return G
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="86">
+          <Item class="ModuleScript" referent="90">
             <Properties>
               <string name="Name">Mall</string>
               <string name="Source"><![CDATA[-- Piezas de centro comercial (Mall Rush): escalera mecánica, barandilla de cristal, escaparate con
@@ -24009,7 +24523,7 @@ return Mall
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="87">
+          <Item class="ModuleScript" referent="91">
             <Properties>
               <string name="Name">Materials</string>
               <string name="Source"><![CDATA[-- Biblioteca de materiales de los mapas 5v5: cada "look" es { color, material } y cada mapa tiene
@@ -24205,6 +24719,35 @@ Materials.MetroYard = {
 	Deck = { RGB(120, 124, 130), M.DiamondPlate },
 }
 
+Materials.DesertBase = {
+	Sand = { RGB(200, 172, 126), M.Sand },
+	SandDark = { RGB(176, 150, 106), M.Sand },
+	Pad = { RGB(196, 186, 166), M.Concrete },
+	Concrete = { RGB(200, 190, 170), M.Concrete },
+	ConcreteDark = { RGB(150, 140, 122), M.Concrete },
+	Building = { RGB(212, 194, 156), M.Plaster },
+	Tan = { RGB(198, 172, 128), M.Plaster },
+	Roof = { RGB(150, 138, 116), M.Concrete },
+	Hesco = { RGB(180, 160, 118), M.Fabric },
+	Sandbag = { RGB(188, 166, 120), M.Fabric },
+	Canvas = { RGB(168, 148, 108), M.Fabric },
+	MilGreen = { RGB(92, 104, 68), M.Metal },
+	MilGreenDark = { RGB(64, 74, 50), M.Metal },
+	Tank = { RGB(206, 200, 186), M.Metal },
+	Red = { RGB(176, 54, 42), M.SmoothPlastic },
+	Blue = { RGB(48, 92, 168), M.SmoothPlastic },
+	Paint = { RGB(236, 234, 226), M.SmoothPlastic },
+	Asphalt = { RGB(92, 88, 82), M.Asphalt },
+	Steel = { RGB(140, 140, 136), M.Metal },
+	SteelDark = { RGB(70, 70, 66), M.Metal },
+	Wood = { RGB(150, 116, 78), M.WoodPlanks },
+	WoodDark = { RGB(104, 80, 56), M.Wood },
+	Deck = { RGB(130, 126, 118), M.DiamondPlate },
+	Glass = { RGB(150, 190, 210), M.Glass },
+	Yellow = { RGB(140, 140, 136), M.Metal }, -- (barandillas de acero gris)
+	YellowPaint = { RGB(226, 186, 60), M.SmoothPlastic },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 
@@ -24231,7 +24774,276 @@ return Materials
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="88">
+          <Item class="ModuleScript" referent="92">
+            <Properties>
+              <string name="Name">Military</string>
+              <string name="Source"><![CDATA[-- Piezas militares (Desert Base): barreras HESCO, muros de sacos terreros y de hormigón (T-wall),
+-- camión de carga con lona, todoterreno, torre de vigilancia, torre de agua, depósito de
+-- combustible, mástil de radio, red de camuflaje, barrera de control y barracón prefabricado.
+-- cf = centro de la base; la "cara" mira a -Z.
+local Kit = require(script.Parent.Parent.MapKit)
+local Materials = require(script.Parent.Materials)
+local G = require(script.Parent.Geometry)
+
+local Military = {}
+
+local V = Vector3.new
+local RGB = Color3.fromRGB
+local rad = math.rad
+local get = Materials.get
+local M = Enum.Material
+
+local TIRE = { RGB(32, 32, 34), M.SmoothPlastic }
+local DARK_GLASS = { RGB(40, 46, 52), M.Glass }
+
+local function wheel(cf, d, w)
+	return Kit.cylinder("Wheel", w or 1, d or 2.6, cf * CFrame.Angles(0, 0, rad(90)), TIRE[1], TIRE[2], nil, true)
+end
+
+-- Fila de bastiones HESCO a lo largo de X local (count módulos de 3,6; altura h): un bloque que
+-- choca y las costuras de malla por encima (cobertura alta o media según h)
+function Military.hesco(cf, count, h)
+	h = h or 4
+	local w = 3.6
+	local length = w * count
+	local body = G.box("Hesco", V(length, h, w), cf * CFrame.new(0, h / 2, 0), "Hesco")
+	for i = 0, count do
+		local x = -length / 2 + i * w
+		for _, s in { -1, 1 } do
+			G.deco("HescoMesh", V(0.15, h + 0.05, 0.15), cf * CFrame.new(x, h / 2, s * (w / 2 + 0.03)), "SteelDark").CastShadow = false
+		end
+	end
+	for _, s in { -1, 1 } do
+		G.deco("HescoWire", V(length, 0.12, 0.12), cf * CFrame.new(0, h - 0.4, s * (w / 2 + 0.03)), "SteelDark").CastShadow = false
+	end
+	G.deco("HescoSand", V(length - 0.3, 0.2, w - 0.3), cf * CFrame.new(0, h + 0.05, 0), "SandDark").CastShadow = false
+	return body
+end
+
+-- Muro de sacos terreros de a a b (h de alto; cobertura baja a 2,6, media a 4)
+function Military.sandbags(a, b, h)
+	h = h or 2.6
+	local mid = (a + b) / 2
+	local length = (b - a).Magnitude
+	local cf = CFrame.lookAt(mid, b)
+	local body = G.box("Sandbags", V(2.2, h, length), cf * CFrame.new(0, h / 2, 0), "Sandbag")
+	local rows = math.floor(h / 0.65)
+	for i = 1, rows - 1 do
+		G.deco("SandbagRow", V(2.3, 0.1, length + 0.05), cf * CFrame.new(0, i * h / rows, 0), "SandDark").CastShadow = false
+	end
+	return body
+end
+
+-- Muro de hormigón en T (paneles de 4 studs) de a a b
+function Military.tWall(a, b, h)
+	h = h or 9
+	local mid = (a + b) / 2
+	local length = (b - a).Magnitude
+	local cf = CFrame.lookAt(mid, b)
+	local body = G.box("TWall", V(1.2, h, length), cf * CFrame.new(0, h / 2, 0), "Concrete")
+	G.deco("TWallFoot", V(3.6, 1.2, length), cf * CFrame.new(0, 0.6, 0), "Concrete")
+	local n = math.floor(length / 4)
+	for i = 1, n - 1 do
+		G.deco("TWallJoint", V(1.3, h - 0.2, 0.12), cf * CFrame.new(0, h / 2, -length / 2 + i * length / n), "ConcreteDark").CastShadow = false
+	end
+	G.deco("TWallStripe", V(1.3, 0.8, length), cf * CFrame.new(0, h - 1.4, 0), "SandDark").CastShadow = false
+	return body
+end
+
+-- Camión de carga militar (cabina y caja con lona): cobertura alta. Devuelve las piezas que chocan
+function Military.truck(cf, look)
+	look = look or "MilGreen"
+	local solids = {}
+	table.insert(solids, G.box("TruckCab", V(7, 6.4, 6), cf * CFrame.new(0, 4.2, -7.5), look))
+	G.deco("TruckWindscreen", V(6, 2, 0.15), cf * CFrame.new(0, 5.8, -10.55), DARK_GLASS).CastShadow = false
+	G.deco("TruckBumper", V(7.4, 1, 0.6), cf * CFrame.new(0, 1.8, -10.6), "SteelDark")
+	table.insert(solids, G.box("TruckBed", V(7.2, 2, 14), cf * CFrame.new(0, 2.6, 3), "SteelDark"))
+	table.insert(solids, G.box("TruckCanvas", V(7, 5.4, 13.4), cf * CFrame.new(0, 6.3, 3), "Canvas"))
+	for _, z in { -1.5, 3, 7.5 } do
+		G.deco("CanvasRib", V(7.15, 0.3, 0.3), cf * CFrame.new(0, 9.05, z), "MilGreenDark")
+	end
+	for _, s in { -1, 1 } do
+		for _, z in { -7.5, 2, 6.5 } do
+			wheel(cf * CFrame.new(s * 3.2, 1.4, z), 2.8, 1.1)
+		end
+	end
+	return solids
+end
+
+-- Todoterreno militar (cobertura baja-media)
+function Military.jeep(cf, look)
+	look = look or "MilGreen"
+	local body = G.box("Jeep", V(6, 3, 11), cf * CFrame.new(0, 2.3, 0), look)
+	G.deco("JeepCabin", V(5.6, 2, 4.6), cf * CFrame.new(0, 4.8, 0.8), "Canvas")
+	G.deco("JeepWindscreen", V(5.4, 1.6, 0.15), cf * CFrame.new(0, 4.6, -1.6), DARK_GLASS).CastShadow = false
+	G.deco("JeepSpare", V(0.8, 2.4, 2.4), cf * CFrame.new(0, 2.6, 5.7), TIRE)
+	for _, s in { -1, 1 } do
+		for _, z in { -3.6, 3.6 } do
+			wheel(cf * CFrame.new(s * 3, 1.3, z), 2.6, 1.1)
+		end
+	end
+	return body
+end
+
+-- Torre de vigilancia: patas, plataforma a h con sacos terreros (hueco en open = "Front" | "Back"
+-- | "Left" | "Right", donde llega la escalera) y tejado sobre postes. Devuelve la plataforma
+function Military.watchtower(cf, h, open)
+	h = h or 12
+	local size = 7
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			G.box("TowerLeg", V(0.8, h, 0.8), cf * CFrame.new(x * (size / 2 - 0.4), h / 2, z * (size / 2 - 0.4)), "WoodDark")
+			G.deco("TowerPost", V(0.4, 6.4, 0.4), cf * CFrame.new(x * (size / 2 - 0.2), h + 3.2, z * (size / 2 - 0.2)), "WoodDark")
+		end
+	end
+	for _, s in { -1, 1 } do
+		G.deco("TowerBrace", V(0.3, h * 1.1, 0.3), cf * CFrame.new(s * (size / 2 - 0.4), h / 2, 0) * CFrame.Angles(rad(38), 0, 0), "WoodDark")
+	end
+	local deck = G.box("TowerDeck", V(size, 1.4, size), cf * CFrame.new(0, h - 0.7, 0), "Wood")
+	local half = size / 2 - 0.4
+	local sides = {
+		Front = { V(-half, h, -half), V(half, h, -half) },
+		Back = { V(-half, h, half), V(half, h, half) },
+		Left = { V(-half, h, -half), V(-half, h, half) },
+		Right = { V(half, h, -half), V(half, h, half) },
+	}
+	local walls = {}
+	for name, seg in sides do
+		if name ~= open then
+			local a, b = cf * seg[1], cf * seg[2]
+			table.insert(walls, Military.sandbags(a, b, 1.8))
+		end
+	end
+	local roof = G.box("TowerRoof", V(size + 1.4, 0.5, size + 1.4), cf * CFrame.new(0, h + 6.6, 0), "Canvas")
+	G.deco("TowerLamp", V(1, 0.8, 1.4), cf * CFrame.new(0, h + 6, -half), "SteelDark")
+	return deck, roof, walls
+end
+
+-- Torre de agua: cuatro patas (chocan) y depósito arriba (h = altura de la base del depósito)
+function Military.waterTower(cf, h, d)
+	h = h or 12
+	d = d or 9
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			G.box("WaterTowerLeg", V(1, h, 1), cf * CFrame.new(x * d * 0.32, h / 2, z * d * 0.32), "SteelDark")
+		end
+	end
+	for _, y in { h * 0.35, h * 0.7 } do
+		G.deco("WaterTowerRing", V(d * 0.66, 0.3, 0.3), cf * CFrame.new(0, y, d * 0.32), "SteelDark")
+		G.deco("WaterTowerRing", V(d * 0.66, 0.3, 0.3), cf * CFrame.new(0, y, -d * 0.32), "SteelDark")
+	end
+	local tank = Kit.cylinder("WaterTank", 8, d, cf * CFrame.new(0, h + 4, 0), get("Tank")[1], get("Tank")[2])
+	Kit.cylinder("WaterTankRoof", 1.2, d * 0.8, cf * CFrame.new(0, h + 8.6, 0), get("SteelDark")[1], get("SteelDark")[2], nil, true)
+	G.deco("WaterTankBand", V(d + 0.1, 1, 0.2), cf * CFrame.new(0, h + 5, -d / 2), "Red").CastShadow = false
+	return tank
+end
+
+-- Depósito de combustible vertical (d de diámetro, h de alto): cobertura alta y ancha
+function Military.fuelTank(cf, d, h)
+	d = d or 12
+	h = h or 10
+	local tank = Kit.cylinder("FuelTank", h, d, cf * CFrame.new(0, h / 2, 0), get("Tank")[1], get("Tank")[2])
+	Kit.cylinder("FuelTankTop", 0.6, d * 0.9, cf * CFrame.new(0, h + 0.3, 0), get("Concrete")[1], get("Concrete")[2], nil, true)
+	for _, y in { h * 0.3, h * 0.7 } do
+		Kit.cylinder("FuelTankBand", 0.4, d + 0.12, cf * CFrame.new(0, y, 0), get("SteelDark")[1], get("SteelDark")[2], nil, true)
+	end
+	G.deco("FuelTankLadder", V(0.8, h, 0.3), cf * CFrame.new(0, h / 2, -d / 2 - 0.2), "SteelDark")
+	G.deco("FuelTankSign", V(3, 1.4, 0.2), cf * CFrame.new(2.4, h * 0.5, -d / 2 + 0.3) * CFrame.Angles(0, rad(-22), 0), "Red").CastShadow = false
+	return tank
+end
+
+-- Mástil de radio (decorado salvo la base): hito visible desde todo el mapa
+function Military.radioMast(cf, h)
+	h = h or 26
+	local base = G.box("MastBase", V(2.4, 1.6, 2.4), cf * CFrame.new(0, 0.8, 0), "SteelDark")
+	G.deco("Mast", V(0.6, h, 0.6), cf * CFrame.new(0, h / 2, 0), "Steel")
+	for y = 4, h - 2, 4 do
+		G.deco("MastRung", V(1.6, 0.15, 0.15), cf * CFrame.new(0, y, 0), "Steel").CastShadow = false
+	end
+	for _, y in { h * 0.55, h * 0.8 } do
+		G.deco("MastDish", V(1.6, 1.6, 0.4), cf * CFrame.new(0.6, y, -0.6) * CFrame.Angles(0, rad(30), 0), "Concrete")
+	end
+	local tip = G.deco("MastLight", V(0.6, 0.6, 0.6), cf * CFrame.new(0, h + 0.3, 0), { RGB(255, 60, 40), M.Neon })
+	tip.CastShadow = false
+	return base
+end
+
+-- Red de camuflaje sobre postes (decorado: no choca)
+function Military.campNet(cf, w, d, h)
+	h = h or 7
+	for _, x in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			G.deco("NetPole", V(0.3, h, 0.3), cf * CFrame.new(x * w / 2, h / 2, z * d / 2), "WoodDark")
+		end
+	end
+	local net = G.deco("CamoNet", V(w + 1, 0.2, d + 1), cf * CFrame.new(0, h, 0), "MilGreen")
+	net.Transparency = 0.15
+	for i, x in { -0.3, 0.15, 0.35 } do
+		G.deco("CamoPatch", V(w * 0.3, 0.25, d * 0.4), cf * CFrame.new(x * w, h + 0.05, (i - 2) * d * 0.25), i == 2 and "Canvas" or "MilGreenDark").CastShadow = false
+	end
+	return net
+end
+
+-- Barrera de control (dos postes y brazo a rayas, decorado) de ancho w a lo largo de X local
+function Military.barrierGate(cf, w)
+	w = w or 10
+	local post = G.box("GatePost", V(1, 3.4, 1), cf * CFrame.new(-w / 2, 1.7, 0), "Concrete")
+	G.deco("GatePost", V(1, 3.4, 1), cf * CFrame.new(w / 2, 1.7, 0), "Concrete")
+	for i = 0, 4 do
+		G.deco("GateArm", V(w / 5, 0.4, 0.4), cf * CFrame.new(-w / 2 + (i + 0.5) * w / 5, 3.2, 0), i % 2 == 0 and "Red" or "Paint").CastShadow = false
+	end
+	return post
+end
+
+-- Barracón prefabricado (cf = centro de la base, largo a lo largo de X): cascarón con puertas en
+-- los extremos (se cruza por dentro) y una lateral, techo plano con clip, toldo y aire acondicionado
+function Military.barrack(T, cf, length, depth, opts)
+	opts = opts or {}
+	length, depth = length or 30, depth or 12
+	local h = 8
+	local door, window = G.door, G.window
+	G.shell(cf, length, depth, h, opts.Look or "Building", {
+		Front = opts.Front or { window(-length / 4, 3.5, 4, 2.5), window(length / 4, 3.5, 4, 2.5) },
+		Back = opts.Back or { door(-length / 4, 4, 7), window(length / 4, 3.5, 4, 2.5) },
+		Left = { door(0, 4, 7) },
+		Right = { door(0, 4, 7) },
+	}, { Frame = "MilGreenDark" })
+	T.cap(G.box("BarrackRoof", V(length + 1, 0.6, depth + 1), cf * CFrame.new(0, h + 0.3, 0), "Roof"))
+	G.deco("BarrackFloor", V(length - 1, 0.1, depth - 1), cf * CFrame.new(0, 0.05, 0), "Wood").CastShadow = false
+	G.deco("BarrackAC", V(3, 2, 2), cf * CFrame.new(length / 4, h + 1.6, 0), "Concrete")
+	if opts.Awning ~= false then
+		Kit.awning(cf * CFrame.new(-length / 4, 7.2, depth / 2 + 0.2) * CFrame.Angles(0, math.pi, 0), 8, 3, get("Canvas")[1])
+	end
+end
+
+-- Helicóptero de transporte posado (cobertura alta y hito). El morro mira a -Z. Devuelve las
+-- piezas que chocan
+function Military.helicopter(cf, look)
+	look = look or "MilGreen"
+	local solids = {}
+	table.insert(solids, G.box("HeliBody", V(7, 7, 18), cf * CFrame.new(0, 4.6, 0), look))
+	G.deco("HeliNose", V(6, 4.6, 3), cf * CFrame.new(0, 4.4, -10.4) * CFrame.Angles(rad(-12), 0, 0), look)
+	G.deco("HeliCockpit", V(5.6, 2.4, 0.2), cf * CFrame.new(0, 6.4, -11.4) * CFrame.Angles(rad(-30), 0, 0), DARK_GLASS).CastShadow = false
+	table.insert(solids, G.box("HeliTail", V(2, 2.2, 14), cf * CFrame.new(0, 6.6, 15.8), look))
+	G.deco("HeliFin", V(0.5, 5, 3), cf * CFrame.new(0, 9, 22.2), look)
+	G.deco("HeliTailRotor", V(0.2, 4.4, 0.6), cf * CFrame.new(0.5, 9.6, 22.4), "SteelDark")
+	G.deco("HeliMast", V(1, 1.4, 1), cf * CFrame.new(0, 8.8, 0), "SteelDark")
+	for _, a in { 20, 110 } do
+		G.deco("HeliBlade", V(1.1, 0.2, 34), cf * CFrame.new(0, 9.6, 0) * CFrame.Angles(0, rad(a), 0), "SteelDark")
+	end
+	for _, s in { -1, 1 } do
+		G.deco("HeliSkid", V(0.5, 0.5, 16), cf * CFrame.new(s * 3.6, 0.25, -1), "SteelDark")
+		G.deco("HeliWindow", V(0.15, 1.6, 9), cf * CFrame.new(s * 3.52, 5.8, -1), DARK_GLASS).CastShadow = false
+		G.deco("HeliDoor", V(0.2, 4.6, 4), cf * CFrame.new(s * 3.55, 3.8, 3), "MilGreenDark")
+	end
+	return solids
+end
+
+return Military
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="93">
             <Properties>
               <string name="Name">Props</string>
               <string name="Source"><![CDATA[-- Props reutilizables de los mapas 5v5. Cada prop está pensado para dar escala, cobertura o
@@ -24867,7 +25679,7 @@ return P
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="89">
+          <Item class="ModuleScript" referent="94">
             <Properties>
               <string name="Name">Rail</string>
               <string name="Source"><![CDATA[-- Piezas de ferrocarril (Metro Yard): vía con balasto y traviesas, coche de metro (cobertura alta,
@@ -25081,7 +25893,7 @@ return Rail
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="90">
+          <Item class="ModuleScript" referent="95">
             <Properties>
               <string name="Name">Town</string>
               <string name="Source"><![CDATA[-- Piezas de pueblo (Costa y mapas urbanos): tejado de teja a dos aguas, casa encalada con
@@ -25325,7 +26137,7 @@ return Town
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="91">
+        <Item class="ModuleScript" referent="96">
           <Properties>
             <string name="Name">Zombie</string>
             <string name="Source"><![CDATA[-- Aspecto y vida de los zombis del modo Infección (jugadores y bots): piel verde, ojos rojos
@@ -25399,22 +26211,22 @@ return Zombie
       </Item>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="92">
+  <Item class="StarterPlayer" referent="97">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <token name="CameraMode">1</token>
       <float name="CharacterWalkSpeed">18</float>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="93">
+    <Item class="StarterPlayerScripts" referent="98">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="94">
+      <Item class="Folder" referent="99">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="LocalScript" referent="95">
+        <Item class="LocalScript" referent="100">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[-- Punto de entrada del cliente.
@@ -25546,11 +26358,11 @@ start("MainMenu", MainMenu.Init) -- la última: muestra la pantalla de inicio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="96">
+        <Item class="Folder" referent="101">
           <Properties>
             <string name="Name">Modules</string>
           </Properties>
-          <Item class="ModuleScript" referent="97">
+          <Item class="ModuleScript" referent="102">
             <Properties>
               <string name="Name">Abilities</string>
               <string name="Source"><![CDATA[-- Habilidades con tiempo de recarga (iconos abajo en el centro, también se tocan en móvil):
@@ -25861,7 +26673,7 @@ return Abilities
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="98">
+          <Item class="ModuleScript" referent="103">
             <Properties>
               <string name="Name">AimAssist</string>
               <string name="Source"><![CDATA[-- Asistencia de apuntado (como en los shooters de móvil): con pantalla táctil o mando, si un enemigo
@@ -26099,7 +26911,7 @@ return AimAssist
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="99">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">AimFX</string>
               <string name="Source"><![CDATA[-- Apuntar con realismo: al apuntar con la mira, el fondo se desenfoca un poco más allá de lo que
@@ -26281,7 +27093,7 @@ return AimFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="100">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">AimPitch</string>
               <string name="Source"><![CDATA[-- Manda al servidor hacia dónde miras arriba/abajo (unas pocas veces por segundo y solo si cambia), para
@@ -26345,7 +27157,7 @@ return AimPitch
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="101">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">Ambience</string>
               <string name="Source"><![CDATA[-- Sonido ambiente de los mapas realistas (atributo Ambience de workspace.Map, lo pone cada mapa):
@@ -26760,7 +27572,7 @@ return Ambience
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">BodyView</string>
               <string name="Source"><![CDATA[-- Tu cuerpo en primera persona: al mirar hacia abajo ves tus piernas y tus botas (con lo que lleve el
@@ -26910,7 +27722,7 @@ return BodyView
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">BombHUD</string>
               <string name="Source"><![CDATA[-- Buscar y destruir: qué te toca (atacar o defender), la cuenta atrás de la bomba plantada y la
@@ -27084,7 +27896,7 @@ return BombHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="109">
             <Properties>
               <string name="Name">BoostHUD</string>
               <string name="Source"><![CDATA[-- Potenciadores activos (Shop.Boosters): "⚡ x2 XP 23:10" arriba en el centro, debajo del marcador.
@@ -27172,7 +27984,7 @@ return BoostHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="110">
             <Properties>
               <string name="Name">BotFootsteps</string>
               <string name="Source"><![CDATA[-- Pasos de los bots (solo en el cliente). Los personajes de los jugadores ya suenan al correr con los
@@ -27274,7 +28086,7 @@ return BotFootsteps
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="111">
             <Properties>
               <string name="Name">Callouts</string>
               <string name="Source"><![CDATA[-- Avisos de los compañeros (como en los shooters por equipos): encima de la cabeza de un compañero
@@ -27437,7 +28249,7 @@ return Callouts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="107">
+          <Item class="ModuleScript" referent="112">
             <Properties>
               <string name="Name">ChatTags</string>
               <string name="Source"><![CDATA[-- Etiquetas en el chat: [VIP] dorada para quien tenga el pase VIP, el icono de su rango competitivo,
@@ -27506,7 +28318,7 @@ return ChatTags
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="108">
+          <Item class="ModuleScript" referent="113">
             <Properties>
               <string name="Name">ClientState</string>
               <string name="Source"><![CDATA[-- Estado compartido entre los módulos del cliente.
@@ -27621,7 +28433,7 @@ return ClientState
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="109">
+          <Item class="ModuleScript" referent="114">
             <Properties>
               <string name="Name">CombatFX</string>
               <string name="Source"><![CDATA[-- Sensaciones de combate (realismo), solo en este cliente:
@@ -27812,7 +28624,7 @@ return CombatFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="110">
+          <Item class="ModuleScript" referent="115">
             <Properties>
               <string name="Name">DamageIndicator</string>
               <string name="Source"><![CDATA[-- Indicador de daño: al recibir un disparo sale una marca roja alrededor de la mira que apunta hacia
@@ -27989,7 +28801,7 @@ return DamageIndicator
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="111">
+          <Item class="ModuleScript" referent="116">
             <Properties>
               <string name="Name">DeathScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de muerte (estilo shooters de Roblox):
@@ -28532,7 +29344,7 @@ return DeathScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="112">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">DominationHUD</string>
               <string name="Source"><![CDATA[-- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
@@ -28643,7 +29455,7 @@ return DominationHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="113">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[-- Efectos visuales (solo en el cliente): fogonazo, balas trazadoras, impactos, casquillos y bajas.
@@ -30158,7 +30970,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="114">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">Emotes</string>
               <string name="Source"><![CDATA[-- Emotes (tecla N): menú con los bailes y gestos que trae Roblox (script Animate). Mientras dura el
@@ -30334,7 +31146,7 @@ return Emotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="115">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">EnemyName</string>
               <string name="Source"><![CDATA[-- Nombre del enemigo al que apuntas (como en los shooters): normalmente los enemigos no llevan nombre
@@ -30442,7 +31254,7 @@ return EnemyName
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="116">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">EnemySounds</string>
               <string name="Source"><![CDATA[-- Sonidos de los demás que dan información, como en los shooters: si alguien recarga cerca (jugador o
@@ -30553,7 +31365,7 @@ return EnemySounds
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="117">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">EventHUD</string>
               <string name="Source"><![CDATA[-- Contador del evento de temporada (debajo del botón de regalos): caramelos recogidos hacia el
@@ -30694,7 +31506,7 @@ return EventHUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">Flashlights</string>
               <string name="Source"><![CDATA[-- Linternas de noche (mapas nocturnos y versiones de noche): el arma de fuego lleva una linterna, como
@@ -30890,7 +31702,7 @@ return Flashlights
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">Footprints</string>
               <string name="Source"><![CDATA[-- Huellas en superficies blandas (nieve, arena, barro, tierra): solo en el cliente, para los
@@ -31043,7 +31855,7 @@ return Footprints
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">Graffiti</string>
               <string name="Source"><![CDATA[-- Grafitis (tecla J, o el botón 🎨 en móvil): pinta tu grafiti equipado en la pared o el suelo que
@@ -31115,7 +31927,7 @@ return Graffiti
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">GrenadeController</string>
               <string name="Source"><![CDATA[-- Granada en el cliente: tecla G (L1 en mando, botón en móvil), indicador de recarga y explosiones.
@@ -31333,7 +32145,7 @@ return GrenadeController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">GrenadeWarning</string>
               <string name="Source"><![CDATA[-- Aviso de granada cercana (como en los shooters): cuando una granada enemiga cae cerca, sale un
@@ -31446,7 +32258,7 @@ return GrenadeWarning
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[-- Interfaz en partida: marcador, mira, munición, vida, racha, killfeed, avisos y pantallas de ronda.
@@ -33870,7 +34682,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">InfectionFX</string>
               <string name="Source"><![CDATA[-- Ambiente del modo Infección: la pantalla se vuelve más apagada para los supervivientes y verdosa
@@ -33942,7 +34754,7 @@ return InfectionFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">JumpPads</string>
               <string name="Source"><![CDATA[-- Plataformas de salto del mapa (piezas con el atributo JumpPad = velocidad vertical, ver
@@ -34007,7 +34819,7 @@ return JumpPads
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">Killcam</string>
               <string name="Source"><![CDATA[-- Killcam (como en los shooters): repetición desde los ojos de quien hizo una baja, mirando hacia su
@@ -34518,7 +35330,7 @@ return Killcam
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">KillstreakController</string>
               <string name="Source"><![CDATA[-- Recompensas por racha en el cliente:
@@ -34761,7 +35573,7 @@ return KillstreakController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="133">
             <Properties>
               <string name="Name">LoadingScreen</string>
               <string name="Source"><![CDATA[-- Pantalla de carga entre partidas (como en los shooters): mientras el servidor construye el mapa
@@ -34879,7 +35691,7 @@ return LoadingScreen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="134">
             <Properties>
               <string name="Name">MainMenu</string>
               <string name="Source"><![CDATA[-- Pantalla de inicio: título del juego, cámara girando alrededor del mapa y botones.
@@ -35618,7 +36430,7 @@ return MainMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="135">
             <Properties>
               <string name="Name">MatchIntro</string>
               <string name="Source"><![CDATA[-- Presentación de la partida (como en los shooters de móvil): al empezar cada ronda, unos segundos
@@ -35868,7 +36680,7 @@ return MatchIntro
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="136">
             <Properties>
               <string name="Name">Menu</string>
               <string name="Source"><![CDATA[-- Menú principal del jugador (tecla B): perfil, pase de batalla, retos, armas, skins, trajes, efectos y tienda.
@@ -38823,7 +39635,7 @@ return Menu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="132">
+          <Item class="ModuleScript" referent="137">
             <Properties>
               <string name="Name">Minimap</string>
               <string name="Source"><![CDATA[-- Minimapa (arriba a la izquierda, como en los shooters de móvil): el mapa visto desde arriba con
@@ -39218,7 +40030,7 @@ return Minimap
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="133">
+          <Item class="ModuleScript" referent="138">
             <Properties>
               <string name="Name">Movement</string>
               <string name="Source"><![CDATA[-- Movimiento: correr (Shift), agacharse (C) y deslizarse (C corriendo), con sensación realista (GameConfig.Movement):
@@ -39674,7 +40486,7 @@ return Movement
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="134">
+          <Item class="ModuleScript" referent="139">
             <Properties>
               <string name="Name">News</string>
               <string name="Source"><![CDATA[-- Novedades (GameConfig.News): en la pantalla de inicio, los jugadores que ya habían jugado ven una
@@ -39801,7 +40613,7 @@ return News
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="135">
+          <Item class="ModuleScript" referent="140">
             <Properties>
               <string name="Name">PlaytimeGifts</string>
               <string name="Source"><![CDATA[-- Botón de regalos por tiempo jugado (a la izquierda, debajo de los retos): cuenta atrás hasta el
@@ -39978,7 +40790,7 @@ return PlaytimeGifts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="136">
+          <Item class="ModuleScript" referent="141">
             <Properties>
               <string name="Name">QuestTracker</string>
               <string name="Source"><![CDATA[-- Retos del día siempre a la vista (izquierda de la pantalla), con barra de progreso que se llena al
@@ -40172,7 +40984,7 @@ return QuestTracker
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="137">
+          <Item class="ModuleScript" referent="142">
             <Properties>
               <string name="Name">RewardFX</string>
               <string name="Source"><![CDATA[-- Efectos de recompensa (la "chispa" de los shooters de móvil al hacer algo bien):
@@ -40665,7 +41477,7 @@ return RewardFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="138">
+          <Item class="ModuleScript" referent="143">
             <Properties>
               <string name="Name">RiflePose</string>
               <string name="Source"><![CDATA[-- Postura realista: los personajes (bots y los demás jugadores) sujetan el arma de fuego con las dos
@@ -41022,7 +41834,7 @@ return RiflePose
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="139">
+          <Item class="ModuleScript" referent="144">
             <Properties>
               <string name="Name">ScopeGlint</string>
               <string name="Source"><![CDATA[-- Destello de la mira (como en los shooters): un bot tirador enemigo que está quieto y mira hacia
@@ -41155,7 +41967,7 @@ return ScopeGlint
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="140">
+          <Item class="ModuleScript" referent="145">
             <Properties>
               <string name="Name">ScopeSway</string>
               <string name="Source"><![CDATA[-- Visor de francotirador realista: con el visor puesto la mira nunca está del todo quieta (el pulso y
@@ -41256,7 +42068,7 @@ return ScopeSway
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="141">
+          <Item class="ModuleScript" referent="146">
             <Properties>
               <string name="Name">Scoreboard</string>
               <string name="Source"><![CDATA[-- Marcador de la partida (mantén Tab; en móvil, botón 📋): los dos equipos en columnas (o una sola
@@ -41588,7 +42400,7 @@ return Scoreboard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="142">
+          <Item class="ModuleScript" referent="147">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[-- Ajustes del jugador en el cliente: calidad gráfica, campo de visión y sensibilidad.
@@ -41836,7 +42648,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="143">
+          <Item class="ModuleScript" referent="148">
             <Properties>
               <string name="Name">SkinFX</string>
               <string name="Source"><![CDATA[-- Anima las skins arcoíris: las piezas con la etiqueta "RainbowSkin" (ver WeaponModels) van cambiando
@@ -41922,7 +42734,7 @@ return SkinFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="144">
+          <Item class="ModuleScript" referent="149">
             <Properties>
               <string name="Name">TouchLayout</string>
               <string name="Source"><![CDATA[-- Botones táctiles del juego. Roblox (ContextActionService) solo crea 7 botones táctiles y los mete
@@ -42156,7 +42968,7 @@ return TouchLayout
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="145">
+          <Item class="ModuleScript" referent="150">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[-- Tarjeta de controles para jugadores nuevos: la primera vez que entran en partida ven los controles
@@ -42313,7 +43125,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="146">
+          <Item class="ModuleScript" referent="151">
             <Properties>
               <string name="Name">UI</string>
               <string name="Source"><![CDATA[-- Pequeña utilidad para crear interfaces desde código.
@@ -42578,7 +43390,7 @@ return UI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="147">
+          <Item class="ModuleScript" referent="152">
             <Properties>
               <string name="Name">VoteUI</string>
               <string name="Source"><![CDATA[-- Votación de mapa + modo durante el descanso. Pulsa V (o el botón) para liberar el ratón y votar.
@@ -42772,7 +43584,7 @@ return VoteUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="148">
+          <Item class="ModuleScript" referent="153">
             <Properties>
               <string name="Name">WeaponController</string>
               <string name="Source"><![CDATA[-- Control de armas en primera persona: viewmodel, disparo, recarga, apuntado, cuchillo y cambio de arma.
@@ -44299,7 +45111,7 @@ return WeaponController
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="149">
+          <Item class="ModuleScript" referent="154">
             <Properties>
               <string name="Name">WeaponIcon</string>
               <string name="Source"><![CDATA[-- Iconos 3D de armas: dibuja el modelo real (con su skin) dentro de un ViewportFrame.
@@ -44356,7 +45168,7 @@ return WeaponIcon
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="150">
+          <Item class="ModuleScript" referent="155">
             <Properties>
               <string name="Name">Wheel</string>
               <string name="Source"><![CDATA[-- Ruleta diaria (Shop.Wheel): un giro gratis al día y giros extra con Robux. La ruleta gira y se para
@@ -44657,7 +45469,7 @@ return Wheel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="151">
+          <Item class="ModuleScript" referent="156">
             <Properties>
               <string name="Name">WorldFX</string>
               <string name="Source"><![CDATA[-- Efectos del mundo en el cliente:
@@ -44918,7 +45730,7 @@ return WorldFX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="152">
+          <Item class="ModuleScript" referent="157">
             <Properties>
               <string name="Name">ZoneName</string>
               <string name="Source"><![CDATA[-- Dónde estás (como en los shooters por equipos): debajo del minimapa, el nombre de la zona del mapa
@@ -45118,19 +45930,19 @@ return ZoneName
       </Item>
     </Item>
   </Item>
-  <Item class="Teams" referent="153">
+  <Item class="Teams" referent="158">
     <Properties>
       <string name="Name">Teams</string>
     </Properties>
   </Item>
-  <Item class="Workspace" referent="154">
+  <Item class="Workspace" referent="159">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
       <token name="PlayerCharacterDestroyBehavior">2</token>
       <bool name="StreamingEnabled">false</bool>
     </Properties>
-    <Item class="Terrain" referent="155">
+    <Item class="Terrain" referent="160">
       <Properties>
         <string name="Name">Terrain</string>
         <bool name="Decoration">true</bool>

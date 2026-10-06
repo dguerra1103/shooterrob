@@ -32,7 +32,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [x] Metro Yard
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
-- [ ] Desert Base
+- [x] Desert Base
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [ ] Dockyard
 - [ ] Industrial Yard
 
@@ -145,6 +146,27 @@ y añadirlo a `MapBuilder.Order`.
 - Tiempos: base→A 6,7 s, base→B 6,6 s, rotación 7,1 s, base→base 11,8 s.
 - Piezas: ~3.070 (760 chocan), 28 luces.
 - Pendiente: en Studio, comprobar que los bots saltan bien a las zanjas y salen de ellas.
+
+### Desert Base
+- Tamaño: 300 x 240, base militar vallada (muros T-wall con clip) y montañas de arenisca alrededor.
+- Alturas: suelo 0, pasarela del depósito de combustible 6, azotea del cuartel general 9 y torres
+  de vigilancia 12. navcheck con 0,6,9,12.
+- Rutas: barracones (norte, se cruzan por dentro) → parque de vehículos (A); patio de armas
+  (centro) con el cuartel general (dos salas, puertas desplazadas y consolas que cortan la línea
+  de puerta a puerta; azotea por escalera exterior desde cada lado); depósito de combustible (sur)
+  → puerta lateral del almacén (B); torre de vigilancia propia sobre el acceso a A.
+- Cortes de líneas largas (longlines, pares simétricos con suelo a ≥120 studs): búnker de
+  comunicaciones con la torre de agua encima (también corta torre↔torre), helicóptero en el
+  helipuerto, taller y generador en el parque de vehículos, HESCO de 5,4 escalonadas por mitad
+  (las de 4 dejan ver por encima a un jugador de pie) y un tramo de T-wall junto al almacén.
+- Sitios: A bajo la marquesina (camiones, todoterreno, bidones, cajas); B en el almacén
+  (estanterías, palés, carretillas, contenedor ARMORY). Compartidos.
+- Bases: barracón de entrada cerrado (T.spawnHouse, ahora pieza del kit) con puertas norte y sur.
+- Hitos: antena del cuartel, torre de agua, helicóptero, depósitos de combustible, torres de
+  vigilancia, palmeras, bandera.
+- Tiempos: base→A 6,6 s, base→B 6,7 s, rotación 6,7 s, base→base 12,0 s.
+- Piezas: ~2.330 (690 chocan), 12 luces.
+- Pendiente: en Studio, ver el color real de las montañas de terreno y la noche (los focos).
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los

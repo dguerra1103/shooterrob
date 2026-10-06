@@ -18,6 +18,7 @@ local Town = require(script.Town)
 local Airport = require(script.Airport)
 local Mall = require(script.Mall)
 local Rail = require(script.Rail)
+local Military = require(script.Military)
 
 local T = {}
 for k, v in Geometry do
@@ -38,6 +39,9 @@ end
 for k, v in Rail do
 	T[k] = v
 end
+for k, v in Military do
+	T[k] = v
+end
 T.Kit = Kit
 T.Materials = Materials
 T.G = Geometry
@@ -46,6 +50,7 @@ T.Town = Town
 T.Airport = Airport
 T.Mall = Mall
 T.Rail = Rail
+T.Military = Military
 
 local V = Vector3.new
 local RGB = Color3.fromRGB
@@ -253,6 +258,28 @@ function T.site(position, letter, opts)
 		mark.CastShadow = false
 	end
 	return box
+end
+
+-- Caseta de base cerrada para el equipo 1 (en -X; la del 2 sale con T.mirrored): frente ciego hacia
+-- el mapa en x = Front, fondo en x = Back, laterales en z = ±Half con una puerta junto al frente y
+-- un muro interior (vestíbulo en L) detrás de cada puerta. Así no se ve la base desde fuera.
+-- opts: Back, Front, Half, Height, Look, RoofLook, Stripe
+function T.spawnHouse(opts)
+	local G = Geometry
+	local back, front = opts.Back or -150, opts.Front or -122.5
+	local half, h = opts.Half or 24, opts.Height or 9
+	local look = opts.Look or "Building"
+	local length = front - back
+	for _, z in { -half, half } do
+		T.cap(G.wall(CFrame.new((back + front) / 2, 0, z), length, h, look, { G.door(length / 2 - 3, 5, 7.4) }))
+		T.cap(G.wall(CFrame.new(front - 5.25, 0, z * (half - 4.56) / half), 10.5, h, look))
+	end
+	T.cap(G.wall(CFrame.new(front, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), half * 2 + 0.6, h, look))
+	T.cap(G.wall(CFrame.new(back + 0.5, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0), half * 2 + 0.6, h, look))
+	T.cap(G.floor(CFrame.new((back + front) / 2, h + 0.6, 0), length + 0.5, half * 2 + 1, opts.RoofLook or "SteelDark", 0.6))
+	if opts.Stripe then
+		G.deco("BaseStripe", V(0.3, 1.2, half * 2 - 8), CFrame.new(front + 0.4, h - 2.5, 0), opts.Stripe)
+	end
 end
 
 T.ffa = Kit.ffaSpawn

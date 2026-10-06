@@ -191,6 +191,35 @@ Materials.MetroYard = {
 	Deck = { RGB(120, 124, 130), M.DiamondPlate },
 }
 
+Materials.DesertBase = {
+	Sand = { RGB(200, 172, 126), M.Sand },
+	SandDark = { RGB(176, 150, 106), M.Sand },
+	Pad = { RGB(196, 186, 166), M.Concrete },
+	Concrete = { RGB(200, 190, 170), M.Concrete },
+	ConcreteDark = { RGB(150, 140, 122), M.Concrete },
+	Building = { RGB(212, 194, 156), M.Plaster },
+	Tan = { RGB(198, 172, 128), M.Plaster },
+	Roof = { RGB(150, 138, 116), M.Concrete },
+	Hesco = { RGB(180, 160, 118), M.Fabric },
+	Sandbag = { RGB(188, 166, 120), M.Fabric },
+	Canvas = { RGB(168, 148, 108), M.Fabric },
+	MilGreen = { RGB(92, 104, 68), M.Metal },
+	MilGreenDark = { RGB(64, 74, 50), M.Metal },
+	Tank = { RGB(206, 200, 186), M.Metal },
+	Red = { RGB(176, 54, 42), M.SmoothPlastic },
+	Blue = { RGB(48, 92, 168), M.SmoothPlastic },
+	Paint = { RGB(236, 234, 226), M.SmoothPlastic },
+	Asphalt = { RGB(92, 88, 82), M.Asphalt },
+	Steel = { RGB(140, 140, 136), M.Metal },
+	SteelDark = { RGB(70, 70, 66), M.Metal },
+	Wood = { RGB(150, 116, 78), M.WoodPlanks },
+	WoodDark = { RGB(104, 80, 56), M.Wood },
+	Deck = { RGB(130, 126, 118), M.DiamondPlate },
+	Glass = { RGB(150, 190, 210), M.Glass },
+	Yellow = { RGB(140, 140, 136), M.Metal }, -- (barandillas de acero gris)
+	YellowPaint = { RGB(226, 186, 60), M.SmoothPlastic },
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 
