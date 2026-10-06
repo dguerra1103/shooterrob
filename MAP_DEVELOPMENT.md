@@ -34,7 +34,8 @@ y añadirlo a `MapBuilder.Order`.
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [x] Desert Base
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
-- [ ] Dockyard
+- [x] Dockyard
+    - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 - [ ] Industrial Yard
 
 ## Cómo se valida cada mapa (Lune, sin Studio)
@@ -167,6 +168,27 @@ y añadirlo a `MapBuilder.Order`.
 - Tiempos: base→A 6,6 s, base→B 6,7 s, rotación 6,7 s, base→base 12,0 s.
 - Piezas: ~2.330 (690 chocan), 12 luces.
 - Pendiente: en Studio, ver el color real de las montañas de terreno y la noche (los focos).
+
+### Dockyard
+- Tamaño: 300 x 244 (226 jugables: del canto del muelle al fondo). Agua al norte (decorado: el canto
+  tiene bitas y un muro invisible), buque portacontenedores amarrado y grúas pórtico.
+- Alturas: suelo 0, andén de carga e interior del tinglado 4, azotea del control del puerto 9.
+  Las pilas de contenedores llevan clip encima (son las paredes de las calles). navcheck con 0,4,9.
+- Rutas: muelle (norte, entre las patas de las grúas) → A; playa de contenedores (centro: bloques
+  de 2 de alto rojos, azules y amarillos que forman tres calles, carretilla pórtico en el centro)
+  → A o B; puerta de camiones (sur) → escalera a la puerta oeste del tinglado (B); andén de carga
+  (4) con dos portones; azotea del control del puerto (elevada propia, mira al muelle).
+- Líneas largas cortadas: tapa de escotilla y contenedores sueltos en el muelle, contenedores a lo
+  largo de Z junto al centro, caja niveladora en el andén, estantería y palés frente a las puertas
+  laterales del tinglado y la caseta de maquinaria en la azotea del control (sin duelo azotea ↔
+  azotea).
+- Sitios: A en el muelle junto al contenedor en carga; B dentro del tinglado (contenedor
+  frigorífico, estanterías, palés, carretilla). Compartidos.
+- Bases: caseta cerrada (T.spawnHouse) con puertas norte y sur.
+- Hitos: grúas pórtico rojas, buque, carretilla pórtico amarilla, tinglado azul "TINGLADO 3".
+- Tiempos: base→A 6,7 s, base→B 6,8 s, rotación 7,0 s, base→base 11,8 s.
+- Piezas: ~2.500 (650 chocan), 12 luces.
+- Pendiente: en Studio, el agua y las defensas del canto del muelle.
 
 ### Buscar y destruir con sitios compartidos
 Los sitios A y B de los mapas nuevos están a la misma distancia de las dos bases. Para que los

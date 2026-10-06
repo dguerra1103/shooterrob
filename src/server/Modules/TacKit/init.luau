@@ -19,6 +19,7 @@ local Airport = require(script.Airport)
 local Mall = require(script.Mall)
 local Rail = require(script.Rail)
 local Military = require(script.Military)
+local Port = require(script.Port)
 
 local T = {}
 for k, v in Geometry do
@@ -42,6 +43,9 @@ end
 for k, v in Military do
 	T[k] = v
 end
+for k, v in Port do
+	T[k] = v
+end
 T.Kit = Kit
 T.Materials = Materials
 T.G = Geometry
@@ -51,6 +55,7 @@ T.Airport = Airport
 T.Mall = Mall
 T.Rail = Rail
 T.Military = Military
+T.Port = Port
 
 local V = Vector3.new
 local RGB = Color3.fromRGB

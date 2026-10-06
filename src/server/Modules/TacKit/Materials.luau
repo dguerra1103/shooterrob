@@ -220,6 +220,31 @@ Materials.DesertBase = {
 	YellowPaint = { RGB(226, 186, 60), M.SmoothPlastic },
 }
 
+Materials.Dockyard = {
+	Quay = { RGB(168, 170, 172), M.Concrete },
+	QuayDark = { RGB(124, 128, 132), M.Concrete },
+	Concrete = { RGB(176, 178, 180), M.Concrete },
+	ConcreteDark = { RGB(120, 124, 128), M.Concrete },
+	Asphalt = { RGB(76, 78, 82), M.Asphalt },
+	Building = { RGB(206, 208, 210), M.SmoothPlastic },
+	Shed = { RGB(104, 132, 168), M.Metal },
+	ShedLight = { RGB(196, 200, 206), M.Metal },
+	Roof = { RGB(118, 122, 128), M.Metal },
+	CraneRed = { RGB(196, 56, 44), M.Metal },
+	CraneBlue = { RGB(40, 92, 170), M.Metal },
+	Hull = { RGB(36, 58, 96), M.Metal },
+	Red = { RGB(200, 54, 42), M.SmoothPlastic },
+	Blue = { RGB(40, 96, 190), M.SmoothPlastic },
+	YellowPaint = { RGB(236, 186, 36), M.SmoothPlastic },
+	Paint = { RGB(236, 236, 232), M.SmoothPlastic },
+	Steel = { RGB(140, 144, 150), M.Metal },
+	SteelDark = { RGB(66, 70, 76), M.Metal },
+	Deck = { RGB(120, 124, 130), M.DiamondPlate },
+	Glass = { RGB(150, 196, 220), M.Glass },
+	Wood = { RGB(150, 116, 78), M.WoodPlanks },
+	Yellow = { RGB(236, 186, 36), M.Metal }, -- (barandillas amarillas de muelle)
+}
+
 -- Paleta activa (la elige el mapa al empezar: Materials.use("Construction"))
 Materials.Active = Materials.Construction
 
