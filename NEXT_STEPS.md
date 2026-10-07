@@ -15,6 +15,9 @@ tipo de arma (`WeaponFeel`), retroceso separado (juego / cámara / arma), efecto
 móvil, huecos de audio propio por arma e instrumentación de impactos (apagada). Lo siguiente es **pasar
 su sección F en Studio** empezando por el ARX-27 y ajustar los perfiles jugando.
 
+**Fase 3 (mapas gold standard) terminada fuera de Studio** — ver `FASE_03_VISUAL_MAPAS.md`. Mirar en
+Studio Construction, Coastal y Mall Rush (sección F) antes de llevar las mismas mejoras al resto.
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

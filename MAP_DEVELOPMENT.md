@@ -39,6 +39,16 @@ y añadirlo a `MapBuilder.Order`.
 - [x] Industrial Yard
     - [x] Blockout · [x] Gameplay · [x] Visual · [x] Lighting · [x] Optimization · [x] Tested (Lune)
 
+## Fase 3 (gold standard: Construction, Coastal, Mall Rush)
+Pasada visual sin cambiar el gameplay, detallada en `FASE_03_VISUAL_MAPAS.md`:
+- **Construction:** torre con cantos amarillos y red roja arriba, amarillo pintado e interior de la
+  nave B.
+- **Coastal:** más encalado y azul, campanario blanco, fuente con azulejo, faro más cerca y más
+  luminoso.
+- **Mall Rush:** cubierta clara, fuente moderna, franjas, tiras de luz y rótulo «MALL RUSH».
+- **Común:** neblina ≤ 0,26 y bloom ≤ 0,5 en todas sus luces. Prueba `mapvisual` (hitos, decorado
+  sin colisión y presupuesto de piezas).
+
 ## Cómo se valida cada mapa (Lune, sin Studio)
 - `navcheck`: mapa de alturas (0,5 studs) desde las bases: andar ≤1,1, salto ≤6,8, supersalto
   ≤16,5. Falla si un punto de juego es inalcanzable o hay trampas sin vuelta; lista lo que se
