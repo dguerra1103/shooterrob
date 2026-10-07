@@ -37,6 +37,7 @@ tests/run_all.sh flow   # solo una prueba (nombre del archivo sin .luau)
 | Ciclo de partidas | `ciclo` (10 partidas seguidas, todos los modos: mapas, bots, conexiones y objetos sueltos que no crecen), `rounds`, `sndround`, `elim`, `infection`, `domination`, `bomb`, `calabazas` |
 | Mapas | `navcheck` (9 mapas: zonas alcanzables, aparición), `spawncheck`, `sightcheck`, `botspots`, `votecheck` |
 | Combate | `shooting`, `realshots`, `realhits`, `melee`, `grenade`, `killcam`, `finalkillcam*` |
+| Gunplay (Fase 2) | `weaponfeel` (perfiles, golpe de cámara igual a cualquier fps, presupuestos, audio por capas, juego limpio), `gunfeel` (eventos del arma, recarga autoritativa, cancelaciones, apuntado por tipo, FOV, casquillos por calidad), `hittelemetry` (instrumentación de impactos) |
 | Bots | `bots`, `botbrain`, `gunbots`, `flagbots`, `infection_bots` |
 | Datos | `datastore` (bloqueo de sesión, recibos idempotentes, migraciones), `progress`, `seasons` |
 | Economía | `econ_catalog`, `econ_server`, `econ_client` (ProductId = 0: nunca hay compras reales) |

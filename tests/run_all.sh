@@ -139,6 +139,9 @@ TESTS=(
 	econ_server
 	econ_client
 	fase1
+	weaponfeel
+	gunfeel
+	hittelemetry
 )
 MAPS=("Construction" "Coastal" "Terminal" "MallRush 0,12,24" "RooftopDistrict 0,4,6,8,14" "MetroYard -3,0,10" "DesertBase 0,6,9,12" "Dockyard 0,4,9" "IndustrialYard 0,8")
 MODES=(TDM DOM SND FFA CTF KOTH GUN ELIM INF CAL)
