@@ -1,0 +1,10 @@
+local process = require("@lune/process")
+local mock = require("./mock")
+local game, req = mock.buildGame(process.args[1])
+local UI = req(game.StarterPlayer.Client.Modules.UI)
+local function check(c, m) if not c then print("FALLO: " .. m) process.exit(1) end print("ok  " .. m) end
+check(UI.upper("Mítico") == "MÍTICO", UI.upper("Mítico"))
+check(UI.upper("Campeón") == "CAMPEÓN", UI.upper("Campeón"))
+check(UI.upper("Épico") == "ÉPICO" and UI.upper("año") == "AÑO", "tildes y eñes")
+print("MAYUSCULAS OK")
+process.exit(0)

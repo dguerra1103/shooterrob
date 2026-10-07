@@ -1,0 +1,37 @@
+local process = require("@lune/process")
+local task = require("@lune/task")
+local mock = require("./mock")
+mock.taskImpl = task
+local game, req = mock.buildGame(process.args[1])
+local Shared = game.ReplicatedStorage.Shared
+local Ranks = req(Shared.Ranks)
+local function check(c, m) if not c then print("FALLO: " .. m) process.exit(1) end print("ok  " .. m) end
+check(Ranks.Get(0).Name == "Bronce" and Ranks.Get(99).Name == "Bronce" and Ranks.Get(100).Name == "Plata" and Ranks.Get(5000).Name == "Campeón", "tramos de rango")
+local f, nxt = Ranks.Progress(175)
+check(math.abs(f - 0.5) < 1e-6 and nxt.Name == "Oro", "progreso hacia Oro")
+check(Ranks.Delta("Win", false, false, false) == 25 and Ranks.Delta("Loss", false, false, true) == -7 and Ranks.Delta("Loss", true, false, false) == -5, "puntos por resultado")
+check(Ranks.Delta("Loss", false, true, true) == 0 and Ranks.Delta("Win", false, true, true) == 8 and Ranks.Delta("Draw", false, false, false) == 0, "contra bots y empates")
+check(Ranks.Apply(105, -12) == 100 and Ranks.Apply(5, -12) == 0 and Ranks.Apply(90, 25) == 115, "nunca bajas de rango")
+local M = game.ServerScriptService.Server.Modules
+local PlayerData = req(M.PlayerData)
+PlayerData.Init()
+local p = mock.new("Player"); p.Name = "P"; p.UserId = 9; p.Parent = game:GetService("Players")
+table.insert(mock.players, p)
+game:GetService("Players").PlayerAdded:Fire(p)
+local data = PlayerData.WaitFor(p, 3)
+check(data.RankPoints == 0 and p:GetAttribute("Rank") == 1, "jugador nuevo: Bronce")
+PlayerData.StartMatch(p)
+local coins, crates = data.Coins, data.FreeCrates
+check(PlayerData.AddRankPoints(p, 110) == 110 and p:GetAttribute("Rank") == 2, "sube a Plata (atributo Rank)")
+check(data.Coins == coins + 200 and data.RankBest == 2, "premio de Plata")
+check(PlayerData.AddRankPoints(p, -30) == -10 and data.RankPoints == 100, "al perder no baja de Plata")
+PlayerData.AddRankPoints(p, 400)
+check(data.RankBest == 4 and data.Coins == coins + 200 + 300 + 500 and data.FreeCrates == crates + 1, "saltar dos rangos da los dos premios")
+PlayerData.AddRankPoints(p, -5)
+PlayerData.AddRankPoints(p, 5)
+check(data.Coins == coins + 1000, "volver al mismo rango no repite premio")
+data.RankPoints = 100
+local s = PlayerData.MatchSummary(p)
+check(s.StartRank == 0 and s.RankPoints == 100, "resumen con rango inicial y final")
+print("RANGOS OK")
+process.exit(0)
