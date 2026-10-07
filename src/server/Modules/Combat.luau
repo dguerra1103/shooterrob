@@ -79,6 +79,11 @@ local function ignoreAccessories(character)
 	character.DescendantAdded:Connect(apply)
 end
 
+-- Vector3 válido: sin NaN ni infinitos (un NaN pasa por las comparaciones de distancia sin fallar)
+local function finiteVector(v)
+	return typeof(v) == "Vector3" and v.Magnitude == v.Magnitude and v.Magnitude < 1e6
+end
+
 local function hasLineOfSight(origin, target, ignore)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -317,7 +322,7 @@ local function onFire(player, tool, origin, rays)
 	if frozen(player) then
 		return
 	end
-	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") or typeof(origin) ~= "Vector3" or type(rays) ~= "table" then
+	if typeof(tool) ~= "Instance" or not tool:IsA("Tool") or not finiteVector(origin) or type(rays) ~= "table" then
 		return
 	end
 	local character = player.Character
@@ -362,11 +367,12 @@ local function onFire(player, tool, origin, rays)
 
 	if def.Explosive then
 		local ray = rays[1]
-		if type(ray) ~= "table" or typeof(ray.Position) ~= "Vector3" then
+		if type(ray) ~= "table" or not finiteVector(ray.Position) then
 			return
 		end
 		local position = ray.Position
-		if (position - origin).Magnitude > def.Range + 5 then
+		local reach = (position - origin).Magnitude
+		if reach > def.Range + 5 or reach < 0.05 then -- (a 0 la dirección .Unit sería NaN)
 			return
 		end
 		-- El cohete no puede atravesar paredes hasta el punto de impacto
@@ -387,7 +393,7 @@ local function onFire(player, tool, origin, rays)
 	local perTarget = {}
 	for i = 1, math.min(#rays, def.Pellets) do
 		local ray = rays[i]
-		if type(ray) == "table" and typeof(ray.Position) == "Vector3" then
+		if type(ray) == "table" and finiteVector(ray.Position) then
 			local position = ray.Position
 			local distance = (position - origin).Magnitude
 			if distance <= def.Range + 5 then
@@ -604,8 +610,10 @@ function Combat.Init()
 	local function onPlayer(player)
 		player.CharacterAdded:Connect(function(character)
 			ignoreAccessories(character)
-			local humanoid = character:WaitForChild("Humanoid")
-			Combat.WatchHumanoid(humanoid, player, player.Name)
+			local humanoid = character:WaitForChild("Humanoid", 10)
+			if humanoid then
+				Combat.WatchHumanoid(humanoid, player, player.Name)
+			end
 		end)
 		if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
 			ignoreAccessories(player.Character)

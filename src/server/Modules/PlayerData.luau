@@ -358,6 +358,26 @@ local function sendUpdate(player)
 end
 PlayerData.SendUpdate = sendUpdate
 
+-- Límite de peticiones de equipamiento/ajustes por jugador (cubo de fichas): "EQUIPAR TODO" manda
+-- varias seguidas, pero un cliente modificado no puede inundar el servidor de DataUpdate
+local REQUEST_BURST, REQUEST_RATE = 20, 6 -- fichas máximas y fichas por segundo
+local requestBuckets = setmetatable({}, { __mode = "k" })
+local function allowRequest(player)
+	local now = os.clock()
+	local bucket = requestBuckets[player]
+	if not bucket then
+		bucket = { Tokens = REQUEST_BURST, Time = now }
+		requestBuckets[player] = bucket
+	end
+	bucket.Tokens = math.min(REQUEST_BURST, bucket.Tokens + (now - bucket.Time) * REQUEST_RATE)
+	bucket.Time = now
+	if bucket.Tokens < 1 then
+		return false
+	end
+	bucket.Tokens -= 1
+	return true
+end
+
 function PlayerData.GetLeaderstats(player)
 	local stats = player:FindFirstChild("leaderstats")
 	if not stats then
@@ -467,10 +487,23 @@ local function ownsPass(player, passId)
 	if not passId or passId == 0 then
 		return false
 	end
-	local ok, owns = pcall(function()
-		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
-	end)
-	return ok and owns
+	-- (un fallo puntual de Roblox no debe dejar sin su pase a quien lo compró: se reintenta y se avisa)
+	local ok, owns
+	for attempt = 1, 2 do
+		ok, owns = pcall(function()
+			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
+		end)
+		if ok then
+			break
+		end
+		if attempt == 1 then
+			task.wait(1)
+		end
+	end
+	if not ok then
+		warn("[PlayerData] No se pudo comprobar el Game Pass", passId, "de", player.Name, owns)
+	end
+	return ok and owns == true
 end
 
 local function checkPolicy(player)
@@ -680,6 +713,23 @@ local function load(player)
 	checkPolicy(player)
 
 	if not player.Parent then
+		-- Se fue mientras cargaba: se suelta el bloqueo de sesión que se acaba de poner (si no, al
+		-- volver tendría que esperar LOCK_WAIT). Solo se quita el bloqueo, sin tocar sus datos.
+		if store and not noSave[player] then
+			local ok, err = pcall(function()
+				store:UpdateAsync(key(player), function(old)
+					local lock = type(old) == "table" and old.SessionLock
+					if type(lock) == "table" and lock.Job == game.JobId then
+						old.SessionLock = nil
+						return old
+					end
+					return nil
+				end)
+			end)
+			if not ok then
+				warn("[PlayerData] No se pudo soltar el bloqueo de", player.Name, err)
+			end
+		end
 		noSave[player] = nil
 		cratesRestricted[player] = nil
 		return
@@ -1694,51 +1744,66 @@ end
 function PlayerData.Init()
 	-- Publica si hay XP extra hoy (la pantalla de inicio lo anuncia); se revisa cada minuto
 	-- Potenciadores: su tiempo corre solo mientras se juega (no en la portada)
+	local STEP = 5
+	local function tickBoosters(player, data)
+		if player:GetAttribute("InMenu") ~= false then
+			return -- (en la portada o aún sin entrar en partida)
+		end
+		local changed, update = false, false
+		for _, booster in Shop.Boosters do
+			local left = tonumber(data[booster.Field]) or 0
+			if left > 0 then
+				data[booster.Field] = math.max(0, left - STEP)
+				changed = true
+				if data[booster.Field] == 0 then
+					Remotes.Notify:FireClient(player, "Challenge", booster.Icon .. " Se acabó tu " .. booster.Name)
+					update = true
+				elseif data[booster.Field] % 60 < STEP then
+					update = true -- (el cliente cuenta los segundos; se corrige cada minuto)
+				end
+			end
+		end
+		if changed then
+			dirty[player] = true
+		end
+		if update then
+			sendUpdate(player)
+		end
+	end
+	-- (la temporada de rango y la del pase pueden acabar con el servidor encendido)
+	local function tickSeasons(player, data)
+		PlayerData.CheckSeason(player)
+		local before = type(data.Pass) == "table" and data.Pass.Season
+		local leftovers = BattlePass.Ensure(data)
+		if type(data.Pass) == "table" and data.Pass.Season ~= before then
+			dirty[player] = true
+			sendUpdate(player)
+			if leftovers and #leftovers > 0 then
+				Remotes.Notify:FireClient(player, "Big", "🎖️ ¡Nueva temporada! Te entregamos " .. #leftovers .. " recompensas del pase que no habías reclamado")
+			end
+		end
+	end
+	-- Cada jugador por separado y protegido: un perfil raro no para el bucle para todo el servidor
 	task.spawn(function()
-		local STEP = 5
 		while true do
 			task.wait(STEP)
-			for player, data in profiles do
-				if player:GetAttribute("InMenu") ~= false then
-					continue -- (en la portada o aún sin entrar en partida)
-				end
-				local changed, update = false, false
-				for _, booster in Shop.Boosters do
-					local left = tonumber(data[booster.Field]) or 0
-					if left > 0 then
-						data[booster.Field] = math.max(0, left - STEP)
-						changed = true
-						if data[booster.Field] == 0 then
-							Remotes.Notify:FireClient(player, "Challenge", booster.Icon .. " Se acabó tu " .. booster.Name)
-							update = true
-						elseif data[booster.Field] % 60 < STEP then
-							update = true -- (el cliente cuenta los segundos; se corrige cada minuto)
-						end
-					end
-				end
-				if changed then
-					dirty[player] = true
-				end
-				if update then
-					sendUpdate(player)
+			for player, data in table.clone(profiles) do
+				local ok, err = pcall(tickBoosters, player, data)
+				if not ok then
+					warn("[PlayerData] potenciadores de", player.Name, err)
 				end
 			end
 		end
 	end)
 	task.spawn(function()
 		while true do
-			ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
-			-- (la temporada de rango y la del pase pueden acabar con el servidor encendido)
-			for player, data in profiles do
-				PlayerData.CheckSeason(player)
-				local before = type(data.Pass) == "table" and data.Pass.Season
-				local leftovers = BattlePass.Ensure(data)
-				if type(data.Pass) == "table" and data.Pass.Season ~= before then
-					dirty[player] = true
-					sendUpdate(player)
-					if leftovers and #leftovers > 0 then
-						Remotes.Notify:FireClient(player, "Big", "🎖️ ¡Nueva temporada! Te entregamos " .. #leftovers .. " recompensas del pase que no habías reclamado")
-					end
+			pcall(function()
+				ReplicatedStorage:SetAttribute("XPBoost", xpBoost())
+			end)
+			for player, data in table.clone(profiles) do
+				local ok, err = pcall(tickSeasons, player, data)
+				if not ok then
+					warn("[PlayerData] temporada de", player.Name, err)
 				end
 			end
 			task.wait(60)
@@ -1771,7 +1836,10 @@ function PlayerData.Init()
 		pending += 1
 		-- Últimos cambios de otros módulos antes del guardado final (p. ej. el tiempo de los regalos)
 		if PlayerData.OnLeaving then
-			pcall(PlayerData.OnLeaving, player)
+			local ok, err = pcall(PlayerData.OnLeaving, player)
+			if not ok then
+				warn("[PlayerData] OnLeaving de", player.Name, err)
+			end
 		end
 		save(player, true)
 		pending -= 1
@@ -1788,7 +1856,10 @@ function PlayerData.Init()
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
 			if PlayerData.OnLeaving then
-				pcall(PlayerData.OnLeaving, player)
+				local ok, err = pcall(PlayerData.OnLeaving, player)
+				if not ok then
+					warn("[PlayerData] OnLeaving de", player.Name, err)
+				end
 			end
 			pending += 1
 			task.spawn(function()
@@ -1818,6 +1889,9 @@ function PlayerData.Init()
 	end
 
 	Remotes.EquipSkin.OnServerEvent:Connect(function(player, skinId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(skinId) ~= "string" or not Skins.List[skinId] or not data.Skins[skinId] then
 			return
@@ -1833,6 +1907,9 @@ function PlayerData.Init()
 	end)
 
 	Remotes.EquipOutfit.OnServerEvent:Connect(function(player, outfitId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(outfitId) ~= "string" or not Outfits.List[outfitId] or not data.Outfits[outfitId] then
 			return
@@ -1857,9 +1934,15 @@ function PlayerData.Init()
 		sendUpdate(player)
 	end
 	Remotes.SetPrimary.OnServerEvent:Connect(function(player, weaponName)
+		if not allowRequest(player) then
+			return
+		end
 		setWeapon(player, weaponName, "Primary", Weapons.Primaries)
 	end)
 	Remotes.SetSecondary.OnServerEvent:Connect(function(player, weaponName)
+		if not allowRequest(player) then
+			return
+		end
 		setWeapon(player, weaponName, "Secondary", Weapons.Secondaries)
 	end)
 	Remotes.TutorialDone.OnServerEvent:Connect(function(player)
@@ -1880,11 +1963,17 @@ function PlayerData.Init()
 		end
 	end)
 	Remotes.SetMelee.OnServerEvent:Connect(function(player, weaponName)
+		if not allowRequest(player) then
+			return
+		end
 		setWeapon(player, weaponName, "Melee", Weapons.Melees)
 	end)
 
 	-- Ajustes del jugador: se validan y se guardan con su progreso
 	Remotes.SaveSettings.OnServerEvent:Connect(function(player, settings)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(settings) ~= "table" then
 			return
@@ -1926,12 +2015,18 @@ function PlayerData.Init()
 		sendUpdate(player)
 	end
 	Remotes.SelectClass.OnServerEvent:Connect(function(player, index)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if data and type(index) == "number" and data.Classes[index] then
 			applyClass(player, data, index)
 		end
 	end)
 	Remotes.EditClass.OnServerEvent:Connect(function(player, index, field, value)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		local class = data and type(index) == "number" and data.Classes[index]
 		if not class then
@@ -1960,10 +2055,16 @@ function PlayerData.Init()
 	end)
 	-- Listo para jugar (buscando partida): lo ve su escuadra
 	Remotes.SetReady.OnServerEvent:Connect(function(player, ready)
+		if not allowRequest(player) then
+			return
+		end
 		player:SetAttribute("Ready", ready == true and player:GetAttribute("InMenu") == true or nil)
 	end)
 
 	Remotes.EquipCharm.OnServerEvent:Connect(function(player, charmId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(charmId) ~= "string" or not Charms.List[charmId] or not data.Charms[charmId] then
 			return
@@ -1974,6 +2075,9 @@ function PlayerData.Init()
 	end)
 
 	Remotes.EquipTitle.OnServerEvent:Connect(function(player, titleId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(titleId) ~= "string" or not Titles.Owns(data, titleId, player:GetAttribute("VIP") == true) then
 			return
@@ -1985,6 +2089,9 @@ function PlayerData.Init()
 	end)
 
 	Remotes.EquipSpray.OnServerEvent:Connect(function(player, sprayId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(sprayId) ~= "string" or not Sprays.Owns(data.Sprays, sprayId, player:GetAttribute("VIP") == true) then
 			return
@@ -1995,6 +2102,9 @@ function PlayerData.Init()
 	end)
 
 	Remotes.EquipKillEffect.OnServerEvent:Connect(function(player, effectId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(effectId) ~= "string" or not KillEffects.List[effectId] or not data.KillEffects[effectId] then
 			return
@@ -2005,6 +2115,9 @@ function PlayerData.Init()
 
 	-- Camuflaje de maestría para un arma ("Default" = usar la skin general)
 	Remotes.SetCamo.OnServerEvent:Connect(function(player, weaponName, camoId)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(weaponName) ~= "string" or not Weapons.List[weaponName] or type(camoId) ~= "string" then
 			return
@@ -2120,6 +2233,9 @@ function PlayerData.Init()
 	-- Equipar cualquier cosmético (tarjeta, pose, intro de MVP... y también los de siempre). El
 	-- servidor comprueba que lo tienes; si no, no hace nada.
 	Remotes.EquipCosmetic.OnServerEvent:Connect(function(player, kind, id)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(kind) ~= "string" or type(id) ~= "string" or not Catalog.Kinds[kind] then
 			return
@@ -2142,6 +2258,9 @@ function PlayerData.Init()
 
 	-- Ya vio novedades de la tienda (quita NUEVO) o la tarjeta del pack de inicio ("Starter")
 	Remotes.MarkSeen.OnServerEvent:Connect(function(player, keys)
+		if not allowRequest(player) then
+			return
+		end
 		local data = profiles[player]
 		if not data or type(keys) ~= "table" then
 			return
