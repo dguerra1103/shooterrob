@@ -46,6 +46,10 @@ local roundOver = false
 local currentMode = "TDM"
 local votes = {} -- [player] = índice
 local voteOptions = {}
+-- Modo QA (Fase 8, solo Studio; lo usa QAServer): mapa y modo de la siguiente partida y empezar ya.
+-- Sin el modo QA nadie los toca y la ronda va como siempre.
+Round.QANext = nil -- { Map = id del mapa, Mode = "TDM"... }
+local qaStartNow = false
 
 local onInfectionDeath -- (Infección: quien cae ante los zombis se convierte; ver más abajo)
 
@@ -1646,7 +1650,10 @@ local function playRound()
 		table.clear(votes)
 		voteOptions = makeVoteOptions()
 		publishVotes()
-		countdown(GameConfig.IntermissionTime)
+		countdown(GameConfig.IntermissionTime, function()
+			return qaStartNow
+		end)
+		qaStartNow = false
 		while #Players:GetPlayers() < GameConfig.MinPlayers do
 			ReplicatedStorage:SetAttribute("TimeLeft", 0)
 			task.wait(1)
@@ -1667,6 +1674,11 @@ local function playRound()
 		end
 		local choice = voteOptions[ties[math.random(1, #ties)]]
 		clearVotes()
+		-- (QA: la partida que se pidió en el panel, en vez de la votada)
+		if Round.QANext then
+			choice = Round.QANext
+			Round.QANext = nil
+		end
 
 		local mode = choice.Mode
 		-- Comprueba que el mapa soporta el modo
@@ -1830,6 +1842,35 @@ local function onFriendship(newcomer, friend)
 	if current == nil or math.abs(after - left) <= 1 then
 		newcomer.Team = target
 	end
+end
+
+-- QA: acabar el descanso ya (la partida empieza con la siguiente comprobación de la cuenta atrás)
+function Round.QAStartNow()
+	if ReplicatedStorage:GetAttribute("State") == "Intermission" then
+		qaStartNow = true
+		return true
+	end
+	return false
+end
+
+-- QA: terminar la partida en curso. winnerIndex 1 o 2 = gana ese equipo (se le pone un punto por
+-- delante); nil = acaba con el marcador que haya. La partida termina por el camino normal (resultados,
+-- premios y pantalla final incluidos). En Eliminación / Buscar y destruir acaba al terminar la ronda
+-- corta en curso.
+function Round.QAEnd(winnerIndex)
+	if ReplicatedStorage:GetAttribute("State") ~= "Playing" then
+		return false
+	end
+	local winner = winnerIndex and teams[winnerIndex]
+	if winner and isTeamMode() then
+		local other = teams[winnerIndex == 1 and 2 or 1]
+		local lead = getScore(winner.Name) - getScore(other.Name)
+		if lead <= 0 then
+			addScore(winner, 1 - lead)
+		end
+	end
+	roundOver = true
+	return true
 end
 
 function Round.Init()

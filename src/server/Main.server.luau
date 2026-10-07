@@ -22,6 +22,7 @@ local Friends = require(Modules.Friends)
 local Event = require(Modules.Event)
 local Graffiti = require(Modules.Graffiti)
 local HealthRegen = require(Modules.HealthRegen)
+local QAServer = require(Modules.QAServer)
 
 
 -- Arranca cada sistema por separado: si uno falla, se avisa en Output y los demás siguen
@@ -52,3 +53,4 @@ start("Friends", Friends.Init)
 start("Event", Event.Init)
 start("Graffiti", Graffiti.Init)
 start("HealthRegen", HealthRegen.Init)
+start("QAServer", QAServer.Init) -- modo QA: solo en Studio con GameConfig.QA.Enabled (si no, no hace nada)

@@ -65,6 +65,16 @@ check(string.find(T.LastReport, "Holgura de impactos (2)", 1, true) ~= nil, "res
 local h4, t4 = dummy(-23)
 shoot(t4, Vector3.new(0, 12, 0)) -- 12 studs: fuera de la tolerancia
 check(T.Rejected == 1 and h4.Health == 100, "impacto a 12 studs: rechazado (como antes) y medido")
+-- (modo QA, Fase 8: cada muestra puede salir a quien disparó, con su arma y la distancia del tiro)
+local samples = {}
+Combat.OnHitSample = function(sample)
+	table.insert(samples, sample)
+end
+shoot(t4, Vector3.new(0, 12, 0))
+local sample = samples[1]
+check(#samples == 1 and sample.Accepted == false and type(sample.Weapon) == "string" and type(sample.Distance) == "number" and sample.Slack > 8,
+	"cada muestra lleva arma, distancia y holgura (" .. tostring(sample and sample.Weapon) .. ")")
+Combat.OnHitSample = nil
 GameConfig.HitTelemetry.Enabled = false
 print("INSTRUMENTACION OK")
 process.exit(0)

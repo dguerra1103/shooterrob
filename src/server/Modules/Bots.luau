@@ -50,6 +50,7 @@ end
 table.sort(BOT_CHARMS)
 
 local Bots = {}
+Bots.QAFillTo = nil :: number? -- (modo QA de Studio: total de jugadores + bots; nil = GameConfig.Bots.FillTo)
 
 local CONFIG = GameConfig.Bots
 local NAMES = { "Tito", "Luna", "Max", "Kira", "Rocco", "Nova", "Pipo", "Zara", "Dante", "Mia", "Toby", "Vega", "Bruno", "Sofi", "Leo", "Iris", "Hugo", "Nala", "Thor", "Cleo" }
@@ -82,7 +83,8 @@ local function desiredCount()
 	if not CONFIG.Enabled or state() ~= "Playing" then
 		return 0
 	end
-	return math.max(0, CONFIG.FillTo - #Players:GetPlayers())
+	-- (Bots.QAFillTo: solo el modo QA de Studio lo cambia para poner o quitar bots; nil = lo normal)
+	return math.max(0, (Bots.QAFillTo or CONFIG.FillTo) - #Players:GetPlayers())
 end
 
 -- Equipo con menos miembros (jugadores + bots)

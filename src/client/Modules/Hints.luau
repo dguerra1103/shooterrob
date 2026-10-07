@@ -23,6 +23,7 @@ Hints.Duration = 5 -- segundos en pantalla
 Hints.HipShots = 8 -- disparos a la cadera seguidos sin acertar que sacan el consejo de apuntar
 Hints.HipWindow = 4 -- (en estos segundos)
 Hints.LowHealth = 0.35 -- fracción de vida que saca el consejo de cubrirse
+Hints.QAForceNew = false -- (modo QA: como si fuera nivel 1; solo lo cambia QAPanel)
 
 -- Textos: { PC, táctil }
 Hints.Text = {
@@ -43,7 +44,8 @@ end
 -- ¿Se puede enseñar un consejo ahora? (jugador nuevo, en partida, vivo y sin nada encima)
 function Hints.Eligible()
 	local data = ClientState.Data
-	if not data or (tonumber(data.Level) or 1) > Hints.MaxLevel then
+	-- (Hints.QAForceNew: el modo QA de Studio simula un jugador nuevo sin tocar sus datos)
+	if not data or ((tonumber(data.Level) or 1) > Hints.MaxLevel and not Hints.QAForceNew) then
 		return false
 	end
 	if ClientState.IsBlocked() or ClientState.ResultsActive or ClientState.KillcamActive then

@@ -46,6 +46,7 @@ local ClientState = {
 	MenuClosedAt = 0, -- cuándo se cerró la tienda (la B no revive justo después)
 	Bloom = 0, -- apertura extra de la mira por disparos
 	Spread = 0, -- dispersión actual (grados)
+	QAShotHook = nil :: ((Vector3, { any }) -> ())?, -- modo QA de Studio: dibuja cada disparo (QAPanel)
 
 	DataChanged = Instance.new("BindableEvent"),
 	SettingsChanged = Instance.new("BindableEvent"), -- (Ajustes: se cambió algo que otros módulos aplican)

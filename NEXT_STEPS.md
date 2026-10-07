@@ -28,6 +28,11 @@ No hay cifras de FPS: hay que medir con el MicroProfiler y en un móvil real (se
 Bots revisados, sin cambios. Consejos de contexto para jugadores nuevos (`Hints`): probar con una
 cuenta nueva (sección E).
 
+**Fase 8 (preparación para Studio)** — ver `FASE_08_VALIDACION_STUDIO.md`. **Lo siguiente es probar
+de verdad en Studio:** activar el modo QA (`GameConfig.QA.Enabled = true` solo en local; solo funciona
+dentro de Studio), seguir la guía (empezando por la sección C: ARX-27 en los tres mapas gold standard)
+y apuntar cada fallo en `STUDIO_TEST_RESULTS.md`.
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

@@ -690,6 +690,10 @@ local function fire()
 			end
 		end
 	end
+	-- (modo QA de Studio: dibujar el disparo; nil fuera del modo QA)
+	if ClientState.QAShotHook then
+		pcall(ClientState.QAShotHook, origin, rays)
+	end
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
 	-- Todo a la vez en el mismo fotograma: fogonazo + luz, sonido, casquillo y retroceso (abajo)

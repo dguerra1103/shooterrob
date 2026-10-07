@@ -94,13 +94,26 @@ for i = 1, #TELEMETRY_BUCKETS + 1 do
 	telemetry.Buckets[i] = 0
 end
 Combat.HitTelemetry = telemetry
+-- (modo QA de Studio: recibe cada muestra para enseñarla en el panel; nil = nadie la recibe)
+Combat.OnHitSample = nil
 
-local function recordHit(part, position, accepted, headshot)
+local function recordHit(part, position, accepted, headshot, player, weaponName, distance)
 	local config = GameConfig.HitTelemetry
 	if not config or not config.Enabled then
 		return
 	end
 	local slack = math.max(0, (part.Position - position).Magnitude - part.Size.Magnitude / 2)
+	if Combat.OnHitSample then
+		pcall(Combat.OnHitSample, {
+			Player = player,
+			Weapon = weaponName,
+			Distance = distance,
+			Slack = slack,
+			ReportedHead = part.Name == "Head",
+			Headshot = headshot == true,
+			Accepted = accepted == true,
+		})
+	end
 	local bucket = #TELEMETRY_BUCKETS + 1
 	for i, limit in TELEMETRY_BUCKETS do
 		if slack <= limit then
@@ -459,7 +472,7 @@ local function onFire(player, tool, origin, rays)
 						local valid = isEnemy(player, targetPlayer, targetChar)
 							and closeEnough
 							and hasLineOfSight(origin, position, { character, targetChar })
-						recordHit(part, position, valid, valid and isHeadshot(part, targetChar, position))
+						recordHit(part, position, valid, valid and isHeadshot(part, targetChar, position), player, weaponName, distance)
 						if valid then
 							local headshot = isHeadshot(part, targetChar, position)
 							local damage = damageAtDistance(def, distance)

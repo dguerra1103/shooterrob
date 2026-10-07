@@ -848,8 +848,9 @@ end
 function Methods:IsClient()
 	return false
 end
+-- (M.isStudio = false simula un servidor publicado: lo usa la prueba del modo QA)
 function Methods:IsStudio()
-	return true
+	return M.isStudio ~= false
 end
 
 M.new = new
