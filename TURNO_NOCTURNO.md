@@ -108,8 +108,8 @@
 - **Pruebas ampliadas:** `aimfx` (sin desenfoque en partida) y `flow` (tarjetas de equipo estables y
   votación sin solaparse).
 - **Ninguna prueba borrada ni desactivada.**
-- **Prueba arreglada en la Fase 7: `rounds`.** Fallaba de vez en cuando (2 de 2 en la primera pasada
-  final) como «TIEMPO AGOTADO».
+- **Prueba arreglada en la Fase 7: `rounds`.** Fallaba de vez en cuando como «TIEMPO AGOTADO» (en la primera pasada final y en 1 de cada 3-8
+  repeticiones sueltas).
   - Causa: los modos salen al azar y, con rondas de 1 s, a veces ningún jugador que haya «jugado de
     verdad» (P1 y P2) gana una partida (Dominio sin capturas, Buscar y destruir sin bomba). Entonces
     no hay «primera victoria del día» y el `assert` fallaba. Además, con `assert` el proceso no
