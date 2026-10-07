@@ -46,6 +46,14 @@ function Callouts.Show(model, text)
 	if camera and (head.Position - camera.CFrame.Position).Magnitude > Callouts.Range then
 		return nil
 	end
+	-- Los avisos de personajes que ya no existen (murieron, bots quitados) se borran: si no, se iban
+	-- acumulando en PlayerGui partida tras partida
+	for other, old in bubbles do
+		if not other.Parent then
+			old.Gui:Destroy()
+			bubbles[other] = nil
+		end
+	end
 	local entry = bubbles[model]
 	if not entry or not entry.Gui.Parent then
 		local gui = UI.new("BillboardGui", {
@@ -77,6 +85,10 @@ function Callouts.Show(model, text)
 	task.delay(Callouts.Duration, function()
 		if bubbles[model] == entry and entry.Token == token then
 			entry.Gui.Enabled = false
+			if not model.Parent then
+				entry.Gui:Destroy()
+				bubbles[model] = nil
+			end
 		end
 	end)
 	return entry.Gui

@@ -70,15 +70,25 @@ local cameraMode = nil -- "Orbit" | "Flyover" | "Deploy" | "Scripted" | nil (cá
 local cameraDriver = nil -- ("Scripted": la pantalla mueve la cámara, p. ej. la pantalla final)
 local deployFrom, deployStart, deployTime
 
+-- (GetBoundingBox recorre todas las piezas del mapa: se calcula como mucho cada 2 s o al cambiar de
+-- mapa, no en cada fotograma; las piezas aún pueden estar llegando, por eso se refresca)
+local centerCache = { Map = nil, At = -math.huge, Center = Vector3.new(0, 8, 0), Radius = 150 }
 local function mapCenter()
 	local map = workspace:FindFirstChild("Map")
+	local now = os.clock()
+	if map == centerCache.Map and now - centerCache.At < 2 then
+		return centerCache.Center, centerCache.Radius
+	end
+	centerCache.Map, centerCache.At = map, now
+	centerCache.Center, centerCache.Radius = Vector3.new(0, 8, 0), 150
 	if map and map:IsA("Model") then
 		local ok, cf, size = pcall(map.GetBoundingBox, map)
 		if ok and cf then
-			return Vector3.new(cf.Position.X, 8, cf.Position.Z), math.clamp(math.max(size.X, size.Z) * 0.5, 90, 200)
+			centerCache.Center = Vector3.new(cf.Position.X, 8, cf.Position.Z)
+			centerCache.Radius = math.clamp(math.max(size.X, size.Z) * 0.5, 90, 200)
 		end
 	end
-	return Vector3.new(0, 8, 0), 150
+	return centerCache.Center, centerCache.Radius
 end
 
 local function cameraStep(dt)

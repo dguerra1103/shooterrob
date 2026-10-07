@@ -80,6 +80,9 @@ local function close()
 	end
 	local blur = Lighting:FindFirstChild("RevealBlur")
 	if blur then
+		-- (se renombra: si hay otra compra en cola, el siguiente revelado crea su propio desenfoque en
+		-- vez de reutilizar este, que se destruye al acabar de desvanecerse)
+		blur.Name = "RevealBlurOut"
 		tween(blur, 0.2, { Size = 0 }).Completed:Once(function()
 			blur:Destroy()
 		end)

@@ -1733,6 +1733,18 @@ local function resultFX(won)
 	end
 end
 
+-- (con token: si llega otro final antes de 7 s, el aviso viejo no esconde el nuevo antes de tiempo)
+local roundEndToken = 0
+local function hideRoundEndLater()
+	roundEndToken += 1
+	local token = roundEndToken
+	task.delay(7, function()
+		if roundEndToken == token then
+			refs.RoundEnd.Visible = false
+		end
+	end)
+end
+
 local function onRoundEnd(info)
 	if type(info) ~= "table" then
 		return
@@ -1754,9 +1766,7 @@ local function onRoundEnd(info)
 		refs.RoundScore.Text = "👑 " .. tostring(info.Winner or "-") .. " · " .. tostring(info.LeaderScore or 0)
 		refs.RoundMVP.Text = info.MVP and ("⭐ MVP: " .. info.MVP .. " (" .. info.MVPKills .. " bajas)") or ""
 		refs.RoundEnd.Visible = true
-		task.delay(7, function()
-			refs.RoundEnd.Visible = false
-		end)
+		hideRoundEndLater()
 		return
 	elseif info.Winner then
 		local won = player.Team and player.Team.Name == info.Winner
@@ -1800,9 +1810,7 @@ local function onRoundEnd(info)
 		end)
 	end
 	refs.RoundEnd.Visible = true
-	task.delay(7, function()
-		refs.RoundEnd.Visible = false
-	end)
+	hideRoundEndLater()
 end
 
 ---------------------------------------------------------------------------
@@ -2119,6 +2127,12 @@ local function render(dt)
 	-- (en la pantalla de inicio y durante la killcam final no se dibuja el HUD)
 	gui.Enabled = not ClientState.InMainMenu and not ClientState.KillcamFinal
 	if not gui.Enabled then
+		-- (el mundo no se queda sin color si se volvió al menú con poca vida)
+		if lowHealthCC and lowHealthCC.Saturation ~= 0 then
+			lowHealthCC.Saturation, lowHealthCC.Contrast = 0, 0
+			lowHealthCC.TintColor = Color3.new(1, 1, 1)
+			hudCache.HealthRatio = nil
+		end
 		return
 	end
 	-- Durante la killcam, su propio rótulo dice quién te eliminó y con qué (no se pisan)

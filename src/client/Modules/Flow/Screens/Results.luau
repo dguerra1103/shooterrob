@@ -352,6 +352,10 @@ function Results.Build(flowController, root)
 	Results.Screen = screen
 end
 
+-- Fundido de entrada: si se sale antes de que se abra (0,25 s), Hide lo quita (si no, se quedaba
+-- la pantalla en negro)
+local fadeFrame = nil
+
 function Results.Show(ctx)
 	view = ctx.View or view
 	if not view then
@@ -371,7 +375,11 @@ function Results.Show(ctx)
 	-- 0,0: fundido corto (el HUD ya se ha ido al cambiar de estado)
 	flow.SetBackdrop(0, 0.01)
 	Transition.Blur(0, 0.15)
+	if fadeFrame then
+		fadeFrame:Destroy()
+	end
 	local fade = Instance.new("Frame")
+	fadeFrame = fade
 	fade.Name = "ResultsFade"
 	fade.BackgroundColor3 = Colors.Bg
 	fade.BackgroundTransparency = 1
@@ -417,6 +425,9 @@ function Results.Show(ctx)
 		Transition.Tween(fade, 0.4, { BackgroundTransparency = 1 })
 		task.delay(0.45, function()
 			fade:Destroy()
+			if fadeFrame == fade then
+				fadeFrame = nil
+			end
 		end)
 	end)
 	-- Respiración de los personajes, cuenta atrás y personajes del mundo ocultos (solo mientras se ve)
@@ -511,6 +522,10 @@ function Results.Hide()
 		stepConnection = nil
 	end
 	Camera.Stop()
+	if fadeFrame then
+		fadeFrame:Destroy()
+		fadeFrame = nil
+	end
 	if stage then
 		stage:Destroy()
 		stage = nil
