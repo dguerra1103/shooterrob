@@ -86,7 +86,7 @@
   - La dificultad ya es configurable en `GameConfig.Bots`.
 - **Consejos de contexto** (`Hints.luau`): apuntar, recargar antes y cubrirse.
   - Solo hasta el nivel 5, cada uno una vez por sesión y 60 s entre ellos.
-  - Nunca encima de un menú, la muerte, la killcam o los resultados.
+  - Nunca encima de un menú, la muerte, la killcam o los resultados (si aparecen, el consejo se quita).
   - No guardan nada: sin cambios de datos.
 - **Tarjeta de controles (PC):** ahora dice cómo cambiar de arma (1 2 3 o la rueda). El objetivo de cada
   modo ya salía en la cuenta atrás.

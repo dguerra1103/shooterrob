@@ -85,6 +85,13 @@ humanoid.Health = 20
 Hints.CheckHealth(humanoid)
 check(visible() and string.find(hint().Text, "cubierto", 1, true) ~= nil, "vida a 20: consejo de cubrirse")
 
+-- Si mueres con un consejo en pantalla, se quita en el acto (no se queda encima de la muerte)
+check(visible(), "(el consejo de cubrirse sigue en pantalla)")
+ClientState.Dead = true
+Hints.Tick()
+check(not visible(), "al morir, el consejo en pantalla se quita")
+ClientState.Dead = false
+
 -- Nunca con la pantalla de muerte, un menú, la killcam o los resultados
 for _, blocker in { "Dead", "MenuOpen", "KillcamActive", "ResultsActive", "InMainMenu" } do
 	Hints.Reset()

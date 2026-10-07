@@ -54,7 +54,7 @@ Una línea discreta (💡) en partida cuando un jugador nuevo hace algo que un c
 - al menos 60 s entre dos consejos;
 - 5 s en pantalla;
 - nunca con un menú, la pantalla de muerte, la killcam, los resultados o la tarjeta de controles
-  encima;
+  encima; y si aparece uno de ellos con un consejo en pantalla, el consejo se quita en el acto;
 - no bloquea nada: ni suelta el ratón, ni para el juego, ni hay que pulsar nada.
 
 **Sin cambios de datos:** no se guarda nada (ni migraciones ni campos nuevos). Por eso un jugador
@@ -72,7 +72,8 @@ nuevo puede volver a ver un consejo en otra sesión, mientras siga en nivel 5 o 
 - el de recargar sale solo con el cargador vacío;
 - el de cubrirse sale con poca vida;
 - cada consejo sale una vez y respeta el espacio entre consejos;
-- ningún consejo con la muerte, un menú, la killcam, los resultados o el menú principal;
+- ningún consejo con la muerte, un menú, la killcam, los resultados o el menú principal, y al morir
+  se quita el que hubiera;
 - ninguno por encima del nivel 5;
 - no cambia los datos del jugador.
 

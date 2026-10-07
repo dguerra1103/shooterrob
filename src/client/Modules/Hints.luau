@@ -143,6 +143,19 @@ function Hints.CheckHealth(humanoid)
 	end
 end
 
+-- Cuatro veces por segundo: si algo tapa la partida (muerte, menú, killcam, resultados), el consejo
+-- se quita en el acto; y se mira si queda poca vida
+function Hints.Tick()
+	if label and label.Visible and not Hints.Eligible() then
+		label.Visible = false
+	end
+	-- (el de cubrirse ya salió: no hace falta mirar la vida)
+	if not seen.Cover then
+		local character = player.Character
+		Hints.CheckHealth(character and character:FindFirstChildOfClass("Humanoid"))
+	end
+end
+
 -- (pruebas: empezar de cero)
 function Hints.Reset()
 	seen = {}
@@ -160,12 +173,7 @@ function Hints.Init()
 			return
 		end
 		acc = 0
-		-- (cuando ya no puede salir ninguno, no mira nada)
-		if seen.Cover then
-			return
-		end
-		local character = player.Character
-		Hints.CheckHealth(character and character:FindFirstChildOfClass("Humanoid"))
+		Hints.Tick()
 	end)
 end
 
