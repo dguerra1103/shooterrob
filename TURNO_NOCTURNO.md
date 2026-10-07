@@ -94,7 +94,7 @@
 ## 6. Pruebas
 
 - `tests/check.sh`: build de Rojo correcto y **luau-lsp sin errores**.
-- `tests/run_all.sh`: **(pendiente: resultado de la última pasada)**. Incluye:
+- `tests/run_all.sh`: **145 OK, 0 fallos** (pasada final, sobre el commit `794dcf0`). Incluye:
   - todas las pruebas de sistemas (flujo, resultados, economía, pase, tienda, combate, gunplay, killcam,
     bots…);
   - la navegación de los 9 mapas (`navcheck`);
@@ -142,7 +142,8 @@
 | `cf7d112` | 6-7 | Consejos: se quitan en el acto si mueres o se abre algo encima |
 | `c1f18bf` | 7 | Prueba `rounds`: sin azar en la primera victoria y falla en el acto |
 | `df57c1b` | 7 | Este documento: frecuencia real del fallo de `rounds` |
-| (este) | 7 | Prueba `variants` con 60 construcciones; resultado final en este documento |
+| `794dcf0` | 7 | Prueba `variants` con 60 construcciones |
+| (este) | 7 | Resultado final de la suite en este documento |
 
 **Comprobado antes de cada push:**
 - `publish.yml` solo publica con `workflow_dispatch` (un push solo construye y valida);
