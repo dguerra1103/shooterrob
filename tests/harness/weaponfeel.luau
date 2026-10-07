@@ -150,7 +150,14 @@ for _, name in guns do
 		assert(type(entry[slot]) == "string" or type(entry[slot]) == "table", name .. ": hueco " .. slot)
 	end
 end
-check(#Sounds.WeaponAudioSlots == 9, "9 huecos por arma (ShotClose, ShotMechanical, ShotTail, Reload, MagIn, MagOut, Bolt, Empty, Equip)")
+-- (Fase 9: a los 9 huecos de la Fase 2 se suman Unequip, Inspect y Melee)
+local slotSet = {}
+for _, slot in Sounds.WeaponAudioSlots do slotSet[slot] = true end
+local allSlots = true
+for _, slot in { "ShotClose", "ShotMechanical", "ShotTail", "Reload", "MagIn", "MagOut", "Bolt", "Empty", "Equip", "Unequip", "Inspect", "Melee" } do
+	allSlots = allSlots and slotSet[slot] == true
+end
+check(#Sounds.WeaponAudioSlots == 12 and allSlots, "12 huecos por arma (los 9 de la Fase 2 + Unequip, Inspect y Melee)")
 check(Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn") == "MagIn", "sin audio propio se usa el genérico")
 check(Sounds.WeaponSoundName("ARX27", "Reload", nil) == nil, "hueco vacío sin genérico: no suena nada")
 Sounds.WeaponAudio.ARX27.MagIn = "rbxassetid://1"

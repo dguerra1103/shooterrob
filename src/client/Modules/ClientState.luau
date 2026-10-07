@@ -47,6 +47,8 @@ local ClientState = {
 	Bloom = 0, -- apertura extra de la mira por disparos
 	Spread = 0, -- dispersión actual (grados)
 	QAShotHook = nil :: ((Vector3, { any }) -> ())?, -- modo QA de Studio: dibuja cada disparo (QAPanel)
+	QASkinPreview = nil :: string?, -- modo QA de Studio: skin que se ve en primera persona (solo aquí, no da la skin)
+	WeaponAction = "None", -- acción del viewmodel ahora (WeaponVisual.ActionPriority; "ADS" si apunta en reposo)
 
 	DataChanged = Instance.new("BindableEvent"),
 	SettingsChanged = Instance.new("BindableEvent"), -- (Ajustes: se cambió algo que otros módulos aplican)

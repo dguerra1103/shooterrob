@@ -23,6 +23,12 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
   Con compañeros (4) + enemigos (5) + destello (1) + radar sobra margen.
 - **Red**: `AimPitch` cuantizado y limitado (0,2 s y cambio ≥ 3°); linterna limitada a 5/s aplicando el
   último valor; granada: un solo `GrenadePin` por lanzamiento.
+- **Viewmodel (Fase 9)**: los brazos son 8 piezas ancladas (4 por brazo) colocadas con un IK analítico
+  de dos huesos por fotograma (unas pocas operaciones de vectores: despreciable al lado del render). Los
+  muelles y suavizados usan `WeaponFeel.StepSpring` exacto y `damp`/`decay` dependientes de `dt`, así
+  que se comportan igual a 30, 60 o 240 FPS. Los marcadores de recarga son `task.delay` (3-6 por recarga),
+  no trabajo por fotograma. En calidad Baja la luz del fogonazo está apagada (`MuzzleLight = false`); las
+  animaciones no cambian con la calidad.
 
 ## Problemas detectados / vigilar
 - **Sonidos 2D (hecho)**: los sonidos que más se repiten (disparo, estampido, mecanismo, impacto, baja,

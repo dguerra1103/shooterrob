@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Weapons = require(Shared.Weapons)
 local QA = require(Shared.QA)
+local WeaponVisual = require(Shared.WeaponVisual)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -356,6 +357,7 @@ local function setPerf(on)
 			"Calidad: " .. tostring(ClientState.EffectiveQuality),
 			string.format("Jugadores %d · bots %d", #Players:GetPlayers(), countBots()),
 			string.format("Piezas del mapa %d · efectos (ClientFX) %d", mapParts, countFx()),
+			"Arma: " .. tostring(ClientState.CurrentDef and ClientState.CurrentDef.DisplayName or "-") .. " · " .. tostring(ClientState.WeaponAction),
 		}, "\n")
 	end)
 end
@@ -619,6 +621,13 @@ local function build()
 	button(me, "Munición", function()
 		send("Ammo")
 	end)
+	-- ARX-27 «gold standard» (Fase 9): el arma de referencia con su skin de muestra, SOLO en esta
+	-- pantalla (no da la skin ni cambia nada guardado). Apagado: vuelve tu skin.
+	toggle(me, "Gold", "ARX-27 Gold", function(on)
+		ClientState.QASkinPreview = on and WeaponVisual.GoldSkin or nil
+		send("Weapon", { Id = WeaponVisual.ReferenceWeapon })
+		QAPanel.Log(on and ("ARX-27 con la skin de muestra " .. WeaponVisual.GoldSkin .. " (solo en tu pantalla)") or "ARX-27 con tu skin")
+	end)
 
 	-- Bots
 	local bots = section(scroll, "BOTS (total jugadores + bots)", 9)
@@ -711,7 +720,7 @@ local function build()
 		Name = "QAPerf",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -8, 0, 56),
-		Size = UDim2.fromOffset(300, 132),
+		Size = UDim2.fromOffset(300, 146),
 		BackgroundColor3 = DARK,
 		BackgroundTransparency = 0.25,
 		BorderSizePixel = 0,

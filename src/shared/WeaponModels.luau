@@ -6,6 +6,7 @@
 local Weapons = require(script.Parent.Weapons)
 local Skins = require(script.Parent.Skins)
 local Charms = require(script.Parent.Charms)
+local WeaponVisual = require(script.Parent.WeaponVisual)
 
 local WeaponModels = {}
 
@@ -87,6 +88,16 @@ local function paint(part, role, pal)
 		-- Punto rojo de las miras: siempre brilla
 		part.Color = Color3.fromRGB(255, 40, 40)
 		part.Material = Enum.Material.Neon
+	elseif role == "Trim" then
+		-- Ribete (Fase 9): con el acabado de fábrica es metal oscuro; con una skin, su color de acento
+		-- (así una skin se nota en el arma clásica, que casi no tiene piezas de acento)
+		if pal.TrimAccent then
+			part.Color = pal.Accent
+			part.Material = pal.AccentMaterial or Enum.Material.Neon
+		else
+			part.Color = pal.Dark
+			part.Material = Enum.Material.Metal
+		end
 	elseif role == "Lens" then
 		part.Color = pal.Lens or pal.Accent:Lerp(WHITE, 0.35)
 		part.Material = Enum.Material.Glass
@@ -210,6 +221,76 @@ function WeaponModels.CharmPoint(def)
 	return CFrame.new(minX - 0.03, minY + 0.04, z)
 end
 
+-- Modelo 3D externo de un arma (WeaponVisual.Weapons[arma].Model = "Nombre" → plantilla en
+-- ReplicatedStorage.WeaponViewModels). nil si no hay o no cumple los requisitos (entonces se usan las
+-- piezas de siempre y se avisa en la Output).
+local warned = {}
+function WeaponModels.ExternalTemplate(weaponName)
+	local entry = WeaponVisual.Weapons[weaponName]
+	local name = entry and entry.Model
+	if type(name) ~= "string" or name == "" then
+		return nil
+	end
+	local folder = game:GetService("ReplicatedStorage"):FindFirstChild("WeaponViewModels")
+	local template = folder and folder:FindFirstChild(name)
+	local missing = WeaponVisual.ValidateModel(template)
+	if #missing == 0 then
+		return template
+	end
+	if not warned[name] then
+		warned[name] = true
+		warn("[WeaponModels] El modelo «" .. name .. "» de " .. tostring(weaponName) .. " no se usa (falta: " .. table.concat(missing, ", ") .. "): se usan las piezas de siempre")
+	end
+	return nil
+end
+
+local function buildFromTemplate(template, weaponName, def, pal, withEffects, charmId, scale)
+	local model = template:Clone()
+	model.Name = weaponName
+	if scale ~= 1 then
+		pcall(function()
+			model:ScaleTo(scale)
+		end)
+	end
+	local handle = model.PrimaryPart
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.CanTouch = false
+			part.CanQuery = false
+			part.Massless = true
+			part.CastShadow = false
+			local role = part:GetAttribute("Role")
+			if role then
+				paint(part, role, pal)
+			end
+		end
+	end
+	-- Colgante: en su CharmPoint si el modelo lo trae; si no, donde lo pondría el arma de piezas
+	if charmId and charmId ~= "Default" and def.Type == "Gun" and handle then
+		local charmPoint = handle:FindFirstChild("CharmPoint")
+		local point = charmPoint and charmPoint.CFrame
+		if not point then
+			local base = WeaponModels.CharmPoint(def)
+			point = base - base.Position + base.Position * scale
+		end
+		for _, piece in Charms.Build(charmId, handle.CFrame * point) do
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = piece
+			weld.Parent = piece
+			piece.Parent = model
+		end
+	end
+	model:SetAttribute("Weapon", weaponName)
+	model:SetAttribute("Scale", scale)
+	model:SetAttribute("External", true)
+	if withEffects ~= false then
+		applyEffects(model, pal)
+	end
+	return model
+end
+
 -- charmId (opcional): colgante (Charms) para las armas de fuego
 -- scale (opcional): tamaño del modelo (1 = el de primera persona; el arma que lleva el personaje en el
 -- mundo es más pequeña, a escala de una persona: GameConfig.WorldWeaponScale)
@@ -218,6 +299,10 @@ function WeaponModels.Build(weaponName, skinId, withEffects, charmId, scale)
 	assert(def, "Arma desconocida: " .. tostring(weaponName))
 	local pal = WeaponModels.GetPalette(weaponName, skinId)
 	scale = scale or 1
+	local template = WeaponModels.ExternalTemplate(weaponName)
+	if template then
+		return buildFromTemplate(template, weaponName, def, pal, withEffects, charmId, scale)
+	end
 
 	local model = Instance.new("Model")
 	model.Name = weaponName

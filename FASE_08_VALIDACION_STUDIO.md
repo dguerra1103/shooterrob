@@ -55,7 +55,7 @@
 | MODO | TDM, DOM, SND, CTF, KOTH, FFA, GUN, ELIM, INF, CAL | Elegir modo. |
 | PARTIDA | Jugar ya · Al acabar · Empezar votado | **Jugar ya:** el mapa y el modo elegidos, cortando el descanso. **Al acabar:** los mismos, en la siguiente partida (la actual sigue). **Empezar votado:** corta el descanso con lo votado. |
 | | Gana A · Gana B · Terminar | Termina la partida en curso. **Gana A/B:** ese equipo queda un punto por delante. **Terminar:** con el marcador que haya. En ELIM/SND acaba al terminar la ronda corta en curso. |
-| JUGADOR | Reaparecer · ARX-27 · Arma ▶ · Munición | **ARX-27:** lo equipa (con la secundaria y el cuchillo de siempre). **Arma ▶:** pasa por las armas principales. **Munición:** llena cargadores y reserva. **Al reaparecer vuelve la clase elegida.** |
+| JUGADOR | Reaparecer · ARX-27 · Arma ▶ · Munición · ARX-27 Gold | **ARX-27:** lo equipa (con la secundaria y el cuchillo de siempre). **Arma ▶:** pasa por las armas principales. **Munición:** llena cargadores y reserva. **ARX-27 Gold** (Fase 9): equipa el ARX-27 y lo enseña solo en tu pantalla con la skin de referencia Operación Roja, sin dártela (ver `FASE_09_ARX27_GOLD_STANDARD.md`, sección L). **Al reaparecer vuelve la clase elegida.** |
 | BOTS | +1 · −1 · 5v5 (10) · Sin bots | Total de jugadores + bots (de 0 a 16; normal = 10). Los bots entran o salen en ~1 s y solo durante la partida. |
 | GRÁFICOS Y RENDIMIENTO | Calidad ▶ · HUD rendimiento · Zona segura | **Calidad ▶:** pasa por Auto, Baja, Media, Alta y Ultra (el sistema de ajustes de siempre). **HUD rendimiento** y **Zona segura:** ver K y F2. |
 | DEPURACIÓN | Spawns · Objetivos A/B · Límites · Puntos bots · Rutas bots · Disparos · Telemetría | Todo **apagado** al empezar. Ver H, I, G y L. |

@@ -520,6 +520,14 @@ Skins.List.OperacionRoja = {
 	Accent2 = RGB(230, 230, 235),
 }
 
+-- Las piezas con el papel "Trim" (ribetes) llevan el color de acento de la skin (WeaponModels.paint).
+-- Con el acabado de fábrica de cada arma siguen siendo metal oscuro.
+for id, skin in Skins.List do
+	if id ~= "Default" then
+		skin.TrimAccent = true
+	end
+end
+
 function Skins.Get(id)
 	return Skins.List[id] or Skins.List.Default
 end

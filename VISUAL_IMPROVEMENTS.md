@@ -47,6 +47,9 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | Capa de **cola** en tus disparos (eco grave filtrado en el grupo de armas, 1 cada 0,2 s como mucho). | El disparo suena con cuerpo y entorno, sin saturar en ráfaga. | `shared/Sounds.luau` → `ShotTails` |
 | Temblor/alabeo de cámara un 60 % menor al apuntar y casi nulo con "Efectos reducidos". | Competitivo > cinemático. | `WeaponController.luau` |
 | Reacción al recibir daño: alabeo corto (≤ 1,5°) y tirón del arma; no mueve la mira. | Sentir el impacto sin perder el control. | `WeaponController.luau` |
+| **ARX-27 gold standard** (Fase 9): brazos con IK de dos huesos, recarga táctica/vacía con marcadores (cargador fuera/dentro, cerrojo), palanca de carga, inspección por claves, variante de reposo, salto/aterrizaje con muelle, enfundar animado y charm con muelle. | El arma que más se ve tiene que verse y moverse como la de un shooter grande, sin assets nuevos. | `shared/WeaponVisual.luau`, `WeaponController.luau` (ver `FASE_09_ARX27_GOLD_STANDARD.md`) |
+| Rol de pintura **Trim** (oscuro de fábrica, acento con skin) y skin de referencia **Operación Roja**. | Las skins pintan por zonas con sentido en vez de todo igual. | `WeaponModels.luau` (`paint`), `Skins.luau` (`TrimAccent`) |
+| Casquillos con la velocidad del jugador; luz del fogonazo apagada en calidad Baja. | Casquillos creíbles al correr; menos coste en móvil. | `Effects.luau`, `WeaponFeel.Quality.MuzzleLight` |
 
 ## Ajustes
 - Calidad: **Auto / Rendimiento / Equilibrada / Alta / Ultra** (los valores guardados siguen siendo Baja/Media/Alta/Ultra, compatibles con las partidas guardadas).

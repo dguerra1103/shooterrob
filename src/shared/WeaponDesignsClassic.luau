@@ -5,6 +5,7 @@
 -- Espacio del modelo: -Z = hacia delante, +Y = arriba. "Handle" va siempre en el origen.
 -- Roles: Body (armazón), Panel (guardamanos/culata: madera o color), Dark (metal oscuro),
 -- Metal (metal claro), Rubber (goma), Lens (cristal), Reticle (punto rojo de la mira), Accent (detalle).
+-- Trim (ribete: metal oscuro de fábrica; con una skin, su color de acento).
 local Classic = {}
 
 local rad = math.rad
@@ -237,7 +238,8 @@ local function rifle(o)
 		for i = 0, slots - 1 do
 			local z = o.RecFront - (i + 0.5) * hgLen / slots
 			for _, s in { -1, 1 } do
-				table.insert(p, B("HgSlot", s * (hgW / 2 + 0.004), hgY + 0.02, z, 0.02, hgH * 0.3, 0.14, "Dark"))
+				-- (o.Trim: las ranuras son ribetes que toman el color de la skin)
+				table.insert(p, B("HgSlot", s * (hgW / 2 + 0.004), hgY + 0.02, z, 0.02, hgH * 0.3, 0.14, o.Trim and "Trim" or "Dark"))
 			end
 		end
 		if o.HgRail then
@@ -386,6 +388,7 @@ function Classic.ARX27(pt)
 		RecRear = 0.75, RecFront = -0.55, RecY = 0.06, RecH = 0.44,
 		HgFront = -1.75, HgH = 0.3, HgRail = true,
 		Device = "Flash", Mag = "Curved", Stock = "Tube", StockRole = "Panel", Sight = "Dot",
+		Trim = true, -- (arma de referencia: las ranuras del guardamanos llevan el acento de la skin)
 	})
 end
 

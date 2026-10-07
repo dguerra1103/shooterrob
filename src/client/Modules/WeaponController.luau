@@ -12,6 +12,7 @@ local Sounds = require(Shared.Sounds)
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local WeaponFeel = require(Shared.WeaponFeel)
+local WeaponVisual = require(Shared.WeaponVisual)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local AimAssist = require(script.Parent.AimAssist)
@@ -31,15 +32,16 @@ local WeaponController = {}
 local PHONE_HIP = CFrame.new(0.1, -0.12, -0.18) -- (más abajo, a la derecha y más lejos: se ve más pequeña)
 local phoneScreen = false
 
--- Hombros del viewmodel (espacio de cámara, fuera de pantalla)
-local RIGHT_SHOULDER = Vector3.new(1.1, -1.5, 0.4)
-local LEFT_SHOULDER = Vector3.new(-0.7, -1.5, 0.2)
+-- Hombros, codos y largo de los brazos del viewmodel: WeaponVisual.Arms (espacio de cámara)
+local ARMS = WeaponVisual.Arms
 
 local character, humanoid, rootPart
 local equippedTool, def
 -- Sensación del arma equipada (WeaponFeel: perfil de su tipo + sus ajustes). Retroceso de juego:
 -- WeaponFeel.Gameplay (igual para todas; es equilibrio)
 local feel = WeaponFeel.Get(nil)
+-- Presentación del arma equipada (WeaponVisual: poses, marcas de recarga, reposo, colgante...)
+local visual = WeaponVisual.Get(nil)
 local GAMEPLAY = WeaponFeel.Gameplay
 local EQUIP_READY = 0.25 -- segundos tras sacar el arma hasta poder disparar (igual para todas)
 local viewmodel
@@ -53,7 +55,7 @@ local reloadStart = nil
 local equipTime = 0
 local meleeTime = -10
 local inspectTime = -10 -- "Inspeccionar" (V): gira el arma para lucir la skin
-local INSPECT_TIME = 2.6
+-- (la inspección dura visual.Inspect.Duration: 2,6 s en el fusil)
 local meleeWithKnife = false
 
 local recoilKick, recoilRot = 0, 0
@@ -106,6 +108,18 @@ local function lerp(a, b, t)
 	return a + (b - a) * t
 end
 
+-- Suavizado que da lo mismo a 30, 60 o 240 fps (Fase 9). `rate` es el de siempre (el que se usaba con
+-- lerp(..., dt × rate)) y a 60 fps da exactamente lo mismo que antes; a otros fps, ya no cambia.
+-- (Solo para lo visual: aimAlpha y sprintAlpha deciden cuándo se puede disparar y no se tocan.)
+local function damp(current: number, target: number, rate: number, dt: number): number
+	local perFrame = math.min(rate / 60, 0.999)
+	return current + (target - current) * (1 - (1 - perFrame) ^ (dt * 60))
+end
+-- Lo mismo para algo que se apaga solo (multiplicar por esto cada fotograma)
+local function decay(rate: number, dt: number): number
+	return (1 - math.min(rate / 60, 0.999)) ^ (dt * 60)
+end
+
 -- Olvida el golpe visual de cámara pendiente (al morir o reaparecer: la cámara ya es otra)
 local function resetPunch()
 	punchPitch, punchYaw, punchRoll = 0, 0, 0
@@ -116,6 +130,15 @@ end
 local function weaponEvent(name, info)
 	local weaponName = equippedTool and equippedTool:GetAttribute("Weapon")
 	ClientState.WeaponEvent:Fire(name, weaponName, info)
+end
+
+-- Corta la inspección en curso al disparar, apuntar, recargar, correr o dar un cuchillazo (con su
+-- evento InspectCancel; cambiar de arma ya la quita con Unequip)
+local function cancelInspect()
+	if inspectTime > 0 and os.clock() - inspectTime < visual.Inspect.Duration then
+		weaponEvent("InspectCancel")
+	end
+	inspectTime = -10
 end
 
 local function updateRayFilter()
@@ -145,9 +168,9 @@ local function skinTone()
 	return hand and hand.Color or Color3.fromRGB(255, 204, 153)
 end
 
-local function addArm(model, handPos, shoulderCam, weaponDef, side)
-	local shoulder = weaponDef.ViewOffset:PointToObjectSpace(shoulderCam)
-	local length = (shoulder - handPos).Magnitude
+-- Colores de los brazos: piel, manga, guante y puño (traje de operador, uniforme en los mapas
+-- realistas o garras de zombi)
+local function armColors(weaponDef)
 	local sleeveColor = player.Team and player.TeamColor.Color or Color3.fromRGB(60, 60, 70)
 	-- Con traje de operador, los brazos llevan sus colores
 	local outfitColors = Outfits.ArmColors(ClientState.Data and ClientState.Data.EquippedOutfit)
@@ -168,44 +191,73 @@ local function addArm(model, handPos, shoulderCam, weaponDef, side)
 		sleeveColor = Color3.fromRGB(60, 45, 55)
 		outfitColors = { Sleeve = sleeveColor, Glove = zombieSkin, Cuff = sleeveColor }
 	end
+	return {
+		Skin = zombieSkin or skinTone(),
+		Sleeve = sleeveColor,
+		Glove = outfitColors and outfitColors.Glove or Color3.fromRGB(25, 25, 28),
+		Cuff = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250),
+		CuffNeon = outfitColors ~= nil and not zombieSkin and not uniform,
+		LongSleeve = uniform, -- (el uniforme cubre también el antebrazo)
+	}
+end
 
-	local arm = Instance.new("Part")
-	arm.Name = "Arm"
-	arm.Size = Vector3.new(0.4, 0.4, length)
-	arm.CFrame = CFrame.lookAt((handPos + shoulder) / 2, handPos)
-	arm.Color = zombieSkin or skinTone()
-	arm.Material = Enum.Material.SmoothPlastic
-	arm:SetAttribute("Side", side)
-	arm.Parent = model
+-- Brazos procedurales: brazo (manga) y antebrazo con codo, que se recolocan cada fotograma con
+-- cinemática inversa (WeaponVisual.SolveArm): el hombro queda fijo respecto a la cámara y la mano
+-- sigue al arma, así que en la recarga, la inspección o el sprint el codo se dobla de verdad.
+local arms = {} -- [lado] = { Upper, Forearm, Glove, Cuff, UpperLength, LowerLength, Shoulder, Pole, Hand }
 
-	local sleeve = Instance.new("Part")
-	sleeve.Name = "Sleeve"
-	local sleeveLength = uniform and 0.86 or 0.55 -- (el uniforme cubre también el antebrazo)
-	sleeve.Size = Vector3.new(0.46, 0.46, length * sleeveLength)
-	sleeve.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, sleeveLength / 2), handPos)
-	sleeve.Color = sleeveColor
-	sleeve.Material = Enum.Material.Fabric
-	sleeve:SetAttribute("Side", side)
-	sleeve.Parent = model
+local function armPart(model, name, size, color, material, side)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Color = color
+	part.Material = material
+	part:SetAttribute("ArmPiece", true)
+	part:SetAttribute("Side", side)
+	part.Parent = model
+	return part
+end
 
-	local glove = Instance.new("Part")
-	glove.Name = "Glove"
-	glove.Size = Vector3.new(0.48, 0.48, 0.55)
-	glove.CFrame = CFrame.lookAt(handPos + (shoulder - handPos).Unit * 0.15, handPos)
-	glove.Color = outfitColors and outfitColors.Glove or Color3.fromRGB(25, 25, 28)
-	glove.Material = Enum.Material.Fabric
-	glove:SetAttribute("Side", side)
-	glove.Parent = model
+local function buildArm(model, weaponDef, side, hand: Vector3, colors)
+	local shoulderCam = side == "Right" and ARMS.RightShoulder or ARMS.LeftShoulder
+	-- Largo: lo que hay del hombro a la mano en la pose de cadera, algo más (codo un poco doblado)
+	local reach = ((visual.ViewOffset or weaponDef.ViewOffset) * hand - shoulderCam).Magnitude * ARMS.Reach
+	local upper = reach * ARMS.UpperRatio
+	local lower = reach - upper
+	local rig = {
+		Hand = hand,
+		Shoulder = shoulderCam,
+		Pole = side == "Right" and ARMS.RightPole or ARMS.LeftPole,
+		UpperLength = upper,
+		LowerLength = lower,
+		Long = colors.LongSleeve,
+	}
+	rig.Upper = armPart(model, "UpperArm", Vector3.new(0.46, 0.46, upper), colors.Sleeve, Enum.Material.Fabric, side)
+	rig.Forearm = armPart(model, "Forearm", Vector3.new(0.4, 0.4, lower), colors.LongSleeve and colors.Sleeve or colors.Skin,
+		colors.LongSleeve and Enum.Material.Fabric or Enum.Material.SmoothPlastic, side)
+	rig.Glove = armPart(model, "Glove", Vector3.new(0.48, 0.48, 0.55), colors.Glove, Enum.Material.Fabric, side)
+	-- Puño: al final de la manga (en el codo con manga corta; en la muñeca con uniforme)
+	rig.Cuff = armPart(model, "Cuff", Vector3.new(0.5, 0.5, 0.12), colors.Cuff,
+		colors.CuffNeon and Enum.Material.Neon or Enum.Material.Fabric, side)
+	arms[side] = rig
+end
 
-	-- Puño blanco de la manga
-	local cuff = Instance.new("Part")
-	cuff.Name = "Cuff"
-	cuff.Size = Vector3.new(0.5, 0.5, 0.12)
-	cuff.CFrame = CFrame.lookAt(shoulder:Lerp(handPos, uniform and 0.86 or 0.545), handPos)
-	cuff.Color = outfitColors and outfitColors.Cuff or Color3.fromRGB(245, 245, 250)
-	cuff.Material = (outfitColors and not zombieSkin and not uniform) and Enum.Material.Neon or Enum.Material.Fabric
-	cuff:SetAttribute("Side", side)
-	cuff.Parent = model
+-- Coloca un brazo: hombro (mundo), mano (mundo) y polo del codo (mundo)
+local function placeArm(rig, shoulder: Vector3, hand: Vector3, pole: Vector3)
+	local elbow = WeaponVisual.SolveArm(shoulder, hand, rig.UpperLength, rig.LowerLength, pole)
+	rig.Upper.CFrame = CFrame.lookAt((shoulder + elbow) / 2, elbow)
+	-- (si la mano no se alcanza, el antebrazo se estira lo que falte: nunca se separa del arma)
+	local lower = (hand - elbow).Magnitude
+	if math.abs(lower - rig.Forearm.Size.Z) > 0.01 then
+		rig.Forearm.Size = Vector3.new(0.4, 0.4, math.max(0.05, lower))
+	end
+	if lower > 1e-4 then
+		rig.Forearm.CFrame = CFrame.lookAt((elbow + hand) / 2, hand)
+		local along = (hand - elbow) / lower
+		rig.Glove.CFrame = CFrame.lookAt(hand - along * 0.15, hand)
+		local cuffAt = rig.Long and hand - along * 0.36 or elbow + along * 0.02
+		rig.Cuff.CFrame = CFrame.lookAt(cuffAt, cuffAt + along)
+	end
 end
 
 -- Oculta en nuestra pantalla el Tool real (los demás jugadores sí lo ven)
@@ -225,61 +277,66 @@ local charmParts = {} -- { Part, Offset } del colgante del arma en primera perso
 local charmRing = nil
 local charmSwing, charmVelocity, lastCameraLook = 0, 0, nil
 
--- El colgante se balancea como un péndulo: lo empuja el giro de la cámara y vuelve solo
--- (igual a cualquier número de fotogramas por segundo)
+-- El colgante se balancea como un péndulo: lo empujan el giro de la cámara, el paso al correr y las
+-- acciones (kickCharm) y vuelve solo con un muelle exacto (igual a 30, 60 o 240 fps). Nada de física
+-- de verdad: es una pieza que gira sobre su anilla.
+local CHARM_STIFFNESS, CHARM_DAMPING = 60, 4
+
 local function resetCharm()
 	charmSwing, charmVelocity, lastCameraLook = 0, 0, nil
 end
 
-local function swingCharm(dt)
+local function swingCharm(dt, sprint, stridePhase)
 	if not charmRing or not charmRing.Parent then
 		return
 	end
-	dt = math.clamp(dt, 1 / 240, 0.05)
+	dt = math.clamp(dt, 1 / 240, 0.1)
 	local look = camera.CFrame.LookVector
 	local turnRate = 0
 	if lastCameraLook then
 		turnRate = lastCameraLook:Cross(look).Y / dt -- giro horizontal (radianes por segundo)
 	end
 	lastCameraLook = look
-	charmVelocity += (-charmSwing * 60 - charmVelocity * 4 + turnRate * 3) * dt
-	-- (hacia dentro casi no puede: chocaría con el arma)
-	charmSwing = math.clamp(charmSwing + charmVelocity * dt, -0.8, 0.12)
+	charmVelocity += (turnRate * 3 + math.cos(stridePhase or 0) * (sprint or 0) * visual.Charm.Sprint * 6) * dt
+	charmSwing, charmVelocity = WeaponFeel.StepSpring(charmSwing, charmVelocity, CHARM_STIFFNESS, CHARM_DAMPING, dt)
+	-- (hacia dentro casi no puede: chocaría con el arma; en el tope se para)
+	if charmSwing < -0.8 or charmSwing > 0.12 then
+		charmSwing = math.clamp(charmSwing, -0.8, 0.12)
+		charmVelocity = 0
+	end
 	local pivot = charmRing.CFrame * CFrame.Angles(0, 0, charmSwing)
 	for _, entry in charmParts do
 		entry.Part.CFrame = pivot * entry.Offset
 	end
 end
 
--- Piezas que se mueven por separado en primera persona: cargador, corredera, bomba, cerrojo y
--- los dos brazos. Se guarda dónde está cada una respecto al Handle para moverla desde ahí.
-local moving = { Mag = {}, Slide = {}, Pump = {}, Bolt = {}, Left = {}, Right = {} }
-local movingDirty = {}
-local magCenter, boltCenter = nil, nil
+-- Estado de la presentación (WeaponVisual): reposo, gesto de reposo, salto, sprint y acción actual
+local lastActivity = 0 -- último momento en que se hizo algo (disparar, apuntar, moverse...)
+local idleVariantStart, lastIdleVariant = nil, -math.huge
+local jumpY, jumpVel = 0, 0
+local wasGrounded = true
+local sprintShown = false -- (para los eventos SprintEnter / SprintExit)
 
-local function movingGroup(part)
-	local side = part:GetAttribute("Side")
-	if side then
-		return side
-	end
-	local name = part.Name
-	if name == "MagTube" or string.sub(name, 1, 10) == "BoltShroud" or string.sub(name, 1, 11) == "BoltRelease" then
-		return nil
-	end
-	local function starts(prefix)
-		return string.sub(name, 1, #prefix) == prefix
-	end
-	if starts("Mag") or starts("Drum") or starts("AmmoBox") or starts("BeltRound") then
-		return "Mag"
-	elseif starts("Slide") then
-		return "Slide"
-	elseif starts("Pump") and not starts("Pumpkin") then -- (la Calabazooka no tiene bomba)
-		return "Pump"
-	elseif starts("BoltHandle") or starts("BoltKnob") then
-		return "Bolt"
-	end
-	return nil
+local function resetPresentation()
+	lastActivity = os.clock()
+	idleVariantStart = nil
+	jumpY, jumpVel = 0, 0
+	sprintShown = false
 end
+
+-- Empujón al colgante (con un lado al azar): disparo, recarga, caída, inspección...
+local function kickCharm(amount: number)
+	if charmRing then
+		charmVelocity += (math.random() < 0.5 and -1 or 1) * amount * (0.6 + math.random() * 0.4)
+	end
+end
+
+-- Piezas que se mueven por separado en primera persona: cargador, corredera, bomba, cerrojo y
+-- palanca de carga (WeaponVisual.PieceGroup: por el atributo "Piece" o por el nombre). Se guarda
+-- dónde está cada una respecto al Handle para moverla desde ahí. Los brazos van aparte (IK).
+local moving = { Mag = {}, Slide = {}, Pump = {}, Bolt = {}, Charge = {} }
+local movingDirty = {}
+local magCenter, boltCenter, chargeCenter = nil, nil, nil
 
 local function centerOf(list)
 	if #list == 0 then
@@ -304,7 +361,7 @@ collectMovingParts = function(model, weaponDef)
 	end
 	for _, part in model:GetChildren() do
 		if part:IsA("BasePart") and part ~= handle then
-			local group = movingGroup(part)
+			local group = WeaponVisual.PieceGroup(part.Name, part:GetAttribute("Piece"))
 			if group then
 				table.insert(moving[group], { Part = part, Offset = handle.CFrame:ToObjectSpace(part.CFrame) })
 			end
@@ -312,6 +369,7 @@ collectMovingParts = function(model, weaponDef)
 	end
 	magCenter = centerOf(moving.Mag)
 	boltCenter = centerOf(moving.Bolt)
+	chargeCenter = centerOf(moving.Charge)
 end
 
 -- Coloca un grupo desplazado (offset en el espacio del arma). Sin offset, solo si hace falta
@@ -334,19 +392,88 @@ local function placeGroup(key, handleCF, offset, fade)
 	end
 end
 
-local function destroyViewmodel()
+-- Guardar el arma: el modelo viejo baja de lado unos instantes (Unequip) mientras sube el nuevo; el
+-- cambio de arma no espera. Al morir, al cambiar de personaje o con el arma oculta, se quita al momento.
+local retiring = nil -- { Model, Start, Time, From (respecto a la cámara), Pose }
+
+local function clearRetiring()
+	if retiring then
+		retiring.Model:Destroy()
+		retiring = nil
+	end
+end
+
+-- mode: nil = al momento (y también la que estaba bajando), "Animated" = baja de lado, "Replace" = se
+-- cambia por otra del mismo arma (skin) sin tocar la que baja
+local function destroyViewmodel(mode: string?)
+	if mode ~= "Replace" then
+		clearRetiring()
+	end
 	if viewmodel then
-		viewmodel:Destroy()
+		if mode == "Animated" and not viewmodelHidden and viewmodel.Parent then
+			retiring = {
+				Model = viewmodel,
+				Start = os.clock(),
+				Time = visual.Unequip.Time,
+				From = camera.CFrame:ToObjectSpace(viewmodel:GetPivot()),
+				Pose = visual.Unequip,
+			}
+		else
+			viewmodel:Destroy()
+		end
 		viewmodel = nil
 	end
+	table.clear(arms)
+	table.clear(charmParts)
+	charmRing = nil
+	table.clear(pulseParts)
+	pulseSkin = nil
 	viewmodelHidden = false
+end
+function WeaponController.IsRetiring()
+	return retiring ~= nil
+end
+
+-- Un fotograma de la salida del arma vieja
+local function stepRetiring()
+	if not retiring then
+		return
+	end
+	local t = (os.clock() - retiring.Start) / retiring.Time
+	if t >= 1 or not retiring.Model.Parent or ClientState.InMainMenu or ClientState.Emoting or ClientState.KillcamActive then
+		clearRetiring()
+		return
+	end
+	local k = t * t -- (acelera al bajar)
+	retiring.Model:PivotTo(camera.CFrame * retiring.From * WeaponVisual.PoseCFrame(retiring.Pose, k))
+end
+
+-- Skin con la que se dibuja el arma en primera persona (el modo QA de Studio puede enseñar otra solo
+-- en esta pantalla, sin dársela a nadie: ClientState.QASkinPreview)
+local function viewSkin(tool)
+	return ClientState.QASkinPreview or tool:GetAttribute("Skin")
+end
+
+-- Puntos del arma en primera persona: centro de la mira y agarre de las manos. Si el modelo trae
+-- Attachments con esos nombres (un modelo externo), mandan ellos; si no, los de Weapons.
+local points = { AimPoint = nil :: Vector3?, LeftHand = nil :: Vector3?, RightHand = nil :: Vector3? }
+local POINT_NAMES = { "AimPoint", "LeftHand", "RightHand" } -- (una tabla con valores nil no tiene claves)
+
+local function readPoints(model, weaponDef)
+	local handle = model.PrimaryPart
+	for _, key in POINT_NAMES do
+		local attachment = handle and handle:FindFirstChild(key)
+		points[key] = (attachment and attachment:IsA("Attachment") and model:GetAttribute("External")) and attachment.Position
+			or weaponDef[key]
+	end
 end
 
 local function createViewmodel(tool)
-	destroyViewmodel()
+	destroyViewmodel("Replace")
 	local weaponName = tool:GetAttribute("Weapon")
 	local weaponDef = Weapons.Get(weaponName)
-	local model = WeaponModels.Build(weaponName, tool:GetAttribute("Skin"), nil, tool:GetAttribute("Charm"))
+	local model = WeaponModels.Build(weaponName, viewSkin(tool), nil, tool:GetAttribute("Charm"))
+	readPoints(model, weaponDef)
 	-- Colgante: se guarda dónde está cada pieza respecto a la anilla para balancearlas (renderStep)
 	table.clear(charmParts)
 	local ring = model:FindFirstChild("CharmRing")
@@ -359,11 +486,12 @@ local function createViewmodel(tool)
 	end
 	charmRing = ring
 	resetCharm()
-	if weaponDef.RightHand then
-		addArm(model, weaponDef.RightHand, RIGHT_SHOULDER, weaponDef, "Right")
+	local colors = armColors(weaponDef)
+	if points.RightHand then
+		buildArm(model, weaponDef, "Right", points.RightHand, colors)
 	end
-	if weaponDef.LeftHand then
-		addArm(model, weaponDef.LeftHand, LEFT_SHOULDER, weaponDef, "Left")
+	if points.LeftHand then
+		buildArm(model, weaponDef, "Left", points.LeftHand, colors)
 	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -377,7 +505,7 @@ local function createViewmodel(tool)
 	model.Name = "Viewmodel"
 	collectMovingParts(model, weaponDef)
 	-- Brillo suave del neón del arma sobre las manos (se nota mucho en mapas oscuros)
-	local glowPalette = WeaponModels.GetPalette(weaponName, tool:GetAttribute("Skin"))
+	local glowPalette = WeaponModels.GetPalette(weaponName, viewSkin(tool))
 	-- Solo si el neón brilla de verdad (las armas clásicas sin skin no llevan neón)
 	local neonAccent = (glowPalette.AccentMaterial or Enum.Material.Neon) == Enum.Material.Neon
 	if model.PrimaryPart and neonAccent then
@@ -394,7 +522,7 @@ local function createViewmodel(tool)
 
 	-- Skins con "Pulse": los detalles de neón laten
 	table.clear(pulseParts)
-	pulseSkin = WeaponModels.GetPalette(weaponName, tool:GetAttribute("Skin"))
+	pulseSkin = WeaponModels.GetPalette(weaponName, viewSkin(tool))
 	if pulseSkin.Pulse then
 		for _, part in model:GetDescendants() do
 			if part:IsA("BasePart") and part:GetAttribute("Role") == "Accent" then
@@ -426,7 +554,8 @@ end
 -- Equipar
 ---------------------------------------------------------------------------
 
-local function onUnequipped()
+-- animated = el arma baja de lado (cambio de arma); sin él, desaparece al momento (muerte, personaje nuevo)
+local function onUnequipped(animated: boolean?)
 	if attrConnection then
 		attrConnection:Disconnect()
 		attrConnection = nil
@@ -434,7 +563,15 @@ local function onUnequipped()
 	if reloadStart and equippedTool then
 		weaponEvent("ReloadCancel")
 	end
-	destroyViewmodel()
+	if equippedTool then
+		weaponEvent("Unequip", { Animated = animated == true })
+		if animated and def and def.Type == "Gun" then
+			-- (hueco de audio propio; sin él, en silencio como antes)
+			Sounds.PlayWeapon(equippedTool:GetAttribute("Weapon"), "Unequip", nil)
+		end
+	end
+	destroyViewmodel(animated and "Animated" or nil)
+	inspectTime = -10
 	equippedTool, def = nil, nil
 	barrelHeat = 0
 	triggerHeld = false
@@ -447,7 +584,7 @@ end
 
 local function onEquipped(tool)
 	if equippedTool then
-		onUnequipped()
+		onUnequipped(true)
 	end
 	local weaponDef = Weapons.Get(tool:GetAttribute("Weapon"))
 	if not weaponDef then
@@ -455,7 +592,9 @@ local function onEquipped(tool)
 	end
 	equippedTool, def = tool, weaponDef
 	feel = WeaponFeel.Get(tostring(tool:GetAttribute("Weapon")), weaponDef)
+	visual = WeaponVisual.Get(tostring(tool:GetAttribute("Weapon")), weaponDef)
 	equipTime = os.clock()
+	resetPresentation()
 	if aimToggled then
 		aimHeld, aimToggled = false, false
 	end
@@ -583,7 +722,7 @@ local function requestReload()
 		return
 	end
 	reloadStart = os.clock()
-	inspectTime = -10
+	cancelInspect()
 	Remotes.Reload:FireServer(equippedTool)
 	-- Secuencia de la recarga: sacar el cargador, meter el nuevo y (si estaba vacía) montar el arma.
 	-- Si la recarga se corta (cambias de arma, cuchillo...) deja de sonar.
@@ -593,27 +732,35 @@ local function requestReload()
 	reloadDuration = reloadTime
 	local shotgun = def.Pellets > 1 and #moving.Mag == 0 -- (la escopeta de tambor recarga con cargador)
 	local weaponName = equippedTool:GetAttribute("Weapon")
-	local function step(at, name, pitch, volume)
-		task.delay(reloadTime * at, function()
-			if reloadStart == token then
-				Sounds.PlayWeapon(weaponName, name, name, nil, pitch, volume)
-			end
-		end)
-	end
 	-- (la munición la pone el servidor al acabar: aquí solo se presenta la recarga)
 	Sounds.PlayWeapon(weaponName, "Reload", nil)
 	weaponEvent("ReloadStart", { Empty = wasEmpty, Duration = reloadTime })
-	if shotgun then
-		-- Escopetas: cartucho a cartucho
-		for index, at in { 0.2, 0.38, 0.56, 0.74 } do
-			step(at, "MagIn", 1.25 + index * 0.03, 0.55)
+	-- Marcas de la recarga (WeaponVisual): en cada una, su evento, su sonido y un meneo del colgante,
+	-- todo a la vez. Si la recarga se corta (cambias de arma, cuchillo...), lo que falte no suena.
+	local shells = 0
+	for _, marker in WeaponVisual.ReloadMarkers(visual, wasEmpty or shotgun, shotgun) do
+		local name = marker.Name
+		if name == "ShellIn" then
+			shells += 1
 		end
-	else
-		step(0.12, "MagOut", 1, 1)
-		step(0.55, "MagIn", 1, 1)
-	end
-	if wasEmpty or shotgun then
-		step(0.85, "Bolt", shotgun and 0.75 or 1, 1)
+		local shellIndex = shells
+		task.delay(reloadTime * marker.At, function()
+			if reloadStart ~= token then
+				return
+			end
+			weaponEvent(name, name == "ShellIn" and { Index = shellIndex } or nil)
+			if name == "MagOut" or name == "MagIn" then
+				Sounds.PlayWeapon(weaponName, name, name, nil, 1, 1)
+				kickCharm(visual.Charm.Reload)
+			elseif name == "ShellIn" then
+				-- (cartucho: el hueco MagIn, más agudo y más flojo)
+				Sounds.PlayWeapon(weaponName, "MagIn", "MagIn", nil, 1.25 + shellIndex * 0.03, 0.55)
+				kickCharm(visual.Charm.Reload * 0.4)
+			elseif name == "Bolt" then
+				Sounds.PlayWeapon(weaponName, "Bolt", "Bolt", nil, shotgun and 0.75 or 1, 1)
+				kickCharm(visual.Charm.Reload * 0.7)
+			end
+		end)
 	end
 end
 
@@ -649,7 +796,7 @@ local function fire()
 	lastShot = now
 	localAmmo -= 1
 	ClientState.LastShotTime = now
-	inspectTime = -10
+	cancelInspect()
 	ClientState.Sprinting = false
 
 	updateRayFilter()
@@ -704,8 +851,11 @@ local function fire()
 	end
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
 	if not def.Explosive and feel.Shells.Enabled then
-		Effects.ShellCasing(eject, camera.CFrame, feel.Shells.Color)
+		-- (el casquillo sale con la velocidad del jugador: corriendo no se queda atrás ni te da en la cara)
+		Effects.ShellCasing(eject, camera.CFrame, feel.Shells.Color, rootPart and rootPart.AssemblyLinearVelocity or nil)
 	end
+	kickCharm(visual.Charm.Fire)
+	lastActivity = now
 	local weaponName = equippedTool:GetAttribute("Weapon") or ""
 	Sounds.PlayShot(weaponName, def)
 	shakeRoll += (math.random() - 0.5) * math.rad(def.Recoil) * 0.6
@@ -760,7 +910,7 @@ local function fire()
 		ClientState.FovKick = (ClientState.FovKick or 0) + def.Recoil * cam.FovKick
 	end
 	ClientState.ShotFired:Fire()
-	weaponEvent("Fire")
+	weaponEvent("Fire", { ADS = aimAlpha > 0.5 })
 
 	if localAmmo <= 0 then
 		task.delay(0.2, requestReload)
@@ -812,15 +962,31 @@ local function melee()
 		return
 	end
 	meleeTime = now
-	if inspectTime > 0 and now - inspectTime < INSPECT_TIME then
-		inspectTime = -10
-		weaponEvent("InspectCancel")
-	end
+	cancelInspect()
 	meleeWithKnife = def ~= nil and def.Type == "Melee"
 	meleeSide = -meleeSide -- golpes alternos: uno de derecha a izquierda y el siguiente al revés
 	meleeDuration = meleeWithKnife and math.clamp(knife.Cooldown * 0.75, 0.32, 0.6) or 0.38
+	if reloadStart then
+		weaponEvent("ReloadCancel")
+	end
 	reloadStart = nil
-	Sounds.Play("Swing")
+	lastActivity = now
+	-- (hueco de audio propio del arma que golpea; si no tiene, el «fium» de siempre)
+	local swingWeapon = meleeWithKnife and meleeTool:GetAttribute("Weapon") or (equippedTool and equippedTool:GetAttribute("Weapon"))
+	if Sounds.WeaponSoundName(swingWeapon, "Melee", nil) then
+		Sounds.PlayWeapon(swingWeapon, "Melee", nil)
+	else
+		Sounds.Play("Swing")
+	end
+	weaponEvent("Melee", { Knife = meleeWithKnife })
+	-- Momento del golpe en la animación (el impacto real ya se decidió al pulsar)
+	local token = meleeTime
+	task.delay(meleeDuration * visual.Melee.HitAt, function()
+		if meleeTime == token and equippedTool then
+			weaponEvent("MeleeHit")
+			kickCharm(visual.Charm.Fire * 2)
+		end
+	end)
 
 	updateRayFilter()
 	local origin = camera.CFrame.Position
@@ -910,7 +1076,7 @@ local function renderStep(dt)
 	local canAim = def ~= nil and def.Type == "Gun" and aimHeld and not reloadStart and not ClientState.IsBlocked()
 	ClientState.Aiming = canAim
 	if canAim then
-		inspectTime = -10
+		cancelInspect()
 	end
 	-- (cada tipo de arma apunta a su ritmo: subfusiles y pistolas antes, ametralladora más despacio)
 	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * feel.Aim.Speed))
@@ -920,9 +1086,8 @@ local function renderStep(dt)
 	ClientState.AimAlpha = aimAlpha
 	sprintAlpha = lerp(sprintAlpha, (ClientState.Sprinting and not reloadStart) and 1 or 0, math.min(1, dt * feel.Sprint.Speed))
 	-- Correr cancela la inspección
-	if sprintAlpha > 0.5 and inspectTime > 0 and os.clock() - inspectTime < INSPECT_TIME then
-		inspectTime = -10
-		weaponEvent("InspectCancel")
+	if sprintAlpha > 0.5 then
+		cancelInspect()
 	end
 
 	-- Muerto (o en la killcam) la cámara ya no es tuya: nada de retroceso, balanceo ni temblores
@@ -995,9 +1160,9 @@ local function renderStep(dt)
 		if rootPart then
 			local velocity = rootPart.AssemblyLinearVelocity
 			local side = velocity:Dot(camera.CFrame.RightVector)
-			strafeRoll = lerp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), math.min(1, dt * 8))
+			strafeRoll = damp(strafeRoll, math.clamp(-side / 26, -1, 1) * math.rad(1.6), 8, dt)
 		end
-		shakeRoll = lerp(shakeRoll, 0, math.min(1, dt * 18))
+		shakeRoll = damp(shakeRoll, 0, 18, dt)
 		-- Daño recibido: alabeo hacia un lado según cuánto (como mucho ~1,5°) y un tirón del arma
 		if humanoid then
 			local health = humanoid.Health
@@ -1008,7 +1173,7 @@ local function renderStep(dt)
 			end
 			flinchHealth = health
 		end
-		flinchRoll = lerp(flinchRoll, 0, math.min(1, dt * 12))
+		flinchRoll = damp(flinchRoll, 0, 12, dt)
 		-- (competitivo: apuntando tiembla mucho menos, y con «Efectos de pantalla: Reducidos» casi nada)
 		local calm = (ClientState.ReducedFX() and 0.3 or 1) * (1 - 0.6 * aimAlpha)
 		-- (el alabeo no se acumula: la cámara de Roblox lo recalcula cada fotograma)
@@ -1032,7 +1197,7 @@ local function renderStep(dt)
 			if onGround then
 				headBobTime += dt * math.min(flatSpeed, 32) * 0.42
 			end
-			headBobAmount = lerp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, math.min(1, dt * 8))
+			headBobAmount = damp(headBobAmount, onGround and math.clamp(flatSpeed / 18, 0, 1.6) or 0, 8, dt)
 			local amount = headBobAmount * (moveConfig.CameraBob or 1) * (1 - aimAlpha * 0.85)
 			if amount > 0.001 and not ClientState.InMainMenu then
 				local y = -math.abs(math.sin(headBobTime)) * 0.08 * amount
@@ -1043,7 +1208,7 @@ local function renderStep(dt)
 		local land = ClientState.LandKick or 0
 		if land > 0.01 then
 			camera.CFrame = camera.CFrame * CFrame.new(0, -0.55 * land, 0) * CFrame.Angles(0, 0, math.rad(1.2) * land)
-			ClientState.LandKick = land * math.max(0, 1 - dt * 7)
+			ClientState.LandKick = land * decay(7, dt)
 		else
 			ClientState.LandKick = 0
 		end
@@ -1073,14 +1238,17 @@ local function renderStep(dt)
 	end
 	local kick = ClientState.FovKick or 0
 	if kick > 0.01 then
-		ClientState.FovKick = kick * math.max(0, 1 - dt * 5)
+		ClientState.FovKick = kick * decay(5, dt)
 	else
 		ClientState.FovKick = 0
 	end
 	camera.FieldOfView = targetFov + sprintAlpha * feel.Sprint.Fov + kick
 	UserInputService.MouseDeltaSensitivity = (settings.Sensitivity or 1) * aimScale
 
+	-- La salida del arma anterior (Unequip) sigue aunque ya no haya arma
+	stepRetiring()
 	if not viewmodel or not def then
+		ClientState.WeaponAction = "None"
 		return
 	end
 
@@ -1095,7 +1263,11 @@ local function renderStep(dt)
 	local function pulse(x, center, width) -- 0 -> 1 -> 0 alrededor de center
 		return smooth(1 - math.abs(x - center) / width)
 	end
+	local rad = math.rad
 
+	---------------------------------------------------------------------
+	-- 1) CUERPO: balanceo al andar, respiración, salto y caída
+	---------------------------------------------------------------------
 	-- Balanceo al caminar (al correr, más amplio y con giro: el "ocho" de los shooters)
 	local speed, verticalSpeed = 0, 0
 	if rootPart then
@@ -1118,59 +1290,82 @@ local function renderStep(dt)
 		math.cos(bobTime) * (0.05 + 0.05 * s) * bobAmount * bobScale,
 		-math.abs(math.sin(bobTime)) * (0.06 + 0.04 * s) * bobAmount * bobScale,
 		0
-	) * CFrame.Angles(0, 0, math.cos(bobTime) * math.rad(3.5) * s * bobAmount * bobScale)
+	) * CFrame.Angles(0, 0, math.cos(bobTime) * rad(3.5) * s * bobAmount * bobScale)
 
-	-- Respiración: el arma nunca está del todo quieta (apuntando, casi nada)
-	local breathScale = (1 - aimAlpha * 0.8) * (1 - math.min(1, bobAmount))
+	-- Respiración: el arma nunca está del todo quieta (apuntando, casi nada; la mira no se mueve de
+	-- forma apreciable)
+	local breathScale = (1 - aimAlpha * 0.8) * (1 - math.min(1, bobAmount)) * visual.Idle.Breath
 	local breath = CFrame.new(math.sin(now * 0.8) * 0.01 * breathScale, math.sin(now * 1.6) * 0.014 * breathScale, 0)
-		* CFrame.Angles(math.sin(now * 1.6 + 0.6) * math.rad(0.5) * breathScale, 0, 0)
+		* CFrame.Angles(math.sin(now * 1.6 + 0.6) * rad(0.5) * breathScale, 0, 0)
 
-	-- Inercia al mover el ratón: muelle (se retrasa, se pasa un poco y vuelve). Las armas
-	-- pesadas (las que te hacen ir más lento) van más perezosas.
+	-- Salto y caída: al despegar, el arma se queda un instante atrás (muelle); en el aire se queda
+	-- detrás según la velocidad; al aterrizar se hunde (más cuanto más alta la caída: LandKick)
+	if wasGrounded and not grounded and verticalSpeed > 4 then
+		jumpVel -= visual.Jump.Kick
+		lastActivity = now
+	elseif grounded and not wasGrounded then
+		kickCharm(visual.Charm.Land * math.max(0.3, ClientState.LandKick or 0))
+		lastActivity = now
+	end
+	wasGrounded = grounded
+	jumpY, jumpVel = WeaponFeel.StepSpring(jumpY, jumpVel, visual.Jump.Stiffness, visual.Jump.Damping, dt)
+	airOffset = damp(airOffset, grounded and 0 or math.clamp(-verticalSpeed * 0.005, -0.12, 0.12), 10, dt)
+	local land = ClientState.LandKick or 0
+	local airCF = CFrame.new(0, airOffset - 0.2 * land + jumpY * 0.08, 0)
+		* CFrame.Angles(airOffset * 0.8 - rad(7) * land + jumpY * rad(4), 0, 0)
+
+	-- Inercia al mover el ratón: muelle exacto (se retrasa, se pasa un poco y vuelve; igual a cualquier
+	-- fps). Las armas pesadas (las que te hacen ir más lento) van más perezosas.
 	local delta = UserInputService:GetMouseDelta()
 	local weight = math.clamp(def.WalkSpeedMultiplier or 1, 0.8, 1.15)
 	local stiffness, damping = 160 * weight * weight, 16 * weight
-	local sdt = math.min(dt, 1 / 30)
 	local swayGain = 0.004 * feel.Sway.Amount
 	local targetX = math.clamp(-delta.X * swayGain, -0.12, 0.12)
 	local targetY = math.clamp(-delta.Y * swayGain, -0.12, 0.12)
-	swayVelX += ((targetX - swayX) * stiffness - swayVelX * damping) * sdt
-	swayVelY += ((targetY - swayY) * stiffness - swayVelY * damping) * sdt
-	swayX += swayVelX * sdt
-	swayY += swayVelY * sdt
+	local offX, offY
+	offX, swayVelX = WeaponFeel.StepSpring(swayX - targetX, swayVelX, stiffness, damping, dt)
+	offY, swayVelY = WeaponFeel.StepSpring(swayY - targetY, swayVelY, stiffness, damping, dt)
+	swayX, swayY = targetX + offX, targetY + offY
 	local swayScale = 1 - aimAlpha * (1 - feel.Aim.Sway) -- (apuntando casi no se mueve: no estorba al apuntar)
 	local sway = CFrame.Angles(swayY * swayScale, swayX * swayScale, swayX * 0.6 * swayScale)
 
-	-- Moverse: al ir de lado el arma se inclina; al saltar se queda atrás y al caer se hunde
+	-- Moverse de lado: el arma se inclina
 	local strafeTilt = CFrame.Angles(0, 0, strafeRoll * 2.5 * (1 - aimAlpha * 0.8))
-	airOffset = lerp(airOffset, grounded and 0 or math.clamp(-verticalSpeed * 0.005, -0.12, 0.12), math.min(1, dt * 10))
-	local land = ClientState.LandKick or 0
-	local airCF = CFrame.new(0, airOffset - 0.2 * land, 0) * CFrame.Angles(airOffset * 0.8 - math.rad(7) * land, 0, 0)
 
-	-- Retroceso del arma
-	-- (muelles amortiguados: el arma va hacia atrás, se pasa un poquito al volver y se asienta)
+	---------------------------------------------------------------------
+	-- 2) RETROCESO DEL ARMA (muelles exactos; se aplica el último, encima de todo)
+	---------------------------------------------------------------------
 	local view = feel.View
-	kickVel += (-view.Stiffness * recoilKick - view.Damping * kickVel) * sdt
-	recoilKick += kickVel * sdt
-	rotVel += (-view.RotStiffness * recoilRot - view.RotDamping * rotVel) * sdt
-	recoilRot += rotVel * sdt
-	sideVel += (-view.SideStiffness * recoilSide - view.SideDamping * sideVel) * sdt
-	recoilSide += sideVel * sdt
+	recoilKick, kickVel = WeaponFeel.StepSpring(recoilKick, kickVel, view.Stiffness, view.Damping, dt)
+	recoilRot, rotVel = WeaponFeel.StepSpring(recoilRot, rotVel, view.RotStiffness, view.RotDamping, dt)
+	recoilSide, sideVel = WeaponFeel.StepSpring(recoilSide, sideVel, view.SideStiffness, view.SideDamping, dt)
 	local recoilCF = CFrame.new(recoilSide * 0.4, 0, recoilKick) * CFrame.Angles(recoilRot, recoilSide * 0.6, recoilSide * 1.5)
 
-	-- Cadera -> mira
+	---------------------------------------------------------------------
+	-- 3) POSE BASE: cadera -> mira (ADS)
+	---------------------------------------------------------------------
 	-- (en el teléfono, el arma de cadera algo más abajo, a la derecha y lejos: en una pantalla
 	-- pequeña tapaba media pantalla y los botones táctiles)
-	local hipOffset = phoneScreen and PHONE_HIP * def.ViewOffset or def.ViewOffset
+	-- (un modelo nuevo puede traer su propia pose: WeaponVisual.Weapons[arma].ViewOffset / AimDistance)
+	local hip = visual.ViewOffset or def.ViewOffset
+	local hipOffset = phoneScreen and PHONE_HIP * hip or hip
 	local base = hipOffset
-	if def.AimPoint then
-		local a = def.AimPoint
-		local aimCF = CFrame.new(-a.X, -a.Y, -def.AimDistance - a.Z)
+	if points.AimPoint then
+		-- (el AimPoint del arma queda en el centro exacto de la pantalla)
+		local a = points.AimPoint
+		local aimCF = CFrame.new(-a.X, -a.Y, -(visual.AimDistance or def.AimDistance) - a.Z)
 		base = hipOffset:Lerp(aimCF, aimAlpha)
 	end
 
-	-- Correr
-	local sprintCF = CFrame.new(-0.25 * s, -0.2 * s, 0.1 * s) * CFrame.Angles(math.rad(-12) * s, math.rad(35) * s, math.rad(18) * s)
+	---------------------------------------------------------------------
+	-- 4) LOCOMOCIÓN: sprint y pared
+	---------------------------------------------------------------------
+	local sprintCF = WeaponVisual.PoseCFrame(visual.Sprint, s)
+	local sprinting = s > 0.5
+	if sprinting ~= sprintShown then
+		sprintShown = sprinting
+		weaponEvent(sprinting and "SprintEnter" or "SprintExit")
+	end
 
 	-- Pegado a una pared: el arma se recoge y apunta hacia arriba en vez de atravesarla
 	if now - wallCheckTime > 1 then
@@ -1186,68 +1381,87 @@ local function renderStep(dt)
 			wallTarget = math.clamp(1 - (hit.Distance - 1.1) / 2.3, 0, 1) * (1 - aimAlpha * 0.6)
 		end
 	end
-	wallAlpha = lerp(wallAlpha, wallTarget, math.min(1, dt * 10))
+	wallAlpha = damp(wallAlpha, wallTarget, 10, dt)
 	local w = wallAlpha
-	local wallCF = CFrame.new(-0.1 * w, -0.1 * w, 0.55 * w) * CFrame.Angles(math.rad(32) * w, math.rad(-12) * w, math.rad(-14) * w)
+	local wallCF = CFrame.new(-0.1 * w, -0.1 * w, 0.55 * w) * CFrame.Angles(rad(32) * w, rad(-12) * w, rad(-14) * w)
 
-	-- Recarga. Con cargador: lo sueltas, la mano trae otro, lo encaja (golpe) y, si estaba
-	-- vacía, se monta. Escopetas: cartucho a cartucho y bombeo al final. Va al ritmo de los sonidos.
+	---------------------------------------------------------------------
+	-- 5) ACCIONES: recarga, sacar, cuchillo, inspección y gesto de reposo
+	---------------------------------------------------------------------
+	-- Recarga (al ritmo de las marcas de WeaponVisual y de la duración REAL de la recarga). Con
+	-- cargador: lo sueltas, la mano trae otro, lo encaja (golpe) y, si estaba vacía, monta el arma
+	-- (palanca de carga si el modelo la tiene). Escopetas: cartucho a cartucho y bombeo al final.
 	local reloadCF = CFrame.new()
-	local magOffset, magFade, leftOffset, rightOffset = nil, 0, nil, nil
-	local slideBack, pumpBack, boltBack = 0, 0, 0
+	local magOffset, magFade = nil, 0
+	local leftHandOffset, rightHandOffset = nil, nil -- desplazamiento de cada mano (espacio del arma)
+	local slideBack, pumpBack, boltBack, chargeBack = 0, 0, 0, 0
 	local p = reloadStart and ClientState.ReloadProgress or -1
 	local shotgun = (def.Pellets or 1) > 1 and #moving.Mag == 0
 	if p >= 0 then
+		local timeline = reloadWasEmpty and visual.Reload.Empty or visual.Reload.Tactical
+		local mOut, mIn = timeline.MagOut or 0.12, timeline.MagIn or 0.55
+		local mBolt = visual.Reload.Empty.Bolt or 0.85
 		local tilt = window(p, 0, 0.12) * (1 - window(p, 0.86, 1))
-		local seat = pulse(p, 0.57, 0.05)
+		local seat = pulse(p, mIn + 0.02, 0.05)
 		local function aroundMag(rotation) -- (gira sobre su propio centro)
 			return CFrame.new(magCenter) * rotation * CFrame.new(-magCenter)
 		end
 		if magCenter and not shotgun then
 			-- Cargador fuera (cae acelerando y desaparece) y el nuevo sube desde abajo
-			if p < 0.3 then
-				local out = window(p, 0.1, 0.26)
-				magOffset = CFrame.new(0, -1.8 * out * out, 0.12 * out) * aroundMag(CFrame.Angles(math.rad(-15) * out, 0, 0))
+			if p < mOut + 0.18 then
+				local out = window(p, mOut - 0.02, mOut + 0.14)
+				magOffset = CFrame.new(0, -1.8 * out * out, 0.12 * out) * aroundMag(CFrame.Angles(rad(-15) * out, 0, 0))
 				magFade = out
 			else
-				local into = window(p, 0.34, 0.55)
-				magOffset = CFrame.new(0, -0.9 * (1 - into), 0.15 * (1 - into)) * aroundMag(CFrame.Angles(math.rad(-10) * (1 - into), 0, 0))
-				magFade = 1 - window(p, 0.3, 0.38)
+				local into = window(p, mIn - 0.21, mIn)
+				magOffset = CFrame.new(0, -0.9 * (1 - into), 0.15 * (1 - into)) * aroundMag(CFrame.Angles(rad(-10) * (1 - into), 0, 0))
+				magFade = 1 - window(p, mOut + 0.18, mOut + 0.26)
 			end
 			-- La mano izquierda baja a por el cargador nuevo, lo sube hasta su sitio y vuelve
-			local hand = def.LeftHand or magCenter
-			local grab = window(p, 0.14, 0.28) * (1 - window(p, 0.58, 0.72))
+			local hand = points.LeftHand or magCenter
+			local grab = window(p, mOut + 0.02, mOut + 0.16) * (1 - window(p, mIn + 0.03, mIn + 0.17))
 			local bottom = magCenter + Vector3.new(0, -0.35, 0.05) - hand
-			local follow = p < 0.3 and Vector3.new(0, -0.9 * window(p, 0.16, 0.3), 0.15 * window(p, 0.16, 0.3))
+			local follow = p < mOut + 0.18 and Vector3.new(0, -0.9 * window(p, mOut + 0.04, mOut + 0.18), 0.15 * window(p, mOut + 0.04, mOut + 0.18))
 				or magOffset.Position
-			leftOffset = CFrame.new((bottom + follow) * grab)
-			reloadCF = CFrame.new(-0.08 * tilt, -0.1 * tilt + 0.05 * seat, 0.05 * tilt)
-				* CFrame.Angles(math.rad(8) * tilt + math.rad(4) * seat, math.rad(-10) * tilt, math.rad(28) * tilt)
+			local handMove = (bottom + follow) * grab
+			-- Vacía, con palanca de carga (fusil): la mano sube a la palanca, tira de ella y vuelve
+			if reloadWasEmpty and chargeCenter then
+				local reach = window(p, mBolt - 0.1, mBolt - 0.03) * (1 - window(p, mBolt + 0.06, mBolt + 0.13))
+				chargeBack = pulse(p, mBolt + 0.01, 0.045)
+				local toCharge = chargeCenter + Vector3.new(-0.08, 0.05, 0.05) - hand
+				handMove += (toCharge + Vector3.new(0, 0, visual.Reload.ChargePull * chargeBack)) * reach
+			end
+			leftHandOffset = CFrame.new(handMove)
+			local tiltPose = visual.Reload.Tilt
+			local o = tiltPose.Offset * tilt + Vector3.new(0, 0.05 * seat, 0)
+			local ang = tiltPose.Angles * tilt + Vector3.new(4 * seat, 0, 0)
+			reloadCF = CFrame.new(o) * CFrame.Angles(rad(ang.X), rad(ang.Y), rad(ang.Z))
 		elseif shotgun then
-			-- Cartuchos: la mano va de la cartuchera a la ventana de carga cuatro veces
-			local active = window(p, 0.08, 0.16) * (1 - window(p, 0.78, 0.84))
+			-- Cartuchos: la mano va de la cartuchera a la ventana de carga una vez por cartucho
+			local shells = visual.Reload.Shells
+			local active = window(p, shells[1] - 0.12, shells[1] - 0.04) * (1 - window(p, shells[#shells] + 0.04, shells[#shells] + 0.1))
 			local push = 0
-			for _, at in { 0.2, 0.38, 0.56, 0.74 } do
+			for _, at in shells do
 				push = math.max(push, pulse(p, at, 0.07))
 			end
-			local port = Vector3.new(0, -0.32, -0.15) - (def.LeftHand or Vector3.new(0, -0.3, -1))
+			local port = Vector3.new(0, -0.32, -0.15) - (points.LeftHand or Vector3.new(0, -0.3, -1))
 			if active > 0.001 then
-				leftOffset = CFrame.new((port + Vector3.new(0.1, -0.55, 0.25) * (1 - push)) * active)
+				leftHandOffset = CFrame.new((port + Vector3.new(0.1, -0.55, 0.25) * (1 - push)) * active)
 			end
 			reloadCF = CFrame.new(-0.05 * tilt, -0.08 * tilt + 0.03 * push * active, 0)
-				* CFrame.Angles(math.rad(12) * tilt, math.rad(-8) * tilt, math.rad(-32) * tilt)
-			pumpBack = pulse(p, 0.91, 0.06)
+				* CFrame.Angles(rad(12) * tilt, rad(-8) * tilt, rad(-32) * tilt)
+			pumpBack = pulse(p, visual.Reload.ShellPump + 0.06, 0.06)
 		else
 			-- Lanzacohetes, ballesta, revólver...: la mano baja, trae la munición y la mete
 			local fetch = pulse(p, 0.38, 0.22)
-			leftOffset = CFrame.new(0.1 * fetch, -0.8 * fetch, 0.2 * fetch)
-			reloadCF = CFrame.new(0, -0.3 * tilt + 0.04 * seat, 0) * CFrame.Angles(math.rad(-18) * tilt, 0, math.rad(30) * tilt)
+			leftHandOffset = CFrame.new(0.1 * fetch, -0.8 * fetch, 0.2 * fetch)
+			reloadCF = CFrame.new(0, -0.3 * tilt + 0.04 * seat, 0) * CFrame.Angles(rad(-18) * tilt, 0, rad(30) * tilt)
 		end
 		-- Montar el arma (si estaba vacía): tirón seco hacia atrás
 		if reloadWasEmpty and not shotgun then
-			local charge = pulse(p, 0.88, 0.05)
-			reloadCF *= CFrame.new(0, 0, 0.06 * charge) * CFrame.Angles(math.rad(-3) * charge, 0, math.rad(-6) * charge)
-			slideBack = p < 0.86 and 1 or 0
+			local charge = pulse(p, mBolt + 0.03, 0.05)
+			reloadCF *= CFrame.new(0, 0, 0.06 * charge) * CFrame.Angles(rad(-3) * charge, 0, rad(-6) * charge)
+			slideBack = p < mBolt + 0.01 and 1 or 0
 		end
 	elseif def.Type == "Gun" then
 		local t = now - lastShot
@@ -1261,24 +1475,24 @@ local function renderStep(dt)
 				if def.Pellets > 1 then
 					-- Bombeo de la escopeta (con la mano izquierda en el guardamanos)
 					pumpBack = motion
-					reloadCF = CFrame.Angles(math.rad(-3) * motion, 0, math.rad(-4) * motion)
+					reloadCF = CFrame.Angles(rad(-3) * motion, 0, rad(-4) * motion)
 				elseif boltCenter then
 					-- Cerrojo: la mano derecha va a la manilla, la abre, tira y la cierra
 					boltBack = motion
 					local reach = smooth(math.min(cycle / 0.2, (1 - cycle) / 0.2))
-					rightOffset = CFrame.new((boltCenter - (def.RightHand or boltCenter) + Vector3.new(0.05, 0, 0.1)) * reach + Vector3.new(0, 0, 0.3 * motion))
-					reloadCF = CFrame.new(0, -0.04 * reach, 0) * CFrame.Angles(0, 0, math.rad(-14) * reach)
+					rightHandOffset = CFrame.new((boltCenter - (points.RightHand or boltCenter) + Vector3.new(0.05, 0, 0.1)) * reach + Vector3.new(0, 0, 0.3 * motion))
+					reloadCF = CFrame.new(0, -0.04 * reach, 0) * CFrame.Angles(0, 0, rad(-14) * reach)
 				end
 			end
 		end
 	end
 
-	-- Sacar arma: sube desde abajo girando y se asienta con un pequeño rebote
+	-- Sacar arma: sube desde abajo girando y se asienta con un pequeño rebote (no cambia cuándo se
+	-- puede disparar: eso es EQUIP_READY)
 	local e = math.clamp((now - equipTime) / feel.Equip.Time, 0, 1)
 	local c1, c3 = 1.70158, 2.70158
 	local raise = 1 + c3 * (e - 1) ^ 3 + c1 * (e - 1) ^ 2 -- (sale un poco de más y vuelve)
-	local down = 1 - raise
-	local equipCF = CFrame.new(0.15 * down, -0.9 * down, 0.1 * down) * CFrame.Angles(math.rad(-50) * down, math.rad(15) * down, math.rad(-25) * down)
+	local equipCF = WeaponVisual.PoseCFrame(visual.Equip, 1 - raise)
 
 	-- Cuerpo a cuerpo: golpe rápido (el impacto es al instante) y vuelta más lenta, alternando lado
 	local meleeCF = CFrame.new()
@@ -1288,32 +1502,70 @@ local function renderStep(dt)
 		local side = meleeSide
 		if meleeWithKnife then
 			meleeCF = CFrame.new(-0.6 * k * side, 0.15 * k, -0.6 * k)
-				* CFrame.Angles(math.rad(-20) * k, math.rad(70) * k * side, math.rad(-35) * k * side)
+				* CFrame.Angles(rad(-20) * k, rad(70) * k * side, rad(-35) * k * side)
 		else
 			-- Culatazo con el arma de fuego
-			meleeCF = CFrame.new(-0.3 * k, 0.05 * k, -0.55 * k) * CFrame.Angles(math.rad(10) * k, math.rad(30) * k, math.rad(25) * k)
+			meleeCF = CFrame.new(-0.3 * k, 0.05 * k, -0.55 * k) * CFrame.Angles(rad(10) * k, rad(30) * k, rad(25) * k)
 		end
 	end
 
-	-- Inspeccionar: sube el arma, la gira para ver un costado y luego el otro, y vuelve
+	-- Inspeccionar: claves de WeaponVisual (costado con skin y colgante, de cerca, el otro costado y remate)
 	local inspectCF = CFrame.new()
-	local it = (now - inspectTime) / INSPECT_TIME
+	local it = (now - inspectTime) / visual.Inspect.Duration
 	if it < 1 then
-		local envelope = smooth(math.min(it / 0.18, (1 - it) / 0.18))
-		local turn = smooth((it - 0.18) / 0.64)
-		local yaw = math.rad(70 + (-45 - 70) * turn)
-		local roll = math.rad(-25 + 35 * turn)
-		inspectCF = CFrame.new(-0.35 * envelope, 0.18 * envelope, 0.25 * envelope)
-			* CFrame.Angles(math.rad(12) * envelope, yaw * envelope, roll * envelope)
+		local pos, ang = WeaponVisual.InspectPose(visual, it)
+		inspectCF = CFrame.new(pos) * CFrame.Angles(rad(ang.X), rad(ang.Y), rad(ang.Z))
 	end
 
+	-- Acción que manda ahora (WeaponVisual.ActionPriority) y gesto de reposo: tras un rato sin hacer
+	-- nada, la mano izquierda suelta el guardamanos y lo vuelve a agarrar. Cualquier acción (moverse,
+	-- mirar, apuntar, disparar...) lo corta al momento.
+	local busy = speed > 1.5 or delta.Magnitude > 3 or aimAlpha > 0.05 or s > 0.05 or reloadStart ~= nil
+		or it < 1 or m < 1 or triggerHeld or now - lastShot < 0.3 or not grounded
+	local action = WeaponVisual.ResolveAction({
+		Melee = m < 1,
+		Reload = reloadStart ~= nil,
+		Equip = e < 1,
+		Inspect = it < 1,
+		Sprint = s > 0.5,
+		IdleVariant = idleVariantStart ~= nil,
+	})
+	local idle = visual.Idle
+	if busy then
+		lastActivity = now
+		idleVariantStart = nil
+	elseif not idleVariantStart and action == "Idle" and def.Type == "Gun"
+		and now - lastActivity > idle.VariantAfter and now - lastIdleVariant > idle.VariantCooldown then
+		idleVariantStart, lastIdleVariant = now, now
+		weaponEvent("IdleVariant")
+		kickCharm(visual.Charm.Idle)
+	end
+	local idleCF = CFrame.new()
+	local vt = idleVariantStart and (now - idleVariantStart) / idle.VariantDuration or 1
+	if vt >= 1 then
+		idleVariantStart = nil
+	else
+		local envelope = smooth(math.min(vt / 0.25, (1 - vt) / 0.3))
+		local grip = pulse(vt, 0.5, 0.3)
+		idleCF = CFrame.new(0, -0.03 * envelope, 0) * CFrame.Angles(rad(2) * envelope, 0, rad(idle.VariantRoll) * envelope)
+		if not leftHandOffset then
+			leftHandOffset = CFrame.new(idle.VariantHand * grip)
+		end
+	end
+	ClientState.WeaponAction = (action == "Idle" and aimAlpha > 0.5) and "ADS" or action
+
+	---------------------------------------------------------------------
+	-- Colocar todo
+	---------------------------------------------------------------------
 	-- Mira telescópica: ocultar el arma
 	-- (y también en la pantalla de inicio, donde la cámara está lejos)
 	local hide = (def.Scope == true and aimAlpha > 0.85) or ClientState.InMainMenu or ClientState.Emoting or ClientState.KillcamActive
 	setViewmodelHidden(hide)
-	if not hide then -- oculta no hace falta moverla cada fotograma
+	if hide then
+		clearRetiring()
+	else -- oculta no hace falta moverla cada fotograma
 		viewmodel:PivotTo(
-			camera.CFrame * bob * breath * sway * airCF * strafeTilt * base * sprintCF * wallCF * reloadCF * equipCF * meleeCF * inspectCF * recoilCF
+			camera.CFrame * bob * breath * sway * airCF * strafeTilt * base * sprintCF * wallCF * reloadCF * equipCF * meleeCF * inspectCF * idleCF * recoilCF
 		)
 		-- Piezas móviles (después de colocar el arma entera)
 		local handle = viewmodel.PrimaryPart
@@ -1324,14 +1576,20 @@ local function renderStep(dt)
 			local pumpCF = pumpBack > 0.001 and CFrame.new(0, 0, 0.36 * pumpBack) or nil
 			placeGroup("Pump", handleCF, pumpCF)
 			placeGroup("Bolt", handleCF, boltBack > 0.001 and CFrame.new(0, 0.04 * boltBack, 0.3 * boltBack) or nil)
+			placeGroup("Charge", handleCF, chargeBack > 0.001 and CFrame.new(0, 0, visual.Reload.ChargePull * chargeBack) or nil)
 			-- La mano izquierda acompaña a la bomba de la escopeta
-			if pumpCF and not leftOffset then
-				leftOffset = pumpCF
+			if pumpCF and not leftHandOffset then
+				leftHandOffset = pumpCF
 			end
-			placeGroup("Left", handleCF, leftOffset)
-			placeGroup("Right", handleCF, rightOffset)
+			-- Brazos: hombros pegados al cuerpo (cámara con su balanceo) y manos en el arma (IK)
+			local body = camera.CFrame * bob * breath * airCF
+			for side, rig in arms do
+				local offset = side == "Left" and leftHandOffset or rightHandOffset
+				local hand = (offset and handleCF * offset or handleCF) * rig.Hand
+				placeArm(rig, body * rig.Shoulder, hand, body:VectorToWorldSpace(rig.Pole))
+			end
 		end
-		swingCharm(dt)
+		swingCharm(dt, s, bobTime)
 	end
 end
 
@@ -1419,9 +1677,19 @@ local function bindActions()
 	-- Cambiar de arma: tecla Q (siguiente) y botón táctil en móvil (no hay barra de inventario)
 	ContextActionService:BindAction("Inspect", function(_, state)
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and not ClientState.VotePanelVisible and def and not reloadStart and not ClientState.Aiming then
-			if os.clock() - inspectTime > INSPECT_TIME then
+			if os.clock() - inspectTime > visual.Inspect.Duration then
 				inspectTime = os.clock()
+				lastActivity = inspectTime
 				weaponEvent("Inspect")
+				Sounds.PlayWeapon(equippedTool and equippedTool:GetAttribute("Weapon"), "Inspect", nil)
+				-- Momento de enseñar el colgante de cerca
+				local token = inspectTime
+				task.delay(visual.Inspect.Duration * visual.Inspect.Moment, function()
+					if inspectTime == token and equippedTool then
+						weaponEvent("InspectMoment")
+						kickCharm(visual.Charm.Inspect)
+					end
+				end)
 			end
 		end
 		return Enum.ContextActionResult.Pass
@@ -1483,7 +1751,7 @@ local function onCharacter(newCharacter)
 	end))
 	table.insert(characterConnections, newCharacter.ChildRemoved:Connect(function(child)
 		if child == equippedTool then
-			onUnequipped()
+			onUnequipped(true)
 		end
 	end))
 	local existing = newCharacter:FindFirstChildOfClass("Tool")

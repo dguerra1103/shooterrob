@@ -33,6 +33,12 @@ de verdad en Studio:** activar el modo QA (`GameConfig.QA.Enabled = true` solo e
 dentro de Studio), seguir la guía (empezando por la sección C: ARX-27 en los tres mapas gold standard)
 y apuntar cada fallo en `STUDIO_TEST_RESULTS.md`.
 
+**Fase 9 (ARX-27 gold standard) terminada fuera de Studio** — ver `FASE_09_ARX27_GOLD_STANDARD.md`.
+Brazos con IK, presets de pose por familia en `WeaponVisual`, marcadores de recarga/inspección/cuerpo a
+cuerpo en `ClientState.WeaponEvent` y plantilla de modelo externo (`ReplicatedStorage.WeaponViewModels`).
+Lo siguiente es **pasar su sección L en Studio** con el botón «ARX-27 Gold» del panel QA y, si se
+consigue audio propio, pegar los ids en los 12 huecos del ARX-27 (`Sounds.WeaponAudio`).
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

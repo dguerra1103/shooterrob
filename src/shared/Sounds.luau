@@ -159,10 +159,15 @@ local lastTail = 0
 --   ShotTail       eco/cola del disparo en el entorno (solo tus disparos)
 --   Reload         inicio de la recarga (opcional)
 --   MagOut, MagIn  sacar y meter el cargador
---   Bolt           cerrojo / corredera / bombeo
---   Empty          gatillo en vacío
+--   Bolt           cerrojo / corredera / bombeo / palanca de carga (recarga vacía)
+--   Empty          gatillo en vacío (dry fire)
 --   Equip          sacar el arma
-Sounds.WeaponAudioSlots = { "ShotClose", "ShotMechanical", "ShotTail", "Reload", "MagIn", "MagOut", "Bolt", "Empty", "Equip" }
+--   Unequip        guardar el arma (Fase 9; vacío = en silencio, como antes)
+--   Inspect        inspeccionar (Fase 9; vacío = en silencio)
+--   Melee          golpe cuerpo a cuerpo con esta arma (Fase 9; vacío = el «fium» genérico)
+-- Disparo por capas: ShotClose (cuerpo) + ShotMechanical (mecanismo) + ShotTail (cola): como mucho
+-- tres sonidos por disparo más el estampido grave genérico (Sounds.ShotLayers) mientras no haya propio.
+Sounds.WeaponAudioSlots = { "ShotClose", "ShotMechanical", "ShotTail", "Reload", "MagIn", "MagOut", "Bolt", "Empty", "Equip", "Unequip", "Inspect", "Melee" }
 local function slots(custom: { [string]: any }?)
 	local entry = {}
 	for _, slot in Sounds.WeaponAudioSlots do
@@ -328,6 +333,14 @@ end
 -- Sonidos 2D que suenan muchísimo (cada disparo, cada impacto): se reutilizan en vez de crear y
 -- destruir una instancia cada vez. Cinco por nombre; si suenan todos, se corta el más antiguo
 local POOLED = { Shot = true, ShotHeavy = true, Boom = true, Mech = true, Hit = true, Headshot = true, Kill = true, Click = true, Empty = true, Swing = true }
+-- Variación de tono al azar en cada reproducción (que dos disparos seguidos no suenen idénticos):
+-- ±5 % en general y ±2 % en las armas (Fase 9: más es caricaturesco)
+Sounds.PitchVariation = 0.05
+Sounds.GunPitchVariation = 0.02
+local function randomPitch(poolKey)
+	local variation = poolKey == "gun" and Sounds.GunPitchVariation or Sounds.PitchVariation
+	return 1 + (math.random() * 2 - 1) * variation
+end
 local POOL_SIZE = 6
 local pools = {} -- [nombre] = { Sound }
 
@@ -384,7 +397,7 @@ function Sounds.Play(name, parent, pitch, volume, poolKey)
 	local sound = (parent == nil and pooled) and pooledSound(poolKey and (name .. "|" .. poolKey) or name, info) or nil
 	if sound then
 		sound.Volume = info.Volume * (volume or 1)
-		sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
+		sound.PlaybackSpeed = info.Pitch * (pitch or 1) * randomPitch(poolKey)
 		sound.SoundGroup = getWorldGroup()
 		if sound.Parent == nil then
 			sound.Parent = workspace.CurrentCamera or workspace
@@ -395,7 +408,7 @@ function Sounds.Play(name, parent, pitch, volume, poolKey)
 	sound = Instance.new("Sound")
 	sound.SoundId = info.Id
 	sound.Volume = info.Volume * (volume or 1)
-	sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)
+	sound.PlaybackSpeed = info.Pitch * (pitch or 1) * randomPitch(poolKey)
 	sound.RollOffMaxDistance = 300
 	local group = getWorldGroup()
 	if group then

@@ -305,6 +305,7 @@ WeaponFeel.Quality = {
 		FlashParticles = 0.5, -- partículas del fogonazo
 		MuzzleSmoke = false, -- humo del fogonazo
 		BarrelSmoke = false, -- humo del cañón caliente
+		MuzzleLight = false, -- golpe de luz del fogonazo (Fase 9: una luz por disparo cuesta en móviles modestos)
 	},
 	Media = {
 		Shells = true,
@@ -313,6 +314,7 @@ WeaponFeel.Quality = {
 		FlashParticles = 1,
 		MuzzleSmoke = true,
 		BarrelSmoke = true,
+		MuzzleLight = true,
 	},
 	Alta = {
 		Shells = true,
@@ -321,6 +323,7 @@ WeaponFeel.Quality = {
 		FlashParticles = 1,
 		MuzzleSmoke = true,
 		BarrelSmoke = true,
+		MuzzleLight = true,
 	},
 }
 WeaponFeel.Quality.Ultra = WeaponFeel.Quality.Alta

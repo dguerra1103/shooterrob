@@ -290,7 +290,8 @@ local function realisticFlash(cf, remote, flash)
 	})
 	hideLater(flashBallRing, coreIndex, coreToken, life * 1.1)
 	-- Golpe de luz (solo los tuyos): una sola luz que se mueve al cañón y se apaga enseguida
-	if not remote and flash.Light > 0 then
+	-- (en calidad Baja, sin luz: el fogonazo se sigue viendo)
+	if not remote and flash.Light > 0 and budget().MuzzleLight ~= false then
 		local holderPart = flashLight and flashLight.Parent
 		if not holderPart or not holderPart.Parent then
 			local holder = fxPart({ Name = "FlashLight", Size = Vector3.one * 0.1, Transparency = 1 })
@@ -382,7 +383,7 @@ function Effects.MuzzleFlash(attachment, color, remote, flash)
 		Shape = Enum.PartType.Ball,
 		CFrame = cf * CFrame.new(0, 0, -0.15),
 	})
-	if not remote and flash.Light > 0 then
+	if not remote and flash.Light > 0 and budget().MuzzleLight ~= false then
 		local light = Instance.new("PointLight")
 		light.Color = color
 		light.Range = 12 * flash.Light
@@ -729,7 +730,8 @@ local liveCasings = 0
 local MAX_CASINGS = 8 -- con fuego automático no hace falta simular más a la vez
 
 local lastClink = 0
-function Effects.ShellCasing(attachment, cameraCFrame, color)
+-- inherit (opcional): velocidad del jugador, que el casquillo hereda (corriendo no se queda atrás)
+function Effects.ShellCasing(attachment, cameraCFrame, color, inherit: Vector3?)
 	if not attachment or liveCasings >= MAX_CASINGS or not budget().Shells then
 		return
 	end
@@ -752,7 +754,10 @@ function Effects.ShellCasing(attachment, cameraCFrame, color)
 	casing.Parent = folder
 	local right = cameraCFrame.RightVector
 	local up = cameraCFrame.UpVector
-	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3)
+	-- Sale a la derecha y hacia arriba, un poco hacia delante (como un fusil de verdad)
+	local forward = cameraCFrame.LookVector
+	casing.AssemblyLinearVelocity = right * (6 + math.random() * 3) + up * (5 + math.random() * 3) + forward * (0.6 + math.random() * 0.8)
+		+ (inherit or Vector3.zero)
 	casing.AssemblyAngularVelocity = Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20))
 	Debris:AddItem(casing, 1.5)
 	-- Tintineo del casquillo al caer al suelo (como mucho uno cada 0,1 s: con ráfagas, una lluvia de latón)
