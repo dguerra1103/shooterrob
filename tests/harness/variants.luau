@@ -7,7 +7,8 @@ local MapBuilder = req(game.ServerScriptService.Server.Modules.MapBuilder)
 local L = game:GetService("Lighting")
 for _, spec in { { "Construction", "Mediodía", 13.2 }, { "Construction", "Noche", 21.2 } } do
 	local seen, base = {}, nil
-	for _ = 1, 30 do
+	-- (60 y no 30: la noche sale el 17,5 % de las veces; con 30, 1 de cada ~300 pasadas no salía)
+	for _ = 1, 60 do
 		MapBuilder.Build(spec[1])
 		local v = game.Workspace:FindFirstChild("Map"):GetAttribute("Variant")
 		seen[v or "base"] = L.ClockTime

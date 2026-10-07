@@ -118,6 +118,11 @@
     P1 o P2 ganaron alguna partida (el tope de una por jugador se sigue comprobando).
   - **El juego no tenía ningún fallo:** la regla de «haber jugado de verdad» es la correcta.
   - 10 de 10 pasadas sin fallo, incluida una sin victorias.
+- **Prueba ajustada en la Fase 7: `variants`.** Falló una vez («Construction: a veces sale Noche»).
+  - Causa: la noche sale el 17,5 % de las veces (`Chance` 0,25 tras el 0,3 del mediodía; esto no ha
+    cambiado esta noche) y la prueba solo construía el mapa 30 veces. 1 de cada ~300 pasadas no salía
+    ninguna noche.
+  - Arreglo: 60 construcciones (≈ 1 de cada 100.000).
 - En una pasada de la Fase 4, `smoke` agotó su tiempo con la CPU al 98 %. Sola tarda ~1 s, con 30
   repeticiones y las demás pasadas completas sin fallo. Hay que vigilarla.
 
@@ -135,7 +140,9 @@
 | `b51e18e` | 6 | Bots revisados, consejos de contexto y tarjeta de controles |
 | `352ceb3` | 7 | `TURNO_NOCTURNO.md` (borrador) |
 | `cf7d112` | 6-7 | Consejos: se quitan en el acto si mueres o se abre algo encima |
-| (este) | 7 | Prueba `rounds` sin azar en la primera victoria; resultado final en este documento |
+| `c1f18bf` | 7 | Prueba `rounds`: sin azar en la primera victoria y falla en el acto |
+| `df57c1b` | 7 | Este documento: frecuencia real del fallo de `rounds` |
+| (este) | 7 | Prueba `variants` con 60 construcciones; resultado final en este documento |
 
 **Comprobado antes de cada push:**
 - `publish.yml` solo publica con `workflow_dispatch` (un push solo construye y valida);
