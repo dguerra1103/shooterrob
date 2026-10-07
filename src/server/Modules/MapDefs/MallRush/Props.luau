@@ -22,7 +22,7 @@ function Props.build(T)
 	---------------------------------------------------------------------------
 	-- Atrio: fuente, palmeras, jardineras y banderolas (MALL RUSH en el centro)
 	---------------------------------------------------------------------------
-	T.fountain(CF(0, 0, 0), 10)
+	T.mallFountain(CF(0, 0, 0), 10, CYAN)
 	for _, s in { -1, 1 } do
 		T.palmPlanter(CF(s * 7, 0, 15), 11)
 		T.planter(CF(s * 6, 0, -6) * CFrame.Angles(0, rad(90), 0), 5, 2.6)
@@ -60,8 +60,16 @@ function Props.build(T)
 	end
 	T.sign(CF(0, 6, 44) , "DIRECTORIO · PLANTA BAJA Y ALTA", 10, 1.6, RGB(36, 40, 52), RGB(255, 255, 255), { PPS = 18, Back = true })
 	G.box("DirectoryStand", V(10, 4.6, 1), CF(0, 2.3, 44), "WallGray")
-	local sunrise = T.sign(CF(0, 15, 81.2) * CFrame.Angles(0, math.pi, 0), "♛ SUNRISE MALL", 30, 4, RGB(30, 32, 40), RGB(255, 214, 90), { PPS = 12 })
-	sunrise.CastShadow = false
+	-- (el centro comercial se llama como el mapa: antes ponía «SUNRISE MALL»)
+	local entrance = T.sign(CF(0, 15, 81.2) * CFrame.Angles(0, math.pi, 0), "MALL RUSH", 30, 4, RGB(30, 32, 40), RGB(255, 214, 90), { PPS = 12 })
+	entrance.CastShadow = false
+	-- Rótulo en la azotea (se lee en la presentación del mapa y desde los aparcamientos)
+	local roofSign = T.sign(CF(0, TOP + 5, -30), "MALL RUSH", 34, 6, MAGENTA, RGB(255, 255, 255), { PPS = 10, Back = true })
+	roofSign.CastShadow = false
+	G.deco("RoofSignFrame", V(35, 0.6, 1), CF(0, TOP + 1.7, -30), "Steel")
+	for _, x in { -14, 0, 14 } do
+		G.deco("RoofSignLeg", V(0.5, 2.6, 0.5), CF(x, TOP + 1.8, -30), "Steel")
+	end
 
 	---------------------------------------------------------------------------
 	-- Rótulos, escaparates y lonas de cada lado (fuera del espejo: nombres distintos)
@@ -127,6 +135,21 @@ function Props.half(T)
 		if x == -84 then
 			T.Kit.light(lamp, "PointLight", RGB(255, 246, 230), 26, 0.9)
 		end
+	end
+
+	------------------------------------------------------------------
+	-- Suelo y techo de la galería: franjas de mármol cálido a lo largo del eje (guían la vista hacia
+	-- el patio y el atrio) y tiras de luz en el techo de doble altura (solo neón: sin luces nuevas)
+	------------------------------------------------------------------
+	for _, spec in { { -91, 44 }, { -31, 16 } } do
+		for _, z in { -6.5, 6.5 } do
+			G.deco("FloorInlay", V(spec[2], 0.04, 0.9), CF(spec[1], 0.02, z), "Inlay").CastShadow = false
+		end
+	end
+	for _, spec in { { -95, 0, 42, true }, { -47, -25, 46, false }, { -47, 25, 46, false } } do
+		local size = spec[4] and V(1.2, 0.2, spec[3]) or V(spec[3], 0.2, 1.2)
+		local strip = G.deco("CeilingLight", size, CF(spec[1], TOP - 0.15, spec[2]), { Color3.fromRGB(255, 250, 240), Enum.Material.Neon })
+		strip.CastShadow = false
 	end
 
 	------------------------------------------------------------------
@@ -196,6 +219,11 @@ function Props.half(T)
 	G.deco("RoofEdge", V(1.2, 1.4, 162), CF(-118.2, TOP + 1.2, 0), "Wall")
 	G.deco("RoofEdge", V(118, 1.4, 1.2), CF(-59, TOP + 1.2, -80.2), "Wall")
 	G.deco("RoofEdge", V(118, 1.4, 1.2), CF(-59, TOP + 1.2, 80.2), "Wall")
+	-- Franja de color bajo el pretil (la identidad del centro comercial se lee desde lejos y en la
+	-- presentación del mapa: magenta a los lados de los aparcamientos, cian al norte, naranja al sur)
+	G.deco("RoofBand", V(0.5, 1.2, 162), CF(-118.95, TOP - 0.4, 0), "Magenta").CastShadow = false
+	G.deco("RoofBand", V(118, 1.2, 0.5), CF(-59, TOP - 0.4, -80.95), "Cyan").CastShadow = false
+	G.deco("RoofBand", V(118, 1.2, 0.5), CF(-59, TOP - 0.4, 80.95), "Orange").CastShadow = false
 	for _, spec in { { -40, "Cyan" }, { -24, "Orange" }, { 24, "Magenta" }, { 40, "Cyan" } } do
 		G.deco("FacadePanel", V(0.6, TOP - 2, 8), CF(-118.9, (TOP - 2) / 2 + 1, spec[1]), spec[2]).CastShadow = false
 	end

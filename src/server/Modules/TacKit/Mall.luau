@@ -50,6 +50,8 @@ function Mall.escalator(bottom, top, width)
 		side.Transparency = 0.55
 		G.deco("EscalatorRail", V(0.4, 0.4, (b - a).Magnitude + 1), cf * CFrame.new(0, 3, 0), { RGB(24, 24, 28), M.Rubber })
 		G.deco("EscalatorSkirt", V(0.35, 1.2, (b - a).Magnitude), cf * CFrame.new(0, -0.3, 0), { RGB(200, 204, 210), M.Metal })
+		-- (franja de color en el costado: la escalera, pieza central del atrio, se reconoce de lejos)
+		G.deco("EscalatorStripe", V(0.4, 0.35, (b - a).Magnitude), cf * CFrame.new(0, -0.75, 0), { RGB(0, 168, 196), M.SmoothPlastic }).CastShadow = false
 		local stop = Kit.block("RailCollider", V(0.5, 3.6, (b - a).Magnitude), cf * CFrame.new(0, 1.8, 0), Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
 		stop.Transparency = 1
 	end
@@ -161,6 +163,48 @@ function Mall.hangingBanner(cf, w, h, color, text)
 		back.LightInfluence = 0.5
 	end
 	G.deco("BannerCable", V(0.08, 8, 0.08), cf * CFrame.new(0, 4, 0), { RGB(40, 40, 44), M.Metal })
+end
+
+-- Fuente moderna de centro comercial: la misma colisión que la fuente de plaza (pilón de 2,4 y
+-- columna central de 5: misma cobertura y navegación), pero de mármol blanco con una franja de
+-- azulejo de color, dos platos de acero escalonados, chorros y un anillo de azulejo en el suelo que
+-- la marca de lejos (hito del atrio).
+function Mall.mallFountain(cf, d, accent)
+	d = d or 10
+	accent = accent or RGB(0, 168, 196)
+	local white, steel = RGB(236, 236, 240), RGB(206, 210, 216)
+	local basin = Kit.cylinder("FountainBasin", 2.4, d, cf * CFrame.new(0, 1.2, 0), white, M.Marble)
+	Kit.cylinder("FountainTileBand", 1, d + 0.12, cf * CFrame.new(0, 1.3, 0), accent, M.CeramicTiles, nil, true)
+	Kit.cylinder("FountainRim", 0.4, d + 0.8, cf * CFrame.new(0, 2.5, 0), RGB(248, 248, 250), M.Marble, nil, true)
+	local water = Kit.cylinder("FountainWater", 0.2, d - 1.2, cf * CFrame.new(0, 2.1, 0), RGB(60, 168, 206), M.Glass, nil, true)
+	water.Transparency = 0.2
+	Kit.cylinder("FountainPedestal", 5, 3, cf * CFrame.new(0, 4.5, 0), white, M.Marble)
+	Kit.cylinder("FountainBowl", 0.5, 6.4, cf * CFrame.new(0, 4.6, 0), steel, M.Metal, nil, true)
+	Kit.cylinder("FountainBowl", 0.5, 4, cf * CFrame.new(0, 7.2, 0), steel, M.Metal, nil, true)
+	Kit.cylinder("FountainCrown", 1.4, 1.4, cf * CFrame.new(0, 8.1, 0), accent, M.CeramicTiles, nil, true)
+	-- Anillo de azulejo en el suelo (se ve desde la planta alta y en la presentación del mapa)
+	Kit.cylinder("FountainFloorRing", 0.06, d + 6, cf * CFrame.new(0, 0.03, 0), accent, M.CeramicTiles, nil, true).CastShadow = false
+	Kit.cylinder("FountainFloorInner", 0.06, d + 3.4, cf * CFrame.new(0, 0.045, 0), RGB(244, 244, 246), M.Marble, nil, true).CastShadow = false
+	for _, spec in { { water, 30, 6 }, { nil, 16, 4 } } do
+		local holder = spec[1]
+		if not holder then
+			holder = G.deco("FountainJet", V(0.4, 0.4, 0.4), cf * CFrame.new(0, 8.9, 0), { accent, M.CeramicTiles })
+			holder.Transparency = 1
+		end
+		local drops = Instance.new("ParticleEmitter")
+		drops.Name = "FountainSpray"
+		drops.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		drops.Color = ColorSequence.new(RGB(220, 240, 255))
+		drops.Size = NumberSequence.new(0.25, 0.1)
+		drops.Transparency = NumberSequence.new(0.3, 1)
+		drops.Lifetime = NumberRange.new(0.6, 0.9)
+		drops.Rate = spec[2]
+		drops.Speed = NumberRange.new(spec[3], spec[3] + 2)
+		drops.SpreadAngle = Vector2.new(22, 22)
+		drops.Acceleration = V(0, -30, 0)
+		drops.Parent = holder
+	end
+	return basin
 end
 
 -- Cúpula de cristal (pirámide de paneles con nervios) sobre un hueco cuadrado de lado w

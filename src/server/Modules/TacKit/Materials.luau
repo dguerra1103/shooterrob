@@ -52,11 +52,14 @@ Materials.Construction = {
 	Dirt = { RGB(138, 116, 90), M.Ground },
 	Plywood = { RGB(204, 168, 116), M.WoodPlanks },
 	Hoarding = { RGB(72, 82, 96), M.WoodPlanks },
-	Yellow = { RGB(244, 188, 30), M.Metal },
+	-- (Fase 3: amarillo de seguridad PINTADO, no metal: barandillas, grúa y andamios se leen limpios y
+	-- vivos en vez de oliva)
+	Yellow = { RGB(248, 194, 32), M.SmoothPlastic },
 	YellowPaint = { RGB(246, 194, 40), M.SmoothPlastic },
 	RedSteel = { RGB(156, 40, 32), M.Metal },
 	Red = { RGB(196, 46, 38), M.SmoothPlastic },
 	Blue = { RGB(40, 92, 190), M.SmoothPlastic },
+	SafetyNet = { RGB(214, 64, 40), M.Fabric }, -- red de seguridad de las plantas sin terminar
 	ContainerRed = { RGB(172, 46, 38), M.CorrodedMetal },
 	ContainerGray = { RGB(112, 116, 120), M.CorrodedMetal },
 	ContainerTan = { RGB(150, 126, 94), M.CorrodedMetal },
@@ -139,7 +142,11 @@ Materials.MallRush = {
 	Red = { RGB(214, 50, 60), M.SmoothPlastic },
 	Blue = { RGB(40, 120, 220), M.SmoothPlastic },
 	Grass = { RGB(90, 140, 70), M.Grass },
-	RoofTop = { RGB(78, 80, 88), M.Concrete },
+	-- (cubierta clara: por dentro es el techo de las zonas de doble altura; antes, gris oscuro, el
+	-- interior se veía apagado)
+	RoofTop = { RGB(206, 208, 214), M.Concrete },
+	Inlay = { RGB(196, 188, 176), M.Marble }, -- franjas del suelo de la galería
+	TileAccent = { RGB(0, 168, 196), M.CeramicTiles }, -- azulejo del anillo de la fuente
 }
 
 -- ROOFTOP DISTRICT: azoteas de hormigón gris, fachadas gris azulado, acentos azul y rojo

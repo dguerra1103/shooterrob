@@ -83,11 +83,26 @@ function Geometry.build(T)
 			G.deco("UpperColumn", V(1.6, L, 1.6), CF(p + V(0, y + L / 2, 0)), "Concrete")
 		end
 	end
+	-- (Fase 3: canto de cada forjado en amarillo de seguridad: la torre, hito central, se lee por
+	-- plantas desde cualquier punto del mapa)
+	-- (solo el perímetro: cuatro franjas por fuera de los muros, nada coplanar con los suelos)
+	local function slabEdge(y, thickness)
+		for _, spec in { { V(33.4, thickness, 1), V(0, 0, -16.2) }, { V(33.4, thickness, 1), V(0, 0, 16.2) }, { V(1, thickness, 31.4), V(-16.2, 0, 0) }, { V(1, thickness, 31.4), V(16.2, 0, 0) } } do
+			G.deco("SlabEdge", spec[1], CF(V(0, y, 0) + spec[2]), "YellowPaint").CastShadow = false
+		end
+	end
 	for _, y in { L, 2 * L } do
-		G.deco("SlabEdge", V(33.2, 0.9, 33.2), CF(0, y - 0.45, 0), "Slab").CastShadow = false
+		slabEdge(y - 0.45, 0.9)
 	end
 	G.deco("UpperSlab", V(33, 0.8, 33), CF(0, 4 * L + 0.6, 0), "Slab")
 	G.deco("UpperSlab", V(20, 0.8, 33), CF(-6.5, 5 * L + 0.6, 0), "Slab")
+	slabEdge(4 * L + 0.6, 0.9)
+	-- Red de seguridad roja en las dos plantas sin terminar (decorado, por encima de las alturas de
+	-- juego): la silueta de la torre se reconoce como obra de lejos
+	for _, face in { { V(0, 0, -16.2), 0 }, { V(0, 0, 16.2), 0 }, { V(-16.2, 0, 0), math.pi / 2 }, { V(16.2, 0, 0), math.pi / 2 } } do
+		local net = G.deco("SafetyNet", V(30, L - 2, 0.15), CF(V(0, 3 * L + 1 + (L - 2) / 2 + 1, 0) + face[1]) * CFrame.Angles(0, face[2], 0), "SafetyNet")
+		net.CastShadow = false
+	end
 	for _, y in { 4 * L + 1, 5 * L + 1 } do
 		G.deco("UpperRail", V(33, 0.3, 0.3), CF(0, y + 3, -16.4), "Yellow")
 		G.deco("UpperRail", V(33, 0.3, 0.3), CF(0, y + 3, 16.4), "Yellow")
@@ -212,8 +227,17 @@ function Geometry.build(T)
 	for _, x in { -12, 12 } do
 		for _, z in { 88, 112 } do
 			G.column(CF(x, 0, z), L, 1.4, "ConcreteDark")
+			-- (franja de peligro en la base del pilar: se ven al entrar y cortan el gris de la nave)
+			G.deco("HazardStripe", V(1.6, 1.4, 1.6), CF(x, 0.9, z), "YellowPaint").CastShadow = false
 		end
 	end
+	-- Interior de la nave B: calle de carretillas pintada alrededor del atrio y una "B" grande en el
+	-- muro del fondo (se sabe dónde se está sin mirar el minimapa)
+	G.paintLine(V(-22, 0, 83), V(22, 0, 83), 0.5)
+	G.paintLine(V(-22, 0, 83), V(-22, 0, 106), 0.5)
+	G.paintLine(V(22, 0, 83), V(22, 0, 106), 0.5)
+	local hallB = T.sign(CF(0, 6, 123.3), "B", 6, 6, Color3.fromRGB(40, 92, 190), Color3.fromRGB(255, 255, 255), { PPS = 20, Back = true })
+	hallB.CastShadow = false
 
 	---------------------------------------------------------------------------
 	-- Una mitad (la del Rojo) que se copia en espejo para el Azul

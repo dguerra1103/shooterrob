@@ -568,18 +568,21 @@ function Kit.ship(cf, length)
 end
 
 -- Faro sobre una isla de roca (fondo)
-function Kit.lighthouse(position)
+function Kit.lighthouse(position, scale)
+	scale = scale or 1
 	local terrain = workspace.Terrain
-	terrain:FillBall(position + V(0, -6, 0), 26, Enum.Material.Rock)
-	terrain:FillBall(position + V(14, -10, 8), 18, Enum.Material.Rock)
-	terrain:FillBall(position + V(-10, -2, -6), 14, Enum.Material.Grass)
+	terrain:FillBall(position + V(0, -6, 0), 26 * scale, Enum.Material.Rock)
+	terrain:FillBall(position + V(14, -10, 8) * scale, 18 * scale, Enum.Material.Rock)
+	terrain:FillBall(position + V(-10, -2, -6) * scale, 14 * scale, Enum.Material.Grass)
 	local base = position + V(0, 12, 0)
-	cylinder("LighthouseTower", 26, 7, CFrame.new(base + V(0, 13, 0)), C.White, Enum.Material.Plaster, nil, true)
+	local s = scale
+	cylinder("LighthouseTower", 26 * s, 7 * s, CFrame.new(base + V(0, 13 * s, 0)), C.White, Enum.Material.Plaster, nil, true)
 	for i = 0, 2 do
-		cylinder("LighthouseStripe", 2.5, 7.1, CFrame.new(base + V(0, 6 + i * 8, 0)), C.Red, Enum.Material.Plaster, nil, true)
+		cylinder("LighthouseStripe", 2.5 * s, 7.1 * s, CFrame.new(base + V(0, (6 + i * 8) * s, 0)), C.Red, Enum.Material.Plaster, nil, true)
 	end
-	cylinder("LighthouseTop", 3, 5, CFrame.new(base + V(0, 27.5, 0)), RGB(255, 245, 200), Enum.Material.Neon, nil, true)
-	cylinder("LighthouseRoof", 2, 6, CFrame.new(base + V(0, 30, 0)), C.Red, Enum.Material.Plaster, nil, true)
+	cylinder("LighthouseGallery", 0.6 * s, 8.4 * s, CFrame.new(base + V(0, 26.2 * s, 0)), RGB(36, 36, 40), Enum.Material.Metal, nil, true)
+	cylinder("LighthouseTop", 3 * s, 5 * s, CFrame.new(base + V(0, 27.5 * s, 0)), RGB(255, 245, 200), Enum.Material.Neon, nil, true)
+	cylinder("LighthouseRoof", 2 * s, 6 * s, CFrame.new(base + V(0, 30 * s, 0)), C.Red, Enum.Material.Plaster, nil, true)
 end
 
 -- Tubería industrial con soportes

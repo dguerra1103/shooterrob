@@ -195,10 +195,16 @@ function Town.rowboat(cf, color)
 	end
 end
 
--- Fuente de plaza: pilón (cobertura baja), agua y columna con figura (cobertura alta en el centro)
-function Town.fountain(cf, d)
+-- Fuente de plaza: pilón (cobertura baja), agua y columna con figura (cobertura alta en el centro).
+-- accent (opcional): color de la franja de azulejo del pilón y del anillo del suelo (hito de la plaza)
+function Town.fountain(cf, d, accent)
 	d = d or 12
 	local basin = Kit.cylinder("FountainBasin", 2.4, d, cf * CFrame.new(0, 1.2, 0), RGB(206, 196, 178), M.Limestone)
+	if accent then
+		Kit.cylinder("FountainTileBand", 0.8, d + 0.12, cf * CFrame.new(0, 1.4, 0), accent, M.CeramicTiles, nil, true)
+		Kit.cylinder("FountainFloorRing", 0.06, d + 5, cf * CFrame.new(0, 0.03, 0), accent, M.CeramicTiles, nil, true).CastShadow = false
+		Kit.cylinder("FountainFloorInner", 0.06, d + 3, cf * CFrame.new(0, 0.045, 0), RGB(220, 210, 190), M.Limestone, nil, true).CastShadow = false
+	end
 	Kit.cylinder("FountainRim", 0.4, d + 0.6, cf * CFrame.new(0, 2.5, 0), RGB(226, 216, 198), M.Limestone, nil, true)
 	local water = Kit.cylinder("FountainWater", 0.2, d - 1.2, cf * CFrame.new(0, 2.1, 0), RGB(70, 150, 190), M.Glass, nil, true)
 	water.Transparency = 0.25

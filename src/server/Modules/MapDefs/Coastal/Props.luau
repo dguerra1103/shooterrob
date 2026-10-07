@@ -54,7 +54,7 @@ function Props.build(T)
 	---------------------------------------------------------------------------
 	-- Cobertura en el eje (sirve igual a los dos equipos)
 	---------------------------------------------------------------------------
-	T.fountain(CF(0, 0, 8), 12)
+	T.fountain(CF(0, 0, 8), 12, RGB(40, 96, 170))
 	-- Plaza alta: carro con cajas delante del ayuntamiento (cobertura del sitio A)
 	G.solid("Cart", V(4, 2.4, 7), CF(0, UP + 0.6, -104), "Crate")
 	for _, x in { -2.2, 2.2 } do
@@ -127,7 +127,8 @@ function Props.build(T)
 			end
 		end
 	end
-	T.Kit.lighthouse(V(120, 0, 330))
+	-- (Fase 3: el faro, más cerca y más alto: hito visible desde el paseo y el espigón)
+	T.Kit.lighthouse(V(120, 0, 230), 1.3)
 	T.Kit.naturalHill(V(-200, -40, 420), 90, M.Rock, { Top = M.Grass })
 	T.Kit.naturalHill(V(300, -50, 260), 80, M.Rock)
 	T.Kit.naturalHill(V(-420, -60, 120), 110, M.Rock, { Top = M.Grass })
@@ -137,7 +138,7 @@ function Props.build(T)
 	sailboat(T, CF(230, -3, 120) * CFrame.Angles(0, rad(10), 0), 1.2)
 	-- (de noche el faro alumbra)
 	if night then
-		local beam = G.deco("LighthouseGlow", V(2, 2, 2), CF(120, 40, 330), { RGB(255, 240, 200), M.Neon })
+		local beam = G.deco("LighthouseGlow", V(2, 2, 2), CF(120, 48, 230), { RGB(255, 240, 200), M.Neon })
 		T.Kit.light(beam, "PointLight", RGB(255, 236, 190), 60, 2)
 	end
 end

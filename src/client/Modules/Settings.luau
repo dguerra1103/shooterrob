@@ -102,6 +102,11 @@ local HIDE_BELOW = {
 	CityCornice = "Media",
 	CityRoofBox = "Media",
 	SkylightBar = "Media",
+	-- (Fase 3: detalles de suelo y techo de los mapas gold standard)
+	FloorInlay = "Media",
+	FountainFloorInner = "Media",
+	RoofSignLeg = "Media",
+	ClockHand = "Media",
 }
 local RANK = { Baja = 1, Media = 2, Alta = 3, Ultra = 4 }
 local function applyDetail(inst)

@@ -46,7 +46,7 @@ Lighting.Variants = {
 		OutdoorAmbient = RGB(80, 88, 124),
 		Atmosphere = { Density = 0.26, Offset = 0.06, Color = RGB(62, 70, 108), Decay = RGB(26, 30, 56), Glare = 0, Haze = 1 },
 		Color = { Saturation = 0.12, Contrast = 0.12, Brightness = 0.03, Tint = RGB(230, 232, 255) },
-		Bloom = { Intensity = 0.6, Size = 24, Threshold = 1.5 },
+		Bloom = { Intensity = 0.5, Size = 24, Threshold = 1.5 },
 		Clouds = 0.25,
 		CloudColor = RGB(70, 76, 104),
 		SunRays = 0,

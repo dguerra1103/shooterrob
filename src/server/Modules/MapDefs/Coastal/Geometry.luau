@@ -80,8 +80,14 @@ function Geometry.build(T)
 		Back = { door(0, 5, 7.5) },
 	}, { Frame = "Stone" })
 	G.floor(CF(0, 9, -25), 10, 10, "Stone")
-	local tower = G.box("BellTower", V(10, 26, 10), CF(0, 9 + 13, -25), "Sand")
+	local tower = G.box("BellTower", V(10, 26, 10), CF(0, 9 + 13, -25), "Whitewash")
 	T.cap(tower)
+	-- (Fase 3: hito de la plaza. Torre encalada con esquinas de piedra y una franja de azulejo azul bajo
+	-- la cornisa: se reconoce desde cualquier calle)
+	for _, corner in { V(-4.85, 0, -4.85), V(4.85, 0, -4.85), V(-4.85, 0, 4.85), V(4.85, 0, 4.85) } do
+		G.deco("TowerQuoin", V(0.9, 26, 0.9), CF(V(0, 9 + 13, -25) + corner), "Stone")
+	end
+	G.deco("TowerTileBand", V(10.3, 1, 10.3), CF(0, 33.8, -25), { Color3.fromRGB(40, 96, 170), M.CeramicTiles })
 	for _, face in { { V(0, 0, -5.1), 0 }, { V(0, 0, 5.1), math.pi }, { V(-5.1, 0, 0), math.pi / 2 }, { V(5.1, 0, 0), -math.pi / 2 } } do
 		local at = CF(V(0, 29, -25) + face[1]) * CFrame.Angles(0, face[2], 0)
 		G.deco("Belfry", V(4, 5, 0.3), at, { Color3.fromRGB(40, 36, 34), M.SmoothPlastic })
@@ -95,6 +101,9 @@ function Geometry.build(T)
 	bell.CastShadow = false
 	local clock = T.Kit.cylinder("TowerClock", 0.4, 4, CF(0, 20, -19.8) * CFrame.Angles(math.pi / 2, 0, 0), Color3.fromRGB(240, 236, 224), M.SmoothPlastic, nil, true)
 	clock.CastShadow = false
+	T.Kit.cylinder("TowerClockRing", 0.3, 4.6, CF(0, 20, -19.85) * CFrame.Angles(math.pi / 2, 0, 0), Color3.fromRGB(40, 96, 170), M.CeramicTiles, nil, true).CastShadow = false
+	G.deco("ClockHand", V(0.25, 1.5, 0.1), CF(0, 20.6, -19.55), "Iron").CastShadow = false
+	G.deco("ClockHand", V(1.1, 0.25, 0.1), CF(0.45, 20, -19.55), "Iron").CastShadow = false
 
 	---------------------------------------------------------------------------
 	-- AYUNTAMIENTO (sitio A, parte alta): dos plantas, balcón con la lona A
@@ -156,8 +165,10 @@ function Geometry.half(T)
 	local G = T.G
 	local door = G.door
 
-	local looks = { "Whitewash", "Sand", "Terracotta", "Ochre", "Rose", "Whitewash", "Sand" }
-	local shutters = { Color3.fromRGB(70, 120, 92), Color3.fromRGB(56, 100, 160), Color3.fromRGB(150, 60, 50) }
+	-- (Fase 3: paleta de la referencia, blanco + arena + terracota + azul. Más casas encaladas y
+	-- contraventanas azules: el pueblo se lee mediterráneo y luminoso)
+	local looks = { "Whitewash", "Sand", "Terracotta", "Whitewash", "Ochre", "Whitewash", "Sand" }
+	local shutters = { Color3.fromRGB(40, 96, 170), Color3.fromRGB(36, 128, 168), Color3.fromRGB(70, 120, 92) }
 	local count = 0
 	-- Manzana de casas macizas: tramos de ~14 con alturas, colores y tejados distintos
 	local function row(x0, x1, z0, z1, h, opts)
