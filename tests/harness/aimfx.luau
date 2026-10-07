@@ -1,4 +1,5 @@
--- Apuntar con realismo: desenfoque del fondo y bordes oscuros al apuntar
+-- Apuntar: bordes oscuros al apuntar. Desenfoque (DOF): por defecto nunca en partida (Fase 3); con
+-- GameConfig.AimDepthOfField = true, el de antes (enfocado a lo que se mira)
 local process = require("@lune/process")
 local task = require("@lune/task")
 local roblox = require("@lune/roblox")
@@ -35,6 +36,15 @@ ClientState.AimAlpha = 0
 AimFX.Update(1 / 60)
 local dof = game.Workspace.CurrentCamera:FindFirstChild("AimDepthOfField")
 check(dof ~= nil and dof.Enabled == false, "sin apuntar, sin desenfoque")
+-- Por defecto (Fase 3): apuntando tampoco hay desenfoque; los bordes sí se oscurecen
+local GameConfig = req(game.ReplicatedStorage.Shared.GameConfig)
+check(GameConfig.AimDepthOfField == false, "desenfoque al apuntar apagado por defecto")
+ClientState.AimAlpha = 1
+for _ = 1, 30 do AimFX.Update(1 / 30) end
+check(dof.Enabled == false, "apuntando en partida: nada borroso")
+check(gui:FindFirstChild("Edge1").BackgroundTransparency < 0.8, "apuntando: bordes oscuros (sin desenfoque)")
+-- Con la opción encendida, el comportamiento de antes
+GameConfig.AimDepthOfField = true
 ClientState.AimAlpha = 1
 for _ = 1, 60 do AimFX.Update(1 / 30) end
 check(dof.Enabled and dof.FarIntensity > 0.1 and math.abs(dof.FocusDistance - 40) < 3, "apuntando: fondo desenfocado y enfocado a lo que miras (" .. dof.FocusDistance .. ")")
@@ -45,15 +55,22 @@ glassAt = 8
 for _ = 1, 60 do AimFX.Update(1 / 30) end
 check(math.abs(dof.FocusDistance - 40) < 3, "a través de un cristal, enfoca lo de detrás (" .. dof.FocusDistance .. ")")
 glassAt = nil
--- Con el desenfoque de calidad Ultra, mientras se apunta se apaga (dos a la vez no)
+-- El desenfoque lejano de calidad Ultra: en partida nunca (ni apuntando ni sin apuntar); en los menús sí
 local Lighting = game:GetService("Lighting")
 local quality = mock.new("DepthOfFieldEffect"); quality.Name = "QualityDOF"; quality.Enabled = true; quality.Parent = Lighting
 ClientState.EffectiveQuality = "Ultra"
 AimFX.Update(1 / 30)
-check(quality.Enabled == false, "apuntando, el desenfoque de Ultra se apaga")
+check(quality.Enabled == false, "en partida, apuntando: el desenfoque de Ultra apagado")
 ClientState.AimAlpha = 0
 AimFX.Update(1 / 30)
-check(quality.Enabled == true, "y vuelve al dejar de apuntar")
+check(quality.Enabled == false, "en partida, sin apuntar: también apagado")
+ClientState.InMainMenu = true
+AimFX.Update(1 / 30)
+check(quality.Enabled == true, "en los menús, con Ultra: encendido")
+ClientState.EffectiveQuality = "Alta"
+AimFX.Update(1 / 30)
+check(quality.Enabled == false, "en los menús sin Ultra: apagado")
+ClientState.InMainMenu = false
 ClientState.AimAlpha = 1
 ClientState.EffectiveQuality = "Alta"
 AimFX.Update(1 / 30)

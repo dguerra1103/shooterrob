@@ -123,6 +123,8 @@ GameConfig.DefaultClasses = {
 -- tocado y lo resume en la consola cada ReportEvery impactos. Sirve para ajustar la tolerancia
 -- (~8 studs) y la validación del tiro a la cabeza con latencia real en Studio. Apagado en producción.
 GameConfig.HitTelemetry = { Enabled = false, ReportEvery = 200 }
+-- Desenfoque al apuntar (AimFX). Apagado: en combate nada sale borroso (Fase 3). La viñeta sí sigue.
+GameConfig.AimDepthOfField = false
 GameConfig.FinalKillcam = true
 GameConfig.FinalKillcamTime = 3.4
 GameConfig.RespawnTime = 3

@@ -1,12 +1,18 @@
--- Apuntar con realismo: al apuntar con la mira, el fondo se desenfoca un poco más allá de lo que
--- miras (profundidad de campo, enfocada a la distancia del punto de mira) y los bordes de la pantalla
--- se oscurecen suavemente, como al mirar por el arma. Solo en este cliente; con la mira telescópica
--- puesta no hace falta (la tapa el visor) y en calidad Baja no se usa (cuesta en móviles modestos).
+-- Apuntar con realismo: al apuntar con la mira, los bordes de la pantalla se oscurecen suavemente,
+-- como al mirar por el arma. Solo en este cliente; con la mira telescópica puesta no hace falta (la
+-- tapa el visor).
+--
+-- Profundidad de campo (DOF): NUNCA en partida por defecto (Fase 3: en combate todo enemigo debe verse
+-- nítido, esté a la distancia que esté). El desenfoque al apuntar sigue disponible con
+-- GameConfig.AimDepthOfField = true (enfocado a la distancia del punto de mira; no en calidad Baja), y
+-- el desenfoque lejano de calidad Ultra (QualityDOF, de Settings) solo se ve en los menús.
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ClientState = require(script.Parent.ClientState)
+local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 local AimFX = {}
 
@@ -22,7 +28,6 @@ local edges = {}
 local focus = 60
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
-local pausedQualityDof = nil -- el desenfoque lejano de calidad Ultra, apagado mientras se apunta
 
 -- Distancia a lo que hay bajo la mira. No cuentan las barandillas invisibles del mapa (las balas las
 -- atraviesan) ni los cristales: se enfoca a lo que hay detrás
@@ -55,22 +60,6 @@ local function focusTarget(camera)
 		table.insert(ignore, hit.Instance)
 	end
 	return MAX_FOCUS
-end
-
--- Dos desenfoques a la vez no: mientras se apunta, el de calidad Ultra se apaga
-local function pauseQualityDof(pause)
-	if pause then
-		local quality = Lighting:FindFirstChild("QualityDOF")
-		if quality and quality:IsA("DepthOfFieldEffect") and quality.Enabled then
-			quality.Enabled = false
-			pausedQualityDof = quality
-		end
-	elseif pausedQualityDof then
-		if pausedQualityDof.Parent and ClientState.EffectiveQuality == "Ultra" then
-			pausedQualityDof.Enabled = true
-		end
-		pausedQualityDof = nil
-	end
 end
 
 local function buildVignette()
@@ -140,6 +129,15 @@ function AimFX.Update(dt)
 		and not ClientState.ReducedFX()
 	local low = ClientState.EffectiveQuality == "Baja"
 
+	-- Desenfoque lejano de Ultra: solo en los menús (en partida apagado siempre)
+	local quality = Lighting:FindFirstChild("QualityDOF")
+	if quality and quality:IsA("DepthOfFieldEffect") then
+		local wanted = ClientState.EffectiveQuality == "Ultra" and ClientState.InMainMenu == true
+		if quality.Enabled ~= wanted then
+			quality.Enabled = wanted
+		end
+	end
+
 	-- Viñeta: bordes algo más oscuros al apuntar
 	local edgeTransparency = active and (1 - MAX_VIGNETTE * alpha) or 1
 	for _, edge in edges do
@@ -147,15 +145,13 @@ function AimFX.Update(dt)
 	end
 
 	local effect = ensureDof(camera)
-	if not active or low then
+	if not active or low or not GameConfig.AimDepthOfField then
 		effect.Enabled = false
-		pauseQualityDof(false)
 		return
 	end
 	-- Enfoque a lo que hay bajo la mira (suave, como el ojo)
 	local target = math.clamp(focusTarget(camera), 6, MAX_FOCUS)
 	focus += (target - focus) * math.min(1, dt * 8)
-	pauseQualityDof(true)
 	effect.Enabled = true
 	effect.FocusDistance = math.min(focus, MAX_FOCUS)
 	effect.InFocusRadius = math.clamp(focus * 0.45, 10, MAX_RADIUS)
