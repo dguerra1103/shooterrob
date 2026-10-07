@@ -151,6 +151,84 @@ Sounds.ShotTails = {
 }
 local lastTail = 0
 
+-- Audio propio por arma (Fase 2): huecos por capa. "" = todavía no hay sonido propio y se usa el
+-- genérico de arriba (el de siempre). TODO: AÑADIR AUDIO PROPIO (grabado o con licencia; nunca
+-- sonidos sacados de otros juegos). Valor: "rbxassetid://<id>" o { Id = "...", Volume = 1, Pitch = 1 }.
+--   ShotClose      disparo oído de cerca (el cuerpo del disparo)
+--   ShotMechanical clic del mecanismo (solo de cerca)
+--   ShotTail       eco/cola del disparo en el entorno (solo tus disparos)
+--   Reload         inicio de la recarga (opcional)
+--   MagOut, MagIn  sacar y meter el cargador
+--   Bolt           cerrojo / corredera / bombeo
+--   Empty          gatillo en vacío
+--   Equip          sacar el arma
+Sounds.WeaponAudioSlots = { "ShotClose", "ShotMechanical", "ShotTail", "Reload", "MagIn", "MagOut", "Bolt", "Empty", "Equip" }
+local function slots(custom: { [string]: any }?)
+	local entry = {}
+	for _, slot in Sounds.WeaponAudioSlots do
+		entry[slot] = ""
+	end
+	if custom then
+		for slot, value in custom do
+			entry[slot] = value
+		end
+	end
+	return entry
+end
+Sounds.WeaponAudio = {
+	ARX27 = slots(), -- arma de referencia: la primera que debería tener su audio propio
+	VortexBR = slots(),
+	Specter9 = slots(),
+	NovaDrift = slots(),
+	SplatX = slots(),
+	TitanLMG = slots(),
+	HavocPump = slots(),
+	BreachHammer = slots(),
+	RaptorDMR = slots(),
+	Crossbow = slots(),
+	Signal7 = slots(),
+	GhostlineXR = slots(),
+	Viper = slots(),
+	PhantomSidewind = slots(),
+	HandCannon = slots(),
+	NovaLauncher = slots(),
+	Calabazooka = slots(),
+}
+
+-- Nombre del sonido a usar para un hueco de un arma: su sonido propio si lo tiene (se registra la
+-- primera vez) o `fallback` (el genérico). nil si no hay ninguno.
+function Sounds.WeaponSoundName(weaponName: string?, slot: string, fallback: string?): string?
+	local entry = weaponName and Sounds.WeaponAudio[weaponName]
+	local value = entry and entry[slot]
+	local info
+	if type(value) == "string" and value ~= "" then
+		info = { Id = value, Volume = 1, Pitch = 1 }
+	elseif type(value) == "table" and type(value.Id) == "string" and value.Id ~= "" then
+		info = { Id = value.Id, Volume = value.Volume or 1, Pitch = value.Pitch or 1 }
+	end
+	if not info or not weaponName then
+		return fallback
+	end
+	local key = "W:" .. weaponName .. ":" .. slot
+	if not Sounds[key] then
+		Sounds[key] = info
+	end
+	return key
+end
+
+-- Sonido de un hueco del arma en el grupo de las armas. Con sonido propio no se le cambia el tono
+-- (se grabó así); con el genérico, el tono y volumen que se pidan, como antes.
+function Sounds.PlayWeapon(weaponName: string?, slot: string, fallback: string?, parent: Instance?, pitch: number?, volume: number?)
+	local name = Sounds.WeaponSoundName(weaponName, slot, fallback)
+	if not name then
+		return nil
+	end
+	if name ~= fallback then
+		return Sounds.PlayGun(name, parent, 1, 1)
+	end
+	return Sounds.PlayGun(name, parent, pitch, volume)
+end
+
 local function shotType(weaponName, def)
 	local profile = weaponName and Sounds.WeaponShots[weaponName]
 	if profile and profile[4] then
@@ -185,6 +263,13 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 	end
 	local far = distance > 140
 	local kind = shotType(weaponName, def)
+	-- (sonido propio del arma si lo tiene: de cerca, su disparo; si no, el genérico de siempre)
+	local closeName = Sounds.WeaponSoundName(weaponName, "ShotClose", nil)
+	if closeName and not far then
+		name, pitch, volume = closeName, 1, 1
+	end
+	local mechName = Sounds.WeaponSoundName(weaponName, "ShotMechanical", nil)
+	local tailName = Sounds.WeaponSoundName(weaponName, "ShotTail", nil)
 	local function play()
 		local body = Sounds.PlayGun(name, parent, pitch, volume)
 		if far and body then
@@ -201,13 +286,18 @@ function Sounds.PlayShot(weaponName, def, parent, listener)
 			Sounds.PlayGun("Boom", parent, layers.Boom[1], layers.Boom[2] * (parent and 0.8 or 1))
 		end
 		-- El clic del mecanismo solo se oye de cerca
-		if layers.Mech and distance < 60 then
+		if mechName and distance < 60 then
+			Sounds.PlayGun(mechName, parent, 1, 1)
+		elseif layers.Mech and distance < 60 then
 			Sounds.PlayGun("Mech", parent, layers.Mech[1], layers.Mech[2])
 		end
 		-- Cola: tus disparos dejan un eco grave y apagado que rebota en el mapa (capa "entorno").
 		-- Como mucho una cada 0,2 s: en ráfaga no se amontonan
 		local tail = Sounds.ShotTails[kind]
-		if tail and parent == nil and os.clock() - lastTail >= 0.2 then
+		if tailName and parent == nil and os.clock() - lastTail >= 0.2 then
+			lastTail = os.clock()
+			Sounds.PlayGun(tailName, nil, 1, 1)
+		elseif tail and parent == nil and os.clock() - lastTail >= 0.2 then
 			lastTail = os.clock()
 			task.delay(0.07, function()
 				-- (en el grupo de las armas: el volumen de armas también la baja)
@@ -289,7 +379,9 @@ function Sounds.Play(name, parent, pitch, volume, poolKey)
 	if type(info) ~= "table" then
 		return
 	end
-	local sound = (parent == nil and POOLED[name]) and pooledSound(poolKey and (name .. "|" .. poolKey) or name, info) or nil
+	-- (los sonidos propios de las armas, "W:<arma>:<hueco>", también se reutilizan: suenan en cada disparo)
+	local pooled = POOLED[name] or string.sub(name, 1, 2) == "W:"
+	local sound = (parent == nil and pooled) and pooledSound(poolKey and (name .. "|" .. poolKey) or name, info) or nil
 	if sound then
 		sound.Volume = info.Volume * (volume or 1)
 		sound.PlaybackSpeed = info.Pitch * (pitch or 1) * (0.95 + math.random() * 0.1)

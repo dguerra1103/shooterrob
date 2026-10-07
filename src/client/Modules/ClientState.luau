@@ -51,6 +51,10 @@ local ClientState = {
 	SettingsChanged = Instance.new("BindableEvent"), -- (Ajustes: se cambió algo que otros módulos aplican)
 	WeaponChanged = Instance.new("BindableEvent"),
 	ShotFired = Instance.new("BindableEvent"),
+	-- Momentos del arma propia para animaciones y audio (WeaponController):
+	-- ("Equip", arma) · ("Fire", arma) · ("ReloadStart", arma, { Empty, Duration }) · ("ReloadCancel", arma)
+	-- · ("Inspect", arma) · ("InspectCancel", arma)
+	WeaponEvent = Instance.new("BindableEvent"),
 }
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?

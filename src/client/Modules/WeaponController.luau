@@ -11,6 +11,7 @@ local WeaponModels = require(Shared.WeaponModels)
 local Sounds = require(Shared.Sounds)
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
+local WeaponFeel = require(Shared.WeaponFeel)
 
 local TouchLayout = require(script.Parent.TouchLayout)
 local AimAssist = require(script.Parent.AimAssist)
@@ -36,6 +37,11 @@ local LEFT_SHOULDER = Vector3.new(-0.7, -1.5, 0.2)
 
 local character, humanoid, rootPart
 local equippedTool, def
+-- Sensación del arma equipada (WeaponFeel: perfil de su tipo + sus ajustes). Retroceso de juego:
+-- WeaponFeel.Gameplay (igual para todas; es equilibrio)
+local feel = WeaponFeel.Get(nil)
+local GAMEPLAY = WeaponFeel.Gameplay
+local EQUIP_READY = 0.25 -- segundos tras sacar el arma hasta poder disparar (igual para todas)
 local viewmodel
 local attrConnection
 
@@ -61,9 +67,14 @@ local sprayCount = 0 -- disparos seguidos de la ráfaga actual
 -- solo; al dejar de disparar con el cañón caliente sale humo (Effects.BarrelSmoke)
 local barrelHeat = 0
 local HEAT_SMOKE = 7 -- calor mínimo para que humee
-local NO_SMOKE = { Crossbow = true, SplatX = true } -- (la ballesta y la de pintura no humean)
 local debtPitch, debtYaw = 0, 0
-local RECOVER = 0.65 -- parte del retroceso que la mira recupera sola al soltar
+-- Retroceso de cámara (visual): un muelle que sube la cámara y vuelve del todo. Se aplica como
+-- diferencia respecto a lo ya aplicado (la cámara de Roblox conserva el giro), así que no deja la mira
+-- desplazada, y al disparar se descuenta: las balas van donde apunta la mira, no donde mira el golpe.
+local punchPitch, punchYaw, punchRoll = 0, 0, 0
+local punchVelPitch, punchVelYaw, punchVelRoll = 0, 0, 0
+local appliedPunchPitch, appliedPunchYaw = 0, 0
+local aimToggled = false -- (móvil: apuntar es un interruptor; al cambiar de arma se suelta)
 local swayX, swayY = 0, 0
 local bobTime = 0
 local aimAlpha, sprintAlpha = 0, 0
@@ -93,6 +104,18 @@ rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local function lerp(a, b, t)
 	return a + (b - a) * t
+end
+
+-- Olvida el golpe visual de cámara pendiente (al morir o reaparecer: la cámara ya es otra)
+local function resetPunch()
+	punchPitch, punchYaw, punchRoll = 0, 0, 0
+	punchVelPitch, punchVelYaw, punchVelRoll = 0, 0, 0
+	appliedPunchPitch, appliedPunchYaw = 0, 0
+end
+
+local function weaponEvent(name, info)
+	local weaponName = equippedTool and equippedTool:GetAttribute("Weapon")
+	ClientState.WeaponEvent:Fire(name, weaponName, info)
 end
 
 local function updateRayFilter()
@@ -408,6 +431,9 @@ local function onUnequipped()
 		attrConnection:Disconnect()
 		attrConnection = nil
 	end
+	if reloadStart and equippedTool then
+		weaponEvent("ReloadCancel")
+	end
 	destroyViewmodel()
 	equippedTool, def = nil, nil
 	barrelHeat = 0
@@ -428,7 +454,11 @@ local function onEquipped(tool)
 		return
 	end
 	equippedTool, def = tool, weaponDef
+	feel = WeaponFeel.Get(tostring(tool:GetAttribute("Weapon")), weaponDef)
 	equipTime = os.clock()
+	if aimToggled then
+		aimHeld, aimToggled = false, false
+	end
 	sprayCount, debtPitch, debtYaw = 0, 0, 0 -- (el retroceso de otra arma no se recupera con esta)
 	swayX, swayY, swayVelX, swayVelY = 0, 0, 0, 0
 	pendingShot, pendingBurst = nil, false
@@ -440,7 +470,7 @@ local function onEquipped(tool)
 	if weaponDef.Type == "Melee" then
 		Sounds.Play("Unsheath")
 	else
-		Sounds.PlayGun("Equip", nil, weaponDef.Pellets > 1 and 0.85 or 1, 1)
+		Sounds.PlayWeapon(tool:GetAttribute("Weapon"), "Equip", "Equip", nil, weaponDef.Pellets > 1 and 0.85 or 1, 1)
 	end
 
 	hideToolLocally(tool)
@@ -466,6 +496,7 @@ local function onEquipped(tool)
 	ClientState.CurrentTool = tool
 	ClientState.CurrentDef = weaponDef
 	ClientState.WeaponChanged:Fire()
+	weaponEvent("Equip")
 end
 
 local function getTools()
@@ -561,13 +592,17 @@ local function requestReload()
 	reloadWasEmpty = wasEmpty
 	reloadDuration = reloadTime
 	local shotgun = def.Pellets > 1 and #moving.Mag == 0 -- (la escopeta de tambor recarga con cargador)
+	local weaponName = equippedTool:GetAttribute("Weapon")
 	local function step(at, name, pitch, volume)
 		task.delay(reloadTime * at, function()
 			if reloadStart == token then
-				Sounds.PlayGun(name, nil, pitch, volume)
+				Sounds.PlayWeapon(weaponName, name, name, nil, pitch, volume)
 			end
 		end)
 	end
+	-- (la munición la pone el servidor al acabar: aquí solo se presenta la recarga)
+	Sounds.PlayWeapon(weaponName, "Reload", nil)
+	weaponEvent("ReloadStart", { Empty = wasEmpty, Duration = reloadTime })
 	if shotgun then
 		-- Escopetas: cartucho a cartucho
 		for index, at in { 0.2, 0.38, 0.56, 0.74 } do
@@ -587,13 +622,13 @@ local function fire()
 	if not equippedTool or not def or def.Type ~= "Gun" or ClientState.IsBlocked() or ClientState.Frozen() then
 		return
 	end
-	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < 0.25 then
+	if now - lastShot < 1 / def.FireRate or reloadStart or now - equipTime < EQUIP_READY then
 		return
 	end
 	if localAmmo <= 0 then
 		lastShot = now
 		kickVel += 0.5 -- el gatillo en vacío: un tirón seco
-		Sounds.Play("Empty")
+		Sounds.PlayWeapon(equippedTool:GetAttribute("Weapon"), "Empty", "Empty")
 		requestReload()
 		return
 	end
@@ -619,7 +654,8 @@ local function fire()
 
 	updateRayFilter()
 	local origin = camera.CFrame.Position
-	local look = camera.CFrame.LookVector
+	-- (sin el golpe visual de cámara: la bala va adonde apunta la mira)
+	local look = (camera.CFrame * CFrame.Angles(-appliedPunchPitch, -appliedPunchYaw, 0)).LookVector
 	local muzzle = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Muzzle")
 	local muzzlePos = muzzle and muzzle.WorldPosition or origin
 	local tracerColor = WeaponModels.GetPalette(equippedTool:GetAttribute("Weapon"), equippedTool:GetAttribute("Skin")).Accent
@@ -656,14 +692,15 @@ local function fire()
 	end
 	Remotes.Fire:FireServer(equippedTool, origin, rays)
 
-	Effects.MuzzleFlash(muzzle)
-	if not def.Explosive and not NO_SMOKE[equippedTool:GetAttribute("Weapon") or ""] then
-		barrelHeat = math.min(30, barrelHeat + ((def.Pellets > 1 or def.Damage >= 60) and 4 or 1))
+	-- Todo a la vez en el mismo fotograma: fogonazo + luz, sonido, casquillo y retroceso (abajo)
+	Effects.MuzzleFlash(muzzle, nil, false, feel.Flash)
+	if not def.Explosive and feel.Heat.PerShot > 0 then
+		barrelHeat = math.min(30, barrelHeat + feel.Heat.PerShot)
 		Effects.StopBarrelSmoke(muzzle)
 	end
 	local eject = viewmodel and viewmodel.PrimaryPart and viewmodel.PrimaryPart:FindFirstChild("Eject")
-	if not def.Explosive then
-		Effects.ShellCasing(eject, camera.CFrame, def.Pellets > 1 and Color3.fromRGB(220, 50, 50) or nil)
+	if not def.Explosive and feel.Shells.Enabled then
+		Effects.ShellCasing(eject, camera.CFrame, feel.Shells.Color)
 	end
 	local weaponName = equippedTool:GetAttribute("Weapon") or ""
 	Sounds.PlayShot(weaponName, def)
@@ -673,7 +710,7 @@ local function fire()
 		local shotDef = def
 		task.delay(0.28, function()
 			if def == shotDef then
-				Sounds.PlayGun("Bolt", nil, shotDef.Pellets > 1 and 0.7 or 1.05, 0.8)
+				Sounds.PlayWeapon(weaponName, "Bolt", "Bolt", nil, shotDef.Pellets > 1 and 0.7 or 1.05, 0.8)
 			end
 		end)
 	end
@@ -682,30 +719,44 @@ local function fire()
 		Sounds.Play("LowAmmo", nil, 1 + (1 - localAmmo / (def.MagSize * 0.25)) * 0.3, 1)
 	end
 
-	-- Retroceso. La mira sube más en los primeros disparos de la ráfaga y luego se estabiliza;
-	-- el lado sigue un patrón propio de cada arma (se puede aprender a controlar) con algo de azar.
+	-- 1) Retroceso de JUEGO (precisión real; igual que antes de la Fase 2). La mira sube más en los
+	-- primeros disparos de la ráfaga y luego se estabiliza; el lado sigue un patrón propio de cada arma
+	-- (se puede aprender a controlar) con algo de azar.
 	local recoil = math.rad(def.Recoil)
-	local ads = 1 - aimAlpha * 0.35
-	local climb = recoil * (0.75 + 0.5 * math.min(sprayCount, 6) / 6) * ads
+	local ads = 1 - aimAlpha * GAMEPLAY.AimReduction
+	local climb = recoil * (GAMEPLAY.ClimbBase + GAMEPLAY.ClimbGrowth * math.min(sprayCount, GAMEPLAY.ClimbShots) / GAMEPLAY.ClimbShots) * ads
 	local seed = #weaponName * 1.7
-	local drift = math.sin(sprayCount * 0.55 + seed) * 0.45 + (math.random() - 0.5) * 0.25
-	local yaw = recoil * drift * (sprayCount > 3 and 1 or 0.4) * ads
+	local drift = math.sin(sprayCount * 0.55 + seed) * GAMEPLAY.Drift + (math.random() - 0.5) * GAMEPLAY.DriftNoise
+	local yaw = recoil * drift * (sprayCount > GAMEPLAY.DriftDelay and 1 or 0.4) * ads
 	camKick += climb
 	camYaw += yaw
 	debtPitch += climb
 	debtYaw += yaw
-	-- Golpe del arma en la mano (muelles): hacia atrás, hacia arriba y un poco de lado
-	local hip = 1 - aimAlpha * 0.5
-	kickVel += (1.6 + def.Recoil * 0.55) * hip
-	rotVel += recoil * 10 * hip
-	sideVel += (math.random() - 0.5) * recoil * 9
-	-- Las armas potentes sacuden la cámara y abren un poco el campo de visión
-	if def.Recoil >= 3 then
-		ClientState.Shake = math.max(ClientState.Shake or 0, def.Recoil * 0.05)
-		ClientState.FovKick = (ClientState.FovKick or 0) + def.Recoil * 0.22
+	ClientState.Bloom = math.min(ClientState.Bloom + def.Recoil * GAMEPLAY.BloomPerRecoil, GAMEPLAY.BloomMax)
+
+	-- 2) Retroceso del ARMA en la mano (muelles): hacia atrás, hacia arriba y un poco de lado
+	local view = feel.View
+	local hip = 1 - aimAlpha * (1 - view.AimScale)
+	kickVel += (1.6 + def.Recoil * 0.55) * hip * view.Back
+	rotVel += recoil * 10 * hip * view.Rise
+	sideVel += (math.random() - 0.5) * recoil * 9 * view.Side
+
+	-- 3) Retroceso de CÁMARA (visual, se recupera del todo): golpe hacia arriba, un poco de lado y alabeo
+	local cam = feel.Camera
+	local camScale = (1 - aimAlpha * (1 - cam.AimScale)) * (ClientState.ReducedFX() and 0.3 or 1)
+	local impulse = cam.Impulse * camScale -- (pico = los grados del perfil)
+	punchVelPitch += math.rad(cam.Punch) * impulse
+	punchVelYaw += (math.random() - 0.5) * 2 * math.rad(cam.PunchSide) * impulse
+	punchVelRoll += (math.random() < 0.5 and -1 or 1) * math.rad(cam.PunchRoll) * impulse
+	-- Las armas potentes (perfil con temblor) sacuden la cámara y abren un poco el campo de visión
+	if cam.Shake > 0 then
+		ClientState.Shake = math.max(ClientState.Shake or 0, def.Recoil * cam.Shake)
 	end
-	ClientState.Bloom = math.min(ClientState.Bloom + def.Recoil * 0.4, 6)
+	if cam.FovKick > 0 then
+		ClientState.FovKick = (ClientState.FovKick or 0) + def.Recoil * cam.FovKick
+	end
 	ClientState.ShotFired:Fire()
+	weaponEvent("Fire")
 
 	if localAmmo <= 0 then
 		task.delay(0.2, requestReload)
@@ -757,6 +808,10 @@ local function melee()
 		return
 	end
 	meleeTime = now
+	if inspectTime > 0 and now - inspectTime < INSPECT_TIME then
+		inspectTime = -10
+		weaponEvent("InspectCancel")
+	end
 	meleeWithKnife = def ~= nil and def.Type == "Melee"
 	meleeSide = -meleeSide -- golpes alternos: uno de derecha a izquierda y el siguiente al revés
 	meleeDuration = meleeWithKnife and math.clamp(knife.Cooldown * 0.75, 0.32, 0.6) or 0.38
@@ -853,18 +908,24 @@ local function renderStep(dt)
 	if canAim then
 		inspectTime = -10
 	end
-	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * 14))
+	-- (cada tipo de arma apunta a su ritmo: subfusiles y pistolas antes, ametralladora más despacio)
+	aimAlpha = lerp(aimAlpha, canAim and 1 or 0, math.min(1, dt * feel.Aim.Speed))
 	if aimAlpha < 0.001 then
 		aimAlpha = 0
 	end
 	ClientState.AimAlpha = aimAlpha
-	sprintAlpha = lerp(sprintAlpha, (ClientState.Sprinting and not reloadStart) and 1 or 0, math.min(1, dt * 10))
+	sprintAlpha = lerp(sprintAlpha, (ClientState.Sprinting and not reloadStart) and 1 or 0, math.min(1, dt * feel.Sprint.Speed))
+	-- Correr cancela la inspección
+	if sprintAlpha > 0.5 and inspectTime > 0 and os.clock() - inspectTime < INSPECT_TIME then
+		inspectTime = -10
+		weaponEvent("InspectCancel")
+	end
 
 	-- Muerto (o en la killcam) la cámara ya no es tuya: nada de retroceso, balanceo ni temblores
 	if not ClientState.Dead and humanoid.Health > 0 then
 		-- Retroceso de cámara
-		local applyPitch = camKick * math.min(1, dt * 22)
-		local applyYaw = camYaw * math.min(1, dt * 22)
+		local applyPitch = camKick * math.min(1, dt * GAMEPLAY.ApplySpeed)
+		local applyYaw = camYaw * math.min(1, dt * GAMEPLAY.ApplySpeed)
 		camKick -= applyPitch
 		camYaw -= applyYaw
 		if applyPitch ~= 0 or applyYaw ~= 0 then
@@ -877,11 +938,28 @@ local function renderStep(dt)
 			debtPitch = math.max(0, debtPitch - mouseDown * 0.0025)
 		end
 		if os.clock() - lastShot > 0.12 and math.abs(camKick) < 0.002 and (debtPitch > 0.0005 or math.abs(debtYaw) > 0.0005) then
-			local r = math.min(1, dt * 7)
+			local r = math.min(1, dt * GAMEPLAY.RecoverSpeed)
 			local backPitch, backYaw = debtPitch * r, debtYaw * r
 			debtPitch -= backPitch
 			debtYaw -= backYaw
-			camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * RECOVER, -backYaw * RECOVER, 0)
+			camera.CFrame = camera.CFrame * CFrame.Angles(-backPitch * GAMEPLAY.Recover, -backYaw * GAMEPLAY.Recover, 0)
+		end
+		-- Golpe visual de cámara (muelle). Solo se aplica lo que cambió desde el fotograma anterior: al
+		-- volver el muelle a 0 la cámara queda exactamente donde estaba
+		do
+			local cam = feel.Camera
+			local step = WeaponFeel.StepSpring
+			punchPitch, punchVelPitch = step(punchPitch, punchVelPitch, cam.Stiffness, cam.Damping, dt)
+			punchYaw, punchVelYaw = step(punchYaw, punchVelYaw, cam.Stiffness, cam.Damping, dt)
+			punchRoll, punchVelRoll = step(punchRoll, punchVelRoll, cam.Stiffness, cam.Damping, dt)
+			if math.abs(punchPitch) + math.abs(punchYaw) + math.abs(punchVelPitch) + math.abs(punchVelYaw) < 1e-5 then
+				punchPitch, punchYaw, punchVelPitch, punchVelYaw = 0, 0, 0, 0
+			end
+			local deltaPitch, deltaYaw = punchPitch - appliedPunchPitch, punchYaw - appliedPunchYaw
+			if deltaPitch ~= 0 or deltaYaw ~= 0 then
+				camera.CFrame = camera.CFrame * CFrame.Angles(deltaPitch, deltaYaw, 0)
+				appliedPunchPitch, appliedPunchYaw = punchPitch, punchYaw
+			end
 		end
 		-- Asistencia de apuntado (dedo o mando): la mira se va hacia el enemigo cercano. Lo que ya
 		-- corrigió hacia abajo (o al lado contrario del retroceso) no se recupera otra vez al soltar
@@ -929,7 +1007,8 @@ local function renderStep(dt)
 		flinchRoll = lerp(flinchRoll, 0, math.min(1, dt * 12))
 		-- (competitivo: apuntando tiembla mucho menos, y con «Efectos de pantalla: Reducidos» casi nada)
 		local calm = (ClientState.ReducedFX() and 0.3 or 1) * (1 - 0.6 * aimAlpha)
-		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, (strafeRoll + shakeRoll + flinchRoll) * calm)
+		-- (el alabeo no se acumula: la cámara de Roblox lo recalcula cada fotograma)
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, (strafeRoll + shakeRoll + flinchRoll) * calm + punchRoll)
 		-- Temblor por explosiones cercanas (se apaga solo en ~0,6 s)
 		local shake = ClientState.Shake or 0
 		if shake > 0.01 then
@@ -994,7 +1073,7 @@ local function renderStep(dt)
 	else
 		ClientState.FovKick = 0
 	end
-	camera.FieldOfView = targetFov + sprintAlpha * 6 + kick
+	camera.FieldOfView = targetFov + sprintAlpha * feel.Sprint.Fov + kick
 	UserInputService.MouseDeltaSensitivity = (settings.Sensitivity or 1) * aimScale
 
 	if not viewmodel or not def then
@@ -1024,16 +1103,18 @@ local function renderStep(dt)
 	if grounded and not ClientState.Sliding then
 		bobTime += dt * math.min(speed, 30) * 0.45
 	end
-	local bobAmount = math.clamp(speed / 18, 0, 1.5) * (1 - aimAlpha * 0.9)
+	local bobAmount = math.clamp(speed / 18, 0, 1.5) * (1 - aimAlpha * (1 - feel.Aim.Bob))
 	if not grounded or ClientState.Sliding then
 		bobAmount = 0
 	end
 	local s = sprintAlpha
+	-- (las armas pesadas se balancean menos: llevan más peso que inercia)
+	local bobScale = lerp(feel.Bob.Walk, feel.Bob.Sprint, s)
 	local bob = CFrame.new(
-		math.cos(bobTime) * (0.05 + 0.05 * s) * bobAmount,
-		-math.abs(math.sin(bobTime)) * (0.06 + 0.04 * s) * bobAmount,
+		math.cos(bobTime) * (0.05 + 0.05 * s) * bobAmount * bobScale,
+		-math.abs(math.sin(bobTime)) * (0.06 + 0.04 * s) * bobAmount * bobScale,
 		0
-	) * CFrame.Angles(0, 0, math.cos(bobTime) * math.rad(3.5) * s * bobAmount)
+	) * CFrame.Angles(0, 0, math.cos(bobTime) * math.rad(3.5) * s * bobAmount * bobScale)
 
 	-- Respiración: el arma nunca está del todo quieta (apuntando, casi nada)
 	local breathScale = (1 - aimAlpha * 0.8) * (1 - math.min(1, bobAmount))
@@ -1046,13 +1127,14 @@ local function renderStep(dt)
 	local weight = math.clamp(def.WalkSpeedMultiplier or 1, 0.8, 1.15)
 	local stiffness, damping = 160 * weight * weight, 16 * weight
 	local sdt = math.min(dt, 1 / 30)
-	local targetX = math.clamp(-delta.X * 0.004, -0.12, 0.12)
-	local targetY = math.clamp(-delta.Y * 0.004, -0.12, 0.12)
+	local swayGain = 0.004 * feel.Sway.Amount
+	local targetX = math.clamp(-delta.X * swayGain, -0.12, 0.12)
+	local targetY = math.clamp(-delta.Y * swayGain, -0.12, 0.12)
 	swayVelX += ((targetX - swayX) * stiffness - swayVelX * damping) * sdt
 	swayVelY += ((targetY - swayY) * stiffness - swayVelY * damping) * sdt
 	swayX += swayVelX * sdt
 	swayY += swayVelY * sdt
-	local swayScale = 1 - aimAlpha * 0.75
+	local swayScale = 1 - aimAlpha * (1 - feel.Aim.Sway) -- (apuntando casi no se mueve: no estorba al apuntar)
 	local sway = CFrame.Angles(swayY * swayScale, swayX * swayScale, swayX * 0.6 * swayScale)
 
 	-- Moverse: al ir de lado el arma se inclina; al saltar se queda atrás y al caer se hunde
@@ -1063,11 +1145,12 @@ local function renderStep(dt)
 
 	-- Retroceso del arma
 	-- (muelles amortiguados: el arma va hacia atrás, se pasa un poquito al volver y se asienta)
-	kickVel += (-260 * recoilKick - 24 * kickVel) * sdt
+	local view = feel.View
+	kickVel += (-view.Stiffness * recoilKick - view.Damping * kickVel) * sdt
 	recoilKick += kickVel * sdt
-	rotVel += (-220 * recoilRot - 20 * rotVel) * sdt
+	rotVel += (-view.RotStiffness * recoilRot - view.RotDamping * rotVel) * sdt
 	recoilRot += rotVel * sdt
-	sideVel += (-180 * recoilSide - 18 * sideVel) * sdt
+	sideVel += (-view.SideStiffness * recoilSide - view.SideDamping * sideVel) * sdt
 	recoilSide += sideVel * sdt
 	local recoilCF = CFrame.new(recoilSide * 0.4, 0, recoilKick) * CFrame.Angles(recoilRot, recoilSide * 0.6, recoilSide * 1.5)
 
@@ -1187,7 +1270,7 @@ local function renderStep(dt)
 	end
 
 	-- Sacar arma: sube desde abajo girando y se asienta con un pequeño rebote
-	local e = math.clamp((now - equipTime) / 0.4, 0, 1)
+	local e = math.clamp((now - equipTime) / feel.Equip.Time, 0, 1)
 	local c1, c3 = 1.70158, 2.70158
 	local raise = 1 + c3 * (e - 1) ^ 3 + c1 * (e - 1) ^ 2 -- (sale un poco de más y vuelve)
 	local down = 1 - raise
@@ -1283,9 +1366,10 @@ local function bindActions()
 		if input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin then
 				aimHeld = not aimHeld -- en móvil es un interruptor
+				aimToggled = aimHeld
 			end
 		elseif state == Enum.UserInputState.Begin then
-			aimHeld = true
+			aimHeld, aimToggled = true, false
 		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
 			aimHeld = false
 		end
@@ -1333,6 +1417,7 @@ local function bindActions()
 		if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() and not ClientState.VotePanelVisible and def and not reloadStart and not ClientState.Aiming then
 			if os.clock() - inspectTime > INSPECT_TIME then
 				inspectTime = os.clock()
+				weaponEvent("Inspect")
 			end
 		end
 		return Enum.ContextActionResult.Pass
@@ -1373,7 +1458,9 @@ local function onCharacter(newCharacter)
 	character = newCharacter
 	humanoid = newCharacter:WaitForChild("Humanoid")
 	rootPart = newCharacter:WaitForChild("HumanoidRootPart")
-	aimHeld = false
+	aimHeld, aimToggled = false, false
+	aimAlpha, sprintAlpha = 0, 0
+	resetPunch()
 	camKick, camYaw = 0, 0
 	debtPitch, debtYaw = 0, 0
 	recoilKick, recoilRot, recoilSide = 0, 0, 0
@@ -1406,8 +1493,10 @@ local function onCharacter(newCharacter)
 		-- (lo pendiente de retroceso y temblores no se aplica a la cámara de la muerte)
 		camKick, camYaw = 0, 0
 		debtPitch, debtYaw = 0, 0
+		resetPunch()
 		ClientState.Shake = 0
 		ClientState.LandKick = 0
+		ClientState.FovKick = 0
 		ScopeSway.Reset()
 	end))
 end
@@ -1463,7 +1552,7 @@ local function onShotFX(tool, endpoints)
 		end
 	end
 	if not cheap then
-		Effects.MuzzleFlash(muzzle, nil, true)
+		Effects.MuzzleFlash(muzzle, nil, true, WeaponFeel.Get(tostring(tool:GetAttribute("Weapon")), weaponDef).Flash)
 	end
 	local now = os.clock()
 	if now - (lastRemoteSound[tool] or 0) >= 0.1 then

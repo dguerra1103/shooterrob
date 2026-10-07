@@ -3,11 +3,36 @@ local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local UserInputService = game:GetService("UserInputService")
+
 local ClientState = require(script.Parent.ClientState)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
+local WeaponFeel = require(ReplicatedStorage.Shared.WeaponFeel)
 
 local Effects = {}
+
+-- Presupuesto de efectos de las armas según la calidad (y recortado en móvil): WeaponFeel.Quality.
+-- Nunca cambia el hitmarker, los avisos de baja ni los impactos sobre personas (es información).
+local budgetCache, budgetKey = nil, nil
+local function budget()
+	local mobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local key = tostring(ClientState.EffectiveQuality) .. (mobile and "|m" or "")
+	if key ~= budgetKey then
+		budgetKey = key
+		budgetCache = WeaponFeel.Budget(ClientState.EffectiveQuality, mobile)
+	end
+	return budgetCache
+end
+Effects.Budget = budget
+
+-- Cuántas partículas emitir con el presupuesto (al menos 1 si había alguna)
+local function scaled(count, factor)
+	if count <= 0 or factor <= 0 then
+		return 0
+	end
+	return math.max(1, math.floor(count * factor + 0.5))
+end
 
 -- Lo pone CombatFX: se llama con la fuerza (0..1) cuando una explosión estalla muy cerca de la cámara
 Effects.OnConcussion = nil :: ((number) -> ())?
@@ -148,8 +173,10 @@ local function hideLater(ring, index, token, delay)
 		end
 	end)
 end
--- (las marcas duran 5 s: con 16 disparos por segundo hacen falta unas 80 para que no desaparezcan antes)
-local bulletRing, trailRing, markRing, chipRing = partRing(30), partRing(30), partRing(80), partRing(80)
+-- Marcas de bala: duran 5 s y como mucho MAX_MARKS a la vez (WeaponFeel.Quality.BulletMarks: 50 en
+-- Alta, 30 en Media, 20 en móvil, ninguna en Baja). Al pasarse se reutiliza la más antigua.
+local MAX_MARKS = 50
+local bulletRing, trailRing, markRing, chipRing = partRing(30), partRing(30), partRing(MAX_MARKS), partRing(MAX_MARKS)
 
 ---------------------------------------------------------------------------
 
@@ -230,8 +257,9 @@ local FLASH_WARM = Color3.fromRGB(255, 190, 105)
 -- (piezas reutilizadas: en un tiroteo serían decenas de piezas nuevas por segundo)
 local flashRing, flashBallRing = partRing(60), partRing(16)
 local flashLight, flashLightToken = nil, 0
-local function realisticFlash(cf, remote)
-	local scale = 0.7 + math.random() * 0.55
+local function realisticFlash(cf, remote, flash)
+	local scale = (0.7 + math.random() * 0.55) * flash.Scale
+	local life = flash.Duration
 	local spin = math.random() * math.pi * 2
 	local prongs = remote and 3 or math.random(3, 5)
 	for i = 1, prongs do
@@ -243,7 +271,7 @@ local function realisticFlash(cf, remote)
 			CFrame = cf * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, 0, angle) * CFrame.new(0, length / 2, 0),
 			Transparency = 0.1 + math.random() * 0.3,
 		})
-		hideLater(flashRing, index, token, 0.035)
+		hideLater(flashRing, index, token, life * 0.875)
 	end
 	local flameLength = (0.35 + math.random() * 0.35) * scale
 	local _, flameIndex, flameToken = ringPart(flashRing, {
@@ -252,7 +280,7 @@ local function realisticFlash(cf, remote)
 		CFrame = cf * CFrame.new(0, 0, -0.08 - flameLength / 2),
 		Transparency = 0.2 + math.random() * 0.2,
 	})
-	hideLater(flashRing, flameIndex, flameToken, 0.035)
+	hideLater(flashRing, flameIndex, flameToken, life * 0.875)
 	local _, coreIndex, coreToken = ringPart(flashBallRing, {
 		Color = Color3.fromRGB(255, 244, 214),
 		Size = Vector3.one * (0.2 + math.random() * 0.1) * scale,
@@ -260,9 +288,9 @@ local function realisticFlash(cf, remote)
 		CFrame = cf * CFrame.new(0, 0, -0.1),
 		Transparency = 0.05,
 	})
-	hideLater(flashBallRing, coreIndex, coreToken, 0.045)
+	hideLater(flashBallRing, coreIndex, coreToken, life * 1.1)
 	-- Golpe de luz (solo los tuyos): una sola luz que se mueve al cañón y se apaga enseguida
-	if not remote then
+	if not remote and flash.Light > 0 then
 		local holderPart = flashLight and flashLight.Parent
 		if not holderPart or not holderPart.Parent then
 			local holder = fxPart({ Name = "FlashLight", Size = Vector3.one * 0.1, Transparency = 1 })
@@ -273,11 +301,11 @@ local function realisticFlash(cf, remote)
 		end
 		local holder = flashLight.Parent :: BasePart
 		holder.CFrame = cf * CFrame.new(0, 0, -0.15)
-		flashLight.Range = 13 + math.random() * 5
+		flashLight.Range = (13 + math.random() * 5) * flash.Light
 		flashLight.Enabled = true
 		flashLightToken += 1
 		local token = flashLightToken
-		task.delay(0.045, function()
+		task.delay(life * 1.1, function()
 			if flashLightToken == token and flashLight then
 				flashLight.Enabled = false
 			end
@@ -294,7 +322,10 @@ local function realisticFlash(cf, remote)
 		Lifetime = NumberRange.new(0.03, 0.06),
 		Speed = NumberRange.new(5, 10),
 		SpreadAngle = Vector2.new(8, 8),
-	}, 4)
+	}, scaled(4, budget().FlashParticles))
+	if not budget().MuzzleSmoke or flash.Smoke <= 0 then
+		return
+	end
 	emitPooled(anchor, "MuzzleSmokeReal", {
 		Texture = TEX.Smoke,
 		Color = ColorSequence.new(Color3.fromRGB(205, 205, 200), Color3.fromRGB(170, 170, 165)),
@@ -315,43 +346,50 @@ local function realisticFlash(cf, remote)
 		Rotation = NumberRange.new(0, 360),
 		SpreadAngle = Vector2.new(14, 14),
 		Acceleration = Vector3.new(0, 1.2, 0),
-	}, remote and 1 or 2)
+	}, remote and 1 or scaled(2, flash.Smoke))
 end
 
--- Fogonazo: estrella de luz, llamas y humo. remote = disparo de otro (más barato: sin luz ni estrella)
-function Effects.MuzzleFlash(attachment, color, remote)
+-- Fogonazo: estrella de luz, llamas y humo. remote = disparo de otro (más barato: sin luz ni estrella).
+-- flash = perfil del arma (WeaponFeel: tamaño, duración, luz y humo); sin él, el del fusil
+local DEFAULT_FLASH = WeaponFeel.Get(WeaponFeel.ReferenceWeapon).Flash
+function Effects.MuzzleFlash(attachment, color, remote, flash)
 	if not attachment then
 		return
+	end
+	flash = flash or DEFAULT_FLASH
+	if flash.Scale <= 0 then
+		return -- (ballesta: sin fogonazo)
 	end
 	color = color or Color3.fromRGB(255, 200, 90)
 	local cf = attachment.WorldCFrame
 	if realisticMap() then
-		realisticFlash(cf, remote)
+		realisticFlash(cf, remote, flash)
 		return
 	end
 	local spin = math.random() * math.pi
+	local size = flash.Scale
 	for i = 0, remote and -1 or 1 do
 		local star = fxPart({
 			Color = color:Lerp(Color3.new(1, 1, 1), 0.4),
-			Size = Vector3.new(0.08, 0.7, 0.3),
+			Size = Vector3.new(0.08, 0.7, 0.3) * size,
 			CFrame = cf * CFrame.new(0, 0, -0.2) * CFrame.Angles(0, 0, spin + i * math.pi / 2),
 		})
-		Debris:AddItem(star, 0.04)
+		Debris:AddItem(star, flash.Duration)
 	end
 	local core = fxPart({
 		Color = Color3.fromRGB(255, 240, 200),
-		Size = Vector3.new(0.3, 0.3, 0.3),
+		Size = Vector3.new(0.3, 0.3, 0.3) * size,
 		Shape = Enum.PartType.Ball,
 		CFrame = cf * CFrame.new(0, 0, -0.15),
 	})
-	if not remote then
+	if not remote and flash.Light > 0 then
 		local light = Instance.new("PointLight")
 		light.Color = color
-		light.Range = 12
+		light.Range = 12 * flash.Light
 		light.Brightness = 4
 		light.Parent = core
 	end
-	Debris:AddItem(core, 0.05)
+	Debris:AddItem(core, flash.Duration * 1.25)
 
 	local anchor = pooledAnchor(cf.Position, cf.LookVector)
 	emitPooled(anchor, "MuzzleFire", {
@@ -363,7 +401,10 @@ function Effects.MuzzleFlash(attachment, color, remote)
 		Lifetime = NumberRange.new(0.04, 0.08),
 		Speed = NumberRange.new(4, 8),
 		SpreadAngle = Vector2.new(12, 12),
-	}, 5)
+	}, scaled(5, budget().FlashParticles))
+	if not budget().MuzzleSmoke or flash.Smoke <= 0 then
+		return
+	end
 	emitPooled(anchor, "MuzzleSmoke", {
 		Texture = TEX.Smoke,
 		Color = ColorSequence.new(Color3.fromRGB(220, 220, 220)),
@@ -373,7 +414,7 @@ function Effects.MuzzleFlash(attachment, color, remote)
 		Speed = NumberRange.new(1, 3),
 		SpreadAngle = Vector2.new(20, 20),
 		Acceleration = Vector3.new(0, 1.5, 0),
-	}, 2)
+	}, scaled(2, flash.Smoke))
 end
 
 -- Tipo de superficie según el material: cambia la reacción al impacto (chispas en metal, astillas
@@ -572,6 +613,9 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	material = material or (hitPart and hitPart.Material) or Enum.Material.Plastic
 	local kind = SURFACE[material] or "Plastic"
 	local baseColor = surfaceColor(hitPart, material)
+	-- (impactos en el escenario: con calidad baja o en móvil, menos partículas y menos marcas)
+	local fx = budget()
+	local amount = fx.ImpactParticles
 
 	if kind == "Water" then
 		-- Salpicadura: gotas hacia arriba que caen y un poco de espuma
@@ -584,7 +628,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 			Speed = NumberRange.new(10, 18),
 			SpreadAngle = Vector2.new(18, 18),
 			Acceleration = Vector3.new(0, -50, 0),
-		}, 12)
+		}, scaled(12, amount))
 		emitPooled(anchor, "WaterFoam", {
 			Texture = TEX.Smoke,
 			Color = ColorSequence.new(Color3.fromRGB(240, 248, 255)),
@@ -593,12 +637,12 @@ function Effects.Impact(position, normal, hitPart, material, style)
 			Lifetime = NumberRange.new(0.4, 0.6),
 			Speed = NumberRange.new(1, 2),
 			SpreadAngle = Vector2.new(70, 70),
-		}, 3)
+		}, scaled(3, amount))
 		return
 	end
 
 	-- Chispas: muchas en metal, pocas en piedra y cristal, ninguna en materiales blandos
-	local sparks = (kind == "Metal" and 12) or ((kind == "Stone" or kind == "Glass" or kind == "Plastic") and 4) or 0
+	local sparks = scaled((kind == "Metal" and 12) or ((kind == "Stone" or kind == "Glass" or kind == "Plastic") and 4) or 0, amount)
 	if sparks > 0 then
 		emitPooled(anchor, "Sparks" .. kind, {
 			Texture = TEX.Sparkle,
@@ -626,7 +670,7 @@ function Effects.Impact(position, normal, hitPart, material, style)
 			Acceleration = Vector3.new(0, -55, 0),
 			Rotation = NumberRange.new(0, 360),
 			RotSpeed = NumberRange.new(-300, 300),
-		}, kind == "Wood" and 6 or 5)
+		}, scaled(kind == "Wood" and 6 or 5, amount))
 	end
 
 	-- Nube de polvo del color de la superficie (más grande en tierra y nieve)
@@ -644,13 +688,16 @@ function Effects.Impact(position, normal, hitPart, material, style)
 			SpreadAngle = Vector2.new(30, 30),
 			Acceleration = Vector3.new(0, soft and -6 or 0.5, 0),
 			WindAffectsDrag = true,
-		}, soft and 5 or 3)
+		}, scaled(soft and 5 or 3, amount))
 	end
 
-	-- Marca de bala (no queda en nieve ni en tierra blanda)
-	if soft then
+	-- Marca de bala (no queda en nieve ni en tierra blanda). Como mucho fx.BulletMarks a la vez: al
+	-- pasarse, se reutiliza la más antigua
+	if soft or fx.BulletMarks <= 0 then
 		return
 	end
+	markRing.Size = math.min(fx.BulletMarks, MAX_MARKS)
+	chipRing.Size = markRing.Size
 	local markColor = (kind == "Metal" and Color3.fromRGB(70, 70, 76))
 		or (kind == "Wood" and Color3.fromRGB(45, 30, 20))
 		or (kind == "Glass" and Color3.fromRGB(230, 240, 250))
@@ -683,7 +730,7 @@ local MAX_CASINGS = 8 -- con fuego automático no hace falta simular más a la v
 
 local lastClink = 0
 function Effects.ShellCasing(attachment, cameraCFrame, color)
-	if not attachment or liveCasings >= MAX_CASINGS then
+	if not attachment or liveCasings >= MAX_CASINGS or not budget().Shells then
 		return
 	end
 	liveCasings += 1
@@ -726,7 +773,7 @@ end
 -- Humo del cañón: tras una ráfaga larga, del cañón caliente sale un hilo de humo un par de segundos
 -- (amount 0..1 según lo larga que fue la ráfaga). Un emisor por arma, en la propia boca del cañón.
 function Effects.BarrelSmoke(attachment, amount)
-	if not attachment or not attachment.Parent or ClientState.EffectiveQuality == "Baja" then
+	if not attachment or not attachment.Parent or not budget().BarrelSmoke then
 		return
 	end
 	amount = math.clamp(amount or 0.5, 0, 1)
