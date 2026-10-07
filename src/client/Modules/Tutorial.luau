@@ -21,7 +21,7 @@ local PC_TIPS = {
 	{ "🖱", "Clic izquierdo dispara · clic derecho apunta" },
 	{ "⌨", "WASD te mueve · Shift corre · C te agacha (corriendo, te desliza)" },
 	{ "⚡", "E impulso · Z supersalto · X poción" },
-	{ "🔪", "F golpe rápido · G granada · R recargar" },
+	{ "🔪", "1 2 3 o rueda: cambiar arma · R recargar · F golpe · G granada" },
 	{ "🛒", "B abre la tienda, el pase y los retos" },
 	{ "📋", "Tab marcador · H regalo 🎁 · J grafiti 🎨" },
 }

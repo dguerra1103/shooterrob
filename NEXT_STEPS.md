@@ -24,6 +24,10 @@ Emulator (sección D). Para el audio propio de la interfaz, rellenar los huecos 
 **Fase 5 (móvil y rendimiento) terminada fuera de Studio** — ver `FASE_05_MOVIL_RENDIMIENTO.md`.
 No hay cifras de FPS: hay que medir con el MicroProfiler y en un móvil real (sección E).
 
+**Fase 6 (bots y primeras partidas) terminada fuera de Studio** — ver `FASE_06_BOTS_ONBOARDING.md`.
+Bots revisados, sin cambios. Consejos de contexto para jugadores nuevos (`Hints`): probar con una
+cuenta nueva (sección E).
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →
