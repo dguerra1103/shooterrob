@@ -10,7 +10,10 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
   casquillos limitados (1 clic de casquillo cada 0,1 s), destello del enemigo impactado (un solo Highlight).
 - **Calidad por niveles** (`Settings.luau`): Rendimiento apaga sombras globales, bloom, nubes, partículas
   del mapa, focos con sombra y detalles pequeños (`HIDE_BELOW`); Equilibrada usa el 40 % de partículas.
-  Nada del combate (trazadoras, impactos, hitmarkers) depende de la calidad.
+  Desde la Fase 2, los efectos cosméticos de las armas sí dependen de la calidad y del móvil
+  (`WeaponFeel.Quality` y `WeaponFeel.MobileCap`): en Baja sin casquillos ni marcas de bala y con menos
+  partículas de impacto; marcas como mucho 50 (Alta), 30 (Media) o 20 (móvil). Lo que es información de
+  juego (trazadoras, hitmarkers, avisos de baja, impactos sobre personas) no cambia con la calidad.
 - **Sombras**: `MapKit` solo deja `CastShadow` en piezas de más de 20 studs³ (ni neón ni cristal); los
   focos con `QualityShadow` solo dan sombra en Alta/Ultra.
 - **Ventisca** (Estación Ártica): de ~2.500 a ~1.400 partículas y, además, escalada por la calidad.

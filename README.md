@@ -176,6 +176,7 @@ Todo lo importante está en `src/shared/`:
 - **`Shop.luau`**: precios, packs de Robux, VIP, recompensa diaria, cajas y ofertas.
 - **`Challenges.luau`**: lista de retos diarios (objetivo, texto y premio).
 - **`Mastery.luau`**: bajas necesarias y premio de cada nivel de maestría.
+- **`WeaponFeel.luau`**: cómo se SIENTE cada tipo de arma (golpe de cámara, retroceso del arma en la mano, rapidez al apuntar, balanceo, sprint, fogonazo, casquillos) y cuántos efectos se ven según la calidad gráfica y en móvil. No toca daño, cadencia ni precisión (ver `FASE_02_GUNPLAY.md`).
 - **`Sounds.luau`**: sonidos. En `WeaponShots` eliges el sonido, tono, volumen y tipo de cada arma, y en `ShotLayers` cuánto estampido y clic lleva cada tipo. Para cambiar un audio, pega otro `rbxassetid://` (que sea tuyo o de Roblox; los subidos por otros pueden no sonar en tu juego).
 
 Los mapas están en `src/server/Modules/MapDefs/` (una carpeta por mapa: `init` con los puntos de juego, `Geometry`, `Props` y `Lighting`) y usan el kit modular `TacKit` (geometría, props por temas, paletas y espejo exacto en X) sobre `MapKit.luau`. El orden de la rotación está en `MapBuilder.Order`; el registro de cada mapa, en `MAP_DEVELOPMENT.md`.
@@ -296,7 +297,8 @@ src/
 │   ├── Challenges.luau      retos diarios
 │   ├── Mastery.luau         maestría de armas (camuflajes por bajas)
 │   ├── KillEffects.luau     efectos de eliminación
-│   ├── Sounds.luau          sonidos
+│   ├── Sounds.luau          sonidos (y huecos de audio propio por arma: WeaponAudio)
+│   ├── WeaponFeel.luau      sensación de las armas por tipo y presupuesto de efectos
 │   └── Remotes.luau         RemoteEvents y RemoteFunctions
 ├── server/                 → ServerScriptService.Server
 │   ├── Main.server.luau     arranque

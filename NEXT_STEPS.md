@@ -10,6 +10,11 @@ modo) y traer el texto de la Output de lo que falle. Antes de cada push: `tests/
 `tests/run_all.sh` (ver `tests/README.md`). Publicar solo a mano (Actions → Publicar en Roblox, con el
 Place ID de ShooterRob para confirmar).
 
+**Fase 2 (gunplay) terminada fuera de Studio** — ver `FASE_02_GUNPLAY.md`. Perfiles de sensación por
+tipo de arma (`WeaponFeel`), retroceso separado (juego / cámara / arma), efectos según la calidad y el
+móvil, huecos de audio propio por arma e instrumentación de impactos (apagada). Lo siguiente es **pasar
+su sección F en Studio** empezando por el ARX-27 y ajustar los perfiles jugando.
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →
@@ -20,9 +25,11 @@ Place ID de ShooterRob para confirmar).
    enemigos y los nombres de zona; y, con latencia simulada, la tolerancia de impactos (sección F).
 2. **Perfilar en móvil** (ver PERFORMANCE_NOTES): un tiroteo de 10 en Encrucijada con calidad Auto.
 3. **Sonidos propios**: los disparos usan sonidos de Roblox con capas; unos sonidos originales por
-   familia (pistola, fusil, escopeta, francotirador) darían el mayor salto de "game feel".
+   familia (pistola, fusil, escopeta, francotirador) darían el mayor salto de "game feel". Ya hay
+   huecos por arma en `Sounds.WeaponAudio` (ver `FASE_02_GUNPLAY.md`, sección H): basta con pegar los ids.
 4. **Animaciones del viewmodel con Animator** (recarga, inspección, equipar) en vez de procedurales,
-   empezando por el fusil de asalto y la pistola, que son las que más se ven.
+   empezando por el fusil de asalto y la pistola, que son las que más se ven. Engancharlas a
+   `ClientState.WeaponEvent` (Equip, Fire, ReloadStart con Empty/Duration, ReloadCancel, Inspect).
 5. **Nombres de zona más finos**: todos los mapas tienen ya nombres (Downtown usa el automático,
    «NORTE · LADO ROJO»); probar con gente qué nombres se usan de verdad al hablar y ajustarlos.
 6. **Probar Puesto del Desierto con gente**: tiempos de cruce, líneas de tiro desde los puestos de
