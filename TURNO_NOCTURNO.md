@@ -108,8 +108,18 @@
 - **Pruebas ampliadas:** `aimfx` (sin desenfoque en partida) y `flow` (tarjetas de equipo estables y
   votación sin solaparse).
 - **Ninguna prueba borrada ni desactivada.**
+- **Prueba arreglada en la Fase 7: `rounds`.** Fallaba de vez en cuando (2 de 2 en la primera pasada
+  final) como «TIEMPO AGOTADO».
+  - Causa: los modos salen al azar y, con rondas de 1 s, a veces ningún jugador que haya «jugado de
+    verdad» (P1 y P2) gana una partida (Dominio sin capturas, Buscar y destruir sin bomba). Entonces
+    no hay «primera victoria del día» y el `assert` fallaba. Además, con `assert` el proceso no
+    terminaba (las rondas seguían vivas), así que parecía colgado.
+  - Arreglo: las comprobaciones salen en el acto con `FALLO:`, y la primera victoria se exige solo si
+    P1 o P2 ganaron alguna partida (el tope de una por jugador se sigue comprobando).
+  - **El juego no tenía ningún fallo:** la regla de «haber jugado de verdad» es la correcta.
+  - 10 de 10 pasadas sin fallo, incluida una sin victorias.
 - En una pasada de la Fase 4, `smoke` agotó su tiempo con la CPU al 98 %. Sola tarda ~1 s, con 30
-  repeticiones y 3 pasadas sin fallo. Hay que vigilarla.
+  repeticiones y las demás pasadas completas sin fallo. Hay que vigilarla.
 
 ## 7. Commits (todos en `claude/intelligent-fermi-cz7und`, con push)
 
@@ -123,7 +133,9 @@
 | `2f44391` | 5 | Arreglos por fotograma (killcam y HUD) y prueba `rendimiento` |
 | `f9223c7` | 5 | Documento: responsive, controles táctiles, vistas 3D y muesca |
 | `b51e18e` | 6 | Bots revisados, consejos de contexto y tarjeta de controles |
-| (este) | 7 | `TURNO_NOCTURNO.md` |
+| `352ceb3` | 7 | `TURNO_NOCTURNO.md` (borrador) |
+| `cf7d112` | 6-7 | Consejos: se quitan en el acto si mueres o se abre algo encima |
+| (este) | 7 | Prueba `rounds` sin azar en la primera victoria; resultado final en este documento |
 
 **Comprobado antes de cada push:**
 - `publish.yml` solo publica con `workflow_dispatch` (un push solo construye y valida);

@@ -3,6 +3,8 @@ local process = require("@lune/process")
 local mock = require("./mock")
 mock.taskImpl = require("@lune/task")
 local task = mock.taskImpl
+-- (un fallo sale en el acto: con assert, las rondas siguen vivas y la prueba parecía colgada)
+local function check(c, m) if not c then print("FALLO: " .. m) process.exit(1) end end
 local game, req = mock.buildGame(process.args[1])
 game.JobId = "A"
 local Shared = game.ReplicatedStorage.Shared
@@ -70,13 +72,13 @@ print("modos:", table.concat(modeList, ", "))
 print("mapas:", table.concat(mapList, ", "))
 print("LoadCharacter llamadas:", mock.loadCharacterCalls)
 print("Bajas P1:", PlayerData.GetLeaderstats(players[1]).Bajas.Value, "XP/monedas P1:", PlayerData.Get(players[1]).XP, PlayerData.Get(players[1]).Coins)
-assert(playing >= 5, "deberían jugarse varias rondas")
+check(playing >= 5, "deberían jugarse varias rondas")
 local summaries = 0
 for _, sent in mock.sent do
 	if sent.Remote == "MatchSummary" then
 		summaries += 1
 		local s = sent.Args[1]
-		assert(type(s.XP) == "number" and type(s.Coins) == "number" and s.Level and s.XPPerLevel and s.Kills, "resumen completo")
+		check(type(s.XP) == "number" and type(s.Coins) == "number" and s.Level and s.XPPerLevel and s.Kills, "resumen completo")
 	end
 end
 print("resúmenes enviados:", summaries)
@@ -88,19 +90,19 @@ for _, sent in mock.sent do
 	end
 end
 print("RP P1..P4:", PlayerData.Get(players[1]).RankPoints, PlayerData.Get(players[2]).RankPoints, PlayerData.Get(players[3]).RankPoints, PlayerData.Get(players[4]).RankPoints, "resúmenes con cambio de rango:", rankSummaries)
-assert(summaries >= 4, "cada jugador recibe el resumen de su partida")
+check(summaries >= 4, "cada jugador recibe el resumen de su partida")
 -- Récord de bajas en una partida: se guarda, y el resumen lo marca al batirlo (desde 5)
 local records = 0
 for _, sent in mock.sent do
 	if sent.Remote == "MatchSummary" and sent.Args[1].NewRecord then
 		records += 1
-		assert(sent.Args[1].NewRecord == sent.Args[1].Kills and sent.Args[1].Kills >= 5, "récord = bajas de la partida")
+		check(sent.Args[1].NewRecord == sent.Args[1].Kills and sent.Args[1].Kills >= 5, "récord = bajas de la partida")
 	end
 end
 local bestKills = 0
 for i = 1, 4 do bestKills = math.max(bestKills, PlayerData.Get(players[i]).BestMatchKills) end
 print("récords:", records, "mejor partida:", bestKills)
-assert(bestKills > 0, "se guarda el récord de bajas en una partida")
+check(bestKills > 0, "se guarda el récord de bajas en una partida")
 local firstWins, pity = 0, 0
 for _, sent in mock.sent do
 	if sent.Remote == "Notify" and type(sent.Args[2]) == "string" and string.find(sent.Args[2], "Primera victoria", 1, true) then
@@ -109,7 +111,14 @@ for _, sent in mock.sent do
 end
 for i = 1, 4 do pity += PlayerData.Get(players[i]).CratePity end
 print("primeras victorias avisadas:", firstWins, "garantía de cajas sumada:", pity)
-assert(firstWins >= 1 and firstWins <= 4, "primera victoria del día: una por jugador como mucho")
-assert(pity > 0 or PlayerData.Get(players[1]).FreeCrates > 0, "la caja sorpresa se tira al acabar")
+-- (los modos salen al azar y las rondas duran 1 s: a veces ninguna partida tiene ganador —Dominio sin
+-- capturas, Buscar y destruir sin bomba— y entonces no puede haber primera victoria. Y solo cuenta
+-- para quien ha jugado de verdad: P1 y P2, que tienen una baja o una muerte en cada partida; P3 y P4
+-- no hacen nada en rondas de 1 s)
+local wins = (PlayerData.Get(players[1]).Wins or 0) + (PlayerData.Get(players[2]).Wins or 0)
+print("victorias de P1 y P2:", wins)
+check(firstWins <= 4, "primera victoria del día: una por jugador como mucho")
+check(wins == 0 or firstWins >= 1, "si P1 o P2 ganan alguna partida, hay aviso de primera victoria del día")
+check(pity > 0 or PlayerData.Get(players[1]).FreeCrates > 0, "la caja sorpresa se tira al acabar")
 print("TODO OK")
 process.exit(0)
