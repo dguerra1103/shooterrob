@@ -18,6 +18,12 @@ su sección F en Studio** empezando por el ARX-27 y ajustar los perfiles jugando
 **Fase 3 (mapas gold standard) terminada fuera de Studio** — ver `FASE_03_VISUAL_MAPAS.md`. Mirar en
 Studio Construction, Coastal y Mall Rush (sección F) antes de llevar las mismas mejoras al resto.
 
+**Fase 4 (UI/UX) terminada fuera de Studio** — ver `FASE_04_UI_UX.md`. Revisar el flujo con el Device
+Emulator (sección D). Para el audio propio de la interfaz, rellenar los huecos de `UISound.Custom`.
+
+**Fase 5 (móvil y rendimiento) terminada fuera de Studio** — ver `FASE_05_MOVIL_RENDIMIENTO.md`.
+No hay cifras de FPS: hay que medir con el MicroProfiler y en un móvil real (sección E).
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

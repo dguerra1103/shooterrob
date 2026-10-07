@@ -79,8 +79,18 @@ function Killcam.Record()
 				history[model] = list
 			end
 			table.insert(list, { now, position })
-			while #list > 0 and now - list[1][1] > Killcam.HistoryTime do
-				table.remove(list, 1)
+			-- (lo viejo se quita de golpe cuando sobra más de un segundo, no muestra a muestra: quitar
+			-- la primera de ~120 en cada muestra desplazaba la lista entera 20 veces por segundo)
+			if now - list[1][1] > Killcam.HistoryTime + 1 then
+				local keep = 1
+				while keep < #list and now - list[keep][1] > Killcam.HistoryTime do
+					keep += 1
+				end
+				local count = #list - keep + 1
+				table.move(list, keep, #list, 1)
+				for i = #list, count + 1, -1 do
+					list[i] = nil
+				end
 			end
 		end
 	end

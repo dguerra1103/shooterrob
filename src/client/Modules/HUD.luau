@@ -1070,6 +1070,14 @@ local function roundResult(info)
 	end)
 end
 
+-- Escribe un texto solo si cambia (el HUD se repinta cada fotograma y cada escritura recoloca la
+-- interfaz, aunque sea el mismo texto)
+local function setText(label, text)
+	if label.Text ~= text then
+		label.Text = text
+	end
+end
+
 local function timedLabel(label, text, duration)
 	label.Text = text
 	label.Visible = true
@@ -2225,7 +2233,7 @@ local function render(dt)
 	local def = ClientState.CurrentDef
 	local tool = ClientState.CurrentTool
 	if def and tool then
-		refs.WeaponName.Text = def.DisplayName
+		setText(refs.WeaponName, def.DisplayName)
 		if def.Type == "Gun" then
 			local reserve = tool:GetAttribute("Reserve") or 0
 			local low = ClientState.Ammo <= math.ceil(def.MagSize * 0.25)
@@ -2247,27 +2255,27 @@ local function render(dt)
 			local percent = ClientState.Reloading and math.floor(ClientState.ReloadProgress * 100) or -1
 			if ClientState.Reloading then
 				if percent ~= hudCache.ReloadPercent then
-					refs.ReloadHint.Text = "RECARGANDO " .. percent .. "%"
+					setText(refs.ReloadHint, "RECARGANDO " .. percent .. "%")
 				end
 			elseif ClientState.Ammo == 0 and reserve == 0 then
-				refs.ReloadHint.Text = "SIN MUNICIÓN"
+				setText(refs.ReloadHint, "SIN MUNICIÓN")
 			elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
-				refs.ReloadHint.Text = UserInputService.KeyboardEnabled and "[R] Recargar" or "🔄 Recargar"
+				setText(refs.ReloadHint, UserInputService.KeyboardEnabled and "[R] Recargar" or "🔄 Recargar")
 			else
-				refs.ReloadHint.Text = ""
+				setText(refs.ReloadHint, "")
 			end
 			hudCache.ReloadPercent = percent
 		else
 			hudCache.Ammo = nil
-			refs.Ammo.Text = "∞"
-			refs.ReloadHint.Text = ""
+			setText(refs.Ammo, "∞")
+			setText(refs.ReloadHint, "")
 			refs.AmmoBar.Visible = false
 		end
 	else
 		hudCache.Ammo = nil
-		refs.WeaponName.Text = ""
-		refs.Ammo.Text = ""
-		refs.ReloadHint.Text = ""
+		setText(refs.WeaponName, "")
+		setText(refs.Ammo, "")
+		setText(refs.ReloadHint, "")
 		refs.AmmoBar.Visible = false
 	end
 
@@ -2323,9 +2331,14 @@ function renderCrosshair(def)
 	local aim = ClientState.AimAlpha
 	local isGun = def and def.Type == "Gun"
 	local gap = (6 + ClientState.Spread * 6) * size
-	for _, line in refs.CrossLines do
-		line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4 * size), line.Dir.Y * (gap + 4 * size))
-		line.Frame.Visible = isGun and aim < 0.5
+	local linesVisible = isGun and aim < 0.5
+	-- (las cuatro rayas solo se mueven si cambia la apertura: quieto y sin disparar, no se tocan)
+	if gap ~= hudCache.CrossGap or linesVisible ~= hudCache.CrossLinesVisible then
+		hudCache.CrossGap, hudCache.CrossLinesVisible = gap, linesVisible
+		for _, line in refs.CrossLines do
+			line.Frame.Position = UDim2.fromOffset(line.Dir.X * (gap + 4 * size), line.Dir.Y * (gap + 4 * size))
+			line.Frame.Visible = linesVisible
+		end
 	end
 	refs.CrossDot.Visible = aim < 0.5
 	refs.Crosshair.Visible = not ClientState.IsBlocked()
