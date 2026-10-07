@@ -6,7 +6,7 @@
 #   ROBLOX_UNIVERSE_ID  ID de la experiencia (Universe ID)
 #   ROBLOX_PLACE_ID     ID del lugar (Place ID)
 # Opcional:
-#   ROBLOX_VERSION_TYPE "Published" (por defecto, lo ven los jugadores) o "Saved" (solo guarda)
+#   ROBLOX_VERSION_TYPE "Saved" (por defecto: solo guarda una versión) o "Published" (la ven los jugadores)
 #
 # Uso: scripts/publish.sh [archivo.rbxlx]
 set -euo pipefail
@@ -16,7 +16,7 @@ set -euo pipefail
 : "${ROBLOX_PLACE_ID:?Falta la variable ROBLOX_PLACE_ID}"
 
 FILE="${1:-ShooterRob.rbxlx}"
-VERSION_TYPE="${ROBLOX_VERSION_TYPE:-Published}"
+VERSION_TYPE="${ROBLOX_VERSION_TYPE:-Saved}"
 
 if [[ ! -f "$FILE" ]]; then
 	echo "No existe $FILE. Genéralo con: rojo build -o $FILE" >&2

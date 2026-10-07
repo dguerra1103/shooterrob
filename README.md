@@ -201,30 +201,35 @@ Si falta algo, ese modo se salta automáticamente.
 3. En **Game Settings → Security**, activa **Enable Studio Access to API Services** (para que se guarde el progreso).
 4. Mientras lo pruebas, deja la experiencia en **Private**. En el Creator Hub puedes invitar a amigos para probar con más gente.
 
-### 2. Publicación automática (cada cambio sube solo)
+### 2. Publicación desde GitHub (manual y con confirmación)
 
-El workflow `.github/workflows/publish.yml` construye el juego con Rojo y lo publica en cada push. Para activarlo:
+El workflow `.github/workflows/publish.yml` **construye y valida el juego en cada push, pero no publica**.
+Publicar es siempre una acción manual, para que ningún cambio suba por accidente a lo que juegan los
+jugadores ni a otra experiencia (por ejemplo, Streamer Tycoon). Para configurarlo una vez:
 
-1. En [create.roblox.com](https://create.roblox.com/dashboard/creations), abre tu experiencia y copia:
+1. En [create.roblox.com](https://create.roblox.com/dashboard/creations), abre **la experiencia de ShooterRob** y copia:
    - el **Universe ID**: en la URL o en *⋯ → Copy Universe ID*.
    - el **Place ID**: en *Places → ⋯ → Copy Place ID*.
 2. En [Credenciales → API Keys](https://create.roblox.com/dashboard/credentials), crea una clave:
-   - Añade la API **universe-places**, elige tu experiencia y marca **write**.
+   - Añade la API **universe-places**, elige **solo** la experiencia de ShooterRob y marca **write**.
    - En *Accepted IP Addresses* pon `0.0.0.0/0`, porque GitHub cambia de IP.
 3. En GitHub, abre el repositorio y ve a **Settings → Secrets and variables → Actions**:
    - Pestaña **Secrets**: crea `ROBLOX_API_KEY` con la clave.
    - Pestaña **Variables**: crea `ROBLOX_UNIVERSE_ID` y `ROBLOX_PLACE_ID`.
 
-A partir de ahí, cada cambio que se suba aparece en Roblox en un par de minutos. En la pestaña **Actions** de GitHub ves si se publicó bien.
+Para publicar: **Actions → Publicar en Roblox → Run workflow**, escribe el **Place ID** de ShooterRob
+(tiene que coincidir con `ROBLOX_PLACE_ID`, si no, no se publica) y elige **Saved** (solo guarda una
+versión, no la ven los jugadores) o **Published** (la ven los jugadores).
 
-También puedes publicar a mano desde tu ordenador:
+También puedes publicar a mano desde tu ordenador (por defecto solo guarda, `Saved`):
 
 ```bash
 rojo build -o ShooterRob.rbxlx
 ROBLOX_API_KEY=... ROBLOX_UNIVERSE_ID=... ROBLOX_PLACE_ID=... scripts/publish.sh
+# para que lo vean los jugadores: ROBLOX_VERSION_TYPE=Published
 ```
 
-> ⚠️ Cada publicación sustituye lo que haya en Roblox. Si cambias cosas a mano en Studio (por ejemplo el mapa), cópialas también al código, o se perderán en la siguiente publicación automática.
+> ⚠️ Cada publicación sustituye lo que haya en Roblox. Si cambias cosas a mano en Studio (por ejemplo el mapa), cópialas también al código, o se perderán en la siguiente publicación.
 
 ## Monetización (Robux)
 

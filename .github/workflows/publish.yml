@@ -1,21 +1,61 @@
-# Construye el juego con Rojo y lo publica en Roblox en cada push.
-# Configúralo una vez en GitHub > Settings > Secrets and variables > Actions:
+# Construye y valida el juego en cada push. NO publica en los push.
+#
+# Publicar es solo MANUAL: GitHub > Actions > "Publicar en Roblox" > Run workflow, escribiendo el
+# Place ID de destino para confirmar (tiene que coincidir con la variable ROBLOX_PLACE_ID). Así un push
+# a cualquier rama (también las de trabajo, claude/**) nunca sustituye por accidente lo que juegan los
+# jugadores ni puede caer en otra experiencia (p. ej. Streamer Tycoon).
+#
+# Configuración (GitHub > Settings > Secrets and variables > Actions):
 #   Secret:    ROBLOX_API_KEY
-#   Variables: ROBLOX_UNIVERSE_ID, ROBLOX_PLACE_ID
-# Mientras no esté configurado, el workflow solo construye y comprueba que todo compila.
+#   Variables: ROBLOX_UNIVERSE_ID, ROBLOX_PLACE_ID   (los de ShooterRob; compruébalos antes de publicar)
 name: Publicar en Roblox
 
 on:
   push:
     branches: [main, "claude/**"]
   workflow_dispatch:
+    inputs:
+      confirmar_place_id:
+        description: "Escribe el Place ID de destino para confirmar (debe ser el de ShooterRob = ROBLOX_PLACE_ID)"
+        required: true
+        type: string
+      tipo:
+        description: "Saved = solo guardar una versión (no la ven los jugadores). Published = publicar a los jugadores."
+        required: true
+        default: Saved
+        type: choice
+        options: [Saved, Published]
 
 concurrency:
   group: publish-roblox
   cancel-in-progress: false
 
 jobs:
-  publish:
+  # En cada push: solo construir y guardar el archivo (nunca publica)
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rojo
+        run: |
+          curl -sSL -o rojo.zip https://github.com/rojo-rbx/rojo/releases/download/v7.4.4/rojo-7.4.4-linux-x86_64.zip
+          unzip -o -q rojo.zip -d "$HOME/bin"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Construir el juego
+        run: rojo build -o ShooterRob.rbxlx
+
+      - name: Guardar el archivo del juego
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShooterRob
+          path: ShooterRob.rbxlx
+
+  # Solo a mano (Run workflow), con el Place ID escrito para confirmar
+  publicar:
+    if: github.event_name == 'workflow_dispatch'
+    needs: validar
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,15 +74,15 @@ jobs:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           ROBLOX_UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
           ROBLOX_PLACE_ID: ${{ vars.ROBLOX_PLACE_ID }}
+          ROBLOX_VERSION_TYPE: ${{ inputs.tipo }}
+          CONFIRMAR: ${{ inputs.confirmar_place_id }}
         run: |
           if [ -z "$ROBLOX_API_KEY" ] || [ -z "$ROBLOX_UNIVERSE_ID" ] || [ -z "$ROBLOX_PLACE_ID" ]; then
-            echo "::warning::Publicación no configurada: añade ROBLOX_API_KEY (secret) y ROBLOX_UNIVERSE_ID / ROBLOX_PLACE_ID (variables)."
-            exit 0
+            echo "::error::Publicación no configurada: faltan ROBLOX_API_KEY (secret) o ROBLOX_UNIVERSE_ID / ROBLOX_PLACE_ID (variables)."
+            exit 1
+          fi
+          if [ "$CONFIRMAR" != "$ROBLOX_PLACE_ID" ]; then
+            echo "::error::El Place ID escrito ($CONFIRMAR) no coincide con ROBLOX_PLACE_ID. No se publica nada."
+            exit 1
           fi
           scripts/publish.sh ShooterRob.rbxlx
-
-      - name: Guardar el archivo del juego
-        uses: actions/upload-artifact@v4
-        with:
-          name: ShooterRob
-          path: ShooterRob.rbxlx
