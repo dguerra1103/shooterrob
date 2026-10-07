@@ -102,7 +102,7 @@ end
 function Matchmaking.Build(flowController, root)
 	flow = flowController
 	screen = C.new("Frame", { Name = "Matchmaking", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false, Parent = root })
-	panel = C.panel({ Name = "Search", Anchor = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.42, 0), Size = UDim2.fromOffset(560, 230), Clip = true, Parent = screen }, { Alpha = 0.08, StrokeColor = Colors.Yellow, StrokeAlpha = 0.55 })
+	panel = C.panel({ Name = "Search", Anchor = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.42, -8), Size = UDim2.fromOffset(560, 230), Clip = true, Parent = screen }, { Alpha = 0.08, StrokeColor = Colors.Yellow, StrokeAlpha = 0.55 })
 	scanBar = C.new("Frame", { Name = "Scan", BackgroundColor3 = Colors.Yellow, BackgroundTransparency = 0.75, BorderSizePixel = 0, Size = UDim2.new(0, 3, 1, 0), Parent = panel })
 	for i = 1, 5 do
 		-- Líneas de fondo del escáner (rejilla tenue)
@@ -117,7 +117,7 @@ function Matchmaking.Build(flowController, root)
 	pingLabel = C.text({ Text = "", Role = "Number", TextSize = 16, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 160), Size = UDim2.fromOffset(160, 24), Parent = panel })
 	-- Votación del mapa de la siguiente partida
 	-- (título y tarjetas en un contenedor: la lista solo ordena las tarjetas)
-	votesRow = C.new("Frame", { Name = "Votes", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.42, 108), Size = UDim2.fromOffset(780, 140), Parent = screen })
+	votesRow = C.new("Frame", { Name = "Votes", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.42, 112), Size = UDim2.fromOffset(780, 140), Parent = screen })
 	C.text({ Name = "VotesTitle", Text = "ELIGE EL MAPA DE LA SIGUIENTE PARTIDA", Role = "Title", TextSize = 16, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Center, Anchor = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(600, 20), Parent = votesRow })
 	local cardsRow = C.new("Frame", { Name = "Cards", BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 104), Parent = votesRow }, {
 		C.list(10, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center),
@@ -148,8 +148,10 @@ end
 -- Teléfono (pantalla baja): panel más arriba para que quepan los votos y CANCELAR debajo
 local function applyLayout()
 	local phone = C.Breakpoint() == "PHONE"
-	panel.Position = UDim2.new(0.5, 0, phone and 0.28 or 0.42, 0)
-	votesRow.Position = UDim2.new(0.5, 0, phone and 0.28 or 0.42, phone and 120 or 108)
+	-- (el panel mide 230: acaba en su centro + 115. En escritorio, el título de la votación pisaba el
+	-- borde amarillo; ahora queda 5 por debajo en los dos tamaños)
+	panel.Position = UDim2.new(0.5, 0, phone and 0.28 or 0.42, phone and 0 or -8)
+	votesRow.Position = UDim2.new(0.5, 0, phone and 0.28 or 0.42, phone and 120 or 112)
 	cancelButton.Size = UDim2.fromOffset(220, phone and 44 or 52)
 	cancelButton.Position = UDim2.new(0.5, 0, 1, phone and -16 or -24)
 end

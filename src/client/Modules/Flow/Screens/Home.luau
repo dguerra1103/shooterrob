@@ -232,11 +232,13 @@ end
 local function missionRow(parent, order)
 	local row = C.new("Frame", { Name = "Mission", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 44), LayoutOrder = order, Parent = parent })
 	C.new("Frame", { Name = "Mark", BackgroundColor3 = Colors.Yellow, BorderSizePixel = 0, Size = UDim2.new(0, 3, 1, -6), Position = UDim2.fromOffset(0, 3), Parent = row })
-	local text = C.text({ Name = "MissionText", Text = "", Role = "BodyBold", TextSize = 14, Size = UDim2.new(1, -120, 0, 20), Position = UDim2.fromOffset(10, 2), Parent = row })
-	local count = C.text({ Name = "Count", Text = "", Role = "Number", TextSize = 15, AlignX = Enum.TextXAlignment.Right, Size = UDim2.fromOffset(50, 20), Position = UDim2.new(1, -112, 0, 2), Parent = row })
+	-- (el contador va en la línea de la barra: el título usa todo el ancho hasta el premio y, si aun así
+	-- no cabe, se reduce un poco antes de cortarse; en el teléfono se cortaba a media palabra)
+	local text = C.text({ Name = "MissionText", Text = "", Role = "BodyBold", TextSize = 14, Scaled = true, MinTextSize = 11, Size = UDim2.new(1, -72, 0, 20), Position = UDim2.fromOffset(10, 2), Parent = row })
+	local count = C.text({ Name = "Count", Text = "", Role = "Number", TextSize = 13, AlignX = Enum.TextXAlignment.Right, Size = UDim2.fromOffset(44, 16), Position = UDim2.new(1, -116, 0, 24), Parent = row })
 	local reward = C.new("Frame", { Name = "Reward", BackgroundColor3 = Colors.Yellow, BorderSizePixel = 0, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Size = UDim2.fromOffset(56, 26), Parent = row }, { C.corner(3) })
 	local rewardText = C.text({ Text = "", Role = "Number", TextSize = 14, Color = Color3.fromRGB(16, 14, 8), AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = reward })
-	local bar = C.progress({ Size = UDim2.new(1, -74, 0, 5), Position = UDim2.fromOffset(10, 30), Parent = row })
+	local bar = C.progress({ Size = UDim2.new(1, -130, 0, 5), Position = UDim2.fromOffset(10, 30), Parent = row })
 	return function(challenge)
 		row.Visible = challenge ~= nil
 		if not challenge then

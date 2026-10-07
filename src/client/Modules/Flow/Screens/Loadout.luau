@@ -72,9 +72,13 @@ local function render()
 		card.Name.Text = tostring(class.Name or ("CLASE " .. i))
 		card.Primary.Text = def and (C.upper(def.DisplayName) .. (locked and ("  🔒 NV " .. tostring(def.UnlockLevel)) or "")) or ""
 		local secondary = Weapons.Get(class.Secondary)
-		card.Secondary.Text = "Secundaria: " .. (secondary and secondary.DisplayName or "—")
 		local perk = perkInfo(class.Perk)
-		card.Extras.Text = "💣 Granada  ·  " .. tostring(perk.Icon) .. " " .. tostring(perk.Name)
+		-- (en el teléfono, textos cortos: la tarjeta mide ~150 de ancho y el texto largo se montaba
+		-- sobre la línea de abajo; la granada la llevan todas las clases)
+		local phone = C.Breakpoint() == "PHONE"
+		local secondaryName = secondary and secondary.DisplayName or "—"
+		card.Secondary.Text = phone and ("+ " .. secondaryName) or ("Secundaria: " .. secondaryName)
+		card.Extras.Text = phone and (tostring(perk.Icon) .. " " .. tostring(perk.Name)) or ("💣 Granada  ·  " .. tostring(perk.Icon) .. " " .. tostring(perk.Name))
 		local key = tostring(class.Primary) .. "/" .. tostring(Menu.SkinFor and Menu.SkinFor(data, class.Primary))
 		if shownKeys[i] ~= key then
 			shownKeys[i] = key

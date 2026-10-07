@@ -594,6 +594,13 @@ function C.playerCard(props, info)
 			cardGradient.Color = ColorSequence.new(def.Top, def.Bottom)
 		end
 		name.Text = upper(newInfo.Name or "")
+		-- (quién eres tú también se actualiza: la tarjeta puede crearse vacía y llenarse después)
+		name.TextColor3 = newInfo.Me and Colors.YellowText or Colors.White
+		local stroke = card:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = newInfo.Me and Colors.Yellow or Colors.Line
+			stroke.Transparency = newInfo.Me and 0.3 or Theme.LineAlpha
+		end
 		level.Text = newInfo.Level and ("NV. " .. tostring(newInfo.Level)) or ""
 		local st = C.Status[newInfo.Status or "NotReady"] or C.Status.NotReady
 		status.Text = st.Icon .. " " .. st.Text

@@ -161,6 +161,18 @@ check(Flow.State == "Matchmaking", "JUGAR → buscando partida")
 check(sent("SetReady", true), "avisa al servidor de que está listo")
 t = texts()
 check(t["BUSCANDO PARTIDA"] and visible(t["BUSCANDO PARTIDA"]), "texto BUSCANDO PARTIDA")
+-- (Fase 4) El título de la votación no pisa el borde del panel de búsqueda
+do
+	task.wait(0.6) -- (después de la animación de entrada)
+	local searchPanel, votes
+	for _, d in pg:GetDescendants() do
+		if d.Name == "Search" and d.__className == "Frame" then searchPanel = d end
+		if d.Name == "Votes" and d.__className == "Frame" then votes = d end
+	end
+	local panelBottom = searchPanel.Position.Y.Offset + searchPanel.Size.Y.Offset / 2
+	check(searchPanel.Position.Y.Scale == votes.Position.Y.Scale and votes.Position.Y.Offset >= panelBottom + 4,
+		string.format("votación debajo del panel (%d ≥ %d + 4)", votes.Position.Y.Offset, panelBottom))
+end
 task.wait(1.2)
 check(Flow.State == "Matchmaking", "sigue buscando mientras dura el descanso")
 -- Cancelar y volver a buscar
@@ -198,6 +210,14 @@ t = texts()
 check(t["TU EQUIPO"] and t["RIVALES"] and t["VS"], "TU EQUIPO · VS · RIVALES")
 check(t["EQUIPO AZUL"] and t["EQUIPO ROJO"], "nombres de los equipos")
 check(t["BOT ROJO 1"] ~= nil and t["YO"] ~= nil, "tarjetas con jugadores y bots")
+-- (Fase 4) Las tarjetas no se recrean cada vez que se refrescan (antes: diez tarjetas nuevas cada
+-- 0,6 s) y la tuya sigue resaltada
+local myCard = t["YO"]
+task.wait(0.8)
+local t2 = texts()
+check(t2["YO"] == myCard, "las tarjetas se actualizan sin volver a crearse")
+local Theme = req(game.StarterPlayer.Client.Modules.Flow.Theme)
+check(myCard.TextColor3 == Theme.Colors.YellowText, "tu tarjeta, con el nombre en amarillo")
 okState = waitState(Flow, "Loadout", 4)
 check(okState, "elección de clase")
 t = texts()

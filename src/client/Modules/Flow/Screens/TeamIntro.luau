@@ -63,7 +63,7 @@ local function buildSide(parent, anchorX, posX)
 	local cards = C.new("Frame", { Name = "Cards", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -24), Size = UDim2.new(1, -20, 0, 58), Parent = side }, {
 		C.list(6, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Center),
 	})
-	return { Frame = side, Tag = tag, Name = name, Bar = bar, Preview = preview, Cards = cards, Shown = {} }
+	return { Frame = side, Tag = tag, Name = name, Bar = bar, Preview = preview, Cards = cards, Shown = {}, CardApis = {}, CardColor = nil }
 end
 
 local function fill(side, team, isMine, my)
@@ -72,20 +72,32 @@ local function fill(side, team, isMine, my)
 	side.Name.Text = team and ("EQUIPO " .. C.upper(team.Name)) or ""
 	side.Bar.BackgroundColor3 = color
 	local list = team and roster(team.Name) or {}
-	-- Tarjetas (siempre 5: los huecos que faltan quedan "esperando")
-	for _, child in side.Cards:GetChildren() do
-		if child:IsA("GuiObject") then
-			child:Destroy()
+	-- Tarjetas (siempre 5: los huecos que faltan quedan "esperando"). Se crean una vez por
+	-- presentación y después solo se actualizan: antes se destruían y se volvían a crear las diez cada
+	-- 0,6 s (parpadeo y objetos nuevos sin necesidad)
+	if side.CardColor ~= color or #side.CardApis == 0 then
+		for _, child in side.Cards:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		table.clear(side.CardApis)
+		side.CardColor = color
+		for i = 1, 5 do
+			side.CardApis[i] = C.playerCard({ Size = UDim2.new(0.2, -6, 1, 0), Order = i, Parent = side.Cards }, {
+				Name = "…",
+				Status = "Loading",
+				TeamColor = color,
+			})
 		end
 	end
 	for i = 1, 5 do
 		local entry = list[i]
-		C.playerCard({ Size = UDim2.new(0.2, -6, 1, 0), Order = i, Parent = side.Cards }, {
+		side.CardApis[i]:Update({
 			Name = entry and entry.Name or "…",
 			Level = entry and entry.Level or nil,
 			Status = entry and (entry.Bot and "Bot" or "Ready") or "Loading",
 			Me = entry and entry.Me,
-			TeamColor = color,
 			Card = entry and entry.Card,
 		})
 	end
@@ -133,6 +145,7 @@ function TeamIntro.Show(ctx)
 		side.Preview:Clear()
 		table.clear(side.Shown)
 		side.Preview:SetActive(teamMode)
+		side.CardColor = nil -- (tarjetas nuevas en cada presentación: el equipo puede ser otro)
 	end
 	vs.Visible = teamMode
 	ffaList.Visible = not teamMode

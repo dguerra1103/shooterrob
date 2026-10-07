@@ -35,6 +35,30 @@ local DEFS = {
 }
 UISound.Defs = DEFS
 
+-- Audio propio de la interfaz (Fase 4). TODO: AÑADIR AUDIO PROPIO (grabado o con licencia; nunca
+-- sacado de otros juegos). Pon aquí "rbxassetid://<id>" para sustituir el sonido genérico de ese
+-- nombre; vacío = el de arriba. Con sonido propio no se cambia el tono (se grabó así).
+UISound.Custom = {
+	Hover = "",
+	Click = "",
+	Back = "",
+	Play = "",
+	MatchFound = "",
+	Countdown = "",
+	Go = "",
+	Reward = "",
+	Equip = "",
+	Purchase = "",
+	Error = "",
+	Victory = "",
+	Defeat = "",
+	LevelUp = "",
+}
+local function customId(name)
+	local id = UISound.Custom[name]
+	return type(id) == "string" and id ~= "" and id or nil
+end
+
 local sounds = {}
 local lastPlayed = {}
 local MIN_GAP = { Hover = 0.06, Tick = 0.04 }
@@ -50,7 +74,7 @@ local function get(name)
 	end
 	sound = Instance.new("Sound")
 	sound.Name = "UI_" .. name
-	sound.SoundId = def.Id
+	sound.SoundId = customId(name) or def.Id
 	sound.Volume = def.Volume
 	sound.PlaybackSpeed = def.Pitch
 	sound.Parent = SoundService
@@ -74,7 +98,7 @@ function UISound.Play(name, pitch, volume)
 	if not sound then
 		return
 	end
-	sound.PlaybackSpeed = def.Pitch * (pitch or 1)
+	sound.PlaybackSpeed = customId(name) and (pitch or 1) or def.Pitch * (pitch or 1)
 	sound.Volume = def.Volume * (volume or 1)
 	sound.TimePosition = 0
 	sound:Play()
