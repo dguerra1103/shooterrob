@@ -323,13 +323,18 @@ function Event.Init()
 			task.wait(CONFIG.SpawnEvery or 12)
 			-- Llega o se acaba la fecha del evento con el servidor encendido (y si se acabó, se pasa al
 			-- siguiente que toque: Halloween → Navidad)
-			if not active then
-				local upcoming = GameConfig.PickEvent()
-				if upcoming ~= CONFIG then
-					useEvent(upcoming)
+			local okEvent, errEvent = pcall(function()
+				if not active then
+					local upcoming = GameConfig.PickEvent()
+					if upcoming ~= CONFIG then
+						useEvent(upcoming)
+					end
 				end
+				setActive(enabled())
+			end)
+			if not okEvent then
+				warn("[Event] cambio de evento:", errEvent)
 			end
-			setActive(enabled())
 			local playing = ReplicatedStorage:GetAttribute("State") == "Playing" and not ReplicatedStorage:GetAttribute("Frozen")
 			if active and playing and #candies < CONFIG.MaxCandies then
 				local ok, err = pcall(spawnCandy)

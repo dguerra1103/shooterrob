@@ -175,7 +175,10 @@ function Pumpkins.Start()
 	folder.Parent = workspace
 	task.spawn(function()
 		while running and generation == mine do
-			step()
+			local ok, err = pcall(step)
+			if not ok then
+				warn("[Pumpkins] Error en el bucle:", err)
+			end
 			task.wait(0.1)
 		end
 	end)

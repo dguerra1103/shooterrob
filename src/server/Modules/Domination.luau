@@ -293,16 +293,21 @@ function Domination.Start()
 		while active do
 			task.wait(STEP)
 			scoreClock += STEP
-			for _, point in points do
-				update(point, STEP)
-			end
-			if scoreClock >= SCORE_EVERY then
-				scoreClock = 0
+			local ok, err = pcall(function()
 				for _, point in points do
-					if point.Owner and Domination.OnScore then
-						Domination.OnScore(point.Owner, 1)
+					update(point, STEP)
+				end
+				if scoreClock >= SCORE_EVERY then
+					scoreClock = 0
+					for _, point in points do
+						if point.Owner and Domination.OnScore then
+							Domination.OnScore(point.Owner, 1)
+						end
 					end
 				end
+			end)
+			if not ok then
+				warn("[Domination] Error en el bucle de puntos:", err)
 			end
 		end
 	end)

@@ -43,31 +43,36 @@ function Hazards.Init()
 	task.spawn(function()
 		while true do
 			task.wait(0.25)
-			refreshLava()
-			-- Jugadores y bots
-			local characters = {}
-			for _, player in Players:GetPlayers() do
-				if player.Character then
-					table.insert(characters, player.Character)
+			local ok, err = pcall(function()
+				refreshLava()
+				-- Jugadores y bots
+				local characters = {}
+				for _, player in Players:GetPlayers() do
+					if player.Character then
+						table.insert(characters, player.Character)
+					end
 				end
-			end
-			local bots = workspace:FindFirstChild("Bots")
-			if bots then
-				for _, model in bots:GetChildren() do
-					table.insert(characters, model)
+				local bots = workspace:FindFirstChild("Bots")
+				if bots then
+					for _, model in bots:GetChildren() do
+						table.insert(characters, model)
+					end
 				end
-			end
-			for _, character in characters do
-				local humanoid = character:FindFirstChildOfClass("Humanoid")
-				local root = character:FindFirstChild("HumanoidRootPart")
-				if humanoid and root and humanoid.Health > 0 and onLava(humanoid, root) then
-					-- La lava no es una baja de nadie
-					humanoid:SetAttribute("LastAttacker", nil)
-					humanoid:SetAttribute("LastBot", nil)
-					humanoid:SetAttribute("LastWeapon", nil)
-					humanoid:SetAttribute("LastHitTime", os.clock()) -- (la vida no se recupera dentro)
-					humanoid:TakeDamage(LAVA_DAMAGE)
+				for _, character in characters do
+					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					local root = character:FindFirstChild("HumanoidRootPart")
+					if humanoid and root and humanoid.Health > 0 and onLava(humanoid, root) then
+						-- La lava no es una baja de nadie
+						humanoid:SetAttribute("LastAttacker", nil)
+						humanoid:SetAttribute("LastBot", nil)
+						humanoid:SetAttribute("LastWeapon", nil)
+						humanoid:SetAttribute("LastHitTime", os.clock()) -- (la vida no se recupera dentro)
+						humanoid:TakeDamage(LAVA_DAMAGE)
+					end
 				end
+			end)
+			if not ok then
+				warn("[Hazards] Error en el bucle:", err)
 			end
 		end
 	end)

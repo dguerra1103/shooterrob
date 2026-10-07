@@ -1797,8 +1797,8 @@ local function gameLoop()
 			pcall(Domination.Stop)
 			pcall(Pumpkins.Stop)
 			pcall(Loot.Clear)
-			clearElimination()
-			clearInfection()
+			pcall(clearElimination)
+			pcall(clearInfection)
 			-- (primero las armas normales: si no, tras un fallo en Escalada se quedarían las de esa ronda)
 			Loadout.Override = nil
 			for _, player in Players:GetPlayers() do
@@ -1892,6 +1892,9 @@ function Round.Init()
 		if type(index) ~= "number" or not voteOptions[index] then
 			return
 		end
+		if votes[player] == index then
+			return -- (repetir el mismo voto no cambia nada: no se vuelve a publicar)
+		end
 		votes[player] = index
 		publishVotes()
 	end)
@@ -1914,6 +1917,7 @@ function Round.Init()
 	Players.PlayerRemoving:Connect(function(player)
 		votes[player] = nil
 		streakVictims[player] = nil
+		spawnedThisRound[player] = nil
 		updateLeader(player)
 	end)
 	for _, player in Players:GetPlayers() do

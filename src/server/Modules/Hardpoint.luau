@@ -175,38 +175,43 @@ function Hardpoint.Start()
 		while active do
 			task.wait(1)
 			tick += 1
-			local remaining = math.max(0, math.ceil(moveAt - os.clock()))
-			ReplicatedStorage:SetAttribute("ZoneMoveIn", remaining)
-			if remaining <= 0 then
-				moveAt = os.clock() + ROTATE_TIME
-				moveTo(index % #zones + 1)
-			end
-			local byTeam = playersInZone(zones[index])
-			local owner, count = nil, 0
-			for team in byTeam do
-				count += 1
-				owner = team
-			end
-			if count == 0 then
-				ReplicatedStorage:SetAttribute("ZoneOwner", "")
-				paint(Color3.new(1, 1, 1))
-			elseif count > 1 then
-				ReplicatedStorage:SetAttribute("ZoneOwner", "Contested")
-				paint(Color3.fromRGB(255, 200, 40))
-			else
-				ReplicatedStorage:SetAttribute("ZoneOwner", owner.Name)
-				paint(owner.TeamColor.Color)
-				if Hardpoint.OnScore then
-					Hardpoint.OnScore(owner, 1)
+			local ok, err = pcall(function()
+				local remaining = math.max(0, math.ceil(moveAt - os.clock()))
+				ReplicatedStorage:SetAttribute("ZoneMoveIn", remaining)
+				if remaining <= 0 then
+					moveAt = os.clock() + ROTATE_TIME
+					moveTo(index % #zones + 1)
 				end
-				for _, player in byTeam[owner] do
-					PlayerData.Track(player, "ZoneTime", 1)
+				local byTeam = playersInZone(zones[index])
+				local owner, count = nil, 0
+				for team in byTeam do
+					count += 1
+					owner = team
 				end
-				if tick % XP_INTERVAL == 0 then
+				if count == 0 then
+					ReplicatedStorage:SetAttribute("ZoneOwner", "")
+					paint(Color3.new(1, 1, 1))
+				elseif count > 1 then
+					ReplicatedStorage:SetAttribute("ZoneOwner", "Contested")
+					paint(Color3.fromRGB(255, 200, 40))
+				else
+					ReplicatedStorage:SetAttribute("ZoneOwner", owner.Name)
+					paint(owner.TeamColor.Color)
+					if Hardpoint.OnScore then
+						Hardpoint.OnScore(owner, 1)
+					end
 					for _, player in byTeam[owner] do
-						PlayerData.AddXP(player, 20, "Zona")
+						PlayerData.Track(player, "ZoneTime", 1)
+					end
+					if tick % XP_INTERVAL == 0 then
+						for _, player in byTeam[owner] do
+							PlayerData.AddXP(player, 20, "Zona")
+						end
 					end
 				end
+			end)
+			if not ok then
+				warn("[Hardpoint] Error en el bucle de la zona:", err)
 			end
 		end
 	end)

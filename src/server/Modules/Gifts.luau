@@ -141,7 +141,10 @@ function Gifts.Init()
 			task.wait(30)
 			for player in started do
 				if player.Parent then
-					persist(player)
+					local ok, err = pcall(persist, player)
+					if not ok then
+						warn("[Gifts] No se pudo guardar el tiempo jugado de", player.Name, err)
+					end
 				end
 			end
 		end

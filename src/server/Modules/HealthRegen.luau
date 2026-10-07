@@ -39,21 +39,26 @@ function HealthRegen.Init()
 	task.spawn(function()
 		while true do
 			task.wait(STEP)
-			local now = os.clock()
-			for _, player in Players:GetPlayers() do
-				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-				if humanoid then
-					regen(humanoid, now, config, perkOf(player))
-				end
-			end
-			local bots = workspace:FindFirstChild("Bots")
-			if bots then
-				for _, model in bots:GetChildren() do
-					local humanoid = model:FindFirstChildOfClass("Humanoid")
+			local ok, err = pcall(function()
+				local now = os.clock()
+				for _, player in Players:GetPlayers() do
+					local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 					if humanoid then
-						regen(humanoid, now, config)
+						regen(humanoid, now, config, perkOf(player))
 					end
 				end
+				local bots = workspace:FindFirstChild("Bots")
+				if bots then
+					for _, model in bots:GetChildren() do
+						local humanoid = model:FindFirstChildOfClass("Humanoid")
+						if humanoid then
+							regen(humanoid, now, config)
+						end
+					end
+				end
+			end)
+			if not ok then
+				warn("[HealthRegen] Error en el bucle:", err)
 			end
 		end
 	end)

@@ -47,7 +47,7 @@ local function openStores()
 		end
 	end
 end
-local pushed = {} -- [userId .. board] = último valor enviado
+local pushed = {} -- [userId .. ":" .. tabla] = último valor enviado
 local names = {} -- caché de nombres por UserId
 
 local function nameOf(userId)
@@ -82,16 +82,18 @@ local function push(player)
 		if board.Seasonal and (data.RankSeason ~= Ranks.CurrentSeason().Id or (tonumber(data.SeasonBest) or 0) <= 0 or storeNames[board.Id] ~= storeName(board)) then
 			value = 0 -- (RP de la temporada anterior, o aún no ha jugado de rango en esta: no sale en el top)
 		end
-		local k = player.UserId .. (storeNames[board.Id] or board.Id)
+		local k = player.UserId .. ":" .. (storeNames[board.Id] or board.Id)
 		if store and value > 0 and pushed[k] ~= value then
 			-- Nunca baja un récord (por ejemplo si sus datos no cargaron y empieza de 0)
-			local ok = pcall(function()
+			local ok, err = pcall(function()
 				store:UpdateAsync(tostring(player.UserId), function(old)
 					return math.max(tonumber(old) or 0, value)
 				end)
 			end)
 			if ok then
 				pushed[k] = value
+			else
+				warn("[Leaderboard] No se pudo subir", board.Id, "de", player.Name, err)
 			end
 		end
 	end
@@ -124,15 +126,33 @@ function Leaderboard.Init()
 		warn("[Leaderboard] Sin acceso a DataStores: no hay clasificación global")
 		return
 	end
-	Players.PlayerRemoving:Connect(push)
+	Players.PlayerRemoving:Connect(function(player)
+		local ok, err = pcall(push, player)
+		if not ok then
+			warn("[Leaderboard] Error al salir", player.Name, err)
+		end
+		-- (lo ya subido de quien se fue no hace falta recordarlo: la tabla no crece toda la sesión)
+		local prefix = player.UserId .. ":"
+		for k in pushed do
+			if string.sub(k, 1, #prefix) == prefix then
+				pushed[k] = nil
+			end
+		end
+	end)
 	task.spawn(function()
 		task.wait(10)
 		while true do
-			openStores() -- (si ha empezado otra temporada, la tabla de rango es otra)
-			for _, player in Players:GetPlayers() do
-				push(player)
+			-- (un fallo en una pasada no para la clasificación para siempre)
+			local ok, err = pcall(function()
+				openStores() -- (si ha empezado otra temporada, la tabla de rango es otra)
+				for _, player in Players:GetPlayers() do
+					push(player)
+				end
+				fetch()
+			end)
+			if not ok then
+				warn("[Leaderboard] Error al actualizar:", err)
 			end
-			fetch()
 			task.wait(REFRESH)
 		end
 	end)
