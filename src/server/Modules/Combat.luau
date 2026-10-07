@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Weapons = require(Shared.Weapons)
 local Remotes = require(Shared.Remotes)
+local GameConfig = require(Shared.GameConfig)
 
 local Ragdoll = require(script.Parent.Ragdoll)
 
@@ -82,6 +83,57 @@ end
 -- Vector3 válido: sin NaN ni infinitos (un NaN pasa por las comparaciones de distancia sin fallar)
 local function finiteVector(v)
 	return typeof(v) == "Vector3" and v.Magnitude == v.Magnitude and v.Magnitude < 1e6
+end
+
+-- Instrumentación de impactos (GameConfig.HitTelemetry): solo mide, no cambia ninguna decisión.
+-- Holgura = distancia del punto de impacto del cliente a la superficie de la pieza (aprox.: al centro
+-- menos media diagonal). Hoy se aceptan hasta 8 studs de holgura por la latencia.
+local TELEMETRY_BUCKETS = { 0.5, 1, 2, 4, 6, 8 } -- límites superiores (studs); lo de más es rechazado
+local telemetry = { Samples = 0, Accepted = 0, Rejected = 0, Headshots = 0, MaxSlack = 0, HeadMaxSlack = 0, Buckets = {}, LastReport = "" }
+for i = 1, #TELEMETRY_BUCKETS + 1 do
+	telemetry.Buckets[i] = 0
+end
+Combat.HitTelemetry = telemetry
+
+local function recordHit(part, position, accepted, headshot)
+	local config = GameConfig.HitTelemetry
+	if not config or not config.Enabled then
+		return
+	end
+	local slack = math.max(0, (part.Position - position).Magnitude - part.Size.Magnitude / 2)
+	local bucket = #TELEMETRY_BUCKETS + 1
+	for i, limit in TELEMETRY_BUCKETS do
+		if slack <= limit then
+			bucket = i
+			break
+		end
+	end
+	telemetry.Samples += 1
+	telemetry.Buckets[bucket] += 1
+	telemetry.MaxSlack = math.max(telemetry.MaxSlack, slack)
+	if accepted then
+		telemetry.Accepted += 1
+	else
+		telemetry.Rejected += 1
+	end
+	if headshot then
+		telemetry.Headshots += 1
+		telemetry.HeadMaxSlack = math.max(telemetry.HeadMaxSlack, slack)
+	end
+	if telemetry.Samples % (config.ReportEvery or 200) == 0 then
+		local parts = {}
+		for i, count in telemetry.Buckets do
+			local limit = TELEMETRY_BUCKETS[i]
+			table.insert(parts, (limit and ("≤" .. limit) or (">" .. TELEMETRY_BUCKETS[#TELEMETRY_BUCKETS])) .. ": " .. count)
+		end
+		-- (también queda en Combat.HitTelemetry.LastReport, para leerlo desde la barra de comandos)
+		telemetry.LastReport = string.format(
+			"[Combat] Holgura de impactos (%d): %s · aceptados %d, rechazados %d · máx %.2f · cabeza %d (máx %.2f)",
+			telemetry.Samples, table.concat(parts, ", "), telemetry.Accepted, telemetry.Rejected,
+			telemetry.MaxSlack, telemetry.Headshots, telemetry.HeadMaxSlack
+		)
+		print(telemetry.LastReport)
+	end
 end
 
 local function hasLineOfSight(origin, target, ignore)
@@ -404,11 +456,11 @@ local function onFire(player, tool, origin, rays)
 					if targetChar and targetChar ~= character and targetHum.Health > 0 then
 						local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
 						local closeEnough = (part.Position - position).Magnitude <= part.Size.Magnitude / 2 + 8
-						if
-							isEnemy(player, targetPlayer, targetChar)
+						local valid = isEnemy(player, targetPlayer, targetChar)
 							and closeEnough
 							and hasLineOfSight(origin, position, { character, targetChar })
-						then
+						recordHit(part, position, valid, valid and isHeadshot(part, targetChar, position))
+						if valid then
 							local headshot = isHeadshot(part, targetChar, position)
 							local damage = damageAtDistance(def, distance)
 								* (headshot and def.HeadshotMultiplier or 1)

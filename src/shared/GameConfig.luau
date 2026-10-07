@@ -118,6 +118,11 @@ GameConfig.DefaultClasses = {
 }
 -- Killcam final: si una baja cierra la partida o una ronda de Eliminación / Buscar y destruir, todos ven
 -- su repetición desde los ojos de quien la hizo (con todo congelado este rato). false = sin ella
+-- Instrumentación de impactos (Fase 2, solo diagnóstico; NO cambia qué impactos valen). Con Enabled, el
+-- servidor mide cuánto se separa el punto de impacto que dice el cliente de la pieza que dice haber
+-- tocado y lo resume en la consola cada ReportEvery impactos. Sirve para ajustar la tolerancia
+-- (~8 studs) y la validación del tiro a la cabeza con latencia real en Studio. Apagado en producción.
+GameConfig.HitTelemetry = { Enabled = false, ReportEvery = 200 }
 GameConfig.FinalKillcam = true
 GameConfig.FinalKillcamTime = 3.4
 GameConfig.RespawnTime = 3
