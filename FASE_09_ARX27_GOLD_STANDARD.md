@@ -345,4 +345,28 @@ inventado SoundIds).
 - **Audio: SÍ.**
   - Los 12 huecos del ARX-27 están vacíos y todo suena con los sonidos genéricos de Roblox con capas.
   - Es la mayor diferencia entre «funciona» y «hero weapon».
-  - Lista exacta en `TURNO_NOCTURNO.md` / informe de la fase.
+
+### Lista exacta de assets que faltan
+
+**Imprescindible (audio del ARX-27, 12 sonidos; se pegan en `Sounds.WeaponAudio.ARX27`):**
+
+| Hueco | Sonido que hay que conseguir |
+|---|---|
+| `ShotClose` | Disparo de fusil 5.56 de cerca (cuerpo, seco, sin cola larga) |
+| `ShotMechanical` | Mecanismo del disparo (cerrojo que cicla, metálico y corto) |
+| `ShotTail` | Cola o eco de exterior del disparo (grave, 0,5-1 s) |
+| `Reload` | Recarga completa, opcional (si se usan `MagOut` y `MagIn` puede quedar vacío) |
+| `MagOut` | Sacar el cargador |
+| `MagIn` | Meter el cargador (clic de encaje) |
+| `Bolt` | Palanca de carga: tirar y soltar |
+| `Empty` | Gatillo en vacío (clic seco) |
+| `Equip` | Sacar el arma (roce de tela y metal) |
+| `Unequip` | Guardar el arma |
+| `Inspect` | Manipular el arma al inspeccionar (roces y un clic) |
+| `Melee` | Golpe de culata o «fium» del cuchillo |
+
+**Opcional, después de probar jugando:**
+- audio propio de la interfaz (huecos de `UISound.Custom`, ver `FASE_04_UI_UX.md`);
+- solo si el aspecto de piezas no convence en Studio: un modelo de fusil con mallas, preparado según
+  la sección M;
+- solo junto con ese modelo: brazos riggeados con manos y, entonces sí, sus animaciones.
