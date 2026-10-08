@@ -29,6 +29,8 @@ sin liberar, botones pegados, estados tras reaparecer, ajustes inválidos, arran
 | 6 | La depuración (`MobileHUDDebug`) se dibujaba una vez y no se actualizaba al recolocar | girar / cambiar de resolución en Studio | baja (solo Studio) |
 | 7 | (de la Fase 12, ya arreglado y subido) `ClientState.Settings` nil en el primer fotograma del correr automático | arranque | alta |
 
+| 8 | Prueba `botbrain` **intermitente** (no es del HUD; la escribí en la Fase 11): el bot recibe un arma al azar y, si le tocaba la **escopeta**, a 40 studs casi todos los perdigones fallan y no llegaban 3 aciertos en 10 s; con fusil también fallaba ~1 de 6 veces por la puntería aleatoria en ráfagas. El juego estaba bien (el bot disparaba: cargador 199 → 187) | 1 de cada ~4 ejecuciones | prueba (no juego) |
+
 Comprobado y **sin fallo**: los ajustes guardados no pueden sacar controles de la pantalla (cliente y
 servidor recortan X/Y a 0–1, tamaño a 60–160 %, opacidad a 25–100 %, descartan NaN/∞, controles
 desconocidos y posiciones a medias; además `Resolve` mete el control entero dentro de la zona segura);
@@ -50,6 +52,10 @@ nueva.
 resultados o mueres con él abierto.
 6. Depuración: se redibuja en cada recolocación y enseña más datos (ver sección 5).
 7. **Nombre del arma** (paso 3): ver la sección siguiente.
+
+8. `botbrain`: esa fase de la prueba usa un fusil fijo y espera hasta 25 s (sale en cuanto hay 3
+aciertos). **Lo que comprueba no cambia** (≥ 3 aciertos en la cabeza y 0 en el cuerpo). Verificado:
+con la escopeta forzada falla siempre; con el fusil y 25 s, 8 de 8 ejecuciones bien.
 
 Pruebas nuevas: dedos (segundo dedo, dedo viejo tras un menú), gatillo compartido, nombres cortos /
 `ARX-27` / muy largos, y editor cerrado al volver al lobby.

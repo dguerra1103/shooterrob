@@ -176,6 +176,10 @@ check(shotsDuring == 0, "no dispara mientras recarga")
 -- studs por debajo; un fallo, a 2 studs o más.
 e.ReloadUntil = 0
 e.Mag = 200
+-- (con un fusil: el arma del bot sale al azar y con la escopeta, a 40 studs, casi todos los perdigones
+-- fallan; entonces no llegaban 3 aciertos en 10 s y la prueba fallaba según el arma que tocara)
+local weaponBefore = e.Weapon
+e.Weapon = "ARX27"
 local bodyPos = char.HumanoidRootPart.Position
 local headBefore = pHead.Position
 pHead.Position = bodyPos + Vector3.new(0, 1.5, 0)
@@ -189,7 +193,9 @@ place(e, Vector3.new(0, 3, 0), Vector3.new(0, 3, -40))
 local sentFrom = #mock.broadcast
 local heads, bodies = 0, 0
 local th = os.clock()
-while heads < 3 and os.clock() - th < 10 do
+-- (hasta 25 s: a 40 studs y en ráfagas el bot falla a menudo por su puntería, que es aleatoria; en
+-- 10 s a veces solo llegaban 2 aciertos. Sale en cuanto hay 3)
+while heads < 3 and os.clock() - th < 25 do
 	task.wait(0.1)
 	for i = sentFrom + 1, #mock.broadcast do
 		local sent = mock.broadcast[i]
@@ -202,6 +208,7 @@ while heads < 3 and os.clock() - th < 10 do
 end
 mock.raycastImpl = nil
 pHead.Position = headBefore
+e.Weapon = weaponBefore
 check(heads >= 3 and bodies == 0, string.format("solo la cabeza a la vista: los aciertos van a la cabeza (%d cabeza, %d cuerpo)", heads, bodies))
 e.Mag = 30
 
