@@ -538,8 +538,7 @@ end
 ---------------------------------------------------------------------------
 
 local function insideFire(position: Vector3): string?
-	local size, origin = areaSize()
-	local _ = size
+	local _, origin = areaSize()
 	for _, name in { "Fire" } do
 		local entry = buttons[name]
 		local info = layout[name]
@@ -677,8 +676,12 @@ local function watch()
 	-- Ajustes de controles: disposición, correr solo, disparo izquierdo y disparar arrastrando
 	local _, ClientState = settings()
 	if ClientState then
+		local CONTROL_KEYS = { Controls = true, HudLayout = true, AutoSprint = true, LeftFire = true, FireDrag = true }
 		ClientState.SettingsChanged.Event:Connect(function(key)
-			if key == "FireDrag" and buttons.Fire then
+			if key ~= nil and not CONTROL_KEYS[key] then
+				return
+			end
+			if (key == "FireDrag" or key == "Controls") and buttons.Fire and buttons.Fire.PassThrough ~= ((settings().FireDrag or 1) == 1) then
 				-- (el botón cambia de tipo: con arrastre no se come el toque)
 				local handler = buttons.Fire.Handler
 				buttons.Fire.Button:Destroy()

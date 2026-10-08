@@ -31,6 +31,7 @@ local Effects = require(script.Parent.Effects)
 local Settings = require(script.Parent.Settings)
 local RewardFX = require(script.Parent.RewardFX)
 local TouchLayout = require(script.Parent.TouchLayout)
+local HUDEditor = require(script.Parent.HUDEditor)
 
 local player = Players.LocalPlayer
 
@@ -1597,8 +1598,74 @@ local function buildSettingsPage()
 			refresh()
 		end)
 	end
+	-- Controles táctiles (Fase 12; solo con pantalla táctil): correr, disparo izquierdo, disparar
+	-- arrastrando y el editor de HUD
+	if game:GetService("UserInputService").TouchEnabled then
+		local touch = section(11, "🎮 Controles táctiles", 232)
+		local function row(y, label, key, options, default)
+			UI.label({
+				Position = UDim2.fromOffset(16, y),
+				Size = UDim2.fromOffset(128, 36),
+				Text = label,
+				TextSize = 15,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = touch,
+			})
+			local now = current[key]
+			if now == nil then
+				now = default
+			end
+			for i, info in options do
+				local selected = math.floor(now + 0.5) == info[1]
+				local button = UI.button({
+					Position = UDim2.fromOffset(148 + (i - 1) * 183, y),
+					Size = UDim2.fromOffset(175, 36),
+					Text = (selected and "✔ " or "") .. info[2],
+					TextSize = 15,
+					BackgroundColor3 = selected and Color3.fromRGB(60, 170, 90) or BLUE,
+					Parent = touch,
+				}, { UI.gloss() })
+				button.Activated:Connect(function()
+					Sounds.Play("Click")
+					Settings.Set(key, info[1])
+					refresh()
+				end)
+			end
+		end
+		row(42, "Correr", "AutoSprint", { { 1, "Auto (joystick a fondo)" }, { 0, "Con botón" } }, 1)
+		row(84, "Disparar", "FireDrag", { { 1, "Arrastrar para apuntar" }, { 0, "Solo tocar" } }, 1)
+		row(126, "Disparo izquierdo", "LeftFire", { { 0, "No" }, { 1, "Sí (otro botón)" } }, 0)
+		local customize = UI.button({
+			Position = UDim2.fromOffset(16, 176),
+			Size = UDim2.fromOffset(250, 42),
+			Text = "PERSONALIZAR HUD",
+			TextSize = 18,
+			TextColor3 = Color3.fromRGB(20, 20, 24),
+			BackgroundColor3 = Color3.fromRGB(255, 205, 60),
+			Parent = touch,
+		})
+		customize.Activated:Connect(function()
+			Sounds.Play("Click")
+			Menu.Close()
+			HUDEditor.Open(function()
+				Menu.Open("Ajustes")
+			end)
+		end)
+		UI.label({
+			Position = UDim2.fromOffset(280, 176),
+			Size = UDim2.new(1, -296, 0, 42),
+			Text = "Mueve los botones, cambia su tamaño y su opacidad.",
+			TextSize = 14,
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(190, 195, 220),
+			Font = UI.FontBody,
+			TextStrokeTransparency = 1,
+			Parent = touch,
+		})
+	end
 	UI.label({
-		LayoutOrder = 8,
+		LayoutOrder = 12,
 		Size = UDim2.new(1, -12, 0, 40),
 		Text = "Los ajustes se guardan con tu progreso. La calidad de Roblox (Menú de Roblox → Ajustes → Calidad de gráficos) también influye.",
 		TextSize = 14,

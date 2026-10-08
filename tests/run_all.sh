@@ -112,6 +112,8 @@ TESTS=(
 	daily
 	phonefx
 	touchbtns
+	mobilehud
+	hudeditor
 	aimfx
 	realhits
 	aimassist

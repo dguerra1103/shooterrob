@@ -207,6 +207,24 @@ function Settings.Set(key, value)
 	end
 end
 
+-- Huella de los ajustes de los controles táctiles (para avisar solo si cambian de verdad)
+local function controlsKey(): string
+	local parts = { tostring(current.AutoSprint), tostring(current.LeftFire), tostring(current.FireDrag) }
+	local layout = current.HudLayout
+	if type(layout) == "table" then
+		local ids = {}
+		for id in layout do
+			table.insert(ids, id)
+		end
+		table.sort(ids)
+		for _, id in ids do
+			local item = layout[id]
+			table.insert(parts, string.format("%s:%s:%s:%s:%s", id, tostring(item.X), tostring(item.Y), tostring(item.S), tostring(item.O)))
+		end
+	end
+	return table.concat(parts, "|")
+end
+
 function Settings.Init()
 	-- Ajustes guardados del jugador
 	local function fromData(data)
@@ -215,14 +233,16 @@ function Settings.Init()
 		end
 		local changedQuality = data.Settings.Quality ~= current.Quality
 		local oldEnemyColor = current.EnemyColor
-		local oldLayout = current.HudLayout
+		local oldControls = controlsKey()
 		for key, value in data.Settings do
 			if GameConfig.DefaultSettings[key] ~= nil and type(value) == type(GameConfig.DefaultSettings[key]) then
 				current[key] = key == "HudLayout" and MobileHUD.Validate(value) or value
 			end
 		end
-		-- (controles táctiles: se vuelven a colocar con lo guardado)
-		ClientState.SettingsChanged:Fire(oldLayout ~= current.HudLayout and "HudLayout" or "Controls")
+		-- (controles táctiles: se vuelven a colocar con lo guardado, solo si ha cambiado algo)
+		if controlsKey() ~= oldControls then
+			ClientState.SettingsChanged:Fire("Controls")
+		end
 		if changedQuality then
 			applyQuality()
 		end
