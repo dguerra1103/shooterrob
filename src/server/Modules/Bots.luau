@@ -274,8 +274,13 @@ local function findTarget(agent)
 		end
 	end
 	-- (el buscado, "SE BUSCA", atrae a los bots: cuenta como si estuviera más cerca)
+	-- (y el que ya tenía en el punto de mira también: con dos enemigos a la misma distancia no salta
+	-- de uno a otro en cada pasada, que reiniciaba la reacción y no llegaba a disparar)
+	local function weight(t)
+		return t.Distance * (t.Wanted and 0.6 or 1) * (t.Model == agent.Target and 0.8 or 1)
+	end
 	table.sort(inRange, function(x, y)
-		return x.Distance * (x.Wanted and 0.6 or 1) < y.Distance * (y.Wanted and 0.6 or 1)
+		return weight(x) < weight(y)
 	end)
 	for _, target in inRange do
 		if notices(agent, target) and canSee(agent, target) then
@@ -766,6 +771,24 @@ local function shoot(agent, target, distance, now)
 	if targetRoot and targetRoot.AssemblyLinearVelocity.Magnitude > 12 then
 		chance *= 0.7 -- cuesta más acertar a quien se mueve rápido
 	end
+	-- Solo asoma la cabeza (el cuerpo está detrás de algo): solo puede darle en la cabeza, que es
+	-- un blanco más pequeño. Antes el 88 % de los aciertos dañaba el cuerpo a través de la caja.
+	local headOnly = false
+	local head = agent.Model:FindFirstChild("Head")
+	if targetRoot and head then
+		local ignore = { agent.Model }
+		local map = workspace:FindFirstChild("Map")
+		local boundary = map and map:FindFirstChild("Boundary")
+		if boundary then
+			table.insert(ignore, boundary)
+		end
+		rayParams.FilterDescendantsInstances = ignore
+		local bodyHit = workspace:Raycast(head.Position, targetRoot.Position - head.Position, rayParams)
+		headOnly = bodyHit ~= nil and not bodyHit.Instance:IsDescendantOf(target.Model)
+	end
+	if headOnly then
+		chance *= 0.45
+	end
 	local pellets = math.max(1, def.Pellets or 1)
 	local hits = 0
 	for _ = 1, pellets do
@@ -775,7 +798,7 @@ local function shoot(agent, target, distance, now)
 	end
 	local endpoints = {}
 	if hits > 0 then
-		local headshot = math.random() < 0.12 * skill
+		local headshot = headOnly or math.random() < 0.12 * skill
 		local damage = damageAt(def, distance) * hits * CONFIG.DamageScale * rankSkill
 		if headshot then
 			damage *= def.HeadshotMultiplier or 1.5
@@ -790,10 +813,21 @@ local function shoot(agent, target, distance, now)
 		table.insert(endpoints, target.Head.Position + miss)
 	end
 	Remotes.ShotFX:FireAllClients(tool, endpoints)
-	local head = agent.Model:FindFirstChild("Head")
 	if head then
 		Combat.ReportNoise(head.Position, agent.Team, agent.Model, agent.Weapon)
 	end
+end
+
+-- ¿Techo bajo encima? La granada va en parábola (sube ~9 studs a media distancia y hasta ~28 de lejos):
+-- bajo techo chocaba y caía junto al bot
+local function lowCeiling(agent, distance)
+	local head = agent.Model:FindFirstChild("Head")
+	if not head then
+		return true
+	end
+	rayParams.FilterDescendantsInstances = { agent.Model }
+	local need = distance > 27 and 30 or 12
+	return workspace:Raycast(head.Position, Vector3.new(0, need, 0), rayParams) ~= nil
 end
 
 -- Granada al último sitio donde vio al enemigo (si se ha escondido detrás de algo)
@@ -943,10 +977,11 @@ local function fight(agent, humanoid, root, target, distance, now)
 
 	-- Con poca vida se retira a cubierto (la vida se recupera sola) y luego vuelve
 	if humanoid.Health < humanoid.MaxHealth * 0.35 and agent.Role ~= "Escopeta" and now > (agent.NextRetreat or 0) then
-		agent.NextRetreat = now + 9
+		agent.NextRetreat = now + 11
 		local cover = findCover(agent, target)
 		if cover then
-			agent.RetreatUntil = now + 2.2
+			-- (la vida empieza a recuperarse a los HealthRegen.Delay s: antes volvía a los 2,2 s sin curarse)
+			agent.RetreatUntil = now + ((GameConfig.HealthRegen and GameConfig.HealthRegen.Delay or 4) + 1.5)
 			setCrouch(agent, humanoid, false)
 			humanoid.WalkSpeed = CONFIG.SprintSpeed or CONFIG.WalkSpeed
 			humanoid.AutoRotate = true
@@ -1087,11 +1122,13 @@ local function think(agent)
 	end
 	-- Con la bandera a cuestas no se para a pelear: dispara mientras sigue su camino a casa
 	if target and agent.CarryingFlag then
-		if agent.Target ~= target.Model then
+		-- (si lo había perdido de vista más de 1 s, vuelve a reaccionar como con uno nuevo)
+		if agent.Target ~= target.Model or now - (agent.CarrierSeen or 0) > 1 then
 			agent.Target = target.Model
 			agent.AimStart = now + (agent.Reaction or CONFIG.Reaction)
 			agent.NextShot = math.max(agent.NextShot, agent.AimStart)
 		end
+		agent.CarrierSeen = now
 		reportEnemy(agent, target.Head.Position)
 		if now >= agent.NextShot and now >= (agent.ReloadUntil or 0) then
 			local def = Weapons.Get(agent.Weapon)
@@ -1102,7 +1139,12 @@ local function think(agent)
 	end
 	-- Retirándose a cubierto: sigue hasta llegar (sin pararse a pelear)
 	if now < (agent.RetreatUntil or 0) and not agent.CarryingFlag then
-		return
+		-- (si se queda empujando algo, salta y, si no avanza, deja de retirarse)
+		checkStuck(agent, humanoid, root, now)
+		if now - (agent.StuckTime or now) < 2 then
+			return
+		end
+		agent.RetreatUntil = 0
 	end
 	if target then
 		fight(agent, humanoid, root, target, distance, now)
@@ -1137,7 +1179,7 @@ local function think(agent)
 	local lostFor = agent.LastSeenTime and now - agent.LastSeenTime or math.huge
 	if lostFor < 3 and agent.LastSeenPosition and not busy then
 		local away = (agent.LastSeenPosition - root.Position).Magnitude
-		if lostFor > 0.6 and away > 14 and away < 48 and now >= (agent.NextGrenade or 0) and math.random() < 0.3 then
+		if lostFor > 0.6 and away > 14 and away < 48 and now >= (agent.NextGrenade or 0) and math.random() < 0.3 and not lowCeiling(agent, away) then
 			agent.NextGrenade = now + (CONFIG.GrenadeCooldown or 18) * (0.8 + math.random() * 0.4)
 			lookAt(root, agent.LastSeenPosition)
 			throwGrenade(agent, agent.LastSeenPosition)
