@@ -28,6 +28,22 @@ local SPECS = {
 }
 -- Detalles nuevos de la Fase 3: decorado puro (ni chocan ni paran balas)
 local DECO = { "FloorInlay", "CeilingLight", "RoofBand", "FountainFloorRing", "FountainFloorInner", "FountainTileBand", "EscalatorStripe", "SafetyNet", "TowerQuoin", "TowerTileBand", "ClockHand", "HazardStripe" }
+-- Fase 14 (acabados, TacKit.Finish): zonas de suelo, remates, lonas, trepadoras, banderines y fondo.
+-- Tampoco pueden chocar ni parar balas (las rutas y las coberturas no cambian)
+for _, name in {
+	"GroundZone", "ZoneEdge", "PlazaPavers", "PatioSlab", "PatioBSlab", "BaseGravel", "LaneAsphalt", "Cornice", "CornerPier",
+	"Plinth", "MeshBanner", "BannerStripe", "Formwork", "FormworkClamp", "GasHolder", "SkeletonSlab", "SkeletonColumn",
+	"PlazaStone", "UpperPaving", "StreetCobble", "Promenade", "PromenadeTiles", "BaseSand", "Bougainvillea", "Bunting", "Wire",
+	"AtriumStone", "FoodFloor", "ServiceFloor", "Fascia", "FasciaGlow", "FacadeFin",
+} do
+	table.insert(DECO, name)
+end
+-- Hitos y acabados de la Fase 14 que tienen que estar (identidad de cada mapa)
+local F14 = {
+	Construction = { PlazaPavers = "adoquín de la plaza A", MeshBanner = "lonas de la torre", Cornice = "remates A/B", BaseGravel = "grava de las bases", GasHolder = "fondo industrial", Formwork = "encofrados de la torre" },
+	Coastal = { PlazaStone = "plaza de la fuente", UpperPaving = "plaza alta (A)", Bougainvillea = "buganvillas", Bunting = "banderines", Promenade = "paseo" },
+	MallRush = { AtriumStone = "suelo del atrio", FoodFloor = "zona de comida", Fascia = "frentes de forjado", FacadeFin = "lamas de fachada" },
+}
 
 for name, spec in SPECS do
 	MapBuilder.Build(name)
@@ -46,6 +62,9 @@ for name, spec in SPECS do
 	end
 	for partName, label in spec.Landmarks do
 		check(found[partName] == true, name .. ": hito «" .. label .. "»")
+	end
+	for partName, label in F14[name] or {} do
+		check(found[partName] == true, name .. ": acabado de la Fase 14 «" .. label .. "»")
 	end
 	check(#decoProblems == 0, name .. ": los detalles nuevos no chocan ni paran balas (" .. table.concat(decoProblems, ", ") .. ")")
 	check(parts <= spec.Budget, string.format("%s: %d piezas (presupuesto %d)", name, parts, spec.Budget))

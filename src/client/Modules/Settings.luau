@@ -113,6 +113,8 @@ local HIDE_BELOW = {
 	FormworkClamp = "Media",
 	ZoneEdge = "Media",
 	BannerStripe = "Media",
+	FacadeFin = "Media",
+	FasciaGlow = "Media",
 }
 local RANK = { Baja = 1, Media = 2, Alta = 3, Ultra = 4 }
 local function applyDetail(inst)

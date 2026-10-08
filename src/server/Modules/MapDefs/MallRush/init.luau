@@ -8,6 +8,7 @@ local T = require(script.Parent.Parent.TacKit)
 local Lighting = require(script.Lighting)
 local Geometry = require(script.Geometry)
 local Props = require(script.Props)
+local Dressing = require(script.Dressing)
 
 local Map = {
 	Id = "MallRush",
@@ -34,6 +35,7 @@ function Map.Build()
 	local folder = T.begin(Map)
 	Geometry.build(T)
 	Props.build(T)
+	Dressing.build(T) -- (Fase 14: acabados; solo decorado)
 
 	-- Bases: el aparcamiento de cada lado
 	local redBase = CFrame.lookAt(V(-143, 0, 0), V(-100, 0, 0))

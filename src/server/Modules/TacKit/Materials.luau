@@ -164,6 +164,10 @@ Materials.MallRush = {
 	RoofTop = { RGB(206, 208, 214), M.Concrete },
 	Inlay = { RGB(196, 188, 176), M.Marble }, -- franjas del suelo de la galería
 	TileAccent = { RGB(0, 168, 196), M.CeramicTiles }, -- azulejo del anillo de la fuente
+	-- (Fase 14: suelo por zonas y frentes de forjado)
+	AtriumStone = { RGB(176, 176, 182), M.Granite }, -- atrio: granito gris bajo la cúpula
+	FoodFloor = { RGB(214, 176, 140), M.CeramicTiles }, -- zona de comida: azulejo cálido
+	Fascia = { RGB(244, 244, 248), M.SmoothPlastic }, -- frentes de forjado de la planta alta
 }
 
 -- ROOFTOP DISTRICT: azoteas de hormigón gris, fachadas gris azulado, acentos azul y rojo
