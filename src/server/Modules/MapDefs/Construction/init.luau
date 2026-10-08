@@ -4,12 +4,14 @@
 -- mapa: distribución del minimapa, volúmenes y colores de la imagen principal y detalles de los
 -- paneles (vista desde A/B, zona central, interior, pasarela superior, variante nocturna).
 --
--- Archivos: Lighting (luz y variantes), Geometry (blockout jugable), Props (cobertura y decorado).
+-- Archivos: Lighting (luz y variantes), Geometry (blockout jugable), Props (cobertura y decorado),
+-- Dressing (acabados de la Fase 14: suelo por zonas, identidad A/B, fondo industrial).
 -- Tamaño jugable: 300 x 260 en cruz; de base a sitio ~7 s corriendo, de base a base ~13 s.
 local T = require(script.Parent.Parent.TacKit)
 local Lighting = require(script.Lighting)
 local Geometry = require(script.Geometry)
 local Props = require(script.Props)
+local Dressing = require(script.Dressing)
 
 local Map = {
 	Id = "Construction",
@@ -36,6 +38,7 @@ function Map.Build()
 	local folder = T.begin(Map)
 	Geometry.build(T)
 	Props.build(T)
+	Dressing.build(T) -- (Fase 14: acabados; solo decorado)
 
 	---------------------------------------------------------------------------
 	-- Puntos de juego

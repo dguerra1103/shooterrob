@@ -118,7 +118,8 @@ function Props.build(T)
 	---------------------------------------------------------------------------
 	-- Fondo: ciudad (bloques sin interior), sierra y otra grúa lejos
 	---------------------------------------------------------------------------
-	local palette = { RGB(196, 184, 176), RGB(170, 160, 168), RGB(214, 200, 184), RGB(150, 146, 156), RGB(186, 170, 160) }
+	-- (Fase 14: ciudad industrial: hormigón, gris azulado y ladrillo, menos rosas pastel)
+	local palette = { RGB(178, 176, 170), RGB(146, 152, 160), RGB(160, 112, 92), RGB(198, 188, 172), RGB(122, 128, 136) }
 	-- (tres anillos: la manzana de alrededor baja, la ciudad media y unas pocas torres lejos)
 	T.skylineRing(V(0, 0, 0), 205, 0, 355, 10, palette, { Lit = night, MinH = 16, VarH = 18, TowerEvery = 100, FloorH = 6 })
 	T.skylineRing(V(0, 0, 0), 270, 4, 356, 12, palette, { Lit = night, MinH = 26, VarH = 34, TowerEvery = 5, TowerExtra = 40, FloorH = 8 })

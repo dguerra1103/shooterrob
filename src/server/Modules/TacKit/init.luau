@@ -21,6 +21,7 @@ local Rail = require(script.Rail)
 local Military = require(script.Military)
 local Port = require(script.Port)
 local Industrial = require(script.Industrial)
+local Finish = require(script.Finish)
 
 local T = {}
 for k, v in Geometry do
@@ -61,6 +62,7 @@ T.Rail = Rail
 T.Military = Military
 T.Port = Port
 T.Industrial = Industrial
+T.F = Finish -- (acabados de la Fase 14: zonas de suelo, remates de fachada, lonas, fondo)
 
 local V = Vector3.new
 local RGB = Color3.fromRGB

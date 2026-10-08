@@ -71,6 +71,14 @@ Materials.Construction = {
 	BuildingGray = { RGB(176, 174, 172), M.Concrete },
 	BuildingBrick = { RGB(160, 98, 78), M.Brick },
 	Corrugated = { RGB(132, 138, 146), M.CorrodedMetal },
+	-- (Fase 14: zonas de suelo y remates de identidad; A cálido, B frío)
+	Pavers = { RGB(198, 172, 136), M.Pavement }, -- plaza A: adoquín cálido
+	ConcreteWorn = { RGB(140, 137, 132), M.Concrete }, -- patio central: hormigón gastado
+	ConcreteCool = { RGB(146, 156, 168), M.Concrete }, -- patio B: hormigón frío
+	Gravel = { RGB(132, 126, 116), M.Pebble }, -- bases: grava de obra
+	Terracotta = { RGB(172, 84, 58), M.Concrete }, -- remates del edificio A (identidad cálida)
+	SteelBlue = { RGB(64, 96, 140), M.Metal }, -- remates del edificio B (identidad fría)
+	Brick = { RGB(150, 92, 72), M.Brick }, -- chimeneas del fondo
 }
 
 -- COSTA: encalado, arena, terracota, teja roja y piedra; azul del mar y verde de contraventanas
