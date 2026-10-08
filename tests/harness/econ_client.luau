@@ -321,6 +321,19 @@ check(Data.PostMatchOffer({ Matches = 0, TopWeapon = "ARX27", TopWeaponKills = 2
 local rewards = Data.Rewards({ XP = 900, Coins = 40, PassXP = 900, PassStartXP = 2000, PassNowXP = 2900, PassXPPerTier = 2500, PassTiers = 50 })
 check(rewards[3] and rewards[3].Kind == "Pass" and rewards[3].TierUp and string.find(rewards[3].Label, "NIVEL 2", 1, true), "recompensas de la partida: XP del pase y subida de nivel")
 
+-- (Fase 11) Un revelado abierto (y otro en cola) no pasa a la partida: al entrar en juego se cierra todo
+Reveal.Show(lastClient("PurchaseGranted")[1])
+Reveal.Show({ Type = "Booster", Key = "XP2", Title = "XP DOBLE · 30 MIN", Icon = "⚡", Items = {}, Coins = 0, Compensation = 0 })
+sync()
+task.wait(0.4)
+check(ClientState.RevealOpen == true, "revelado abierto (con otro en cola)")
+if Flow.State == "Gameplay" then Flow.SetState("Home") end
+Flow.EnterGameplay()
+task.wait(0.5)
+check(ClientState.RevealOpen == false and find(pg.PurchaseReveal, function(d) return d.Name == "Reveal" end) == nil,
+	"al entrar en partida no queda ningún revelado (ni el de la cola)")
+check(game:GetService("Lighting"):FindFirstChild("RevealBlur") == nil, "ni su desenfoque")
+
 task.wait(0.3)
 check(#errors == 0, "sin errores por fotograma (" .. tostring(errors[1]) .. ")")
 print("ECONOMIA CLIENTE OK" .. (phoneMode and " (MÓVIL)" or ""))

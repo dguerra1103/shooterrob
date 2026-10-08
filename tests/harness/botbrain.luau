@@ -162,13 +162,48 @@ local tr = os.clock()
 while not (e.ReloadUntil > os.clock()) and os.clock() - tr < 1 do task.wait(0.05) end
 check(e.ReloadUntil > os.clock() and e.Tool:GetAttribute("Reloading") == true, "recarga al vaciar el cargador")
 local shotsDuring = 0
-local sentBefore = #mock.sent
+-- (los disparos de los bots van a todos los clientes: mock.broadcast)
+local sentBefore = #mock.broadcast
 task.wait(0.5)
-for i = sentBefore + 1, #mock.sent do
-	local sent = mock.sent[i]
+for i = sentBefore + 1, #mock.broadcast do
+	local sent = mock.broadcast[i]
 	if sent.Remote == "ShotFX" and sent.Args and sent.Args[1] == e.Tool then shotsDuring += 1 end
 end
 check(shotsDuring == 0, "no dispara mientras recarga")
+
+-- (Fase 11) Solo asoma la cabeza (el cuerpo detrás de una caja): solo puede darle en la cabeza.
+-- Un acierto en la cabeza deja el impacto justo en la cabeza; uno en el cuerpo, entre 0,8 y 2,1
+-- studs por debajo; un fallo, a 2 studs o más.
+e.ReloadUntil = 0
+e.Mag = 200
+local bodyPos = char.HumanoidRootPart.Position
+local headBefore = pHead.Position
+pHead.Position = bodyPos + Vector3.new(0, 1.5, 0)
+mock.raycastImpl = function(origin, direction)
+	if (origin + direction - bodyPos).Magnitude < 0.5 then -- (rayo al cuerpo: lo tapa la caja)
+		return { Instance = map, Position = origin + direction * 0.9, Normal = Vector3.new(0, 0, 1), Distance = direction.Magnitude * 0.9, Material = roblox.Enum.Material.Plastic }
+	end
+	return nil
+end
+place(e, Vector3.new(0, 3, 0), Vector3.new(0, 3, -40))
+local sentFrom = #mock.broadcast
+local heads, bodies = 0, 0
+local th = os.clock()
+while heads < 3 and os.clock() - th < 10 do
+	task.wait(0.1)
+	for i = sentFrom + 1, #mock.broadcast do
+		local sent = mock.broadcast[i]
+		if sent.Remote == "ShotFX" and sent.Args and sent.Args[1] == e.Tool then
+			local d = (sent.Args[2][1] - pHead.Position).Magnitude
+			if d < 0.05 then heads += 1 elseif d < 1.95 then bodies += 1 end
+		end
+	end
+	sentFrom = #mock.broadcast
+end
+mock.raycastImpl = nil
+pHead.Position = headBefore
+check(heads >= 3 and bodies == 0, string.format("solo la cabeza a la vista: los aciertos van a la cabeza (%d cabeza, %d cuerpo)", heads, bodies))
+e.Mag = 30
 
 -- Poca vida: se retira a cubierto (el jugador no ve el sitio)
 e.ReloadUntil = 0
