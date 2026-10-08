@@ -2248,10 +2248,16 @@ local function render(dt)
 				)
 			end
 			refs.AmmoBar.Visible = true
-			local fill = ClientState.Reloading and ClientState.ReloadProgress or ClientState.Ammo / def.MagSize
-			refs.AmmoFill.Size = UDim2.fromScale(math.clamp(fill, 0, 1), 1)
-			refs.AmmoFill.BackgroundColor3 = ClientState.Reloading and Color3.fromRGB(120, 200, 255)
-				or (ClientState.Ammo <= math.ceil(def.MagSize * 0.25) and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 210, 80))
+			-- (la barra solo se toca cuando cambia: antes se redimensionaba en cada fotograma)
+			local fill = math.clamp(ClientState.Reloading and ClientState.ReloadProgress or ClientState.Ammo / def.MagSize, 0, 1)
+			fill = math.floor(fill * 200 + 0.5) / 200
+			local fillState = ClientState.Reloading and "R" or (low and "L" or "N")
+			if fill ~= hudCache.AmmoFill or fillState ~= hudCache.AmmoFillState then
+				hudCache.AmmoFill, hudCache.AmmoFillState = fill, fillState
+				refs.AmmoFill.Size = UDim2.fromScale(fill, 1)
+				refs.AmmoFill.BackgroundColor3 = fillState == "R" and Color3.fromRGB(120, 200, 255)
+					or (fillState == "L" and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 210, 80))
+			end
 			local percent = ClientState.Reloading and math.floor(ClientState.ReloadProgress * 100) or -1
 			if ClientState.Reloading then
 				if percent ~= hudCache.ReloadPercent then

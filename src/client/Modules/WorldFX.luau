@@ -64,7 +64,10 @@ local function animate()
 		if info.Blink then
 			-- Baliza que parpadea
 			local on = math.sin((t + info.Phase) * math.pi * 2 / info.Blink) > 0
-			part.Transparency = on and info.BaseTransparency or 0.95
+			if on ~= info.On then -- (solo se escribe al cambiar, no en cada fotograma)
+				info.On = on
+				part.Transparency = on and info.BaseTransparency or 0.95
+			end
 		end
 		if info.Orbit then
 			if not orbitNow then
