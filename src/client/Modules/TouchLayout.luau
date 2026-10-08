@@ -20,6 +20,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MobileHUD = require(Shared.MobileHUD)
@@ -167,6 +168,8 @@ local function paint(entry)
 	end
 end
 
+local fitCard -- (más abajo)
+
 -- Coloca un control (posición y tamaño en píxeles de la zona segura)
 local function place(entry)
 	local info = layout[entry.Id]
@@ -189,7 +192,52 @@ local function place(entry)
 			TouchIcons.Draw(control.Icon, entry.Icon, iconPx * 0.56)
 		end
 	end
+	if entry.CardFit then
+		fitCard(entry)
+	end
 	paint(entry)
+end
+
+-- Ancho en píxeles de un texto de una línea (TextService; si no responde, una estimación)
+local function textWidth(text: string, size: number, font: Enum.Font): number
+	local ok, bounds = pcall(function()
+		return TextService:GetTextSize(text, size, font, Vector2.new(4000, 200))
+	end)
+	if ok and typeof(bounds) == "Vector2" then
+		return bounds.X
+	end
+	return (utf8.len(text) or #text) * size * 0.62
+end
+
+-- Tarjeta del arma: cada texto en UNA línea; se encoge desde su tamaño (× el de la tarjeta) hasta 11
+-- px y, si aun así no cabe, lo corta TextTruncate («…»)
+local MIN_CARD_TEXT = 11
+fitCard = function(entry)
+	local info = layout[entry.Id]
+	if not entry.CardFit or not info then
+		return
+	end
+	local scale = info.Size.Y / 50
+	-- (fila de arriba: «1/2» a la derecha ocupa solo lo que mide y el nombre usa el resto)
+	local title, sub = entry.CardTexts.Title, entry.CardTexts.Sub
+	local subSize = math.max(MIN_CARD_TEXT, math.floor(12 * scale + 0.5))
+	local subWidth = sub.Text ~= "" and math.ceil(textWidth(sub.Text, subSize, sub.Font)) + 2 or 0
+	sub.TextSize = subSize
+	sub.AnchorPoint = Vector2.new(1, 0)
+	sub.Position = UDim2.new(1, -8, sub.Position.Y.Scale, 0)
+	sub.Size = UDim2.new(0, subWidth, sub.Size.Y.Scale, 0)
+	local titleWidth = info.Size.X - 18 - (subWidth > 0 and subWidth + 6 or 0)
+	title.Size = UDim2.new(0, math.max(10, titleWidth), title.Size.Y.Scale, 0)
+	for label, spec in entry.CardFit do
+		local width = label == title and titleWidth or info.Size.X * spec.W - 10
+		local size = math.max(MIN_CARD_TEXT, math.floor(spec.Max * scale + 0.5))
+		while size > MIN_CARD_TEXT and label.Text ~= "" and textWidth(label.Text, size, label.Font) > width do
+			size -= 1
+		end
+		if label ~= sub and label.TextSize ~= size then
+			label.TextSize = size
+		end
+	end
 end
 
 -- Botón de un control: zona táctil (algo mayor que el dibujo) con su cara, icono, globo y recarga
@@ -294,11 +342,16 @@ local function createButton(actionName, handler)
 		Active = false,
 		Emphasis = 0,
 		PassThrough = passThrough,
+		Owner = nil :: InputObject?, -- el dedo que lo tiene pulsado
+		OwnerConnection = nil :: RBXScriptConnection?,
+		CardFit = nil :: { [TextLabel]: { W: number, Max: number } }?,
 	}
 	-- Tarjeta del arma (cambiar arma): nombre, munición y la otra arma
 	if isCard then
 		-- (arriba: el arma y, a la derecha, qué arma es de cuántas «1/2»; abajo, grande, la munición
-		-- «30 / 120». Una sola línea cada uno: el texto se encoge en vez de partirse)
+		-- «30 / 120». Una sola línea cada uno: se mide el texto y se encoge hasta 11 px; si aun así no
+		-- cabe, se corta con «…». Nunca se parte en dos líneas: ver fitCard)
+		entry.CardFit = {}
 		local function text(name, x, y, w, h, size, font, color, align)
 			local label = Instance.new("TextLabel")
 			label.Name = name
@@ -307,16 +360,16 @@ local function createButton(actionName, handler)
 			label.Size = UDim2.new(w, x == 0 and -10 or -10, h, 0)
 			label.Font = font
 			label.TextColor3 = color
-			label.TextScaled = true
+			label.TextScaled = false
 			label.TextWrapped = false
+			label.TextSize = size
 			label.TextXAlignment = align or Enum.TextXAlignment.Left
+			label.TextYAlignment = Enum.TextYAlignment.Center
 			label.TextTruncate = Enum.TextTruncate.AtEnd
+			label.ClipsDescendants = true
 			label.Text = ""
 			label.Parent = icon
-			local fit = Instance.new("UITextSizeConstraint")
-			fit.MaxTextSize = size
-			fit.MinTextSize = 11
-			fit.Parent = label
+			entry.CardFit[label] = { W = w, Max = size }
 			return label
 		end
 		entry.CardTexts = {
@@ -326,7 +379,13 @@ local function createButton(actionName, handler)
 		}
 	end
 
+	-- Un botón es de un solo dedo a la vez (entry.Owner): un segundo dedo encima no hace nada y, si el
+	-- botón se suelta por otra causa (menú, muerte), el dedo viejo ya no puede soltar una pulsación nueva
 	local function press(input)
+		if entry.Owner then
+			return
+		end
+		entry.Owner = input
 		entry.Pressed = true
 		paint(entry)
 		task.spawn(entry.Handler, actionName, Enum.UserInputState.Begin, input)
@@ -335,11 +394,17 @@ local function createButton(actionName, handler)
 			local state = input.UserInputState
 			if state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
 				connection:Disconnect()
+				if entry.Owner ~= input then
+					return
+				end
+				entry.Owner = nil
+				entry.OwnerConnection = nil
 				entry.Pressed = false
 				paint(entry)
 				task.spawn(entry.Handler, actionName, state, input)
 			end
 		end)
+		entry.OwnerConnection = connection
 	end
 	entry.Press = press
 	if not passThrough then
@@ -367,6 +432,7 @@ end
 ---------------------------------------------------------------------------
 
 local lastJumpCenter: Vector2?, lastJumpSize: number? = nil, nil
+local drawDebug -- (depuración, más abajo)
 
 -- Vuelve a colocar todo (pantalla girada, disposición del jugador cambiada, salto de Roblox visible)
 function TouchLayout.Relayout()
@@ -388,6 +454,9 @@ function TouchLayout.Relayout()
 	end
 	if TouchLayout.OnRelayout then
 		TouchLayout.OnRelayout(layout, size)
+	end
+	if GameConfig.MobileHUDDebug then
+		task.defer(drawDebug)
 	end
 end
 
@@ -435,6 +504,17 @@ local function wanted(name: string): boolean
 	return true
 end
 
+-- Suelta un botón sin esperar al dedo (se esconde, se destruye o se cambia de tipo)
+local function release(entry)
+	if entry.OwnerConnection then
+		entry.OwnerConnection:Disconnect()
+	end
+	entry.Owner = nil
+	entry.OwnerConnection = nil
+	entry.Pressed = false
+	paint(entry)
+end
+
 -- Enseña u oculta los controles según los menús abiertos, las cargas y los ajustes
 function TouchLayout.RefreshVisibility()
 	local _, ClientState = settings()
@@ -446,10 +526,10 @@ function TouchLayout.RefreshVisibility()
 	for name, entry in buttons do
 		entry.Button.Visible = wanted(name)
 		if not entry.Button.Visible and entry.Pressed then
-			-- (si se esconde con el dedo encima, se suelta: no se queda disparando)
-			entry.Pressed = false
+			-- (si se esconde con el dedo encima, se suelta: no se queda disparando; ese dedo deja de ser
+			-- del botón)
+			release(entry)
 			task.spawn(entry.Handler, name, Enum.UserInputState.Cancel, nil)
-			paint(entry)
 		end
 	end
 end
@@ -513,11 +593,16 @@ end
 function TouchLayout.SetCard(actionName: string, info: { [string]: any })
 	local entry = buttons[actionName]
 	if entry and entry.CardTexts then
+		local changed = false
 		for key, label in entry.CardTexts do
 			local value = info[key]
 			if type(value) == "string" and label.Text ~= value then
 				label.Text = value
+				changed = true
 			end
+		end
+		if changed then
+			fitCard(entry)
 		end
 		local color = info.ValueColor
 		if typeof(color) == "Color3" and entry.CardTexts.Value.TextColor3 ~= color then
@@ -577,7 +662,7 @@ end
 ---------------------------------------------------------------------------
 
 local debugGui
-local function drawDebug()
+drawDebug = function()
 	if not (GameConfig.MobileHUDDebug and RunService:IsStudio()) then
 		return
 	end
@@ -612,13 +697,19 @@ local function drawDebug()
 			text.Parent = frame
 		end
 	end
-	box(Vector2.zero, size, Color3.fromRGB(60, 255, 120), string.format("%dx%d · %s", size.X, size.Y, breakpoint))
+	-- (la zona segura respecto a la pantalla entera: lo que quitan la muesca y las barras)
+	local camera = workspace.CurrentCamera
+	local screen = camera and camera.ViewportSize or size
+	local _, origin = areaSize()
+	box(Vector2.zero, size, Color3.fromRGB(60, 255, 120), string.format("zona segura %dx%d · pantalla %dx%d · %s · inset %d,%d", size.X, size.Y, screen.X, screen.Y, breakpoint, origin.X, origin.Y))
 	local clear = MobileHUD.CenterClear(size)
 	box(size / 2 - Vector2.new(clear, clear), Vector2.new(clear * 2, clear * 2), Color3.fromRGB(255, 80, 80), "centro libre")
 	box(Vector2.new(size.X * 0.5, 0), Vector2.new(size.X * 0.5, size.Y * 0.62), Color3.fromRGB(80, 160, 255), "cámara (pulgar derecho)")
+	-- (zona táctil de cada control con su nombre, su tamaño real y su opacidad)
 	for name, info in layout do
-		if buttons[name] then
-			box(info.Center - info.Hit / 2, info.Hit, Color3.fromRGB(255, 220, 60), name)
+		local entry = buttons[name]
+		if entry and entry.Button.Visible then
+			box(info.Center - info.Hit / 2, info.Hit, Color3.fromRGB(255, 220, 60), string.format("%s %d px %d%%", name, info.Size.X, info.Opacity * 100))
 		end
 	end
 end
@@ -711,13 +802,33 @@ function TouchLayout.BindAction(actionName, handler, withButton, ...)
 		if buttons[actionName] then
 			buttons[actionName].Button:Destroy()
 		end
-		createButton(actionName, handler)
-		-- Disparo con la mano izquierda (opcional, para jugar con tres o cuatro dedos): mismo disparo
+		-- Disparo con la mano izquierda (opcional, para jugar con tres o cuatro dedos): mismo disparo.
+		-- Los dos botones comparten el gatillo: empieza con el primer dedo y se suelta con el último
+		-- (soltar uno no corta el disparo del otro)
 		if actionName == "Fire" then
+			local held = {}
+			local touchHandler = function(name, state, input)
+				if state == Enum.UserInputState.Begin then
+					local first = next(held) == nil
+					held[name] = true
+					if first then
+						return handler(name, state, input)
+					end
+				else
+					held[name] = nil
+					if next(held) == nil then
+						return handler(name, state, input)
+					end
+				end
+				return nil
+			end
+			createButton(actionName, touchHandler)
 			if buttons.LeftFire then
 				buttons.LeftFire.Button:Destroy()
 			end
-			createButton("LeftFire", handler)
+			createButton("LeftFire", touchHandler)
+		else
+			createButton(actionName, handler)
 		end
 		watch()
 		TouchLayout.Relayout()

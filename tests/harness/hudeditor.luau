@@ -130,5 +130,18 @@ Editor.Save()
 task.wait(0.1)
 check(next(ClientState.Settings.HudLayout) == nil, "y se guarda así")
 check((TL.GetLayout().Fire.Center - fireDefault).Magnitude < 1, "disparar en su sitio de fábrica")
+-- Si se vuelve al lobby (o acaba la partida) con el editor abierto, se cancela solo: el juego no se
+-- queda bloqueado debajo de otra pantalla
+Editor.Open(function() closedCalls += 100 end)
+Editor.Select("Fire")
+Editor.MoveSelected(Vector2.new(10, 10))
+ClientState.InMainMenu = true
+local RunService = game:GetService("RunService")
+for _ = 1, 3 do RunService.Heartbeat:Fire(0.2) end
+task.wait(0.1)
+check(not Editor.IsOpen() and not ClientState.HUDEditorOpen, "volver al lobby cierra el editor")
+check(next(ClientState.Settings.HudLayout) == nil, "y no guarda lo que no se guardó")
+check(closedCalls < 100, "sin reabrir el menú de ajustes encima del lobby")
+ClientState.InMainMenu = false
 print("EDITOR HUD OK")
 process.exit(0)

@@ -239,7 +239,7 @@ local function slider(parent, position: UDim2, width: number, title: string, key
 	return show
 end
 
-local function close(save: boolean)
+local function close(save: boolean, silent: boolean?)
 	if not gui then
 		return
 	end
@@ -264,7 +264,7 @@ local function close(save: boolean)
 	ClientState.UpdateMouse()
 	local callback = onClosed
 	onClosed = nil
-	if callback then
+	if callback and not silent then
 		task.defer(callback)
 	end
 end
@@ -421,6 +421,22 @@ function HUDEditor.Open(closed: (() -> ())?): boolean
 	end
 	build()
 	apply()
+	-- Si cambia el contexto (vuelta al lobby, fin de partida, muerte) se cancela solo: el editor no
+	-- puede quedarse abierto debajo de otra pantalla dejando el juego bloqueado
+	local openedInMenu = ClientState.InMainMenu
+	local openedDead = ClientState.Dead
+	local openedResults = ClientState.ResultsActive
+	local acc = 0
+	table.insert(connections, game:GetService("RunService").Heartbeat:Connect(function(dt)
+		acc += dt
+		if acc < 0.25 then
+			return
+		end
+		acc = 0
+		if ClientState.InMainMenu ~= openedInMenu or (ClientState.ResultsActive and not openedResults) or (ClientState.Dead and not openedDead) then
+			close(false, true)
+		end
+	end))
 	return true
 end
 

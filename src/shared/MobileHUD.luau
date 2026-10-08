@@ -53,7 +53,7 @@ MobileHUD.Controls = {
 	{ Id = "Grenade", Name = "Granada", Icon = "Grenade", Role = "Action", Anchor = "Jump", Offset = Vector2.new(-178, -168), Size = 48, Hit = 1.15, Fade = true },
 	{ Id = "Airstrike", Name = "Ataque aéreo", Icon = "Airstrike", Role = "Action", Anchor = "Jump", Offset = Vector2.new(-98, -194), Size = 46, Hit = 1.15, Fade = true },
 	{ Id = "Melee", Name = "Cuerpo a cuerpo", Icon = "Melee", Role = "Action", Anchor = "Jump", Offset = Vector2.new(-8, -178), Size = 46, Hit = 1.15, Fade = true },
-	{ Id = "SwapWeapon", Name = "Cambiar arma", Icon = "Card", Role = "Action", Anchor = "Jump", Offset = Vector2.new(-262, 23), Size = Vector2.new(128, 50), Hit = 1.05 },
+	{ Id = "SwapWeapon", Name = "Cambiar arma", Icon = "Card", Role = "Action", Anchor = "Jump", Offset = Vector2.new(-266, 23), Size = Vector2.new(136, 50), Hit = 1.05 },
 	{ Id = "AbilityDash", Name = "Impulso", Icon = "Dash", Role = "Action", Anchor = "BottomLeft", Offset = Vector2.new(40, -165), Size = 46, Hit = 1.15, Fade = true },
 	{ Id = "AbilityJump", Name = "Supersalto", Icon = "SuperJump", Role = "Action", Anchor = "BottomLeft", Offset = Vector2.new(94, -165), Size = 46, Hit = 1.15, Fade = true },
 	{ Id = "AbilityPotion", Name = "Poción", Icon = "Potion", Role = "Action", Anchor = "BottomLeft", Offset = Vector2.new(148, -165), Size = 46, Hit = 1.15, Fade = true },

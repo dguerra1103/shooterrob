@@ -126,6 +126,81 @@ TL.RefreshVisibility()
 check(entries.Fire.Button.Visible, "al cerrar el menú vuelven")
 entries.Fire.Handler = oldHandler
 
+-- Dedos (Fase 13): un dedo falso que se puede soltar (el del simulador no avisa al cambiar)
+local function fakeTouch(position)
+	local listeners = {}
+	local t = { UserInputType = Enum.UserInputType.Touch, UserInputState = Enum.UserInputState.Begin, Position = position or roblox.Vector3.new(0, 0, 0) }
+	function t:GetPropertyChangedSignal()
+		return {
+			Connect = function(_, fn)
+				table.insert(listeners, fn)
+				return { Disconnect = function()
+					local i = table.find(listeners, fn)
+					if i then table.remove(listeners, i) end
+				end }
+			end,
+		}
+	end
+	function t.Lift(state)
+		t.UserInputState = state or Enum.UserInputState.End
+		for _, fn in table.clone(listeners) do fn() end
+	end
+	return t
+end
+local log = {}
+local reloadHandler = entries.Reload.Handler
+entries.Reload.Handler = function(_, state) table.insert(log, state) end
+-- Un botón es de un solo dedo: un segundo dedo encima no hace nada y soltarlo no suelta el primero
+local f1, f2 = fakeTouch(), fakeTouch()
+entries.Reload.Press(f1)
+entries.Reload.Press(f2)
+task.wait(0.05)
+check(#log == 1 and entries.Reload.Pressed, "un segundo dedo sobre el mismo botón no lo vuelve a pulsar")
+f2.Lift()
+task.wait(0.05)
+check(entries.Reload.Pressed and #log == 1, "soltar el segundo dedo no suelta el botón")
+f1.Lift()
+task.wait(0.05)
+check(not entries.Reload.Pressed and log[2] == Enum.UserInputState.End, "soltar el dedo dueño lo suelta")
+-- Se esconde con un dedo encima (menú): se suelta; al volver, un dedo nuevo lo pulsa y el viejo, al
+-- levantarse, ya no puede soltar la pulsación nueva
+table.clear(log)
+local old, new = fakeTouch(), fakeTouch()
+entries.Reload.Press(old)
+ClientState.MenuOpen = true
+TL.RefreshVisibility()
+task.wait(0.05)
+check(log[2] == Enum.UserInputState.Cancel and entries.Reload.Owner == nil, "con un menú el botón se suelta y el dedo deja de ser suyo")
+ClientState.MenuOpen = false
+TL.RefreshVisibility()
+entries.Reload.Press(new)
+old.Lift()
+task.wait(0.05)
+check(entries.Reload.Pressed and #log == 3, "el dedo viejo no suelta la pulsación nueva")
+new.Lift()
+task.wait(0.05)
+check(not entries.Reload.Pressed, "el dedo nuevo sí")
+entries.Reload.Handler = reloadHandler
+-- Disparar + disparo izquierdo: el gatillo se suelta con el último dedo
+Settings.Set("LeftFire", 1) -- (el botón izquierdo tiene que estar puesto)
+task.wait(0.05)
+local trigger = {}
+TL.BindAction("Fire", function(_, state) table.insert(trigger, state) return nil end, true)
+entries = TL.Entries()
+local right, left = fakeTouch(), fakeTouch()
+entries.Fire.Press(right)
+entries.LeftFire.Press(left)
+task.wait(0.05)
+check(#trigger == 1 and trigger[1] == Enum.UserInputState.Begin, "dos botones de disparo: un solo inicio del gatillo")
+right.Lift()
+task.wait(0.05)
+check(#trigger == 1, "soltar uno no corta el disparo del otro (" .. #trigger .. ": " .. tostring(trigger[2]) .. ")")
+left.Lift()
+task.wait(0.05)
+check(#trigger == 2 and trigger[2] == Enum.UserInputState.End, "soltar el último suelta el gatillo")
+Settings.Set("LeftFire", 0)
+task.wait(0.05)
+
 -- Apuntar: el botón se marca y lo secundario se apaga un poco (sigue visible y funcionando)
 local grenadeBefore = entries.Grenade.Face.BackgroundTransparency
 ClientState.Aiming = true
@@ -153,6 +228,14 @@ check(entries.Reload.Emphasis == 0, "cargador lleno: normal")
 -- Tarjeta del arma y recargas de habilidades
 TL.SetCard("SwapWeapon", { Title = "ARX-27", Value = "24 / 90", Sub = "1/2" })
 check(entries.SwapWeapon.CardTexts.Value.Text == "24 / 90" and entries.SwapWeapon.CardTexts.Title.Text == "ARX-27", "tarjeta del arma con la munición")
+-- Nombre del arma: siempre una línea (sin escalar ni partir), mínimo 11 px y cortado con «…»
+for _, name in { "ARX-27", "X", "Lanzagranadas experimental de asalto pesado MK-II" } do
+	TL.SetCard("SwapWeapon", { Title = name, Value = "120 / 999", Sub = "2/2" })
+	local title = entries.SwapWeapon.CardTexts.Title
+	local value = entries.SwapWeapon.CardTexts.Value
+	check(title.TextWrapped == false and title.TextScaled == false and title.TextTruncate == Enum.TextTruncate.AtEnd, "«" .. name .. "»: una sola línea, cortada si no cabe")
+	check(title.TextSize >= 11 and title.TextSize <= 13 and value.TextSize >= 11, "«" .. name .. "»: texto legible (" .. title.TextSize .. " px)")
+end
 TL.SetCooldown("AbilityDash", 0.5, "3")
 check(entries.AbilityDash.Cover.Visible and entries.AbilityDash.Timer.Text == "3", "recarga de habilidad visible")
 TL.SetCooldown("AbilityDash", 0, "0")

@@ -265,6 +265,7 @@ end
 -- casi hasta el borde se corre, sin botón. El empuje se lee del ControlModule de Roblox
 -- (PlayerModule:GetControls():GetMoveVector(), de 0 a 1); MoveDirection siempre mide 1.
 local controls
+local controlsRetryAt = 0
 local function autoSprint(): boolean
 	local settings = ClientState.Settings
 	if (settings and settings.AutoSprint or 1) ~= 1 or UserInputService.TouchEnabled ~= true then
@@ -274,7 +275,9 @@ local function autoSprint(): boolean
 	if not okType or lastType ~= Enum.UserInputType.Touch then
 		return false
 	end
-	if controls == nil then
+	-- (el PlayerModule de Roblox puede no estar aún en el primer fotograma: se reintenta cada segundo)
+	if not controls and os.clock() >= controlsRetryAt then
+		controlsRetryAt = os.clock() + 1
 		controls = false
 		local module = player:FindFirstChild("PlayerScripts") and player.PlayerScripts:FindFirstChild("PlayerModule")
 		if module then
