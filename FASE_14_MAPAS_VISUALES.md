@@ -284,4 +284,9 @@ de Roblox.
 
 ## Resultado final
 
-(se rellena al terminar la batería completa)
+Batería completa sobre d9f311d (código final de la fase; solo cambia este documento después):
+- `tests/check.sh`: Rojo compila, luau-lsp **sin errores** (exit 0).
+- `tests/run_all.sh`: **OK: 150 · FALLOS: 0** (exit 0). Incluye `mapvisual`, `navcheck` de los 9
+  mapas (NAVEGACION OK), `serverboot` de los 10 modos (SERVIDOR OK), `spawncheck`, `bombsites`,
+  `botspots` y el **ciclo de 10 partidas (CICLO OK)**.
+- Visual: **cambio implementado, pendiente de validar en Studio** (secciones 12 y 13).
