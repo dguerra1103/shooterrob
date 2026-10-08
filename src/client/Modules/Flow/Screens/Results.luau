@@ -363,7 +363,9 @@ local fadeFrame = nil
 function Results.Show(ctx)
 	view = ctx.View or view
 	if not view then
-		flow.SetState("Gameplay")
+		-- (sin datos: a la partida como siempre, con su cámara y avisando al servidor; fuera de este
+		-- SetState para que los cambios de pantalla salgan en orden)
+		task.defer(flow.EnterGameplay)
 		return
 	end
 	Anim.Token += 1

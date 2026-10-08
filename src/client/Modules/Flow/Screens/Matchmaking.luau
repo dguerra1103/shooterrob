@@ -97,6 +97,11 @@ local function step()
 	local loading = ReplicatedStorage:GetAttribute("LoadingMap")
 	if loading then
 		statusLabel.Text = "Partida encontrada · preparando " .. C.upper(loading)
+		-- (si pulsaste JUGAR con el mapa ya construyéndose, el atributo no cambia: no se esperaba a que
+		-- acabara la carga para seguir)
+		if elapsed >= flow.Times.SearchMin then
+			flow.SetState("MatchFound")
+		end
 	elseif state == "Intermission" then
 		local left = ReplicatedStorage:GetAttribute("TimeLeft") or 0
 		statusLabel.Text = string.format("Siguiente partida en %d s · elige el mapa", left)

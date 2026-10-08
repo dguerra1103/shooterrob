@@ -123,6 +123,8 @@ que estaba mal:
 | VS de la presentación de equipos | Se veía **al doble de tamaño** 0,55 s antes de su golpe | Oculto hasta su golpe |
 | «5 VS 5» | También en Todos contra todos y Escalada de armas | Solo en modos por equipos (`ModeSettings.Teams`) |
 | Textos en teléfono | Etiquetas a 11 (≈9 px reales) y texto escalado que podía bajar a 8 | 13 y mínimo 11 |
+| JUGAR con el mapa ya construyéndose | Se quedaba en «buscando» toda la carga (el atributo no cambiaba) | Pasa a «partida encontrada» tras el mínimo de búsqueda |
+| Resultados sin datos | Cambiaba de pantalla dentro de otro cambio, sin quitar la cámara del menú ni avisar al servidor | Entra en partida como siempre (`EnterGameplay`, fuera de ese cambio) |
 
 **Ya estaba bien** (comprobado): los ViewportFrame de las vistas previas solo se animan mientras se
 ven; las conexiones por fotograma de las pantallas se desconectan al cerrarse; el desenfoque y la
@@ -131,8 +133,7 @@ interacciones repetidas duran ≤ 0,45 s; los nombres largos se truncan.
 
 **No se ha tocado** (POSIBLE, sin confirmar sin verlo): dos `UIScale` en el mismo botón (JUGAR DE
 NUEVO, tarjetas de clase) — si Roblox solo aplica una, se perdería el efecto al pasar el ratón; que
-todo use rebote (Back) también en los modales; pulsar JUGAR mientras el servidor construye el mapa se
-queda en la búsqueda hasta que acaba. Están en la sección L.
+todo use rebote (Back) también en los modales. Están en la sección L.
 
 ## F. Mapas
 
@@ -193,8 +194,10 @@ Arreglado:
 - **Granadas bajo techo**: la parábola subía hasta 9-28 studs sin mirar si había techo; chocaba y caía
   a su lado. Ahora no la lanza con un techo bajo encima.
 
-Sin cambiar: dificultad base (`Accuracy`, `Reaction`, daño), roles, navegación. Pendiente (POSIBLE):
-en Zona de control los bots entran y salen de la zona (no se quedan como en Dominio).
+- **Zona de control**: la zona no contaba como objetivo y entraban y salían enseguida. Ahora van con
+  prisa y, dentro, se quedan a ocuparla (como en Dominio con las banderas).
+
+Sin cambiar: dificultad base (`Accuracy`, `Reaction`, daño), roles, navegación.
 
 ## J. Bugs
 
@@ -231,12 +234,11 @@ en Zona de control los bots entran y salen de la zona (no se quedan como en Domi
 1. **Escuchar todo el audio en Studio** y ajustar volúmenes (ver M). Si algo no convence, cada hueco
    se cambia en `Sounds.FamilyAudio` (o solo para un arma en `Sounds.WeaponAudio`).
 2. UI (POSIBLE, verificar viéndolo): doble `UIScale` en JUGAR DE NUEVO y en las tarjetas de clase;
-   curva Quint en vez de rebote en los modales; JUGAR durante la carga del mapa.
-3. Bots en Zona de control: quedarse en la zona como en Dominio.
-4. Mapas: retoques de color y materiales en Construction, Coastal y Mall Rush **después de verlos** en
+   curva Quint en vez de rebote en los modales.
+3. Mapas: retoques de color y materiales en Construction, Coastal y Mall Rush **después de verlos** en
    Studio (no se ha tocado nada a ciegas).
-5. Medir FPS y memoria en un móvil real (MicroProfiler) — sigue sin cifras.
-6. Audio propio de la interfaz para VICTORIA/DERROTA, MVP y subida de nivel (siguen los genéricos).
+4. Medir FPS y memoria en un móvil real (MicroProfiler) — sigue sin cifras.
+5. Audio propio de la interfaz para VICTORIA/DERROTA, MVP y subida de nivel (siguen los genéricos).
 
 ## M. Qué necesita validación real jugando
 
@@ -279,11 +281,11 @@ en Zona de control los bots entran y salen de la zona (no se quedan como en Domi
 | AUDIO | **MEJORADO** · PENDIENTE DE STUDIO (escucharlo y ajustar volúmenes) |
 | ARMAS | **TERMINADO** (auditadas las 17 armas de fuego; identidad por familia también en el sonido) |
 | ANIMACIONES | **TERMINADO** (sin saltos ni brazos que no lleguen; sin cambios necesarios) |
-| UI | **MEJORADO** (6 fallos corregidos) · PENDIENTE DE STUDIO (3 posibles, sección L) |
+| UI | **MEJORADO** (8 fallos corregidos) · PENDIENTE DE STUDIO (2 posibles, sección L) |
 | MAPAS | PENDIENTE DE STUDIO (iluminación revisada y correcta; color y materiales, viéndolos) |
 | MÓVIL | **MEJORADO** (muesca: mira y velos) · PENDIENTE DE STUDIO (iPhone con muesca) |
 | PERFORMANCE | **MEJORADO** (2 escrituras por fotograma menos) · PENDIENTE DE STUDIO (sin cifras de FPS) |
-| BOTS | **MEJORADO** (5 arreglos de justicia) · PENDIENTE DE STUDIO |
+| BOTS | **MEJORADO** (5 arreglos de justicia + Zona de control) · PENDIENTE DE STUDIO |
 | QA | **TERMINADO** fuera de Studio (148 OK + 2 pruebas nuevas que fallan sin su arreglo) |
 
 ## Assets externos que siguen haciendo falta

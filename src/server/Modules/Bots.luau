@@ -438,7 +438,8 @@ local function pickGoal(agent)
 	-- En Zona de control, la mitad de las veces van a la zona activa
 	local zone = ReplicatedStorage:GetAttribute("ZonePosition")
 	if typeof(zone) == "Vector3" and math.random() < 0.75 then
-		return zone + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
+		-- (objetivo de verdad: va con prisa y se recalcula antes, como en Dominio)
+		return zone + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5)), true
 	end
 	-- Pista del equipo: va a donde se ha visto u oído al enemigo (los agresivos casi siempre)
 	local clue = bestIntel(agent, 10, 150)
@@ -1250,6 +1251,14 @@ local function think(agent)
 							agent.HoldUntil = now + (attacking and 6 or 6.6)
 						end
 					end
+				end
+			end
+			-- (en Zona de control, dentro de la zona activa se queda a ocuparla en vez de irse enseguida)
+			local zone = ReplicatedStorage:GetAttribute("ZonePosition")
+			if ReplicatedStorage:GetAttribute("Mode") == "KOTH" and typeof(zone) == "Vector3" then
+				local offset = zone - root.Position
+				if Vector3.new(offset.X, 0, offset.Z).Magnitude <= 9 then
+					agent.HoldUntil = now + 3
 				end
 			end
 			-- (en una bandera de Dominio que no es suya, se queda a capturarla)
