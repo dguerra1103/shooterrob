@@ -49,6 +49,19 @@ Pasada visual sin cambiar el gameplay, detallada en `FASE_03_VISUAL_MAPAS.md`:
 - **Común:** neblina ≤ 0,26 y bloom ≤ 0,5 en todas sus luces. Prueba `mapvisual` (hitos, decorado
   sin colisión y presupuesto de piezas).
 
+## Fase 14 (pulido visual: Construction, Coastal, Mall Rush)
+Detalle en `FASE_14_MAPAS_VISUALES.md`. Cada mapa gold tiene un `Dressing.luau` (solo decorado, sin
+colisión ni consulta) hecho con el kit `TacKit.Finish`:
+- **Construction:** suelo por zonas (adoquín en la plaza A, hormigón gastado/frío, grava en bases,
+  asfalto en carriles), lonas en la torre, encofrados, edificio A terracota y B azul acero, carteles de
+  salida y fondo industrial (chimeneas, gasómetros, esqueleto de edificio).
+- **Coastal:** plaza de arenisca con marco de barro, plaza alta, paseo con franja azul, adoquín en las
+  calles, zócalos pintados en las casas encaladas, buganvillas y banderines.
+- **Mall Rush:** atrio de granito, zona de comida en azulejo cálido, frentes de forjado con línea de luz
+  (naranja en patios, cian en atrio), rótulos «FOOD COURT»/«NIVEL 2», lamas en fachada y vallas de
+  marcas ficticias.
+- `mapvisual` comprueba esas piezas y que son decorado; presupuestos de piezas sin cambiar.
+
 ## Cómo se valida cada mapa (Lune, sin Studio)
 - `navcheck`: mapa de alturas (0,5 studs) desde las bases: andar ≤1,1, salto ≤6,8, supersalto
   ≤16,5. Falla si un punto de juego es inalcanzable o hay trampas sin vuelta; lista lo que se

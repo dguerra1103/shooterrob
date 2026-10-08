@@ -51,6 +51,10 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
 - **Mapas por código**: los mapas grandes (Encrucijada, Base Militar) tienen miles de piezas; están
   ancladas y la mayoría sin colisión ni consulta. Si un móvil va justo, el primer candidato es
   `StreamingEnabled` o fusionar decoración.
+- **Acabados de la Fase 14**: todo es decorado anclado sin colisión ni consulta y sin sombra (salvo
+  volúmenes grandes); lo fino (banderines, bordillos, abrazaderas, lamas, líneas de luz) se oculta en
+  calidad Baja. Piezas (variante por defecto / noche): Construction ~5850 / 6204 (tope 6400), Coastal
+  ~4375 / 4407 (tope 4450), Mall Rush ~2255 (tope 2300). Coastal queda cerca del tope.
 - **Lluvia**: el mojado de superficies recorre el mapa una vez repartido en varios fotogramas.
 
 ## Posibles cuellos de botella (por orden de sospecha)

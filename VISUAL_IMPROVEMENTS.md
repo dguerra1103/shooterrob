@@ -64,3 +64,11 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | Munición en la tarjeta del arma junto a recargar; vida abajo en el centro sin tocar botones; registro de bajas a 14 px; aviso de baja, medallas y banderas fuera del centro. | La mira y el centro limpios. | `HUD.luau`, `DominationHUD.luau` |
 | Editor de HUD (mover, tamaño, opacidad) guardado en los ajustes del perfil. | Cada mano es distinta, pero lo de fábrica ya tiene que ser bueno. | `HUDEditor.luau` |
 
+## Mapas (Fase 14)
+| Qué | Por qué | Dónde |
+|---|---|---|
+| Suelo por zonas (láminas de 0,02 bajo juntas y marcas) con bordillo pintado. | El mapa deja de ser una losa gris y cada zona se reconoce por el suelo. | `TacKit/Finish.luau`, `MapDefs/*/Dressing.luau` |
+| Remates de fachada (cornisa, esquinas, zócalo) en el color de cada sitio: A cálido, B frío. | Identidad A/B sin tocar coberturas. | `Construction/Dressing.luau` |
+| Detalle de ambiente: lonas, encofrados, buganvillas, banderines, frentes con luz, lamas, rótulos. | Lectura de "lugar diseñado"; lo fino se oculta en calidad Baja. | `Finish.luau`, `Settings.HIDE_BELOW` |
+| Fondo: silueta industrial (Construction) y vallas de marcas ficticias (Mall Rush). | Que el mapa no flote en el vacío. | `Dressing.luau` |
+

@@ -55,6 +55,12 @@ arreglados (dedos, gatillo compartido, correr automático, editor abierto, tarje
 **Lo siguiente es tu prueba en el teléfono**: secciones 8–11 de ese documento, y mandar capturas y la
 tabla de ergonomía. No se moverá ningún botón hasta tener ese feedback.
 
+**Fase 14 (pulido visual de mapas)** — ver `FASE_14_MAPAS_VISUALES.md`. Construction, Coastal y Mall
+Rush con suelo por zonas, remates de fachada, identidad A/B por color, rótulos y fondo; kit de acabados
+reutilizable `TacKit.Finish`. Sin cambios de gameplay. **Lo siguiente es mirarlos en Studio** con la
+lista de su sección 12 y mandar las capturas de la 13; los otros seis mapas se pulen después con el
+mismo kit.
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →
