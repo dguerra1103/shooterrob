@@ -2321,29 +2321,31 @@ local function render(dt)
 		refs.AmmoBar.Visible = false
 	end
 
-	-- Táctil: tarjeta del arma junto a recargar (nombre o estado, «30 / 120» y «1/2»)
+	-- Táctil: tarjeta del arma junto a recargar (nombre o estado, «30 / 120» y «1/2»). Solo se
+	-- reescribe cuando cambia algo (se mira en bruto cada fotograma, sin crear textos)
 	if touchHUD then
-		local title, value, sub, color = "", "", hudCache.SlotText or "", Color3.new(1, 1, 1)
-		if def and tool then
-			title = def.DisplayName
-			if def.Type == "Gun" then
-				local reserve = tool:GetAttribute("Reserve") or 0
-				value = string.format("%d / %d", ClientState.Ammo, reserve)
-				if ClientState.Reloading then
-					title, color = "RECARGANDO…", Color3.fromRGB(140, 205, 255)
-				elseif ClientState.Ammo == 0 and reserve == 0 then
-					title, color = "SIN MUNICIÓN", Color3.fromRGB(255, 92, 72)
-				elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
-					color = Color3.fromRGB(255, 92, 72)
-				end
-			else
+		local isGun = def ~= nil and tool ~= nil and def.Type == "Gun"
+		local reserve = isGun and (tool:GetAttribute("Reserve") or 0) or -1
+		if def ~= hudCache.CardDef or ClientState.Ammo ~= hudCache.CardAmmo or reserve ~= hudCache.CardReserve
+			or ClientState.Reloading ~= hudCache.CardReloading or hudCache.SlotText ~= hudCache.CardSlot then
+			hudCache.CardDef, hudCache.CardAmmo, hudCache.CardReserve = def, ClientState.Ammo, reserve
+			hudCache.CardReloading, hudCache.CardSlot = ClientState.Reloading, hudCache.SlotText
+			local title, value, color = "", "", Color3.new(1, 1, 1)
+			if def and tool then
+				title = def.DisplayName
 				value = "—"
+				if isGun then
+					value = string.format("%d / %d", ClientState.Ammo, reserve)
+					if ClientState.Reloading then
+						title, color = "RECARGANDO…", Color3.fromRGB(140, 205, 255)
+					elseif ClientState.Ammo == 0 and reserve == 0 then
+						title, color = "SIN MUNICIÓN", Color3.fromRGB(255, 92, 72)
+					elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
+						color = Color3.fromRGB(255, 92, 72)
+					end
+				end
 			end
-		end
-		local key = title .. "|" .. value .. "|" .. sub .. "|" .. color:ToHex()
-		if key ~= hudCache.Card then
-			hudCache.Card = key
-			TouchLayout.SetCard("SwapWeapon", { Title = title, Value = value, Sub = sub, ValueColor = color })
+			TouchLayout.SetCard("SwapWeapon", { Title = title, Value = value, Sub = hudCache.SlotText or "", ValueColor = color })
 		end
 	end
 

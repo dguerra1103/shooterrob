@@ -1,6 +1,9 @@
 -- Dominio: las tres banderas (A, B, C) arriba, debajo del marcador. Cada una con el color de su
 -- dueño, una barra con la captura en curso (del color de quien la captura) y "!" si está disputada.
+-- Pantalla táctil (Fase 12): arriba a la izquierda, bajo el minimapa y más pequeñas, para dejar libre
+-- el centro (la mira) y lo de arriba en el centro (marcador y avisos de baja).
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
 
@@ -15,7 +18,37 @@ local LETTERS = { "A", "B", "C" }
 local NEUTRAL = Color3.fromRGB(70, 72, 80)
 
 local gui
+local row
 local badges = {}
+local touchUI = false
+local placedAt
+
+-- Táctil: bajo el minimapa; si ahí tocaría los botones de habilidades (pantallas muy bajas), a la
+-- derecha del minimapa
+local function placeTouch()
+	local top = ClientState.MinimapBottom or 156
+	local key = top
+	local ok, TouchLayout = pcall(require, script.Parent.TouchLayout)
+	local dashTop
+	if ok then
+		local center, size = TouchLayout.Rect("AbilityDash")
+		if center and size then
+			dashTop = center.Y - size.Y / 2
+			key ..= ":" .. math.floor(dashTop)
+		end
+	end
+	if key == placedAt then
+		return
+	end
+	placedAt = key
+	local height = 46 * 0.65
+	row.AnchorPoint = Vector2.new(0, 0)
+	if dashTop and top + 6 + height > dashTop - 6 then
+		row.Position = UDim2.fromOffset(14 + 96 + 8, 60)
+	else
+		row.Position = UDim2.fromOffset(14, top + 6)
+	end
+end
 
 local function teamColor(name)
 	local team = name ~= "" and Teams:FindFirstChild(name or "")
@@ -27,6 +60,9 @@ local function update()
 	gui.Enabled = active and not ClientState.InMainMenu
 	if not gui.Enabled then
 		return
+	end
+	if touchUI then
+		placeTouch()
 	end
 	for _, letter in LETTERS do
 		local badge = badges[letter]
@@ -55,7 +91,7 @@ function DominationHUD.Init()
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
-	local row = UI.new("Frame", {
+	row = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 118),
 		Size = UDim2.fromOffset(3 * 46 + 2 * 8, 46),
@@ -68,6 +104,11 @@ function DominationHUD.Init()
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		}),
 	})
+	touchUI = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	if touchUI then
+		UI.new("UIScale", { Scale = 0.65, Parent = row })
+		row:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Left
+	end
 	for i, letter in LETTERS do
 		local stroke = UI.stroke(Color3.new(0, 0, 0), 2, 0)
 		local box = UI.new("Frame", {
