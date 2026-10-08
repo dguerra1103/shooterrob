@@ -285,6 +285,11 @@ function Flow.EnterGameplay()
 	end
 	Transition.Blur(0, 0.2)
 	Flow.SetCamera(nil)
+	-- (un revelado de compra abierto no pasa a la partida)
+	local ok, Reveal = pcall(require, script.Parent.Store.Reveal)
+	if ok and Reveal.CloseAll then
+		Reveal.CloseAll()
+	end
 	Flow.SetState("Gameplay")
 end
 

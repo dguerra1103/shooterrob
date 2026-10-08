@@ -10,6 +10,17 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 
 local Flow = script.Parent.Parent
+
+-- "5 VS 5" solo en los modos por equipos (no en Todos contra todos ni en Escalada de armas)
+local ModeSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig")).ModeSettings
+local function versus(modeName)
+	for _, mode in ModeSettings do
+		if mode.Name == modeName and mode.Teams == false then
+			return ""
+		end
+	end
+	return "  ·  5 VS 5"
+end
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
 local Transition = require(Flow.Transition)
@@ -59,9 +70,10 @@ local function refreshVotes()
 	end
 	-- Modo: el más votado de la siguiente partida, o el de la que está en marcha
 	if any and best then
-		modeLabel.Text = C.upper(best.Mode) .. "  ·  5 VS 5"
+		modeLabel.Text = C.upper(best.Mode) .. versus(best.Mode)
 	else
-		modeLabel.Text = C.upper(ReplicatedStorage:GetAttribute("ModeName") or "Duelo por equipos") .. "  ·  5 VS 5"
+		local modeName = ReplicatedStorage:GetAttribute("ModeName") or "Duelo por equipos"
+		modeLabel.Text = C.upper(modeName) .. versus(modeName)
 	end
 end
 

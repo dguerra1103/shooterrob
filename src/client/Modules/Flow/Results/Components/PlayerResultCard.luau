@@ -20,7 +20,7 @@ local PlayerResultCard = {}
 -- Una cifra con su nombre debajo ("18" / "KILLS")
 local function stat(parent, name, x, width)
 	local value = C.text({ Name = name .. "Value", Text = "0", Role = "Number", TextSize = 19, AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(x, 0, 0, 34), Size = UDim2.new(width, 0, 0, 22), Parent = parent })
-	C.text({ Name = name, Text = name, Role = "Title", TextSize = 11, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(x, 0, 0, 56), Size = UDim2.new(width, 0, 0, 14), Parent = parent })
+	C.text({ Name = name, Text = name, Role = "Title", TextSize = 13, Color = Colors.TextDim, AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(x, 0, 0, 56), Size = UDim2.new(width, 0, 0, 14), Parent = parent })
 	return value
 end
 

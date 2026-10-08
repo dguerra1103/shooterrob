@@ -186,7 +186,7 @@ function C.text(props)
 	end
 	if props.Scaled then
 		label.TextScaled = true
-		new("UITextSizeConstraint", { MaxTextSize = props.TextSize or Theme.Size.Body, MinTextSize = props.MinTextSize or 8, Parent = label })
+		new("UITextSizeConstraint", { MaxTextSize = props.TextSize or Theme.Size.Body, MinTextSize = props.MinTextSize or 11, Parent = label })
 	end
 	if props.Stroke then
 		new("UIStroke", { Thickness = props.Stroke, Color = Colors.Black, Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual, Parent = label })

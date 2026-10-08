@@ -51,7 +51,7 @@ function MVPCard.new(parent, opts)
 	for i, spec in { { "ELIMINACIONES", entry.Kills }, { "ASISTENCIAS", entry.Assists }, { "PUNTOS", entry.Points } } do
 		local x = (i - 1) / 3
 		values[i] = C.text({ Name = spec[1] .. "Value", Text = "0", Role = "TitleItalic", TextSize = 30, AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(x, 0, 0, 46), Size = UDim2.new(1 / 3, 0, 0, 34), Stroke = 1, Parent = card })
-		C.text({ Name = spec[1], Text = spec[1], Role = "Title", TextSize = 11, Color = Color3.fromRGB(255, 226, 150), AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(x, 0, 0, 82), Size = UDim2.new(1 / 3, 0, 0, 14), Parent = card })
+		C.text({ Name = spec[1], Text = spec[1], Role = "Title", TextSize = 13, Color = Color3.fromRGB(255, 226, 150), AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(x, 0, 0, 82), Size = UDim2.new(1 / 3, 0, 0, 14), Parent = card })
 		if i > 1 then
 			C.new("Frame", { BackgroundColor3 = Colors.White, BackgroundTransparency = 0.75, BorderSizePixel = 0, Position = UDim2.new(x, 0, 0, 52), Size = UDim2.fromOffset(1, 40), Parent = card })
 		end

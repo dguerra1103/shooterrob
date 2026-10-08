@@ -245,7 +245,7 @@ local function renderTrack()
 					stroke.Transparency = 0
 				end
 				local tag = C.new("Frame", { Name = "ClaimTag", BackgroundColor3 = Colors.Yellow, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4), Size = UDim2.new(1, -10, 0, 16), ZIndex = 4, Parent = holder }, { C.corner(3) })
-				C.text({ Text = "RECLAMAR", Role = "Title", TextSize = 11, Color = DARK, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), ZIndex = 5, Parent = tag })
+				C.text({ Text = "RECLAMAR", Role = "Title", TextSize = 13, Color = DARK, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), ZIndex = 5, Parent = tag })
 			end
 			if selected.Tier == tier and selected.Track == trackName then
 				C.new("UIStroke", { Name = "Selected", Color = Colors.White, Thickness = 3, Transparency = 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = holder })

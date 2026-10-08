@@ -188,10 +188,11 @@ local function playSummary(token)
 	xp.Set(Data.LevelSteps(summary))
 	challenges.Set(summary.Challenges)
 	unlock.Set(summary.Unlocks)
-	if phone then
-		challenges.Frame.Visible = false
-		unlock.Frame.Visible = false
-	end
+	-- (cada panel aparece con su animación: antes se veía entero, encogía y volvía a crecer)
+	local showXp = xp.Frame.Visible
+	local showChallenges = challenges.Frame.Visible and not phone
+	local showUnlock = unlock.Frame.Visible and not phone
+	xp.Frame.Visible, challenges.Frame.Visible, unlock.Frame.Visible = false, false, false
 	if rewards.Frame.Visible then
 		Transition.SlideIn(rewards.Frame, Vector2.new(60, 0), 0.3)
 		rewards.Play(token)
@@ -200,7 +201,8 @@ local function playSummary(token)
 		if not Anim.Alive(token) then
 			return
 		end
-		if xp.Frame.Visible then
+		if showXp then
+			xp.Frame.Visible = true
 			Transition.Pop(xp.Frame, 0.9, 0.22)
 			xp.Play(token)
 		end
@@ -208,12 +210,14 @@ local function playSummary(token)
 		if not Anim.Alive(token) then
 			return
 		end
-		if challenges.Frame.Visible then
+		if showChallenges then
+			challenges.Frame.Visible = true
 			Transition.Pop(challenges.Frame, 0.9, 0.22)
 			challenges.Play(token)
 		end
 		task.wait(0.3)
-		if Anim.Alive(token) and unlock.Frame.Visible then
+		if Anim.Alive(token) and showUnlock then
+			unlock.Frame.Visible = true
 			unlock.Play(token)
 		end
 		-- Oferta pequeña (de vez en cuando, por lo que hiciste en la partida; se quita con ✕)

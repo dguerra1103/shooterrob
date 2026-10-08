@@ -160,9 +160,12 @@ function TeamIntro.Show(ctx)
 		-- Tu equipo entra primero; el rival, un instante después; VS en medio
 		Transition.SlideIn(sides.Mine.Frame, Vector2.new(-120, 0), 0.35)
 		Transition.SlideIn(sides.Enemy.Frame, Vector2.new(120, 0), 0.35, 0.35)
-		Transition.Pop(vs, 2, 0.3, 0.55)
+		-- (el VS no se ve hasta su golpe: antes se veía al doble de tamaño durante el retraso)
+		vs.Visible = false
 		task.delay(0.55, function()
 			if token == my then
+				vs.Visible = true
+				Transition.Pop(vs, 2, 0.3)
 				UISound.Play("Countdown", 0.6)
 			end
 		end)

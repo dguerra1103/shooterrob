@@ -94,6 +94,15 @@ local function close()
 end
 Reveal.Close = close
 
+-- Cierra el revelado y lo que quedara en cola (al entrar en partida: si no, el desenfoque y el panel
+-- se quedaban puestos encima del juego si comprabas en Resultados justo antes de la siguiente)
+function Reveal.CloseAll()
+	table.clear(queue)
+	if current then
+		close()
+	end
+end
+
 -- Arma girando (escena de legendario)
 local function spinningWeapon(parent, skinId)
 	local vp, camera = ItemArt.Viewport(parent, { Name = "Spin" })

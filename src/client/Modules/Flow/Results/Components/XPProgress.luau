@@ -35,6 +35,9 @@ function XPProgress.new(parent)
 	function api.Set(levelInfo)
 		info = levelInfo
 		root.Visible = info ~= nil
+		-- (si saliste antes de que se desvaneciera, no aparece de entrada en la siguiente partida)
+		levelUp.Visible = false
+		levelUp.TextTransparency = 1
 		if not info then
 			return
 		end

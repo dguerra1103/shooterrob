@@ -10,6 +10,17 @@ local UISound = require(Flow.UISound)
 
 local Colors = Theme.Colors
 
+-- "5 VS 5" solo en los modos por equipos (no en Todos contra todos ni en Escalada de armas)
+local ModeSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig")).ModeSettings
+local function versus(modeName)
+	for _, mode in ModeSettings do
+		if mode.Name == modeName and mode.Teams == false then
+			return ""
+		end
+	end
+	return "  ·  5 VS 5"
+end
+
 local MatchFound = {}
 
 local flow, screen, band, title, sub
@@ -48,7 +59,7 @@ function MatchFound.Show(ctx)
 		-- (el modo aún no está decidido del todo: el del voto ganador llega con el mapa)
 		modeName = ""
 	end
-	sub.Text = C.upper(modeName ~= "" and (modeName .. "  ·  " .. mapName) or mapName) .. "  ·  5 VS 5"
+	sub.Text = C.upper(modeName ~= "" and (modeName .. "  ·  " .. mapName) or mapName) .. (modeName ~= "" and versus(modeName) or "")
 	UISound.MatchFound()
 	Transition.Flash(Colors.White, 0.55, 0.35)
 	Transition.Wipe(Colors.Yellow, 0.4)
