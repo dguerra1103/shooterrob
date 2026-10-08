@@ -108,6 +108,11 @@ local HIDE_BELOW = {
 	FountainFloorInner = "Media",
 	RoofSignLeg = "Media",
 	ClockHand = "Media",
+	-- (Fase 14: acabados finos de los mapas: banderines, abrazaderas de encofrado, bordes de zona)
+	Bunting = "Media",
+	FormworkClamp = "Media",
+	ZoneEdge = "Media",
+	BannerStripe = "Media",
 }
 local RANK = { Baja = 1, Media = 2, Alta = 3, Ultra = 4 }
 local function applyDetail(inst)

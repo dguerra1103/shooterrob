@@ -86,6 +86,39 @@ function F.awning(cf, w, depth, look, stripe)
 end
 
 ---------------------------------------------------------------------------
+-- Pueblo
+---------------------------------------------------------------------------
+
+-- Banderines entre dos puntos (cuerda con banderitas de colores colgando): fiesta de pueblo. Muy
+-- por encima de la cabeza; la cuerda y las banderas se ocultan en calidad Baja.
+function F.bunting(a, b, colors, spacing)
+	spacing = spacing or 2.2
+	local length = (b - a).Magnitude
+	local mid = (a + b) / 2
+	G.deco("Wire", V(0.08, 0.08, length), CFrame.lookAt(mid, b), "Iron").CastShadow = false
+	local n = math.max(1, math.floor(length / spacing))
+	for i = 1, n - 1 do
+		local t = i / n
+		-- (la cuerda cuelga un poco en el centro)
+		local sag = 0.6 * math.sin(math.pi * t)
+		local p = a:Lerp(b, t) - V(0, sag + 0.45, 0)
+		local flag = G.deco("Bunting", V(0.9, 0.9, 0.05), CFrame.lookAt(p, p + (b - a):Cross(V(0, 1, 0))) * CFrame.Angles(0, 0, math.rad(45)), { colors[(i % #colors) + 1], M.Fabric })
+		flag.CastShadow = false
+	end
+end
+
+-- Trepadora (buganvilla, hiedra) pegada a una fachada: mancha de hojas con un par de ramilletes
+-- que sobresalen. cf = centro de la mancha, -Z = hacia fuera de la fachada
+function F.climber(cf, w, h, look)
+	local leaves = G.deco("Bougainvillea", V(w, h, 0.6), cf, look)
+	leaves.CastShadow = false
+	for _, spec in { { -0.3, 0.25 }, { 0.25, -0.2 } } do
+		Kit.ball("Bougainvillea", math.min(w, h) * 0.45, cf * CF(spec[1] * w, spec[2] * h, -0.3), get(look)[1], get(look)[2], true).CastShadow = false
+	end
+	return leaves
+end
+
+---------------------------------------------------------------------------
 -- Obra
 ---------------------------------------------------------------------------
 

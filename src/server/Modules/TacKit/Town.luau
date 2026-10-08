@@ -79,7 +79,10 @@ function Town.house(cf, w, d, h, look, opts)
 	look = get(look)
 	local body = G.box("House", V(w, h, d), cf * CFrame.new(0, h / 2, 0), look)
 	local trim = { look[1]:Lerp(Color3.new(0, 0, 0), 0.16), M.Limestone }
-	G.deco("HouseBase", V(w + 0.3, 1.2, d + 0.3), cf * CFrame.new(0, 0.6, 0), trim).CastShadow = false
+	-- (zócalo: por defecto, el color de la casa más oscuro; opts.Plinth = color pintado, como el azul o
+	-- el ocre de los pueblos encalados. Fase 14: más alto, se lee desde la calle)
+	local plinthLook = opts.Plinth and { opts.Plinth, M.Plaster } or trim
+	G.deco("HouseBase", V(w + 0.3, opts.Plinth and 1.6 or 1.2, d + 0.3), cf * CFrame.new(0, opts.Plinth and 0.8 or 0.6, 0), plinthLook).CastShadow = false
 	local shutter = { opts.Shutter or RGB(70, 120, 92), M.WoodPlanks }
 	local floors = opts.Floors or math.max(1, math.floor(h / 7))
 	local faces = { -1 }

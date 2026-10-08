@@ -169,6 +169,7 @@ function Geometry.half(T)
 	-- contraventanas azules: el pueblo se lee mediterráneo y luminoso)
 	local looks = { "Whitewash", "Sand", "Terracotta", "Whitewash", "Ochre", "Whitewash", "Sand" }
 	local shutters = { Color3.fromRGB(40, 96, 170), Color3.fromRGB(36, 128, 168), Color3.fromRGB(70, 120, 92) }
+	local plinths = { Color3.fromRGB(58, 104, 168), Color3.fromRGB(200, 150, 78), Color3.fromRGB(70, 132, 160) }
 	local count = 0
 	-- Manzana de casas macizas: tramos de ~14 con alturas, colores y tejados distintos
 	local function row(x0, x1, z0, z1, h, opts)
@@ -190,9 +191,12 @@ function Geometry.half(T)
 			local yaw = math.atan2(-face.X, -face.Z)
 			local turned = math.abs(face.X) > 0.5
 			local cf = CF(cx, opts.Y or 0, cz) * CFrame.Angles(0, yaw, 0)
-			T.cap(T.house(cf, turned and d or w, turned and w or d, height, looks[(count % #looks) + 1], {
+			local look = looks[(count % #looks) + 1]
+			T.cap(T.house(cf, turned and d or w, turned and w or d, height, look, {
 				Roof = (count % 3 == 0) and "Flat" or "Tile",
 				Shutter = shutters[(count % #shutters) + 1],
+				-- (Fase 14: las encaladas, con zócalo pintado azul u ocre)
+				Plinth = look == "Whitewash" and plinths[(count % #plinths) + 1] or nil,
 				Back = opts.Back,
 				Balcony = count % 4 == 1,
 				Door = opts.Door,

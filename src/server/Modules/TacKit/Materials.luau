@@ -104,6 +104,15 @@ Materials.Coastal = {
 	Plywood = { RGB(196, 160, 110), M.WoodPlanks },
 	YellowPaint = { RGB(246, 194, 40), M.SmoothPlastic },
 	Yellow = { RGB(36, 36, 40), M.Metal }, -- (barandillas: de forja en la Costa)
+	-- (Fase 14: suelos por zonas e identidad A cálida / B azul)
+	StreetCobble = { RGB(176, 158, 132), M.Cobblestone }, -- calle mayor y callejón
+	PlazaStone = { RGB(222, 206, 178), M.Sandstone }, -- plaza de la fuente
+	UpperPaving = { RGB(204, 140, 106), M.Pavement }, -- plaza alta (sitio A): barro cocido
+	Promenade = { RGB(226, 214, 190), M.Sandstone }, -- paseo marítimo
+	BaseSand = { RGB(214, 196, 160), M.Sand }, -- patio de la base
+	TileBlue = { RGB(40, 96, 170), M.CeramicTiles }, -- azulejo azul (bordes del paseo y del espigón)
+	TileTerracotta = { RGB(186, 92, 62), M.CeramicTiles }, -- azulejo de barro (marco de la plaza)
+	Bougainvillea = { RGB(198, 50, 132), M.Grass },
 }
 
 -- TERMINAL: hormigón de plataforma, blanco y gris del edificio, cristal azulado, rojo/azul de A/B
