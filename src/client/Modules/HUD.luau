@@ -14,6 +14,7 @@ local Skins = require(Shared.Skins)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
+local MobileHUD = require(Shared.MobileHUD)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -22,6 +23,7 @@ local WeaponIcon = require(script.Parent.WeaponIcon)
 local Settings = require(script.Parent.Settings)
 local RewardFX = require(script.Parent.RewardFX)
 local ScopeSway = require(script.Parent.ScopeSway)
+local TouchLayout = require(script.Parent.TouchLayout)
 
 local player = Players.LocalPlayer
 
@@ -32,6 +34,11 @@ local refs = {}
 -- Teléfono (táctil y pantalla baja, ver UI.IsPhone): disposición propia para que nada pise los
 -- botones táctiles, el joystick ni la mira (en tablet y ordenador, como siempre). Se decide en Init.
 local phone = false
+-- Pantalla táctil sin teclado (teléfono o tablet, Fase 12): la munición va en la tarjeta del arma de
+-- los controles táctiles, la vida abajo en el centro sin pisarlos y el registro de bajas, compacto,
+-- bajo los botones de arriba a la derecha (todo se recoloca con TouchLayout.OnRelayout)
+local touchHUD = false
+local killFeedMax = 3
 local killBaseScale = 1
 local thumbnails = {}
 
@@ -127,6 +134,8 @@ local function buildTopBar()
 		Position = UDim2.new(0.5, 0, 0, 70),
 		Size = UDim2.fromOffset(500, 54),
 		BackgroundTransparency = 1,
+		-- (táctil: sin la fila de fotos; el marcador completo está en su botón)
+		Visible = not touchHUD,
 		Parent = top,
 	}, {
 		UI.new("UIListLayout", {
@@ -136,6 +145,14 @@ local function buildTopBar()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
+	-- Táctil: marcador compacto (EQUIPO A · TIEMPO · EQUIPO B) y la línea del modo legible (≥ 12 px)
+	if touchHUD then
+		UI.new("UIScale", { Scale = phone and 0.72 or 0.9, Parent = top })
+		refs.Mode.TextSize = 18
+		refs.Mode.Size = UDim2.new(1, 200, 0, 20)
+		refs.Mode.Position = UDim2.fromOffset(-100, 46)
+		top.Position = UDim2.new(0.5, 0, 0, 6)
+	end
 end
 
 local function buildCrosshair()
@@ -267,6 +284,8 @@ local function buildWeaponPanel()
 		Position = phone and UDim2.new(0.5, 0, 1, -122) or UDim2.new(1, -24, 1, -20),
 		Size = phone and UDim2.fromOffset(160, 46) or UDim2.fromOffset(260, 104),
 		BackgroundTransparency = 1,
+		-- (táctil: la munición va en la tarjeta del arma, junto a recargar; el centro queda libre)
+		Visible = not touchHUD,
 		Parent = gui,
 	})
 	refs.WeaponName = UI.label({
@@ -319,7 +338,7 @@ local function buildWeaponPanel()
 		Position = UDim2.new(1, -20, 0.6, 0),
 		Size = UDim2.fromOffset(230, 196),
 		BackgroundTransparency = 1,
-		Visible = not phone,
+		Visible = not phone and not touchHUD,
 		Parent = gui,
 	}, {
 		UI.new("UIListLayout", {
@@ -425,12 +444,14 @@ local function buildPlayerPanel()
 	-- Vida (abajo a la izquierda)
 	-- (en el teléfono, abajo en el centro, bajo las habilidades: a la izquierda está el joystick)
 	local health = UI.new("Frame", {
+		Name = "Health",
 		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(0, 1),
 		Position = phone and UDim2.new(0.5, 10, 1, -14) or UDim2.new(0, 56, 1, -24),
 		Size = phone and UDim2.fromOffset(190, 18) or UDim2.fromOffset(250, 26),
 		BackgroundColor3 = Color3.fromRGB(20, 20, 25),
 		Parent = gui,
 	}, { UI.corner(13), UI.stroke(Color3.new(0, 0, 0), 3, 0) })
+	refs.Health = health
 	refs.HealthChip = UI.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -502,6 +523,7 @@ local function buildPlayerPanel()
 		Parent = level,
 	}, { UI.corner(5) })
 	refs.XPScale = UI.new("UIScale", { Parent = level })
+	refs.Level = level
 	refs.LevelText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 0, -2),
@@ -528,7 +550,10 @@ local function buildFeedsAndOverlays()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-	if phone then
+	if touchHUD then
+		-- (táctil: filas más bajas con texto de 14 px, sin encoger: se lee en el teléfono)
+		refs.KillFeed:FindFirstChildOfClass("UIListLayout").Padding = UDim.new(0, 2)
+	elseif phone then
 		UI.new("UIScale", { Scale = 0.6, Parent = refs.KillFeed })
 	end
 
@@ -1295,8 +1320,13 @@ local function onKillFeed(info)
 	else
 		text = victim .. " se eliminó"
 	end
+	-- (táctil: más estrecho y bajo, con el texto a 14 px sin encoger)
+	local rowW, rowH, textSize = 380, 26, 17
+	if touchHUD then
+		rowW, rowH, textSize = 250, 19, 14
+	end
 	local entry = UI.new("Frame", {
-		Size = UDim2.fromOffset(380, 26),
+		Size = UDim2.fromOffset(rowW, rowH),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.55,
 		LayoutOrder = nextOrder(),
@@ -1310,8 +1340,9 @@ local function onKillFeed(info)
 	local iconHolder
 	-- (en calidad Baja, texto: cada silueta es una vista 3D y en móviles modestos se nota)
 	if weaponDef and (weaponDef.Type == "Gun" or weaponDef.Type == "Melee") and ClientState.EffectiveQuality ~= "Baja" then
-		iconHolder = UI.new("Frame", { Size = UDim2.fromOffset(62, 22), BackgroundTransparency = 1, LayoutOrder = 2 })
-		local ok = pcall(WeaponIcon.Create, info.WeaponId, "Default", { Size = UDim2.fromScale(1, 1), Parent = iconHolder }, "side", 62 / 22)
+		local iconW, iconH = touchHUD and 48 or 62, touchHUD and 17 or 22
+		iconHolder = UI.new("Frame", { Size = UDim2.fromOffset(iconW, iconH), BackgroundTransparency = 1, LayoutOrder = 2 })
+		local ok = pcall(WeaponIcon.Create, info.WeaponId, "Default", { Size = UDim2.fromScale(1, 1), Parent = iconHolder }, "side", iconW / iconH)
 		if not ok then
 			iconHolder:Destroy()
 			iconHolder = nil
@@ -1334,14 +1365,14 @@ local function onKillFeed(info)
 				AutomaticSize = Enum.AutomaticSize.X,
 				Text = string.format('<font color="%s">%s</font>', UI.hex(color), tostring(value)),
 				RichText = true,
-				TextSize = 17,
+				TextSize = textSize,
 				Parent = entry,
 			})
 		end
 		name(1, killer, UI.teamTint(info.KillerColor, true))
 		iconHolder.Parent = entry
 		if info.Headshot then
-			UI.label({ LayoutOrder = 3, Size = UDim2.fromOffset(18, 22), Text = "🎯", TextSize = 15, Parent = entry })
+			UI.label({ LayoutOrder = 3, Size = UDim2.fromOffset(18, rowH), Text = "🎯", TextSize = textSize - 2, Parent = entry })
 		end
 		name(4, info.Victim or "?", UI.teamTint(info.VictimColor, true))
 	else
@@ -1350,7 +1381,8 @@ local function onKillFeed(info)
 			Position = UDim2.fromOffset(6, 0),
 			Text = text,
 			RichText = true,
-			TextSize = 17,
+			TextSize = textSize,
+			TextTruncate = Enum.TextTruncate.AtEnd,
 			TextXAlignment = Enum.TextXAlignment.Right,
 			Parent = entry,
 		})
@@ -1361,13 +1393,17 @@ local function onKillFeed(info)
 			table.insert(entries, child)
 		end
 	end
-	if #entries > (phone and 3 or 6) then
+	local maxEntries = touchHUD and (killFeedMax) or (phone and 3 or 6)
+	if #entries > maxEntries then
 		table.sort(entries, function(a, b)
 			return a.LayoutOrder < b.LayoutOrder
 		end)
-		entries[1]:Destroy()
+		for i = 1, #entries - maxEntries do
+			entries[i]:Destroy()
+		end
 	end
-	Debris:AddItem(entry, 7)
+	-- (táctil: se va antes, para no tapar la esquina)
+	Debris:AddItem(entry, touchHUD and 5 or 7)
 end
 
 local hitToken
@@ -2285,6 +2321,32 @@ local function render(dt)
 		refs.AmmoBar.Visible = false
 	end
 
+	-- Táctil: tarjeta del arma junto a recargar (nombre o estado, «30 / 120» y «1/2»)
+	if touchHUD then
+		local title, value, sub, color = "", "", hudCache.SlotText or "", Color3.new(1, 1, 1)
+		if def and tool then
+			title = def.DisplayName
+			if def.Type == "Gun" then
+				local reserve = tool:GetAttribute("Reserve") or 0
+				value = string.format("%d / %d", ClientState.Ammo, reserve)
+				if ClientState.Reloading then
+					title, color = "RECARGANDO…", Color3.fromRGB(140, 205, 255)
+				elseif ClientState.Ammo == 0 and reserve == 0 then
+					title, color = "SIN MUNICIÓN", Color3.fromRGB(255, 92, 72)
+				elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
+					color = Color3.fromRGB(255, 92, 72)
+				end
+			else
+				value = "—"
+			end
+		end
+		local key = title .. "|" .. value .. "|" .. sub .. "|" .. color:ToHex()
+		if key ~= hudCache.Card then
+			hudCache.Card = key
+			TouchLayout.SetCard("SwapWeapon", { Title = title, Value = value, Sub = sub, ValueColor = color })
+		end
+	end
+
 	-- Ranuras: se revisan al cambiar de arma y, si no, unas 4 veces por segundo
 	local now = os.clock()
 	if tool == hudCache.SlotTool and now - (hudCache.SlotsAt or 0) < 0.25 then
@@ -2293,6 +2355,18 @@ local function render(dt)
 	end
 	hudCache.SlotTool, hudCache.SlotsAt = tool, now
 	local tools = WeaponController.GetTools()
+	-- (qué arma llevas de cuántas, para la tarjeta táctil: «1/2»)
+	local count, current = 0, 0
+	for slot = 1, 3 do
+		local slotTool = tools[slot]
+		if slotTool and slotTool:GetAttribute("Weapon") then
+			count += 1
+			if slotTool == tool then
+				current = count
+			end
+		end
+	end
+	hudCache.SlotText = count > 1 and current > 0 and (current .. "/" .. count) or ""
 	for slot, row in refs.Slots do
 		local slotTool = tools[slot]
 		local weaponName = slotTool and slotTool:GetAttribute("Weapon")
@@ -2363,12 +2437,124 @@ function renderCrosshair(def)
 end
 
 ---------------------------------------------------------------------------
+-- Táctil (Fase 12): lo que no son botones se coloca según dónde han quedado los botones (cambian con
+-- la pantalla, el botón de saltar de Roblox y el editor de HUD), sin pisarlos ni tapar el centro
+---------------------------------------------------------------------------
+
+local function controlRects(size: Vector2)
+	local layout = TouchLayout.GetLayout()
+	local s = Settings.Get()
+	local rects = {}
+	for id in TouchLayout.Entries() do
+		local info = layout[id]
+		local skip = (id == "Sprint" and (s.AutoSprint or 1) == 1)
+			or (id == "LeftFire" and (s.LeftFire or 0) ~= 1)
+			or (id == "Airstrike" and (player:GetAttribute("Airstrikes") or 0) <= 0)
+		if info and not skip then
+			table.insert(rects, { Id = id, Center = info.Center, Size = info.Hit })
+		end
+	end
+	-- (y el botón de saltar de Roblox, que no es nuestro)
+	local jump, d = TouchLayout.JumpRect()
+	if not jump or not d then
+		jump, d = MobileHUD.JumpRect(size)
+	end
+	table.insert(rects, { Id = "Jump", Center = jump, Size = Vector2.new(d, d) })
+	return rects
+end
+
+local function hits(rects, center: Vector2, dims: Vector2, margin: number): boolean
+	for _, r in rects do
+		if math.abs(center.X - r.Center.X) < (dims.X + r.Size.X) / 2 + margin and math.abs(center.Y - r.Center.Y) < (dims.Y + r.Size.Y) / 2 + margin then
+			return true
+		end
+	end
+	return false
+end
+
+local function layoutTouchHUD(_, size: Vector2)
+	if not touchHUD or not refs.Health or typeof(size) ~= "Vector2" or size.X < 100 then
+		return
+	end
+	local rects = controlRects(size)
+	local clear = MobileHUD.CenterClear(size)
+
+	-- Vida: lo más abajo y centrada que se pueda sin tocar ningún botón (encima va la barra de XP y
+	-- la racha). Se prueban filas de abajo arriba y posiciones a los dos lados del centro.
+	local w, h = phone and 170 or 220, phone and 16 or 20
+	local dims = Vector2.new(w, h + 26) -- (con la racha y el XP encima)
+	local best, bestScore
+	local y = size.Y - 8 - dims.Y / 2
+	while y > size.Y / 2 + clear + dims.Y / 2 do
+		for step = 0, math.floor(size.X * 0.25 / 8) do
+			for _, sign in { -1, 1 } do
+				local center = Vector2.new(size.X / 2 + sign * step * 8, y)
+				local score = step * 8 + (size.Y - y) * 0.6
+				if (not bestScore or score < bestScore) and not hits(rects, center, dims, 4) then
+					best, bestScore = center, score
+				end
+			end
+		end
+		y -= 6
+	end
+	best = best or Vector2.new(size.X / 2, size.Y - 8 - dims.Y / 2)
+	local bottom = best.Y + dims.Y / 2
+	refs.Health.AnchorPoint = Vector2.new(0.5, 1)
+	refs.Health.Size = UDim2.fromOffset(w, h)
+	refs.Health.Position = UDim2.fromOffset(math.floor(best.X + 10), math.floor(bottom)) -- (+10: la cruz va a la izquierda)
+	refs.Level.AnchorPoint = Vector2.new(0.5, 1)
+	refs.Level.Size = UDim2.fromOffset(w, 4)
+	refs.Level.Position = UDim2.fromOffset(math.floor(best.X + 10), math.floor(bottom - h - 4))
+	refs.StreakText.AnchorPoint = Vector2.new(0.5, 1)
+	refs.StreakText.TextXAlignment = Enum.TextXAlignment.Center
+	refs.StreakText.Position = UDim2.fromOffset(math.floor(best.X + 10), math.floor(bottom - h - 10))
+
+	-- Registro de bajas: bajo los botones de arriba a la derecha; 3 filas si caben sin llegar al grupo
+	-- de la derecha (en pantallas muy bajas, 2)
+	local kfW, rowH = 250, 19
+	local kfTop = 50
+	local layout = TouchLayout.GetLayout()
+	for _, r in rects do
+		local info = layout[r.Id]
+		if info and r.Center.Y < size.Y * 0.2 and r.Center.X > size.X * 0.6 then
+			kfTop = math.max(kfTop, r.Center.Y + info.Size.Y / 2 + 4)
+		end
+	end
+	local limit = size.Y
+	for _, r in rects do
+		local top = r.Center.Y - r.Size.Y / 2
+		if top > kfTop and r.Center.X + r.Size.X / 2 > size.X - 12 - kfW then
+			limit = math.min(limit, top - 4)
+		end
+	end
+	killFeedMax = math.clamp(math.floor((limit - kfTop + 2) / (rowH + 2)), 2, 3)
+	refs.KillFeed.AnchorPoint = Vector2.new(1, 0)
+	refs.KillFeed.Position = UDim2.new(1, -12, 0, math.floor(kfTop))
+	refs.KillFeed.Size = UDim2.fromOffset(kfW, killFeedMax * (rowH + 2))
+
+	-- Aviso de baja y medallas: arriba, bajo el marcador, sin pisar el registro de bajas
+	local topBottom = 6 + 66 * (phone and 0.72 or 0.9)
+	local bw = 410 * killBaseScale
+	local lo = 14 + (phone and 96 or 160) + 8 + bw / 2 -- (a la derecha del minimapa)
+	local hi = size.X - 12 - kfW - 6 - bw / 2 -- (a la izquierda del registro de bajas)
+	local cx = math.clamp(size.X / 2, lo, math.max(lo, hi))
+	local cy = topBottom + 6 + 32 * killBaseScale
+	if lo > hi then
+		-- (pantalla estrecha: centrado, por debajo del registro de bajas)
+		cx = size.X / 2
+		cy = math.max(cy, kfTop + killFeedMax * (rowH + 2) + 4 + 32 * killBaseScale)
+	end
+	refs.KillBanner.Position = UDim2.fromOffset(math.floor(cx), math.floor(cy))
+	refs.Medals.AnchorPoint = Vector2.new(0.5, 0)
+	refs.Medals.Position = UDim2.fromOffset(math.floor(cx), math.floor(cy + 32 * killBaseScale + 4))
+end
 
 function HUD.Init()
 	task.spawn(disableCoreGui)
 	UI.WaitViewport()
 	phone = UI.IsPhone()
-	killBaseScale = phone and 0.7 or 1
+	touchHUD = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	killBaseScale = phone and (touchHUD and 0.6 or 0.7) or 1
 
 	gui = UI.new("ScreenGui", {
 		Name = "HUD",
@@ -2388,6 +2574,25 @@ function HUD.Init()
 	buildWeaponPanel()
 	buildPlayerPanel()
 	buildFeedsAndOverlays()
+	if touchHUD then
+		TouchLayout.OnRelayout = layoutTouchHUD
+		task.defer(TouchLayout.Relayout)
+		-- (el ataque aéreo solo se ve con cargas: con él, el registro de bajas puede tener una fila menos)
+		local hadAirstrike = false
+		player:GetAttributeChangedSignal("Airstrikes"):Connect(function()
+			local has = (player:GetAttribute("Airstrikes") or 0) > 0
+			if has ~= hadAirstrike then
+				hadAirstrike = has
+				TouchLayout.Relayout()
+			end
+		end)
+		-- (y con los ajustes de controles: correr con botón, disparo izquierdo, disposición propia)
+		ClientState.SettingsChanged.Event:Connect(function(key)
+			if key == nil or key == "HudLayout" or key == "AutoSprint" or key == "LeftFire" or key == "Controls" then
+				task.defer(TouchLayout.Relayout)
+			end
+		end)
+	end
 
 	Remotes.Notify.OnClientEvent:Connect(onNotify)
 	Remotes.KillFeed.OnClientEvent:Connect(onKillFeed)

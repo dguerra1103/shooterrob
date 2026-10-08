@@ -75,24 +75,38 @@ local QT = req(game.StarterPlayer.Client.Modules.QuestTracker)
 QT.Init()
 game:GetService("RunService").Heartbeat:Fire(1 / 60)
 check(pg:FindFirstChild("QuestTracker").Enabled == false, "sin el panel de retos en el teléfono")
--- Botones táctiles del teléfono: ninguno pisa a otro ni al botón de saltar de Roblox
-local TL = req(game.StarterPlayer.Client.Modules.TouchLayout)
-local W, H = 830, 380
-local rects = { { "Saltar", W - 95, H - 90, 70 } }
-for name, spot in TL.Phone do
-	local pos, size = spot[1], spot[2]
-	local x = pos.X.Scale * W + pos.X.Offset
-	local y = pos.Y.Scale * H + pos.Y.Offset
-	check(x >= 0 and y >= 0 and x + size <= W and y + size <= H, name .. " dentro de la pantalla")
-	table.insert(rects, { name, x, y, size })
-end
-for i = 1, #rects do
-	for j = i + 1, #rects do
-		local a, b = rects[i], rects[j]
-		local overlap = a[2] < b[2] + b[4] and b[2] < a[2] + a[4] and a[3] < b[3] + b[4] and b[3] < a[3] + a[4]
-		if overlap then check(false, a[1] .. " pisa a " .. b[1]) end
+-- Botones táctiles del teléfono (Fase 12, shared/MobileHUD): dentro de la pantalla, sin pisarse entre
+-- ellos ni al botón de saltar de Roblox y fuera del centro (la mira)
+local MobileHUD = req(RS.Shared.MobileHUD)
+for _, dims in { { 830, 380 }, { 667, 375 }, { 568, 320 }, { 932, 430 }, { 1024, 768 } } do
+	local size = roblox.Vector2.new(dims[1], dims[2])
+	local layout = MobileHUD.Resolve(size, {})
+	local jump, jd = MobileHUD.JumpRect(size)
+	local clear = MobileHUD.CenterClear(size)
+	local ids = {}
+	for _, control in MobileHUD.Controls do
+		if control.Id ~= "LeftFire" and control.Id ~= "Sprint" then
+			table.insert(ids, control.Id)
+		end
 	end
+	local bad = {}
+	for _, id in ids do
+		local info = layout[id]
+		local half = info.Size / 2
+		if info.Center.X - half.X < 0 or info.Center.Y - half.Y < 0 or info.Center.X + half.X > size.X or info.Center.Y + half.Y > size.Y then
+			table.insert(bad, id .. " fuera")
+		end
+		if (info.Center - jump).Magnitude < (math.max(info.Size.X, info.Size.Y) + jd) / 2 then
+			table.insert(bad, id .. " pisa el salto")
+		end
+		if (info.Center - size / 2).Magnitude - math.max(info.Size.X, info.Size.Y) / 2 < clear then
+			table.insert(bad, id .. " en el centro")
+		end
+	end
+	for _, pair in MobileHUD.Overlaps(layout, ids, 0) do
+		table.insert(bad, pair[1] .. " pisa a " .. pair[2])
+	end
+	check(#bad == 0, dims[1] .. "x" .. dims[2] .. ": ningún botón táctil pisa a otro, al salto ni a la mira " .. table.concat(bad, ", "))
 end
-check(true, "ningún botón táctil pisa a otro (" .. #rects .. " botones)")
 print("MOVIL OK")
 process.exit(0)

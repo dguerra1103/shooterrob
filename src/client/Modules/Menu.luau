@@ -30,6 +30,7 @@ local WeaponIcon = require(script.Parent.WeaponIcon)
 local Effects = require(script.Parent.Effects)
 local Settings = require(script.Parent.Settings)
 local RewardFX = require(script.Parent.RewardFX)
+local TouchLayout = require(script.Parent.TouchLayout)
 
 local player = Players.LocalPlayer
 
@@ -2729,6 +2730,11 @@ function Menu.Init()
 		Parent = gui,
 	}, { UI.stroke(Color3.new(0, 0, 0), 2, 0.3), UI.gloss() })
 	open.Activated:Connect(Menu.Toggle)
+	TouchLayout.BindButton("Menu", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			Menu.Toggle()
+		end
+	end)
 	-- En la pantalla de inicio no hace falta (ya tiene su botón TIENDA) y taparía el título
 	task.spawn(function()
 		while open.Parent do
@@ -2739,9 +2745,11 @@ function Menu.Init()
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local fighting = playing and humanoid ~= nil and humanoid.Health > 0 and not ClientState.Dead
 			-- (cualquier pantalla solo táctil, también tablets: sin teclas no hay otra forma de abrirlo)
+			-- (pantallas táctiles, Fase 12: durante la partida no se ve; el menú se abre con el engranaje
+			-- de arriba a la derecha, con los demás botones táctiles)
 			local UIS = game:GetService("UserInputService")
-			local touchOnly = UIS.TouchEnabled and not UIS.KeyboardEnabled
-			open.Visible = not ClientState.InMainMenu and (phone or touchOnly or not fighting)
+			local touchUI = UIS.TouchEnabled
+			open.Visible = not ClientState.InMainMenu and (if touchUI then not playing else not fighting)
 			open.Position = UDim2.fromOffset(phone and 14 or 16, (playing and ClientState.MinimapBottom) and ClientState.MinimapBottom + (phone and 6 or 8) or 58)
 			task.wait(0.25)
 		end
