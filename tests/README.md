@@ -42,6 +42,7 @@ tests/run_all.sh flow   # solo una prueba (nombre del archivo sin .luau)
 | Datos | `datastore` (bloqueo de sesión, recibos idempotentes, migraciones), `progress`, `seasons` |
 | Economía | `econ_catalog`, `econ_server`, `econ_client` (ProductId = 0: nunca hay compras reales) |
 | Interfaz | `flow`, `results`, `hudclient`, `menu`, `scoreboard`, `phonefx`, `touchbtns`… |
+| Móvil (Fase 12) | `mobilehud` (disposición pura y validación), `touchbtns` (controles táctiles), `hudeditor` (editor de HUD y validación en el servidor), `phonefx` |
 
 ## Si una prueba falla
 

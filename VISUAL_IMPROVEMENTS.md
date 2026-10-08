@@ -55,3 +55,12 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 
 ## Ajustes
 - Calidad: **Auto / Rendimiento / Equilibrada / Alta / Ultra** (los valores guardados siguen siendo Baja/Media/Alta/Ultra, compatibles con las partidas guardadas).
+
+## Móvil (Fase 12)
+| Qué | Por qué | Dónde |
+|---|---|---|
+| Controles táctiles con jerarquía: disparar el más grande, apuntar el segundo, el resto más pequeño; colocados alrededor del botón de saltar de Roblox (el real). | Antes eran nueve círculos iguales con emoji y en tablet pisaban el salto. | `shared/MobileHUD.luau`, `TouchLayout.luau` |
+| Pictogramas dibujados con formas en vez de emojis; fondo grafito translúcido con borde; estados en amarillo (apuntando), naranja (pocas balas) y rojo (vacío, sin parpadeo). | Un solo estilo que se lee igual en todos los móviles. | `TouchIcons.luau` |
+| Munición en la tarjeta del arma junto a recargar; vida abajo en el centro sin tocar botones; registro de bajas a 14 px; aviso de baja, medallas y banderas fuera del centro. | La mira y el centro limpios. | `HUD.luau`, `DominationHUD.luau` |
+| Editor de HUD (mover, tamaño, opacidad) guardado en los ajustes del perfil. | Cada mano es distinta, pero lo de fábrica ya tiene que ser bueno. | `HUDEditor.luau` |
+

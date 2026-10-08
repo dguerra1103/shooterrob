@@ -32,6 +32,11 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
 - **Fase 11**: la barra de munición del HUD y las balizas que parpadean (`WorldFX`) solo escriben al
   cambiar (antes, en cada fotograma). Impactos con sonido: como mucho uno cada 50 ms; casquillos, uno
   cada 0,16 s y solo si la calidad muestra casquillos; las tomas de cada sonido van en su pool.
+- **Fase 12 (controles táctiles)**: los botones no hacen nada por fotograma; sus estados (apuntando,
+  recarga necesaria, salto de Roblox movido) se revisan 10 veces por segundo y solo escriben si
+  cambian; los iconos (formas) solo se redibujan si cambia su tamaño. La tarjeta del arma compara los
+  valores en bruto antes de crear textos. Los ajustes de controles solo recolocan si cambian de verdad
+  (no con cada actualización del perfil). Ver `FASE_12_MOVIL.md` (H).
 
 ## Problemas detectados / vigilar
 - **Sonidos 2D (hecho)**: los sonidos que más se repiten (disparo, estampido, mecanismo, impacto, baja,

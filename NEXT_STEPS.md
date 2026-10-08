@@ -44,6 +44,12 @@ por familia (biblioteca Pro Sound Effects de Roblox), impactos con sonido, inter
 de Roblox, muesca en móvil, 6 fallos de UI y 5 de bots. **Lo siguiente es escucharlo y verlo en
 Studio** siguiendo su sección M (sobre todo el audio: no se ha podido escuchar nada).
 
+**Fase 12 (HUD e interfaz móvil) terminada fuera de Studio** — ver `FASE_12_MOVIL.md`. Controles
+táctiles nuevos (disposición alrededor del salto de Roblox, jerarquía, iconos con formas, disparar
+arrastrando, correr automático), HUD de partida sin tapar el centro y editor de HUD. **Lo siguiente es
+jugarlo en un móvil de verdad** siguiendo su matriz de resoluciones y sus pruebas a mano, y ajustar las
+distancias en `MobileHUD.Controls`.
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

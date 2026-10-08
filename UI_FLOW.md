@@ -120,8 +120,9 @@ la pose por código (arma lista). Para usar las tuyas: sube la animación R15 a 
 - `PHONE` (pantalla de menos de 520 de alto, o ventana pequeña), `TABLET` (táctil) y `DESKTOP`. En el
   teléfono: menú y columnas compactos, sin lo secundario, botones más bajos pero tocables.
 - Zona segura: la ScreenGui usa `ScreenInsets = CoreUISafeInsets` (muesca y barra de Roblox).
-- El HUD de partida en móvil (joystick y salto de Roblox; disparo, apuntar, recargar, granada,
-  agacharse, correr, cambiar arma, cuerpo a cuerpo, marcador, minimapa, killfeed, habilidades) no cambia.
+- El HUD de partida en móvil y sus controles táctiles se rehicieron en la Fase 12 (`FASE_12_MOVIL.md`:
+  `shared/MobileHUD`, `TouchLayout`, `HUDEditor`); los tipos de pantalla de los controles son
+  `PHONE_SMALL`, `PHONE`, `TABLET` y `DESKTOP`, medidos por el lado corto.
 
 ## Rendimiento
 
