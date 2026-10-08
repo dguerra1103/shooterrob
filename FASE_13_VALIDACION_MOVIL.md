@@ -11,7 +11,8 @@ asistencia de apuntado, retroceso, daño, cadencia, movimiento, salto, velocidad
 |---|---|---|
 | Fin de la Fase 12 (antes del arreglo de Movement) | sin errores | **149 OK, 1 fallo** (`movement`) |
 | Commit `cd08415` (Fase 12 cerrada, antes de tocar nada en esta fase) | luau-lsp sin errores, rojo build OK | **150 OK, 0 fallos** |
-| Tras los arreglos de esta fase | ver la sección «Resultado final» al final del documento | |
+| Tras los arreglos de esta fase (`cdc04b4`) | sin errores | **149 OK, 1 fallo** (`botbrain`, intermitente; ver fallo 8) |
+| Tras arreglar la prueba `botbrain` (`cad1255`, estado final) | luau-lsp sin errores, rojo build OK | **150 OK, 0 fallos** |
 
 ## 2. Regresiones y fallos encontrados (auditoría del código, paso 2)
 
@@ -220,4 +221,9 @@ Lune **no** prueba ergonomía. Tras jugar, marca una columna y propón el cambio
 
 ## Resultado final
 
-(se rellena al terminar la batería completa con todos los arreglos)
+Sobre el código final (`cad1255`): `tests/check.sh` → rojo build OK, **luau-lsp sin errores**;
+`tests/run_all.sh` completo → **150 OK, 0 fallos**. (Después de esa batería solo se ha cambiado este
+documento.)
+
+**Fin de la fase.** No se moverá ningún botón ni se cambiará el diseño hasta tener tu feedback del
+teléfono (sección 13).
