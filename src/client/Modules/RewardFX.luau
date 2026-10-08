@@ -117,6 +117,12 @@ function RewardFX.Init()
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 21 -- (encima de los menús y la ruleta: las celebraciones se ven siempre)
+	-- (los destellos de los bordes llegan al borde real de la pantalla, también junto a la muesca; el
+	-- contador va en el centro)
+	pcall(function()
+		gui.ScreenInsets = Enum.ScreenInsets.None
+		gui.ClipToDeviceSafeArea = false
+	end)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = player:WaitForChild("PlayerGui")
 	buildEdges()

@@ -2371,6 +2371,12 @@ function HUD.Init()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	-- Zona segura (Fase 11): con IgnoreGuiInset la información ya va dentro de la zona segura del
+	-- dispositivo (DeviceSafeInsets, fuera de la muesca). Sin recortar a esa zona, lo que se sale a
+	-- propósito (el borde negro de la mira telescópica) tapa también la franja de la muesca.
+	pcall(function()
+		gui.ClipToDeviceSafeArea = false
+	end)
 	buildTopBar()
 	buildCrosshair()
 	buildWeaponPanel()

@@ -68,6 +68,11 @@ local function buildVignette()
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = -1 -- (debajo del HUD)
+	-- (velo a pantalla completa, sin nada que tocar: también por detrás de la muesca del teléfono)
+	pcall(function()
+		gui.ScreenInsets = Enum.ScreenInsets.None
+		gui.ClipToDeviceSafeArea = false
+	end)
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local specs = {
 		{ Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0), UDim2.fromScale(1, 0.3), 90 },
