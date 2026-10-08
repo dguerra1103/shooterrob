@@ -29,6 +29,9 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
   que se comportan igual a 30, 60 o 240 FPS. Los marcadores de recarga son `task.delay` (3-6 por recarga),
   no trabajo por fotograma. En calidad Baja la luz del fogonazo está apagada (`MuzzleLight = false`); las
   animaciones no cambian con la calidad.
+- **Fase 11**: la barra de munición del HUD y las balizas que parpadean (`WorldFX`) solo escriben al
+  cambiar (antes, en cada fotograma). Impactos con sonido: como mucho uno cada 50 ms; casquillos, uno
+  cada 0,16 s y solo si la calidad muestra casquillos; las tomas de cada sonido van en su pool.
 
 ## Problemas detectados / vigilar
 - **Sonidos 2D (hecho)**: los sonidos que más se repiten (disparo, estampido, mecanismo, impacto, baja,

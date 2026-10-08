@@ -111,7 +111,28 @@ fotograma en todas las familias.
 
 ## E. UI
 
-[se completa con la auditoría del flujo]
+Auditoría del flujo entero (Boot → Home → Squad → Armory → Operator → Store → Pass → Matchmaking →
+MatchFound → MapIntro → TeamIntro → Loadout → Deploy → Results). No se rehízo nada; se corrigió lo
+que estaba mal:
+
+| Qué | Antes | Ahora |
+|---|---|---|
+| Revelado de compra (`Store/Reveal`) | Si comprabas en Resultados justo antes de la siguiente partida, el panel y su desenfoque (20) **se quedaban encima del juego** con el ratón bloqueado | `Reveal.CloseAll()` al entrar en partida (también vacía la cola) |
+| Resultados: XP, desafíos, desbloqueo | Se veían enteros, **encogían y volvían a crecer** (el Pop llegaba 0,35-0,9 s después) | Aparecen con su animación |
+| «¡NIVEL N!» | Si salías antes de que se desvaneciera, salía **opaco desde el principio** en la siguiente partida | Se reinicia en cada resumen |
+| VS de la presentación de equipos | Se veía **al doble de tamaño** 0,55 s antes de su golpe | Oculto hasta su golpe |
+| «5 VS 5» | También en Todos contra todos y Escalada de armas | Solo en modos por equipos (`ModeSettings.Teams`) |
+| Textos en teléfono | Etiquetas a 11 (≈9 px reales) y texto escalado que podía bajar a 8 | 13 y mínimo 11 |
+
+**Ya estaba bien** (comprobado): los ViewportFrame de las vistas previas solo se animan mientras se
+ven; las conexiones por fotograma de las pantallas se desconectan al cerrarse; el desenfoque y la
+profundidad de campo se quitan al salir; el FOV de partida lo fija el controlador del arma; las
+interacciones repetidas duran ≤ 0,45 s; los nombres largos se truncan.
+
+**No se ha tocado** (POSIBLE, sin confirmar sin verlo): dos `UIScale` en el mismo botón (JUGAR DE
+NUEVO, tarjetas de clase) — si Roblox solo aplica una, se perdería el efecto al pasar el ratón; que
+todo use rebote (Back) también en los modales; pulsar JUGAR mientras el servidor construye el mapa se
+queda en la búsqueda hasta que acaba. Están en la sección L.
 
 ## F. Mapas
 
@@ -154,7 +175,26 @@ Sin cambios de geometría ni de jugabilidad (spawns, sitios A/B, rutas, objetivo
 
 ## I. Bots
 
-[se completa con la auditoría de bots]
+Auditoría de `Bots.luau` (sin rehacer la IA). **Lo importante ya estaba bien**: ven con un rayo de
+cabeza a cabeza (no a través de paredes; las barandillas y cristales que dejan pasar balas valen igual
+para bots y jugadores), tiempo de reacción de 0,29-0,66 s en cada objetivo nuevo, puntería que se
+asienta, que empeora con la distancia y el movimiento, máximo real ~82 %, headshot ~12-18 % (nunca
+aimbot), un solo bucle cada 0,15 s para todos (70-350 rayos/s con 10 bots).
+
+Arreglado:
+- **Solo asoma la cabeza** (cuerpo detrás de una caja): antes el 88 % de sus aciertos dañaba el cuerpo
+  a través de la caja. Ahora solo puede darle en la cabeza, con menos probabilidad (×0,45).
+- **Dos enemigos a la misma distancia**: saltaba de uno a otro en cada pasada, reiniciando la reacción
+  (no llegaba a disparar). Ahora prefiere el que ya tenía.
+- **Portador de la bandera**: conservaba el objetivo y, al volver a verlo, disparaba sin reacción.
+  Ahora, si lo pierde más de 1 s, vuelve a reaccionar.
+- **Retirada**: duraba 2,2 s y la vida empieza a recuperarse a los 4 s (volvía igual de herido). Ahora
+  dura `HealthRegen.Delay` + 1,5 s y, si se atasca empujando algo, salta y deja de retirarse.
+- **Granadas bajo techo**: la parábola subía hasta 9-28 studs sin mirar si había techo; chocaba y caía
+  a su lado. Ahora no la lanza con un techo bajo encima.
+
+Sin cambiar: dificultad base (`Accuracy`, `Reaction`, daño), roles, navegación. Pendiente (POSIBLE):
+en Zona de control los bots entran y salen de la zona (no se quedan como en Dominio).
 
 ## J. Bugs
 
@@ -164,6 +204,10 @@ Sin cambios de geometría ni de jugabilidad (spawns, sitios A/B, rutas, objetivo
 | Disparos lejanos con el sonido genérico en vez del del arma | `Sounds.PlayShot` | corregido (B) |
 | Borde de la mira y viñetas recortados junto a la muesca | `HUD`, `AimFX`, `RewardFX` | corregido (G) |
 | Material de impacto sin reconocer en el simulador (los `Enum` de Lune no son únicos) | `Effects` | robustecido: también se busca por nombre (inocuo en Roblox) |
+| Revelado de compra y su desenfoque encima de la partida | `Store/Reveal`, `FlowController` | corregido (E) |
+| Paneles de Resultados que saltan; «¡NIVEL N!» que se queda; VS gigante; «5 VS 5» en FFA | Resultados, TeamIntro, MatchFound, Matchmaking | corregido (E) |
+| Bot que daña el cuerpo con solo la cabeza a la vista; objetivo que alterna; reacción del portador; retirada corta; granadas al techo | `Bots` | corregido (I) |
+| Prueba «no dispara mientras recarga» que no podía fallar (miraba `mock.sent`; los disparos de bots van a `mock.broadcast`) | `tests/harness/botbrain.luau` | corregida |
 
 ## K. Tests
 
@@ -174,13 +218,82 @@ Sin cambios de geometría ni de jugabilidad (spawns, sitios A/B, rutas, objetivo
   los sonidos de la familia, disparo lejano del enemigo con su grabación apagada, **impactos por
   material** (madera, metal, plástico) en 3D y con freno.
 - `weaponvisual`: el ARX-27 usa la familia Fusil.
-- Estas pruebas antes comprobaban «todavía no hay audio propio»; se han cambiado porque ese era
+- `econ_client`: con un revelado abierto y otro en cola, al entrar en partida no queda ninguno ni su
+  desenfoque (**falla sin el arreglo**, comprobado).
+- `botbrain`: con solo la cabeza a la vista, todos los aciertos van a la cabeza (**sin el arreglo: 0
+  cabeza, 6 cuerpo**, comprobado); y «no dispara mientras recarga» ahora mira de verdad.
+- Las pruebas de audio antes comprobaban «todavía no hay audio propio»; se han cambiado porque ese era
   justo el comportamiento que había que cambiar, no para conseguir verde.
+- Batería completa: **148 OK, 0 fallos** (antes de cada push).
 
 ## L. Trabajo pendiente
 
-[se completa al final]
+1. **Escuchar todo el audio en Studio** y ajustar volúmenes (ver M). Si algo no convence, cada hueco
+   se cambia en `Sounds.FamilyAudio` (o solo para un arma en `Sounds.WeaponAudio`).
+2. UI (POSIBLE, verificar viéndolo): doble `UIScale` en JUGAR DE NUEVO y en las tarjetas de clase;
+   curva Quint en vez de rebote en los modales; JUGAR durante la carga del mapa.
+3. Bots en Zona de control: quedarse en la zona como en Dominio.
+4. Mapas: retoques de color y materiales en Construction, Coastal y Mall Rush **después de verlos** en
+   Studio (no se ha tocado nada a ciegas).
+5. Medir FPS y memoria en un móvil real (MicroProfiler) — sigue sin cifras.
+6. Audio propio de la interfaz para VICTORIA/DERROTA, MVP y subida de nivel (siguen los genéricos).
 
 ## M. Qué necesita validación real jugando
 
-[se completa al final]
+**Audio (lo más importante: no se ha escuchado nada)**
+- [ ] Disparo de cada familia: ARX-27 (fusil), Specter 9 (subfusil), Viper (pistola), Hand Cannon,
+      Havoc Pump (escopeta), Raptor DMR, Signal 7, Ghostline XR, Titan LMG. ¿Suena a esa arma? ¿El
+      volumen entre armas es parecido? ¿La cola lejana se oye sin tapar?
+- [ ] En ráfaga larga con el Titan LMG y el Specter 9: ¿se nota que alternan tomas o hay cortes?
+- [ ] Recarga táctica y vacía del ARX-27: cargador fuera, dentro y palanca, a tiempo con la mano.
+- [ ] Escopeta: cartucho a cartucho (sube un poco de tono) y bombeo.
+- [ ] Impactos en hormigón, madera (Construction), metal (contenedores), cristal (Mall Rush), tierra.
+- [ ] Casquillos: el tintineo no cansa en una ráfaga larga.
+- [ ] Disparos de bots de lejos: apagados y con retraso.
+- [ ] Interfaz: hover, clic, JUGAR, partida encontrada, compra, equipar.
+
+**Móvil**
+- [ ] iPhone con muesca, apaisado: Panel QA → Zona segura. Vida, munición, killfeed dentro del verde;
+      con el Signal 7 apuntando, el borde negro de la mira **tapa también la franja de la muesca**.
+- [ ] Los textos de Resultados y el botón RECLAMAR del pase se leen.
+
+**UI**
+- [ ] Comprar algo en Resultados y dejar que empiece la siguiente partida: no queda ningún panel ni
+      desenfoque.
+- [ ] Resultados: XP, desafíos y desbloqueo aparecen con su animación, sin saltos.
+- [ ] Presentación de equipos: el VS entra con su golpe.
+
+**Bots**
+- [ ] Asomar solo la cabeza por encima de una caja: los bots aciertan menos y solo en la cabeza.
+- [ ] Con poca vida, el bot se esconde, se recupera algo y vuelve; no se queda empujando una caja.
+- [ ] En interiores (Mall Rush, nave de Construction) no hay granadas rebotando en el techo.
+
+**Rendimiento**
+- [ ] MicroProfiler en Construction con 10 bots: `RenderStepped` y `Heartbeat` del cliente; comparar
+      Baja y Alta.
+
+## Checklist final
+
+| Área | Estado |
+|---|---|
+| AUDIO | **MEJORADO** · PENDIENTE DE STUDIO (escucharlo y ajustar volúmenes) |
+| ARMAS | **TERMINADO** (auditadas las 17 armas de fuego; identidad por familia también en el sonido) |
+| ANIMACIONES | **TERMINADO** (sin saltos ni brazos que no lleguen; sin cambios necesarios) |
+| UI | **MEJORADO** (6 fallos corregidos) · PENDIENTE DE STUDIO (3 posibles, sección L) |
+| MAPAS | PENDIENTE DE STUDIO (iluminación revisada y correcta; color y materiales, viéndolos) |
+| MÓVIL | **MEJORADO** (muesca: mira y velos) · PENDIENTE DE STUDIO (iPhone con muesca) |
+| PERFORMANCE | **MEJORADO** (2 escrituras por fotograma menos) · PENDIENTE DE STUDIO (sin cifras de FPS) |
+| BOTS | **MEJORADO** (5 arreglos de justicia) · PENDIENTE DE STUDIO |
+| QA | **TERMINADO** fuera de Studio (148 OK + 2 pruebas nuevas que fallan sin su arreglo) |
+
+## Assets externos que siguen haciendo falta
+
+**Ninguno imprescindible.** El audio que faltaba se ha cubierto con la biblioteca que Roblox licencia
+(Pro Sound Effects) y el set de interfaz oficial de Roblox, sin comprar nada ni inventar ids.
+
+Opcionales (solo si al escucharlo/verlo en Studio no convence):
+- **audio**: un disparo propio para el ARX-27 (arma de referencia) grabado o con licencia, si el AK-47
+  de la biblioteca no da el carácter buscado; y unos golpes propios de VICTORIA/DERROTA y subida de
+  nivel (siguen siendo los genéricos de Roblox).
+- **modelo**: ninguno (los de piezas funcionan; la plantilla de modelo externo de la Fase 9 sigue lista).
+- **animación**: ninguna (no hay rig de brazos que las use; lo procedural cubre todas las acciones).

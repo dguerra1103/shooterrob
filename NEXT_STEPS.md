@@ -39,6 +39,11 @@ cuerpo en `ClientState.WeaponEvent` y plantilla de modelo externo (`ReplicatedSt
 Lo siguiente es **pasar su sección L en Studio** con el botón «ARX-27 Gold» del panel QA y, si se
 consigue audio propio, pegar los ids en los 12 huecos del ARX-27 (`Sounds.WeaponAudio`).
 
+**Fase 11 (pulido general) terminada fuera de Studio** — ver `FASE_11_PULIDO_GENERAL.md`. Audio real
+por familia (biblioteca Pro Sound Effects de Roblox), impactos con sonido, interfaz con el set oficial
+de Roblox, muesca en móvil, 6 fallos de UI y 5 de bots. **Lo siguiente es escucharlo y verlo en
+Studio** siguiendo su sección M (sobre todo el audio: no se ha podido escuchar nada).
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →
@@ -48,9 +53,8 @@ consigue audio propio, pegar los ids en los 12 huecos del ARX-27 (`Sounds.Weapon
    luau-lsp y pruebas Lune, pero no en el motor. Revisar además la killcam final, el contorno de
    enemigos y los nombres de zona; y, con latencia simulada, la tolerancia de impactos (sección F).
 2. **Perfilar en móvil** (ver PERFORMANCE_NOTES): un tiroteo de 10 en Encrucijada con calidad Auto.
-3. **Sonidos propios**: los disparos usan sonidos de Roblox con capas; unos sonidos originales por
-   familia (pistola, fusil, escopeta, francotirador) darían el mayor salto de "game feel". Ya hay
-   huecos por arma en `Sounds.WeaponAudio` (ver `FASE_02_GUNPLAY.md`, sección H): basta con pegar los ids.
+3. **Sonidos propios** (Fase 11: ya hay grabaciones reales por familia en `Sounds.FamilyAudio`): solo
+   si al escucharlas en Studio alguna no convence, poner la propia en `Sounds.WeaponAudio`.
 4. **Animaciones del viewmodel con Animator** (recarga, inspección, equipar) en vez de procedurales,
    empezando por el fusil de asalto y la pistola, que son las que más se ven. Engancharlas a
    `ClientState.WeaponEvent` (Equip, Fire, ReloadStart con Empty/Duration, ReloadCancel, Inspect).

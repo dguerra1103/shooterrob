@@ -50,6 +50,8 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | **ARX-27 gold standard** (Fase 9): brazos con IK de dos huesos, recarga táctica/vacía con marcadores (cargador fuera/dentro, cerrojo), palanca de carga, inspección por claves, variante de reposo, salto/aterrizaje con muelle, enfundar animado y charm con muelle. | El arma que más se ve tiene que verse y moverse como la de un shooter grande, sin assets nuevos. | `shared/WeaponVisual.luau`, `WeaponController.luau` (ver `FASE_09_ARX27_GOLD_STANDARD.md`) |
 | Rol de pintura **Trim** (oscuro de fábrica, acento con skin) y skin de referencia **Operación Roja**. | Las skins pintan por zonas con sentido en vez de todo igual. | `WeaponModels.luau` (`paint`), `Skins.luau` (`TrimAccent`) |
 | Casquillos con la velocidad del jugador; luz del fogonazo apagada en calidad Baja. | Casquillos creíbles al correr; menos coste en móvil. | `Effects.luau`, `WeaponFeel.Quality.MuzzleLight` |
+| **Audio real por familia** (Fase 11): disparos, cola, cargador, cerrojo, vacío, sacar y guardar con grabaciones de la biblioteca Pro Sound Effects de Roblox; impactos por material; casquillos. | El mayor salto de «game feel» sin comprar nada. | `shared/Sounds.luau` (`FamilyAudio`, `Impacts`), `Effects.luau` |
+| Mira telescópica y viñetas que cubren también la franja de la muesca del móvil. | Antes se veía el mundo junto a la muesca al apuntar. | `HUD.luau`, `AimFX.luau`, `RewardFX.luau` |
 
 ## Ajustes
 - Calidad: **Auto / Rendimiento / Equilibrada / Alta / Ultra** (los valores guardados siguen siendo Baja/Media/Alta/Ultra, compatibles con las partidas guardadas).
