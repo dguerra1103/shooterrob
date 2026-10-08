@@ -1,4 +1,8 @@
--- Botones táctiles propios: en el móvil salen todos (Roblox solo creaba 7) y cada uno en su sitio
+-- Controles táctiles (Fase 12): todos los botones existen una sola vez, con su jerarquía (disparar el
+-- más grande), sin pisarse ni tapar el centro; apuntar se marca y lo secundario se apaga un poco;
+-- recargar se resalta con el cargador vacío; los menús los esconden y sueltan el dedo; los ajustes
+-- (correr, disparo izquierdo, disposición propia) se aplican. (Lógica y disposición: la comodidad
+-- real con los pulgares solo se puede juzgar en un móvil.)
 local process = require("@lune/process")
 local task = require("@lune/task")
 local roblox = require("@lune/roblox")
@@ -7,6 +11,8 @@ mock.taskImpl = task
 mock.policyInfo = { ArePaidRandomItemsRestricted = false }
 local game, req = mock.buildGame(process.args[1])
 local function check(c, m) if not c then print("FALLO: " .. m) process.exit(1) end print("ok  " .. m) end
+local Vector2 = roblox.Vector2
+local Enum = roblox.Enum
 local RS = game.ReplicatedStorage
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
@@ -27,7 +33,8 @@ local pg = mock.new("PlayerGui"); pg.Name = "PlayerGui"; pg.Parent = me
 Players.LocalPlayer = me
 me.Team = Teams:GetChildren()[1]
 mock.invokePlayer = me
-game.Workspace.CurrentCamera.ViewportSize = roblox.Vector2.new(830, 380)
+local W, H = 844, 390
+game.Workspace.CurrentCamera.ViewportSize = Vector2.new(W, H)
 local UIS = game:GetService("UserInputService")
 UIS.TouchEnabled = true
 UIS.KeyboardEnabled = false
@@ -35,26 +42,141 @@ RS:SetAttribute("TeamA", GameConfig.Teams[1].Name); RS:SetAttribute("TeamB", Gam
 RS:SetAttribute("State", "Playing"); RS:SetAttribute("Mode", "TDM")
 req(game.StarterPlayer.Client.Main)
 task.wait(2)
+local ClientState = req(game.StarterPlayer.Client.Modules.ClientState)
+local TL = req(game.StarterPlayer.Client.Modules.TouchLayout)
+local MobileHUD = req(RS.Shared.MobileHUD)
+local function heartbeat()
+	TL.Tick()
+end
+-- (fuera de los menús, como en partida)
+ClientState.InMainMenu = false
+ClientState.MenuOpen = false
+ClientState.Dead = false
+TL.RefreshVisibility()
+
 local gui = pg:FindFirstChild("TouchButtons")
 check(gui ~= nil, "pantalla de botones táctiles propia")
-local names = {}
-for _, b in gui:GetChildren() do names[b.Name] = b end
-for _, n in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Emotes", "Scoreboard", "Airstrike", "Spray" } do
-	check(names[n] ~= nil, "botón " .. n)
+local count = {}
+for _, b in gui:GetChildren() do
+	count[b.Name] = (count[b.Name] or 0) + 1
 end
-local TL = req(game.StarterPlayer.Client.Modules.TouchLayout)
-local fire = names.Fire
-check(fire.Size.X.Offset == 76 and fire.Position == TL.Phone.Fire[1], "disparar grande y en su sitio del teléfono")
-check(names.Scoreboard.Position.Y.Scale == 0 and names.Scoreboard.Position.Y.Offset == 8, "marcador arriba de verdad (no a media pantalla)")
-local title = fire:FindFirstChild("ActionTitle")
-check(title and title.Text == "🔫", "con su icono")
--- Pulsar el botón llama a la acción (como ContextActionService)
-local WeaponController = req(game.StarterPlayer.Client.Modules.WeaponController)
-_ = WeaponController
+for _, control in MobileHUD.Controls do
+	check(count[control.Id] == 1, "botón " .. control.Id .. " (uno solo)")
+end
+local entries = TL.Entries()
+
+-- Jerarquía: disparar > apuntar > el resto
+local layout, breakpoint = TL.GetLayout()
+check(breakpoint == "PHONE", "844x390 es PHONE (" .. tostring(breakpoint) .. ")")
+local fire, aim = layout.Fire, layout.Aim
+check(fire.Size.X > aim.Size.X, "disparar es más grande que apuntar")
+for id, info in layout do
+	if id ~= "Fire" and id ~= "Aim" and id ~= "SwapWeapon" and id ~= "LeftFire" then
+		check(info.Size.X < aim.Size.X, id .. " es más pequeño que apuntar")
+	end
+end
+check(fire.Hit.X > fire.Size.X, "la zona de disparar es algo mayor que el dibujo")
+check(#MobileHUD.Overlaps(layout, nil, 0) <= 1, "los controles no se pisan")
+local center = Vector2.new(W, H) / 2
+local clear = MobileHUD.CenterClear(Vector2.new(W, H))
+for id, info in layout do
+	check((info.Center - center).Magnitude - info.Size.X / 2 >= clear, id .. " fuera del centro libre")
+end
+
+-- Visibilidad por ajustes y estado
+check(not entries.Sprint.Button.Visible, "correr: sin botón con «Auto» (por defecto)")
+check(not entries.LeftFire.Button.Visible, "disparo izquierdo apagado por defecto")
+check(not entries.Airstrike.Button.Visible, "ataque aéreo oculto sin cargas")
+me:SetAttribute("Airstrikes", 1)
+TL.RefreshVisibility()
+check(entries.Airstrike.Button.Visible, "ataque aéreo visible con una carga")
+local Settings = req(game.StarterPlayer.Client.Modules.Settings)
+Settings.Set("LeftFire", 1)
+Settings.Set("AutoSprint", 0)
+task.wait(0.1)
+check(entries.LeftFire.Button.Visible and entries.Sprint.Button.Visible, "ajustes: disparo izquierdo y botón de correr")
+Settings.Set("LeftFire", 0)
+Settings.Set("AutoSprint", 1)
+task.wait(0.1)
+
+-- Disparar arrastrando (por defecto): la zona de disparar no se come el toque (la cámara gira con
+-- el mismo dedo) y el toque se detecta igualmente
+check(entries.Fire.Button.ClassName == "Frame" and entries.Fire.Button.Active == false, "disparar deja pasar el toque a la cámara")
+local fired = {}
+mock.actions.Fire = mock.actions.Fire -- (la tecla sigue en ContextActionService)
+local oldHandler = entries.Fire.Handler
+entries.Fire.Handler = function(name, state)
+	table.insert(fired, state)
+end
 local input = mock.new("InputObject")
-input.UserInputType = roblox.Enum.UserInputType.Touch
-input.UserInputState = roblox.Enum.UserInputState.Begin
-local ok, err = pcall(function() names.Reload.InputBegan:Fire(input) end)
-check(ok, "pulsar un botón no da error " .. tostring(err))
+input.UserInputType = Enum.UserInputType.Touch
+input.UserInputState = Enum.UserInputState.Begin
+input.Position = roblox.Vector3.new(fire.Center.X, fire.Center.Y, 0)
+entries.Fire.Press(input)
+task.wait(0.05)
+check(fired[1] == Enum.UserInputState.Begin and entries.Fire.Pressed, "tocar disparar dispara")
+-- Al abrirse un menú con el dedo encima: se suelta (no se queda disparando) y se esconden
+ClientState.MenuOpen = true
+TL.RefreshVisibility()
+task.wait(0.05)
+check(fired[2] == Enum.UserInputState.Cancel and not entries.Fire.Pressed, "con un menú, el disparo se suelta")
+check(not entries.Fire.Button.Visible and not entries.Aim.Button.Visible, "con un menú, los controles se esconden")
+ClientState.MenuOpen = false
+TL.RefreshVisibility()
+check(entries.Fire.Button.Visible, "al cerrar el menú vuelven")
+entries.Fire.Handler = oldHandler
+
+-- Apuntar: el botón se marca y lo secundario se apaga un poco (sigue visible y funcionando)
+local grenadeBefore = entries.Grenade.Face.BackgroundTransparency
+ClientState.Aiming = true
+heartbeat()
+check(entries.Aim.Active == true, "apuntando: el botón de apuntar se marca")
+check(entries.Grenade.Face.BackgroundTransparency > grenadeBefore, "apuntando: la granada se apaga un poco")
+check(entries.Grenade.Button.Visible, "apuntando: la granada sigue ahí")
+ClientState.Aiming = false
+heartbeat()
+check(entries.Aim.Active == false and math.abs(entries.Grenade.Face.BackgroundTransparency - grenadeBefore) < 1e-6, "al dejar de apuntar vuelve todo")
+
+-- Recargar: resaltado con el cargador vacío (sin parpadeo)
+ClientState.CurrentDef = { Type = "Gun", MagSize = 30 }
+ClientState.Ammo = 0
+ClientState.Reloading = false
+heartbeat()
+check(entries.Reload.Emphasis == 2, "cargador vacío: recargar resaltado")
+ClientState.Ammo = 6
+heartbeat()
+check(entries.Reload.Emphasis == 1, "pocas balas: aviso suave")
+ClientState.Ammo = 30
+heartbeat()
+check(entries.Reload.Emphasis == 0, "cargador lleno: normal")
+
+-- Tarjeta del arma y recargas de habilidades
+TL.SetCard("SwapWeapon", { Title = "ARX-27", Value = "24 / 90", Sub = "1/2" })
+check(entries.SwapWeapon.CardTexts.Value.Text == "24 / 90" and entries.SwapWeapon.CardTexts.Title.Text == "ARX-27", "tarjeta del arma con la munición")
+TL.SetCooldown("AbilityDash", 0.5, "3")
+check(entries.AbilityDash.Cover.Visible and entries.AbilityDash.Timer.Text == "3", "recarga de habilidad visible")
+TL.SetCooldown("AbilityDash", 0, "0")
+check(not entries.AbilityDash.Cover.Visible and entries.AbilityDash.Timer.Text == "", "habilidad lista")
+TL.SetBadge("Airstrike", "x2")
+check(entries.Airstrike.Badge.Visible and entries.Airstrike.Badge.Text == "x2", "globo con las cargas")
+
+-- Disposición propia (guardada en los ajustes): se aplica y se valida
+Settings.Set("HudLayout", { Fire = { X = 0.5, Y = 0.8, S = 1.2, O = 0.5 }, Bogus = { X = 1 }, Aim = { S = 99 } })
+task.wait(0.1)
+layout = TL.GetLayout()
+check(math.abs(layout.Fire.Center.X - W * 0.5) < 1 and math.abs(layout.Fire.Center.Y - H * 0.8) < 1, "disposición propia: disparar movido")
+check(math.abs(layout.Fire.Size.X - 84 * 1.2) < 0.5, "disposición propia: tamaño")
+check(math.abs(layout.Aim.Size.X - 56 * MobileHUD.Limits.S[2]) < 0.5, "tamaño fuera de rango recortado")
+check(ClientState.Settings.HudLayout.Bogus == nil, "controles desconocidos fuera")
+Settings.Set("HudLayout", {})
+task.wait(0.1)
+layout = TL.GetLayout()
+check(math.abs(layout.Fire.Size.X - 84) < 0.5, "restablecer: vuelve la disposición por defecto")
+
+-- Modo editor: se ven todos y tocar no dispara nada
+TL.SetEditing(true, {})
+check(entries.Sprint.Button.Visible and entries.LeftFire.Button.Visible, "editor: se ven todos los controles")
+TL.SetEditing(false)
+check(not entries.Sprint.Button.Visible, "al salir del editor, como antes")
 print("BOTONES TACTILES OK")
 process.exit(0)

@@ -59,7 +59,6 @@ function Graffiti.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.J, Enum.KeyCode.ButtonR1) -- (R1 en el mando)
-	TouchLayout.SetTitle("Spray", "🎨")
 	TouchLayout.Set("Spray", UDim2.new(1, -200, 1, -340))
 end
 

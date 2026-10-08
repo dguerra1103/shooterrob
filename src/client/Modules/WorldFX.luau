@@ -227,7 +227,12 @@ function WorldFX.Init()
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	player:GetPropertyChangedSignal("Team"):Connect(restyleAll)
-	ClientState.SettingsChanged.Event:Connect(restyleAll)
+	ClientState.SettingsChanged.Event:Connect(function(key)
+		-- (solo el color de los enemigos cambia su contorno)
+		if key == nil or key == "EnemyColor" then
+			restyleAll()
+		end
+	end)
 	task.spawn(function()
 		local bots = workspace:WaitForChild("Bots", 30)
 		if not bots then

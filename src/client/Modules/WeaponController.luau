@@ -1617,7 +1617,6 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-	TouchLayout.SetTitle("Fire", "🔫") -- (iconos: con palabras no cabían en el botón)
 	TouchLayout.Set("Fire", UDim2.new(1, -110, 1, -160))
 
 	TouchLayout.BindAction("Aim", function(_, state, input)
@@ -1625,7 +1624,7 @@ local function bindActions()
 			aimHeld = false
 			return Enum.ContextActionResult.Pass
 		end
-		if input.UserInputType == Enum.UserInputType.Touch then
+		if input and input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin then
 				aimHeld = not aimHeld -- en móvil es un interruptor
 				aimToggled = aimHeld
@@ -1637,7 +1636,6 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Sink
 	end, true, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonL2)
-	TouchLayout.SetTitle("Aim", "🎯")
 	TouchLayout.Set("Aim", UDim2.new(1, -190, 1, -110))
 
 	TouchLayout.BindAction("Reload", function(_, state)
@@ -1646,7 +1644,6 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.R, Enum.KeyCode.ButtonX)
-	TouchLayout.SetTitle("Reload", "🔄")
 	TouchLayout.Set("Reload", UDim2.new(1, -200, 1, -190))
 
 	TouchLayout.BindAction("Melee", function(_, state)
@@ -1655,7 +1652,6 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.F, Enum.KeyCode.ButtonB)
-	TouchLayout.SetTitle("Melee", "🔪")
 	TouchLayout.Set("Melee", UDim2.new(1, -120, 1, -240))
 
 	ContextActionService:BindAction("Slots", function(_, state, input)
@@ -1701,7 +1697,6 @@ local function bindActions()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.Q)
-	TouchLayout.SetTitle("SwapWeapon", "⇄")
 	TouchLayout.Set("SwapWeapon", UDim2.new(1, -280, 1, -100))
 
 	UserInputService.InputChanged:Connect(function(input, processed)

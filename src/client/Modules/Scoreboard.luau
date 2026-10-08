@@ -305,7 +305,7 @@ function Scoreboard.Init()
 
 	-- Tab: se ve mientras se mantiene pulsado. En móvil el botón 📋 lo abre y lo cierra.
 	TouchLayout.BindAction("Scoreboard", function(_, state, input)
-		if input.UserInputType == Enum.UserInputType.Touch then
+		if input and input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin then
 				setVisible(not visible)
 			end
@@ -322,7 +322,6 @@ function Scoreboard.Init()
 			setVisible(false)
 		end
 	end)
-	TouchLayout.SetTitle("Scoreboard", "📋")
 	TouchLayout.Set("Scoreboard", UDim2.new(1, -60, 0, 70))
 
 	task.spawn(function()

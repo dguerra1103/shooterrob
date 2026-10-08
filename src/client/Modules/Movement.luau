@@ -261,6 +261,34 @@ local function updateStamina(dt)
 	ClientState.Stamina = stamina
 end
 
+-- Correr solo en el móvil (Ajustes → Controles táctiles → Correr: Auto): con el joystick empujado
+-- casi hasta el borde se corre, sin botón. El empuje se lee del ControlModule de Roblox
+-- (PlayerModule:GetControls():GetMoveVector(), de 0 a 1); MoveDirection siempre mide 1.
+local controls
+local function autoSprint(): boolean
+	if (ClientState.Settings.AutoSprint or 1) ~= 1 or not UserInputService.TouchEnabled then
+		return false
+	end
+	if UserInputService:GetLastInputType() ~= Enum.UserInputType.Touch then
+		return false
+	end
+	if controls == nil then
+		controls = false
+		local module = player:FindFirstChild("PlayerScripts") and player.PlayerScripts:FindFirstChild("PlayerModule")
+		if module then
+			local ok, playerModule = pcall(require, module)
+			if ok and type(playerModule) == "table" and playerModule.GetControls then
+				controls = playerModule:GetControls() or false
+			end
+		end
+	end
+	if not controls then
+		return false
+	end
+	local ok, vector = pcall(controls.GetMoveVector, controls)
+	return ok and typeof(vector) == "Vector3" and vector.Magnitude >= (MOVE.AutoSprintPush or 0.9)
+end
+
 local function update(dt)
 	if not humanoid or humanoid.Health <= 0 or not rootPart then
 		ClientState.Sprinting = false
@@ -275,7 +303,7 @@ local function update(dt)
 	local look = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z)
 	local flatMove = Vector3.new(moveDirection.X, 0, moveDirection.Z)
 	local forward = moving and look.Magnitude > 0.01 and flatMove.Magnitude > 0.01 and flatMove.Unit:Dot(look.Unit) >= (MOVE.SprintAngle or 0.55)
-	ClientState.Sprinting = sprintHeld
+	ClientState.Sprinting = (sprintHeld or autoSprint())
 		and moving
 		and forward
 		and not ClientState.Exhausted
@@ -405,7 +433,7 @@ end
 function Movement.Init()
 	buildStaminaBar()
 	TouchLayout.BindAction("Sprint", function(_, state, input)
-		if input.UserInputType == Enum.UserInputType.Touch then
+		if input and input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 				sprintHeld = not sprintHeld
 			end
@@ -416,8 +444,6 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
-	TouchLayout.SetTitle("Sprint", "🏃")
-	TouchLayout.Set("Sprint", UDim2.new(1, -260, 1, -160))
 
 	-- C: corriendo te deslizas; si no, te agachas o te levantas (como en los shooters de móvil)
 	TouchLayout.BindAction("Slide", function(_, state)
@@ -432,8 +458,6 @@ function Movement.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
-	TouchLayout.SetTitle("Slide", "⬇")
-	TouchLayout.Set("Slide", UDim2.new(1, -270, 1, -240))
 
 	-- Si la ventana pierde el foco dejamos de correr
 	UserInputService.WindowFocusReleased:Connect(function()

@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
+local MobileHUD = require(Shared.MobileHUD)
 
 local ClientState = require(script.Parent.ClientState)
 
@@ -182,6 +183,9 @@ function Settings.Set(key, value)
 		if not table.find(GameConfig.QualityLevels, value) then
 			return
 		end
+	elseif key == "HudLayout" then
+		-- (disposición de los controles táctiles: la misma limpieza que hace el servidor)
+		value = MobileHUD.Validate(value)
 	else
 		local limits = GameConfig.SettingsLimits[key]
 		if not limits or type(value) ~= "number" then
@@ -193,6 +197,7 @@ function Settings.Set(key, value)
 	if key == "Quality" then
 		applyQuality()
 	end
+	ClientState.SettingsChanged:Fire(key)
 	if not saveQueued then
 		saveQueued = true
 		task.delay(1.5, function()
@@ -210,11 +215,14 @@ function Settings.Init()
 		end
 		local changedQuality = data.Settings.Quality ~= current.Quality
 		local oldEnemyColor = current.EnemyColor
+		local oldLayout = current.HudLayout
 		for key, value in data.Settings do
 			if GameConfig.DefaultSettings[key] ~= nil and type(value) == type(GameConfig.DefaultSettings[key]) then
-				current[key] = value
+				current[key] = key == "HudLayout" and MobileHUD.Validate(value) or value
 			end
 		end
+		-- (controles táctiles: se vuelven a colocar con lo guardado)
+		ClientState.SettingsChanged:Fire(oldLayout ~= current.HudLayout and "HudLayout" or "Controls")
 		if changedQuality then
 			applyQuality()
 		end

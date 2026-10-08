@@ -146,7 +146,6 @@ function Emotes.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.N)
 	-- Botón táctil en móvil
-	TouchLayout.SetTitle("Emotes", "😀")
 	TouchLayout.Set("Emotes", UDim2.new(1, -120, 1, -320))
 	RunService.Heartbeat:Connect(function()
 		if wheel.Visible and otherBlock() then

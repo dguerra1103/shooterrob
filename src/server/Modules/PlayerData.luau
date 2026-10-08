@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local GameConfig = require(Shared.GameConfig)
+local MobileHUD = require(Shared.MobileHUD)
 local Skins = require(Shared.Skins)
 local Weapons = require(Shared.Weapons)
 local Outfits = require(Shared.Outfits)
@@ -585,9 +586,11 @@ local function load(player)
 	-- Ajustes nuevos que aún no tenía guardados (después de la migración de calidad)
 	for key, value in GameConfig.DefaultSettings do
 		if merged.Settings[key] == nil then
-			merged.Settings[key] = value
+			merged.Settings[key] = type(value) == "table" and table.clone(value) or value
 		end
 	end
+	-- (la disposición de los controles táctiles siempre limpia, aunque venga de un guardado viejo)
+	merged.Settings.HudLayout = MobileHUD.Validate(merged.Settings.HudLayout)
 	if type(merged.KillEffects) ~= "table" then
 		merged.KillEffects = { Default = true }
 	end
@@ -1987,6 +1990,10 @@ function PlayerData.Init()
 			if type(value) == "number" and value == value then
 				clean[key] = math.clamp(math.floor(value * 100 + 0.5) / 100, limits[1], limits[2])
 			end
+		end
+		-- Disposición de los controles táctiles: solo controles conocidos y números en su rango
+		if settings.HudLayout ~= nil then
+			clean.HudLayout = MobileHUD.Validate(settings.HudLayout)
 		end
 		data.Settings = clean
 		applyPerk(player)

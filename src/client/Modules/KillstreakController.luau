@@ -101,7 +101,7 @@ local function updateWidget()
 		and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 	strikeLabel.Text = "✈ T" .. (charges > 1 and (" ×" .. charges) or "")
 	-- (en el botón táctil, cuántos hay si son varios)
-	TouchLayout.SetTitle("Airstrike", charges > 1 and ("✈" .. charges) or "✈")
+	TouchLayout.SetBadge("Airstrike", charges > 1 and ("x" .. charges) or nil)
 end
 
 -- Punto al que apunta la cámara (o lejos al frente si apunta al cielo)
@@ -214,7 +214,6 @@ function KillstreakController.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.T, Enum.KeyCode.DPadRight)
-	TouchLayout.SetTitle("Airstrike", "✈")
 	TouchLayout.Set("Airstrike", UDim2.new(1, -280, 1, -310))
 	player:GetAttributeChangedSignal("Airstrikes"):Connect(ClientState.UpdateMouse)
 	ClientState.UpdateMouse()

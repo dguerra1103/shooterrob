@@ -116,7 +116,7 @@ local function updateWidget()
 					fill.BackgroundColor3 = Color3.fromRGB(230, 40, 30)
 					if touchOnly then
 						pcall(function()
-							TouchLayout.SetTitle("Grenade", string.format("%.1f", fuseLeft))
+							TouchLayout.SetBadge("Grenade", string.format("%.1f", fuseLeft))
 						end)
 					end
 				end
@@ -131,10 +131,11 @@ local function updateWidget()
 		return
 	end
 	lastKey = key
-	-- (en pantallas táctiles el botón 💣 es el de Roblox: la cuenta atrás va en su texto)
+	-- (en pantallas táctiles, en el propio botón: velo que baja con los segundos que faltan)
 	if touchOnly then
 		pcall(function()
-			TouchLayout.SetTitle("Grenade", left <= 0 and "💣" or tostring(math.ceil(left)))
+			TouchLayout.SetBadge("Grenade", nil)
+			TouchLayout.SetCooldown("Grenade", left > 0 and left / DEF.Cooldown or 0, tostring(math.ceil(math.max(left, 0))))
 		end)
 	end
 	if left <= 0 then
@@ -187,7 +188,6 @@ function GrenadeController.Init()
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.G, Enum.KeyCode.ButtonL1)
-	TouchLayout.SetTitle("Grenade", "💣")
 	TouchLayout.Set("Grenade", UDim2.new(1, -200, 1, -270))
 
 	Remotes.ExplosionFX.OnClientEvent:Connect(function(position, radius)

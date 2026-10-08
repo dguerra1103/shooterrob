@@ -399,7 +399,10 @@ GameConfig.QualityLevels = { "Auto", "Baja", "Media", "Alta", "Ultra" }
 -- Perk: ventaja elegida (GameConfig.Perks; 0 = ninguna)
 -- ScreenFX: efectos de pantalla (1 = normales; 0 = reducidos: sin desenfoques, destellos ni temblores,
 -- para quien se marea; ver CombatFX, AimFX y WeaponController)
-GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, EnemyColor = 1, Perk = 0 }
+-- Controles táctiles (Fase 12): AutoSprint 1 = corre solo con el joystick a tope hacia delante (0 =
+-- botón), LeftFire 1 = segundo botón de disparar a la izquierda, FireDrag 1 = el dedo de DISPARAR
+-- también gira la cámara, HudLayout = posición, tamaño y opacidad de cada control (MobileHUD.Validate)
+GameConfig.DefaultSettings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, CrossColor = 1, CrossSize = 1, AutoFire = 2, AimAssist = 2, Uniform = 1, ScreenFX = 1, EnemyColor = 1, Perk = 0, AutoSprint = 1, LeftFire = 0, FireDrag = 1, HudLayout = {} }
 GameConfig.SettingsLimits = {
 	FOV = { 70, 100 },
 	Sensitivity = { 0.2, 3 },
@@ -412,7 +415,13 @@ GameConfig.SettingsLimits = {
 	ScreenFX = { 0, 1 }, -- 1 = efectos de pantalla normales; 0 = reducidos
 	EnemyColor = { 1, 3 }, -- color del contorno de los enemigos (GameConfig.EnemyColors): accesibilidad
 	Perk = { 0, 3 },
+	AutoSprint = { 0, 1 },
+	LeftFire = { 0, 1 },
+	FireDrag = { 0, 1 },
 }
+-- Modo de depuración de los controles táctiles (zona segura, zonas táctiles, centro libre, zona de
+-- cámara, resolución). Solo funciona en Studio y está apagado: nunca lo ve un jugador.
+GameConfig.MobileHUDDebug = false
 -- Ventajas (como en los shooters de móvil): cada jugador elige una en Ajustes, gratis. El número es
 -- el valor guardado (Settings.Perk) y el atributo "Perk" del jugador.
 GameConfig.Perks = {

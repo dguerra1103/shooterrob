@@ -16,6 +16,7 @@ local Sounds = require(Shared.Sounds)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local TouchLayout = require(script.Parent.TouchLayout)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -26,6 +27,9 @@ local CONFIG = GameConfig.Abilities
 local readyAt = { Dash = 0, Jump = 0, Potion = 0 }
 local slots = {} -- [nombre] = { Cover, Timer, Frame, WasReady }
 local gui
+-- En pantallas táctiles las habilidades son botones de TouchLayout (abajo a la izquierda, encima del
+-- joystick, con el mismo estilo que los demás) y esta barra no se enseña (Fase 12)
+local touchButtons = false
 
 local function getCharacter()
 	local character = player.Character
@@ -245,7 +249,26 @@ local function build()
 	end
 end
 
+local touchLast = {} -- [nombre] = paso de la recarga ya pintado en el botón táctil
+
+local function updateTouch()
+	local now = os.clock()
+	for _, action in ACTIONS do
+		local left = readyAt[action.Name] - now
+		local fraction = left <= 0 and 0 or math.clamp(left / CONFIG[action.Name].Cooldown, 0, 1)
+		local key = math.ceil(fraction * 50) * 1000 + math.max(0, math.ceil(left))
+		if key ~= touchLast[action.Name] then
+			touchLast[action.Name] = key
+			TouchLayout.SetCooldown("Ability" .. action.Name, fraction, tostring(math.ceil(left)))
+		end
+	end
+end
+
 local function update()
+	if touchButtons then
+		updateTouch()
+		return
+	end
 	-- (tampoco con el resumen de fin de partida en pantalla: en el móvil lo tapaban)
 	gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen and not ClientState.VotePanelVisible
 		and ReplicatedStorage:GetAttribute("State") ~= "Ended"
@@ -297,6 +320,16 @@ function Abilities.Init()
 			end
 			return Enum.ContextActionResult.Pass
 		end, false, table.unpack(keys[action.Name]))
+		if TouchLayout.BindButton("Ability" .. action.Name, function(_, state)
+			if state == Enum.UserInputState.Begin then
+				action.Use()
+			end
+		end) then
+			touchButtons = true
+		end
+	end
+	if touchButtons then
+		gui.Enabled = false
 	end
 	-- Al reaparecer, las recargas se mantienen (no se reinician gratis)
 	RunService.RenderStepped:Connect(update)

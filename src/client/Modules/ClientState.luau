@@ -95,19 +95,8 @@ function ClientState.UpdateMouse()
 	if not okLayout then
 		return
 	end
-	-- (el de emotes sigue visible con su propia rueda abierta: en el móvil es la forma de cerrarla)
-	local onlyEmotes = ClientState.EmoteMenuOpen and not (ClientState.MenuOpen or ClientState.VoteOpen or ClientState.InMainMenu
-		or ClientState.Dead or ClientState.TutorialOpen or ClientState.WheelOpen or ClientState.NewsOpen)
-	for _, name in { "Fire", "Aim", "Reload", "Melee", "SwapWeapon", "Sprint", "Slide", "Grenade", "Airstrike", "Emotes", "Spray", "Scoreboard" } do
-		local button = TouchLayout.GetButton(name)
-		if button then
-			button.Visible = not blocked or (name == "Emotes" and onlyEmotes)
-			-- (el del ataque aéreo solo cuando hay alguno listo)
-			if name == "Airstrike" then
-				button.Visible = button.Visible and (game:GetService("Players").LocalPlayer:GetAttribute("Airstrikes") or 0) > 0
-			end
-		end
-	end
+	-- (cuáles se ven lo decide TouchLayout: menús abiertos, cargas del ataque aéreo, ajustes...)
+	TouchLayout.RefreshVisibility()
 end
 
 function ClientState.SetData(data)
