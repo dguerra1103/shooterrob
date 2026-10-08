@@ -266,10 +266,12 @@ end
 -- (PlayerModule:GetControls():GetMoveVector(), de 0 a 1); MoveDirection siempre mide 1.
 local controls
 local function autoSprint(): boolean
-	if (ClientState.Settings.AutoSprint or 1) ~= 1 or not UserInputService.TouchEnabled then
+	local settings = ClientState.Settings
+	if (settings and settings.AutoSprint or 1) ~= 1 or UserInputService.TouchEnabled ~= true then
 		return false
 	end
-	if UserInputService:GetLastInputType() ~= Enum.UserInputType.Touch then
+	local okType, lastType = pcall(UserInputService.GetLastInputType, UserInputService)
+	if not okType or lastType ~= Enum.UserInputType.Touch then
 		return false
 	end
 	if controls == nil then
