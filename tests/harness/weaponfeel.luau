@@ -158,18 +158,47 @@ for _, slot in { "ShotClose", "ShotMechanical", "ShotTail", "Reload", "MagIn", "
 	allSlots = allSlots and slotSet[slot] == true
 end
 check(#Sounds.WeaponAudioSlots == 12 and allSlots, "12 huecos por arma (los 9 de la Fase 2 + Unequip, Inspect y Melee)")
-check(Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn") == "MagIn", "sin audio propio se usa el genérico")
+-- (Fase 11: cada arma de fuego usa el audio de su familia; el hueco propio del arma manda sobre él)
+local rifleMagIn = Sounds.FamilyAudio.Rifle.MagIn
+local familyKey = Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn")
+check(familyKey == "W:ARX27:MagIn" and Sounds[familyKey].Id == rifleMagIn.Id and Sounds[familyKey].Region ~= nil,
+	"sin audio propio: el de su familia (con su trozo del archivo)")
+check(Sounds.WeaponSoundName("SplatX", "MagIn", "MagIn") == "MagIn", "arma sin familia de audio: el genérico de siempre")
 check(Sounds.WeaponSoundName("ARX27", "Reload", nil) == nil, "hueco vacío sin genérico: no suena nada")
+check(Sounds.SlotDisabled("ARX27", "ShotMechanical") and not Sounds.SlotDisabled("SplatX", "ShotMechanical"),
+	"la grabación ya lleva el mecanismo: esa capa se apaga (solo en las armas con familia)")
 Sounds.WeaponAudio.ARX27.MagIn = "rbxassetid://1"
 local custom = Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn")
 check(custom == "W:ARX27:MagIn" and Sounds[custom].Id == "rbxassetid://1", "con audio propio se usa el suyo")
 Sounds.WeaponAudio.ARX27.MagIn = { Id = "rbxassetid://2", Volume = 0.5 }
-Sounds["W:ARX27:MagIn"] = nil
 local custom2 = Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn")
 check(Sounds[custom2].Id == "rbxassetid://2" and Sounds[custom2].Volume == 0.5, "audio propio con volumen")
 Sounds.WeaponAudio.ARX27.MagIn = ""
-Sounds["W:ARX27:MagIn"] = nil
-check(Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn") == "MagIn", "al quitarlo vuelve el genérico")
+check(Sounds[Sounds.WeaponSoundName("ARX27", "MagIn", "MagIn")].Id == rifleMagIn.Id, "al quitarlo vuelve el de su familia")
+-- Variantes: con varias tomas, dos disparos seguidos nunca usan la misma
+local rifleShot = Sounds[Sounds.WeaponSoundName("ARX27", "ShotClose", nil)]
+check(rifleShot.Variants ~= nil and #rifleShot.Variants >= 2, "el disparo del fusil tiene varias tomas")
+local lastId, repeated = nil, false
+for _ = 1, 12 do
+	local sound = Sounds.Play("W:ARX27:ShotClose", nil, 1, 1, "gun")
+	if sound then
+		repeated = repeated or sound.SoundId == lastId
+		lastId = sound.SoundId
+		sound.IsPlaying = false
+	end
+end
+check(lastId ~= nil and not repeated, "las tomas se alternan sin repetir")
+-- Todas las familias con disparo, recarga y manejo; y todo id es un rbxassetid real (no vacío)
+for familyName, preset in Sounds.FamilyAudio do
+	for _, slot in { "ShotClose", "MagOut", "MagIn", "Bolt", "Empty", "Equip" } do
+		local value = preset[slot]
+		assert(type(value) == "table" and (value.Id or value.Variants), familyName .. ": falta " .. slot)
+	end
+end
+for weaponName, familyName in Sounds.WeaponAudioFamily do
+	assert(Sounds.FamilyAudio[familyName] ~= nil and Sounds.WeaponAudio[weaponName] ~= nil, weaponName .. ": familia de audio " .. familyName)
+end
+check(true, "familias de audio completas (disparo, cargador, cerrojo, vacío, sacar)")
 
 -- 8) La instrumentación de impactos viene apagada (no cambia nada en producción)
 check(GameConfig.HitTelemetry ~= nil and GameConfig.HitTelemetry.Enabled == false, "instrumentación de impactos apagada por defecto")

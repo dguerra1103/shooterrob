@@ -74,7 +74,7 @@ tool:SetAttribute("Weapon", "ARX27"); tool:SetAttribute("Slot", 1); tool:SetAttr
 tool.Parent = char
 clear()
 pcall(function() char.ChildAdded:Fire(tool) end)
-check(count("Equip") == 1, "suena al sacar el arma")
+check(count("W:ARX27:Equip") == 1, "suena al sacar el arma (manejo real de la familia Fusil)")
 task.wait(0.5)
 local render = mock.renderSteps.WeaponViewmodel
 for _ = 1, 10 do render(1 / 60) end
@@ -83,8 +83,12 @@ clear()
 mock.actions.Fire("Fire", roblox.Enum.UserInputState.Begin, {})
 render(1 / 60)
 mock.actions.Fire("Fire", roblox.Enum.UserInputState.End, {})
-print("disparo:", count("Shot"), count("Boom"), count("Mech"))
-check(count("Shot") == 1 and count("Boom") == 1 and count("Mech") == 1, "disparo con 3 capas (cuerpo, estampido, mecanismo)")
+print("disparo:", count("W:ARX27:ShotClose"), count("Boom"), count("Mech"), count("W:ARX27:ShotTail"))
+check(count("W:ARX27:ShotClose") == 1 and count("Boom") == 1 and count("Mech") == 0 and count("W:ARX27:ShotTail") == 1,
+	"disparo: grabación real + estampido grave + cola lejana (sin el clic genérico: la grabación ya lo lleva)")
+local shotSound
+for _, p in played do if p.Name == "W:ARX27:ShotClose" then shotSound = p.Sound end end
+check(shotSound ~= nil and string.find(shotSound.SoundId, "rbxassetid://9116", 1, true) ~= nil, "el disparo usa una toma real del fusil")
 local group = game:GetService("SoundService"):FindFirstChild("Armas")
 check(group ~= nil and group:FindFirstChildOfClass("CompressorSoundEffect") ~= nil and group:FindFirstChildOfClass("ReverbSoundEffect") ~= nil, "grupo Armas con compresor y eco")
 check(played[1].Sound and played[1].Sound.SoundGroup == group, "el disparo va por el grupo Armas")
@@ -105,10 +109,10 @@ task.wait(0.3)
 clear()
 mock.actions.Reload("Reload", roblox.Enum.UserInputState.Begin, {})
 task.wait(1.9 * 0.3)
-check(count("MagOut") == 1 and count("MagIn") == 0, "primero sale el cargador")
+check(count("W:ARX27:MagOut") == 1 and count("W:ARX27:MagIn") == 0, "primero sale el cargador")
 task.wait(1.9 * 0.7)
-print("recarga:", count("MagOut"), count("MagIn"), count("Bolt"))
-check(count("MagIn") == 1 and count("Bolt") == 1, "luego entra el nuevo y se monta el arma")
+print("recarga:", count("W:ARX27:MagOut"), count("W:ARX27:MagIn"), count("W:ARX27:Bolt"))
+check(count("W:ARX27:MagIn") == 1 and count("W:ARX27:Bolt") == 1, "luego entra el nuevo y se monta el arma")
 -- Disparo de un enemigo lejos: con retraso y apagado
 local enemy = mock.new("Model"); enemy.Name = "Bot"; enemy:SetAttribute("Team", "Azul"); enemy.Parent = game.Workspace
 local etool = mock.new("Tool"); etool.Name = "Signal7"; etool:SetAttribute("Weapon", "Signal7")
@@ -120,12 +124,12 @@ cam.CFrame = roblox.CFrame.new(0, 5, 0)
 clear()
 -- La bala pasa a 3 studs de la cámara y sigue
 Remotes.ShotFX.OnClientEvent:Fire(etool, { roblox.Vector3.new(3, 5, 200) })
-check(count("ShotHeavy") == 0, "de lejos el disparo aún no se oye (el sonido viaja)")
+check(count("W:Signal7:ShotClose") == 0, "de lejos el disparo aún no se oye (el sonido viaja)")
 check(count("Whiz") == 1, "la bala que pasa rozando hace fiuu")
 task.wait(0.6)
-check(count("ShotHeavy") == 1 and count("Boom") == 1 and count("Mech") == 0, "llega el disparo lejano (sin clic del mecanismo)")
+check(count("W:Signal7:ShotClose") == 1 and count("Boom") == 1 and count("Mech") == 0, "llega el disparo lejano (su grabación real, sin clic del mecanismo)")
 local body
-for _, p in played do if p.Name == "ShotHeavy" then body = p.Sound end end
+for _, p in played do if p.Name == "W:Signal7:ShotClose" then body = p.Sound end end
 check(body and body:FindFirstChildOfClass("EqualizerSoundEffect") ~= nil, "el disparo lejano suena apagado")
 -- Un compañero no hace fiuu
 local friend = mock.new("Model"); friend:SetAttribute("Team", "Rojo"); friend.Parent = game.Workspace
@@ -140,5 +144,22 @@ task.wait(0.2)
 clear()
 Remotes.ShotFX.OnClientEvent:Fire(etool, { roblox.Vector3.new(0, 4, 1) })
 check(count("Whiz") == 0, "si te da, no hace fiuu")
+-- Impactos en el escenario (Fase 11): suenan según el material, con freno para no saturar
+local Effects = req(game.StarterPlayer.Client.Modules.Effects)
+local wall = mock.new("Part"); wall.Material = roblox.Enum.Material.WoodPlanks; wall.Parent = game.Workspace
+task.wait(0.1)
+clear()
+Effects.Impact(roblox.Vector3.new(0, 3, -10), roblox.Vector3.new(0, 0, 1), wall, roblox.Enum.Material.WoodPlanks)
+Effects.Impact(roblox.Vector3.new(0, 3, -10), roblox.Vector3.new(0, 0, 1), wall, roblox.Enum.Material.WoodPlanks)
+check(count("ImpactWood") == 1, "impacto en madera: un sonido (el segundo seguido se frena)")
+local impactSound
+for _, p in played do if p.Name == "ImpactWood" then impactSound = p.Sound end end
+check(impactSound ~= nil and impactSound.Parent ~= nil and impactSound.Parent:IsA("BasePart"), "el impacto suena en 3D donde da la bala")
+task.wait(0.1)
+clear()
+Effects.Impact(roblox.Vector3.new(0, 3, -10), roblox.Vector3.new(0, 0, 1), wall, roblox.Enum.Material.Metal)
+task.wait(0.1)
+Effects.Impact(roblox.Vector3.new(0, 3, -10), roblox.Vector3.new(0, 0, 1), wall, roblox.Enum.Material.SmoothPlastic)
+check(count("ImpactMetal") == 1 and count("ImpactPlastic") == 1, "metal y plástico (paredes de los mapas) con su sonido")
 print("SONIDOS OK")
 process.exit(0)

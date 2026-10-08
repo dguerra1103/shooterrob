@@ -754,7 +754,7 @@ local function requestReload()
 				kickCharm(visual.Charm.Reload)
 			elseif name == "ShellIn" then
 				-- (cartucho: el hueco MagIn, más agudo y más flojo)
-				Sounds.PlayWeapon(weaponName, "MagIn", "MagIn", nil, 1.25 + shellIndex * 0.03, 0.55)
+				Sounds.PlayWeapon(weaponName, "MagIn", "MagIn", nil, 1.25 + shellIndex * 0.03, 0.55, 1 + shellIndex * 0.025)
 				kickCharm(visual.Charm.Reload * 0.4)
 			elseif name == "Bolt" then
 				Sounds.PlayWeapon(weaponName, "Bolt", "Bolt", nil, shotgun and 0.75 or 1, 1)
@@ -976,7 +976,7 @@ local function melee()
 	if Sounds.WeaponSoundName(swingWeapon, "Melee", nil) then
 		Sounds.PlayWeapon(swingWeapon, "Melee", nil)
 	else
-		Sounds.Play("Swing")
+		Sounds.Play("MeleeSwing")
 	end
 	weaponEvent("Melee", { Knife = meleeWithKnife })
 	-- Momento del golpe en la animación (el impacto real ya se decidió al pulsar)

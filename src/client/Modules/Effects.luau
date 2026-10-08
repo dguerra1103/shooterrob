@@ -421,6 +421,7 @@ end
 -- Tipo de superficie según el material: cambia la reacción al impacto (chispas en metal, astillas
 -- en madera, polvo y esquirlas en piedra, tierra o nieve que saltan, salpicadura en agua)
 local SURFACE = {}
+local SURFACE_BY_NAME = {} -- (también por nombre: en el simulador de pruebas los Enum no son únicos)
 for kind, materials in {
 	Metal = { "Metal", "CorrodedMetal", "DiamondPlate", "Foil" },
 	Wood = { "Wood", "WoodPlanks" },
@@ -434,6 +435,7 @@ for kind, materials in {
 	Glass = { "Glass" },
 } do
 	for _, name in materials do
+		SURFACE_BY_NAME[name] = kind
 		local ok, material = pcall(function()
 			return (Enum.Material :: any)[name]
 		end)
@@ -612,8 +614,12 @@ function Effects.Impact(position, normal, hitPart, material, style)
 	end
 
 	material = material or (hitPart and hitPart.Material) or Enum.Material.Plastic
-	local kind = SURFACE[material] or "Plastic"
+	local kind = SURFACE[material] or SURFACE_BY_NAME[material.Name] or "Plastic"
 	local baseColor = surfaceColor(hitPart, material)
+	-- Sonido del impacto según el material (Fase 11): información de juego, también en calidad Baja
+	if kind ~= "Water" then
+		Sounds.PlayImpact(kind, anchor)
+	end
 	-- (impactos en el escenario: con calidad baja o en móvil, menos partículas y menos marcas)
 	local fx = budget()
 	local amount = fx.ImpactParticles

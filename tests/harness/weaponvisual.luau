@@ -211,8 +211,8 @@ for _, slot in needed do
 	end
 end
 check(#absent == 0, "ARX-27: todos los huecos de audio (" .. table.concat(absent, ", ") .. ")")
-check(Sounds.WeaponSoundName("ARX27", "MagOut", "MagOut") == "MagOut" and Sounds.WeaponSoundName("ARX27", "Inspect", nil) == nil,
-	"huecos vacíos: el sonido de siempre (o ninguno)")
+check(Sounds.WeaponSoundName("ARX27", "MagOut", "MagOut") == "W:ARX27:MagOut" and Sounds.WeaponSoundName("ARX27", "Inspect", nil) == "W:ARX27:Inspect"
+	and Sounds.WeaponSoundName("ARX27", "Reload", nil) == nil, "ARX-27: sus huecos usan el audio de la familia Fusil (Reload, opcional, vacío)")
 check(Sounds.GunPitchVariation == 0.02 and Sounds.PitchVariation >= Sounds.GunPitchVariation, "variación de tono de las armas: ±2 %")
 
 -- 9) Presupuesto por calidad: en Baja sin luz del fogonazo (el resto de calidades, con luz)
