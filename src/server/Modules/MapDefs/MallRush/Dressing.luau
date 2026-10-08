@@ -10,6 +10,7 @@
 --   * Rótulos: «FOOD COURT» en el fondo de la zona de comida y «NIVEL 2» sobre cada escalera
 --     mecánica.
 --   * Fachadas norte y sur con lamas verticales (la caja blanca deja de ser una caja).
+--   * Fondo: vallas publicitarias de marcas ficticias (NOVA, BYTE, FLUX) junto a las calles.
 local Dressing = {}
 
 local V = Vector3.new
@@ -36,6 +37,12 @@ function Dressing.build(T)
 	-- Rótulo de la zona de comida en el muro del fondo (cara al sur)
 	local food = T.sign(CF(0, 17, -79.7) * CFrame.Angles(0, math.pi, 0), "FOOD COURT", 30, 4, ORANGE, RGB(255, 255, 255), { PPS = 12 })
 	food.CastShadow = false
+
+	-- Fondo urbano: vallas publicitarias de marcas ficticias junto a las calles (se ven desde los
+	-- aparcamientos y en la presentación del mapa; fuera del límite jugable)
+	T.billboardScreen(CF(-172, 0, -36) * CFrame.Angles(0, -math.pi / 2, 0), 16, 7, "NOVA", RGB(0, 150, 190))
+	T.billboardScreen(CF(172, 0, 36) * CFrame.Angles(0, math.pi / 2, 0), 16, 7, "BYTE", RGB(200, 40, 130))
+	T.billboardScreen(CF(40, 0, -126) * CFrame.Angles(0, math.pi, 0), 16, 7, "FLUX", RGB(230, 120, 30))
 
 	T.mirrored("MallDressing", function()
 		Dressing.half(T)
