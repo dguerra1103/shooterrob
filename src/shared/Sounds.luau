@@ -513,7 +513,7 @@ end
 -- pitch y volume (opcionales) multiplican los valores del sonido: así cada arma suena distinta.
 -- Sonidos 2D que suenan muchísimo (cada disparo, cada impacto): se reutilizan en vez de crear y
 -- destruir una instancia cada vez. Cinco por nombre; si suenan todos, se corta el más antiguo
-local POOLED = { Shot = true, ShotHeavy = true, Boom = true, Mech = true, Hit = true, Headshot = true, Kill = true, Click = true, Empty = true, Swing = true }
+local POOLED = { Shot = true, ShotHeavy = true, Boom = true, Mech = true, Hit = true, Headshot = true, Kill = true, Click = true, Empty = true, Swing = true, MeleeSwing = true, CasingDrop = true }
 -- Variación de tono al azar en cada reproducción (que dos disparos seguidos no suenen idénticos):
 -- ±5 % en general y ±2 % en las armas (Fase 9: más es caricaturesco)
 Sounds.PitchVariation = 0.05
@@ -683,6 +683,17 @@ Sounds.Impacts = {
 		Volume = 0.55,
 		Pitch = 1,
 	},
+}
+-- Casquillos rebotando en el suelo (cartuchos .38/.45 sobre cubierta: tintineos cortos)
+Sounds.CasingDrop = {
+	Variants = {
+		{ Id = "rbxassetid://9113106960" },
+		{ Id = "rbxassetid://9113107117" },
+		{ Id = "rbxassetid://9113107155" },
+		{ Id = "rbxassetid://9113106570", Region = { 0, 0.9 } },
+	},
+	Volume = 0.16,
+	Pitch = 1,
 }
 Sounds.Impacts.Plastic = Sounds.Impacts.Stone
 Sounds.Impacts.Snow = { Variants = Sounds.Impacts.Dirt.Variants, Volume = 0.4, Pitch = 0.85 }

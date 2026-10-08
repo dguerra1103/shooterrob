@@ -5,33 +5,35 @@ local SoundService = game:GetService("SoundService")
 
 local UISound = {}
 
--- Sonidos que vienen con Roblox (sin assets propios que subir); el tono y el volumen los adaptan
+-- Sonidos de Roblox: los de interfaz son el set oficial de Roblox (RBLX UI / Roblox GUI / Roblox_UI,
+-- creador Roblox, dominio público; comprobados con la API de Roblox en la Fase 11). Los volúmenes
+-- compensan que unos están grabados más altos que otros. El tono y el volumen los adaptan.
 local DEFS = {
-	Hover = { Id = "rbxasset://sounds/button.wav", Volume = 0.12, Pitch = 1.8 },
-	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.45, Pitch = 1.15 },
-	Back = { Id = "rbxasset://sounds/button.wav", Volume = 0.4, Pitch = 0.8 },
-	Play = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.55, Pitch = 0.75 },
-	Whoosh = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.35, Pitch = 1.3 },
+	Hover = { Id = "rbxassetid://10066942189", Volume = 0.3, Pitch = 1 }, -- RBLX UI Hover 03
+	Click = { Id = "rbxassetid://15675059323", Volume = 0.32, Pitch = 1 }, -- Roblox_UI_Bright_Click
+	Back = { Id = "rbxassetid://10066914500", Volume = 0.75, Pitch = 1 }, -- RBLX UI Back
+	Play = { Id = "rbxassetid://10128760939", Volume = 0.85, Pitch = 1 }, -- RBLX UI Select 01
+	Whoosh = { Id = "rbxassetid://15675012262", Volume = 0.28, Pitch = 1 }, -- Roblox_UI_Whoosh_04
 	MatchFound = { Id = "rbxassetid://3149249837", Volume = 0.55, Pitch = 1.15 },
-	MatchFoundPing = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Pitch = 1.25 },
-	Reward = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Pitch = 1.6 },
-	Error = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Pitch = 0.5 },
-	Equip = { Id = "rbxassetid://16480568148", Volume = 0.5, Pitch = 1 },
+	MatchFoundPing = { Id = "rbxassetid://17208361335", Volume = 0.4, Pitch = 1 }, -- Roblox GUI - Notification High
+	Reward = { Id = "rbxassetid://17208361335", Volume = 0.32, Pitch = 1.08 },
+	Error = { Id = "rbxassetid://15675075163", Volume = 0.3, Pitch = 1 }, -- Roblox_UI_Delete
+	Equip = { Id = "rbxassetid://17208323435", Volume = 0.38, Pitch = 1 }, -- Roblox GUI - Equip
 	Countdown = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.45, Pitch = 1 },
 	Go = { Id = "rbxassetid://3149249837", Volume = 0.5, Pitch = 1.45 },
-	Join = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.35, Pitch = 1.9 },
-	Tick = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.25, Pitch = 1.5 },
+	Join = { Id = "rbxassetid://10066968815", Volume = 0.6, Pitch = 1 }, -- RBLX UI Select 02
+	Tick = { Id = "rbxassetid://15675032796", Volume = 0.18, Pitch = 1.1 }, -- Roblox_UI_Small_Click
 	-- Pantalla final
 	Victory = { Id = "rbxassetid://3149249837", Volume = 0.6, Pitch = 0.85 }, -- impacto grave
 	VictorySting = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Pitch = 1.05 },
 	Defeat = { Id = "rbxassetid://3149249837", Volume = 0.32, Pitch = 0.62 }, -- impacto suave
 	MVP = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.55, Pitch = 1.5 },
-	RewardPop = { Id = "rbxasset://sounds/button.wav", Volume = 0.4, Pitch = 1.6 },
+	RewardPop = { Id = "rbxassetid://15675032796", Volume = 0.32, Pitch = 1.2 },
 	LevelUp = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Pitch = 0.75 },
 	Unlock = { Id = "rbxasset://sounds/swordlunge.wav", Volume = 0.4, Pitch = 1.6 },
 	-- Tienda
-	Purchase = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Pitch = 1.3 },
-	Claim = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Pitch = 1.45 },
+	Purchase = { Id = "rbxassetid://10066947742", Volume = 0.55, Pitch = 1 }, -- RBLX UI Purchase
+	Claim = { Id = "rbxassetid://17208361335", Volume = 0.35, Pitch = 1.15 },
 }
 UISound.Defs = DEFS
 

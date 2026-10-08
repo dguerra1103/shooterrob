@@ -737,6 +737,7 @@ local MAX_CASINGS = 8 -- con fuego automático no hace falta simular más a la v
 
 local lastClink = 0
 -- inherit (opcional): velocidad del jugador, que el casquillo hereda (corriendo no se queda atrás)
+local lastCasingSound = 0
 function Effects.ShellCasing(attachment, cameraCFrame, color, inherit: Vector3?)
 	if not attachment or liveCasings >= MAX_CASINGS or not budget().Shells then
 		return
@@ -745,6 +746,14 @@ function Effects.ShellCasing(attachment, cameraCFrame, color, inherit: Vector3?)
 	task.delay(1.5, function()
 		liveCasings -= 1
 	end)
+	-- Tintineo del casquillo al llegar al suelo (Fase 11): flojito y como mucho uno cada 0,16 s
+	local now = os.clock()
+	if now - lastCasingSound >= 0.16 then
+		lastCasingSound = now
+		task.delay(0.38 + math.random() * 0.12, function()
+			Sounds.Play("CasingDrop", nil, 0.95 + math.random() * 0.1)
+		end)
+	end
 	local casing = Instance.new("Part")
 	casing.Size = Vector3.new(0.06, 0.06, 0.16)
 	casing.Color = color or Color3.fromRGB(230, 180, 60)
