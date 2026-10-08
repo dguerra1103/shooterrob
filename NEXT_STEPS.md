@@ -50,6 +50,11 @@ arrastrando, correr automático), HUD de partida sin tapar el centro y editor de
 jugarlo en un móvil de verdad** siguiendo su matriz de resoluciones y sus pruebas a mano, y ajustar las
 distancias en `MobileHUD.Controls`.
 
+**Fase 13 (cierre técnico del HUD móvil)** — ver `FASE_13_VALIDACION_MOVIL.md`. Seis fallos técnicos
+arreglados (dedos, gatillo compartido, correr automático, editor abierto, tarjeta del arma, depuración).
+**Lo siguiente es tu prueba en el teléfono**: secciones 8–11 de ese documento, y mandar capturas y la
+tabla de ergonomía. No se moverá ningún botón hasta tener ese feedback.
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

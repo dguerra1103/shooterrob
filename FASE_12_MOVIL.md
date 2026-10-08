@@ -51,7 +51,7 @@ Todo sale de **`src/shared/MobileHUD.luau`** (lógica pura; el servidor la usa p
 | Granada | Acción (se apaga al apuntar) | 48 | arriba a la izquierda de disparar |
 | Ataque aéreo | Acción (solo con cargas) | 46 | arco de arriba |
 | Cuerpo a cuerpo | Acción (se apaga al apuntar) | 46 | encima de apuntar |
-| Cambiar arma | Tarjeta 128×50 | nombre, «30 / 120» y «1/2» | abajo, a la izquierda de agacharse |
+| Cambiar arma | Tarjeta 136×50 (128 en la Fase 12) | nombre, «30 / 120» y «1/2» | abajo, a la izquierda de agacharse |
 | Impulso, supersalto, poción | Acción | 46 | fila sobre el joystick |
 | Correr (solo con «Con botón») | Acción | 46 | misma fila |
 | Disparo izquierdo (opcional) | Principal | 64 | encima de la fila de habilidades |
@@ -170,6 +170,11 @@ derecho y la zona táctil de cada botón. Los jugadores nunca lo ven.
 
 Las pruebas Lune **no demuestran que sea cómodo**: comprueban posiciones, estados y datos.
 
+**Resultado de la batería completa**: al terminar la fase, 149 OK y 1 fallo real (`movement`:
+`ClientState.Settings` nil en el primer fotograma del correr automático), corregido en `cd08415`. Sobre
+`cd08415`, `tests/run_all.sh` completo: **150 OK, 0 fallos**. Los arreglos posteriores y su resultado
+están en `FASE_13_VALIDACION_MOVIL.md`.
+
 ## J. Matriz de resoluciones (Studio → Device Emulator)
 
 Marcar en cada una: ☐ ningún botón tapa a otro ni al salto · ☐ mira y centro libres · ☐ la vida no
@@ -218,8 +223,11 @@ y los que llamaban a `SetTitle` con emojis (arma, granada, ataque aéreo, marcad
 ## Pendiente / a revisar en Studio
 
 1. Pasar la matriz de resoluciones y las pruebas a mano en un móvil de verdad (y con el Device Emulator).
-2. Confirmar en el motor que `TextScaled` con `TextWrapped = false` deja el nombre del arma en una línea
-   (el renderizador de capturas lo partía en dos).
+2. ~~Nombre del arma en dos líneas~~: resuelto en la Fase 13 (una línea medida con `TextService`,
+   mínimo 11 px y «…»). Falta verlo en el motor.
 3. Si alguien lo pide, iconos con imagen propia: bastaría con subirlos y cambiar `TouchIcons`; ahora
    son formas (no hay AssetIds inventados).
 4. Ajustar distancias jugando (todas en `MobileHUD.Controls`, en píxeles de teléfono).
+
+La validación (matriz, checklists de Studio, teléfono, multitáctil y editor, y la tabla de ergonomía)
+está en **`FASE_13_VALIDACION_MOVIL.md`**.
