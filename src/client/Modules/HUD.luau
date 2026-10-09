@@ -44,6 +44,13 @@ local killBaseScale = 1
 local killScaleNow = 0.6 -- (táctil: la escala del aviso de baja que cabe en su zona)
 local thumbnails = {}
 
+-- Colores de la vida en táctil (Fase 17: paleta del HUD móvil)
+local TOUCH_HEALTH = {
+	Ok = Color3.fromRGB(236, 240, 246),
+	Low = Color3.fromRGB(255, 205, 60),
+	Critical = Color3.fromRGB(255, 92, 72),
+}
+
 local function tween(inst, time, props, style)
 	local t = TweenService:Create(inst, TweenInfo.new(time, style or Enum.EasingStyle.Quad), props)
 	t:Play()
@@ -561,8 +568,8 @@ local function buildPlayerPanel()
 		end
 		-- (cruz pequeña dibujada: dos barras, sin emoji)
 		local cross = UI.new("Frame", { Name = "Cross", Size = UDim2.fromOffset(12, 12), Position = UDim2.new(0, 0, 0.5, -6), BackgroundTransparency = 1, Parent = health })
-		UI.new("Frame", { Size = UDim2.fromOffset(12, 4), Position = UDim2.fromOffset(0, 4), BackgroundColor3 = Color3.fromRGB(110, 230, 140), BorderSizePixel = 0, Parent = cross }, { UI.corner(2) })
-		UI.new("Frame", { Size = UDim2.fromOffset(4, 12), Position = UDim2.fromOffset(4, 0), BackgroundColor3 = Color3.fromRGB(110, 230, 140), BorderSizePixel = 0, Parent = cross }, { UI.corner(2) })
+		UI.new("Frame", { Size = UDim2.fromOffset(12, 4), Position = UDim2.fromOffset(0, 4), BackgroundColor3 = Color3.fromRGB(200, 205, 214), BorderSizePixel = 0, Parent = cross }, { UI.corner(2) })
+		UI.new("Frame", { Size = UDim2.fromOffset(4, 12), Position = UDim2.fromOffset(4, 0), BackgroundColor3 = Color3.fromRGB(200, 205, 214), BorderSizePixel = 0, Parent = cross }, { UI.corner(2) })
 		refs.HealthText.Parent = health
 		refs.HealthText.AnchorPoint = Vector2.new(0, 0.5)
 		refs.HealthText.Position = UDim2.new(0, 17, 0.5, 0)
@@ -582,7 +589,9 @@ local function buildPlayerPanel()
 			Parent = health,
 		}, { UI.corner(2) })
 		refs.HealthChip.Parent = bar
-		refs.HealthChip.BackgroundTransparency = 0.45
+		-- (el daño recibido se ve en rojo detrás de la barra blanca)
+		refs.HealthChip.BackgroundColor3 = TOUCH_HEALTH.Critical
+		refs.HealthChip.BackgroundTransparency = 0.35
 		refs.HealthFill.Parent = bar
 		for _, piece in { refs.HealthChip, refs.HealthFill } do
 			for _, child in piece:GetChildren() do
@@ -2381,7 +2390,14 @@ local function render(dt)
 		hudCache.HealthRatio, hudCache.HealthShown = ratio, shown
 		if healthChanged then
 			refs.HealthFill.Size = UDim2.fromScale(ratio, 1)
-			refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
+			if touchHUD then
+				-- (táctil, Fase 17: la paleta del HUD; blanca, amarilla con poca vida y roja al borde)
+				local tone = ratio > 0.35 and TOUCH_HEALTH.Ok or ratio > 0.2 and TOUCH_HEALTH.Low or TOUCH_HEALTH.Critical
+				refs.HealthFill.BackgroundColor3 = tone
+				refs.HealthText.TextColor3 = ratio > 0.35 and Color3.new(1, 1, 1) or tone
+			else
+				refs.HealthFill.BackgroundColor3 = Color3.fromRGB(230, 60, 60):Lerp(Color3.fromRGB(70, 220, 90), ratio)
+			end
 			refs.HealthText.Text = tostring(shown)
 		end
 		-- La parte blanca baja despacio y deja ver el daño recibido

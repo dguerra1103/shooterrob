@@ -302,6 +302,44 @@ task.wait(0.1)
 layout = TL.GetLayout()
 check(math.abs(layout.Fire.Size.X - 92 * scale) < 0.5, "restablecer: vuelve la disposición por defecto (la nueva)")
 
+-- Tiras (Fase 17): los de poco uso van juntos sobre un solo fondo, sin círculo propio; si el jugador
+-- separa uno, ese vuelve a llevar su fondo y la tira sigue con los demás
+local function strip(name)
+	for _, child in pg:FindFirstChild("TouchButtons"):GetChildren() do
+		if child.Name == name .. "Strip" then
+			return child
+		end
+	end
+	return nil
+end
+local utility = {}
+for _, id in { "Menu", "Scoreboard", "Emotes", "Spray" } do
+	if entries[id] and entries[id].Button.Visible then
+		table.insert(utility, id)
+	end
+end
+if #utility >= 2 then
+	check(strip("Utility") ~= nil and strip("Utility").Visible, "tira de poco uso: un solo fondo")
+	for _, id in utility do
+		check(entries[id].InStrip == true and entries[id].Face.BackgroundTransparency >= 0.99, id .. ": en la tira, sin fondo propio")
+		check(entries[id].Stroke.Transparency >= 0.99, id .. ": en la tira, sin borde propio")
+	end
+	local moved = utility[#utility]
+	Settings.Set("HudLayout", { [moved] = { X = 0.3, Y = 0.5 } })
+	task.wait(0.1)
+	check(entries[moved].InStrip == false and entries[moved].Face.BackgroundTransparency < 0.95, moved .. " separado: vuelve a llevar su fondo")
+	if #utility >= 3 then
+		check(entries[utility[1]].InStrip == true, "la tira sigue con los demás")
+	end
+	Settings.Set("HudLayout", {})
+	task.wait(0.1)
+	check(entries[moved].InStrip == true, moved .. ": al restablecer vuelve a la tira")
+	TL.SetEditing(true, {})
+	check(entries[utility[1]].InStrip == false and not strip("Utility").Visible, "editor: cada control con su fondo (se mueven sueltos)")
+	TL.SetEditing(false)
+	check(entries[utility[1]].InStrip == true, "al salir del editor, la tira vuelve")
+end
+
 -- Modo editor: se ven todos y tocar no dispara nada
 TL.SetEditing(true, {})
 check(entries.Sprint.Button.Visible and entries.LeftFire.Button.Visible, "editor: se ven todos los controles")

@@ -172,12 +172,19 @@ local function paint(entry)
 	end
 	local role = entry.Id == "Fire" and "Fire" or (control and control.Role) or "Action"
 	local fill = (FILL[role] or FILL.Action) + (entry.Pressed and FILL_PRESSED or 0)
-	entry.Face.BackgroundTransparency = math.clamp(1 - fill * opacity, 0, 1)
 	local accent = entry.Active and COLORS.Active or (entry.Emphasis == 2 and COLORS.Empty) or (entry.Emphasis == 1 and COLORS.Warn) or nil
 	local stroke = accent and STROKE.Accent or (entry.Id == "Fire" and STROKE.Fire) or STROKE.Default
+	local strokeAlpha = stroke[2]
+	if entry.InStrip and not editing then
+		-- (en su tira: el fondo es el de la tira; el botón solo se aclara al pulsarlo y solo lleva
+		-- borde si tiene un estado que enseñar)
+		fill = entry.Pressed and FILL_PRESSED or 0
+		strokeAlpha = accent and strokeAlpha or 0
+	end
+	entry.Face.BackgroundTransparency = math.clamp(1 - fill * opacity, 0, 1)
 	entry.Stroke.Color = accent or COLORS.Stroke
 	entry.Stroke.Thickness = stroke[1]
-	entry.Stroke.Transparency = math.clamp(1 - stroke[2] * math.max(opacity, 0.4), 0, 1)
+	entry.Stroke.Transparency = math.clamp(1 - strokeAlpha * math.max(opacity, 0.4), 0, 1)
 	if entry.Ring then
 		-- (DISPARAR: anillo interior fino, como una retícula)
 		entry.Ring.Color = accent or COLORS.Stroke
@@ -415,6 +422,7 @@ local function createButton(actionName, handler)
 		OwnerConnection = nil :: RBXScriptConnection?,
 		CardTexts = nil :: { [string]: TextLabel }?,
 		CardIcon = nil :: Frame?,
+		InStrip = false,
 	}
 	-- Tarjeta del arma (cambiar arma): icono de cambiar y el arma a la que se cambia, en una línea
 	if isCard then
@@ -497,58 +505,114 @@ local drawDebug -- (depuración, más abajo)
 local wanted: (string, boolean?) -> boolean -- (visibilidad, más abajo)
 TouchLayout.LastCollisions = {} :: { any }
 local areaOrigin = Vector2.zero
-local stripBack: Frame? = nil
+local stripBacks: { [string]: Frame } = {}
 
--- Fondo común de la tira de poco uso (menú, marcador, emotes, grafiti): si están en fila (los de
--- fábrica), una sola pastilla oscura detrás; si el jugador los separó, sin fondo
+-- Tiras (Fase 17): los controles de poco uso (menú, marcador, emotes, grafiti) y las habilidades
+-- (impulso, supersalto, poción) van como UNA pieza: un solo fondo grafito detrás y, encima, solo los
+-- iconos (sin un círculo con borde por botón). Si el jugador los separó en el editor, cada uno vuelve
+-- a llevar su propio fondo. Pulsado, apuntando, en recarga o con aviso se sigue viendo en cada botón.
+local STRIPS = {
+	-- (Gap: hueco máximo entre dos vecinos para ir juntos, en fracción de su tamaño: la escala de la
+	-- pantalla no lo cambia)
+	Utility = { Gap = 0.55, Pad = 4, Round = true },
+	Abilities = { Ids = { AbilityDash = true, AbilityJump = true, AbilityPotion = true }, Gap = 0.55, Pad = 3, Round = false },
+}
+
+local function stripOf(id: string): string?
+	local control = MobileHUD.ById[id]
+	if control and control.Role == "Utility" then
+		return "Utility"
+	end
+	if STRIPS.Abilities.Ids[id] then
+		return "Abilities"
+	end
+	return nil
+end
+
 local function placeStrip()
-	local ids = {}
-	for id, entry in buttons do
-		local control = MobileHUD.ById[id]
-		if control and control.Role == "Utility" and entry.Button.Visible and layout[id] then
-			table.insert(ids, id)
+	for name, def in STRIPS do
+		local ids = {}
+		for id, entry in buttons do
+			if stripOf(id) == name and entry.Button.Visible and layout[id] then
+				table.insert(ids, id)
+			end
 		end
-	end
-	table.sort(ids, function(a, b)
-		return layout[a].Center.X < layout[b].Center.X
-	end)
-	local together = #ids >= 2
-	for i = 2, #ids do
-		local a, b = layout[ids[i - 1]], layout[ids[i]]
-		if math.abs(a.Center.Y - b.Center.Y) > 2 or (b.Center.X - a.Center.X) - (a.Size.X + b.Size.X) / 2 > 14 then
-			together = false
+		table.sort(ids, function(a, b)
+			return layout[a].Center.X < layout[b].Center.X
+		end)
+		-- (la tira es la fila seguida más larga: si el jugador saca uno, los demás siguen juntos)
+		local run, best = {}, {}
+		for i, id in ids do
+			local prev = ids[i - 1]
+			if prev then
+				local a, b = layout[prev], layout[id]
+				local gap = (b.Center.X - a.Center.X) - (a.Size.X + b.Size.X) / 2
+				if math.abs(a.Center.Y - b.Center.Y) > 2 or gap > def.Gap * math.min(a.Size.X, b.Size.X) then
+					run = {}
+				end
+			end
+			table.insert(run, id)
+			if #run > #best then
+				best = table.clone(run)
+			end
 		end
-	end
-	if not together then
-		if stripBack then
-			stripBack.Visible = false
+		local together = #best >= 2 and not editing
+		ids = best
+		-- (los botones de la tira se pintan sin fondo propio; los que no, con el suyo)
+		for id, entry in buttons do
+			if stripOf(id) == name then
+				local inStrip = together and table.find(ids, id) ~= nil
+				if entry.InStrip ~= inStrip then
+					entry.InStrip = inStrip
+					paint(entry)
+				end
+			end
 		end
-		return
+		local back = stripBacks[name]
+		if not together then
+			if back then
+				back.Visible = false
+			end
+			continue
+		end
+		if not back then
+			local frame = Instance.new("Frame")
+			frame.Name = name .. "Strip"
+			frame.BackgroundColor3 = COLORS.Face
+			frame.BorderSizePixel = 0
+			frame.Active = false
+			frame.ZIndex = 0
+			local frameCorner = Instance.new("UICorner")
+			frameCorner.Parent = frame
+			local frameStroke = Instance.new("UIStroke")
+			frameStroke.Color = COLORS.Stroke
+			frameStroke.Thickness = 1
+			frameStroke.Transparency = 0.8
+			frameStroke.Parent = frame
+			frame.Parent = gui
+			stripBacks[name] = frame
+			back = frame
+		end
+		local first, last = layout[ids[1]], layout[ids[#ids]]
+		local pad = def.Pad
+		local x0 = first.Center.X - first.Size.X / 2 - pad
+		local x1 = last.Center.X + last.Size.X / 2 + pad
+		local h = first.Size.Y + pad * 2
+		local strip = back :: Frame
+		strip.Position = UDim2.fromOffset(math.floor(x0), math.floor(first.Center.Y - h / 2))
+		strip.Size = UDim2.fromOffset(math.floor(x1 - x0), math.floor(h))
+		local corner = strip:FindFirstChildOfClass("UICorner")
+		if corner then
+			corner.CornerRadius = def.Round and UDim.new(0.5, 0) or UDim.new(0, math.floor(h * 0.28 + 0.5))
+		end
+		local _, ClientState = settings()
+		strip.BackgroundTransparency = (ClientState and ClientState.Aiming) and 0.86 or 0.7
+		local stroke = strip:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Transparency = (ClientState and ClientState.Aiming) and 0.92 or 0.8
+		end
+		strip.Visible = true
 	end
-	if not stripBack then
-		local frame = Instance.new("Frame")
-		frame.Name = "UtilityStrip"
-		frame.BackgroundColor3 = COLORS.Face
-		frame.BorderSizePixel = 0
-		frame.Active = false
-		frame.ZIndex = 0
-		local frameCorner = Instance.new("UICorner")
-		frameCorner.CornerRadius = UDim.new(0.5, 0)
-		frameCorner.Parent = frame
-		frame.Parent = gui
-		stripBack = frame
-	end
-	local first, last = layout[ids[1]], layout[ids[#ids]]
-	local pad = 4
-	local x0 = first.Center.X - first.Size.X / 2 - pad
-	local x1 = last.Center.X + last.Size.X / 2 + pad
-	local h = first.Size.Y + pad * 2
-	local strip = stripBack :: Frame
-	strip.Position = UDim2.fromOffset(math.floor(x0), math.floor(first.Center.Y - h / 2))
-	strip.Size = UDim2.fromOffset(math.floor(x1 - x0), math.floor(h))
-	local _, ClientState = settings()
-	strip.BackgroundTransparency = (ClientState and ClientState.Aiming and not editing) and 0.86 or 0.72
-	strip.Visible = true
 end
 
 -- Vuelve a colocar todo (pantalla girada, cambio de zona segura, disposición del jugador cambiada)
