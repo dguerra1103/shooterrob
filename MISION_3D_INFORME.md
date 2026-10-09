@@ -272,4 +272,5 @@ código con su fila de la tabla y no se han mirado una a una.
 - **Martillo de juguete y Guadaña:** equipados en partida y vistos en primera persona.
   **Katana:** equipada (sale en la lista de armas), pero me eliminaron antes de la captura; no se ha
   visto en la mano.
-- Pendiente nuevo: en el texto «ELIMINADO POR…» la silueta del arma tapa parte del nombre.
+- **«ELIMINADO POR…»:** al bajar el texto pisaba la silueta del arma; recolocado entre el objetivo y la
+  silueta y comprobado con un aviso simulado.

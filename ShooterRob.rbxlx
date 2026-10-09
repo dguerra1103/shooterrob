@@ -54957,11 +54957,12 @@ local function buildFeedsAndOverlays()
 	})
 	refs.DeathText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		-- (más abajo que antes: a 0.17 se montaba con el aviso del objetivo de Buscar y destruir)
-		Position = UDim2.fromScale(0.5, 0.25),
-		Size = UDim2.fromOffset(800, 60),
+		-- (entre el aviso del objetivo de Buscar y destruir, arriba, y la silueta del arma, abajo: a 0.17
+		-- pisaba el primero y a 0.25 la segunda)
+		Position = UDim2.fromScale(0.5, 0.2),
+		Size = UDim2.fromOffset(800, 40),
 		Text = "",
-		TextSize = 40,
+		TextSize = 34,
 		TextColor3 = Color3.fromRGB(255, 80, 80),
 		RichText = true,
 		Parent = refs.DeathScreen,

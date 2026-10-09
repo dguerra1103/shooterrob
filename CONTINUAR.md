@@ -74,10 +74,12 @@ Deja `wt_<Arma>_1..4.png`: reposo, disparo, apuntando y recarga.
 - **Las pruebas con mock no bastan:** los fallos de esta etapa (pantalla colgada, espectador en la
   primera ronda, lobby sin personaje, iconos vacíos) solo salieron al ejecutar en Studio.
 - **El modo QA** (`GameConfig.QA.Enabled`) solo funciona en Studio y no se deja activado en el repo.
+  Ojo: `sync.js` vuelve a apagarlo en Studio si cambia `GameConfig.luau`; hay que repetir `qa_on`.
   Con él se fuerza mapa y modo (`NextMatch`, solo surte efecto en el descanso entre partidas) y se
   equipa cualquier arma (`Weapon`).
 - **El terreno de Roblox queda 2 studs por encima** del bloque que se rellena (`Terrain:FillBlock`);
   `TacKit.terrain` ya lo compensa.
+- **La ropa en capas del avatar oculta el cuerpo** aunque se esconda el accesorio: los trajes la quitan.
 - **Los bots calculan ruta con radio 2 y, si no hay, con radio 1** (puertas de 4-5 studs).
 - **ForgeGUI** (plan gratis) quedó sin créditos y no deja generar 3D. Los iconos nuevos se generan con
   ChatGPT (hojas de 15 con fondo transparente) y se recortan con `assets/icons/slice.py`.
@@ -93,7 +95,7 @@ Deja `wt_<Arma>_1..4.png`: reposo, disparo, apuntando y recarga.
    la Ballesta ocupa mucho ancho.
 5. **Animaciones propias** (AnimationIds): las armas usan las animaciones por código.
 6. **Iconos sin colocar** y rangos/precios que siguen con emoji dentro de frases.
-7. **Avatar con extremidades finas** con el uniforme; texto «HAS MUERTO» montado sobre el objetivo.
+7. **Texto de muerte:** roza la ficha del líder de arriba; y la Katana no se ha visto en la mano en partida.
 8. **Monetización:** crear los productos en el Creator Dashboard (todos los ids están a 0).
 9. **Temporada 2 del pase** antes del 1 de enero de 2027; el evento de Halloween se apaga el 4 de
    noviembre de 2026.
