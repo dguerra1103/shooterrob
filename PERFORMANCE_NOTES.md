@@ -38,6 +38,17 @@ código y de las pruebas Lune. **Antes de publicar, perfilar en un móvil modest
   valores en bruto antes de crear textos. Los ajustes de controles solo recolocan si cambian de verdad
   (no con cada actualización del perfil). Ver `FASE_12_MOVIL.md` (H).
 
+- **Sesión de pulido final**: revisados los ~55 bucles por fotograma del cliente (Heartbeat,
+  RenderStepped, BindToRenderStep, `while true`). Todos salen pronto, van con freno (0,1-0,5 s) o solo
+  escriben si cambia algo; los de las pantallas del menú (vista 3D, vaivén del armamento, temporizadores
+  de tienda y pase) se paran o no hacen nada con la pantalla oculta. Cambios: el radar solo escribe su
+  texto y su visibilidad al cambiar; la granada ya no escribe la visibilidad de su botón táctil en cada
+  fotograma (era además un fallo: la escondía en el editor de HUD); `UI.HudText` guarda los textos ya
+  limpiados (la cuenta atrás de la bomba no se recorre cada vez). **Qué medir en el S26 Ultra**: FPS y
+  tiempo de fotograma con el MicroProfiler en un tiroteo 5v5 con bots en Construction y en Coastal (el
+  de más piezas), con calidad Auto y con Alta; memoria tras 5 partidas seguidas (que no crezca); y que
+  el teléfono no se caliente hasta bajar FPS a los 10-15 minutos.
+
 ## Problemas detectados / vigilar
 - **Sonidos 2D (hecho)**: los sonidos que más se repiten (disparo, estampido, mecanismo, impacto, baja,
   clic...) van en un **pool** de 6 por nombre en `Sounds.Play` (los de las armas en uno aparte): al

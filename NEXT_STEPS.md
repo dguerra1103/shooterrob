@@ -67,6 +67,13 @@ reutilizable `TacKit.Finish`. Sin cambios de gameplay. **Lo siguiente es mirarlo
 lista de su sección 12 y mandar las capturas de la 13; los otros seis mapas se pulen después con el
 mismo kit.
 
+**Sesión de pulido final (móvil primero)** — ver `SESION_PULIDO_FINAL_5H.md`. HUD táctil más limpio
+(tiras, sin emojis, aviso grande en su zona, vida en la paleta), siete fallos reales arreglados (menús que
+se salían de la zona segura del S26, correr pegado al reaparecer, granada que desaparecía del editor,
+panel del editor encima de un control, «+300» sobre el registro de bajas en teléfonos pequeños, sin forma
+de cambiar a quién observas en táctil, panel de retos en táctil) y pruebas nuevas en `hudstress`,
+`touchbtns` y `hudeditor`. **Lo siguiente es la lista del S26 Ultra de su sección 18.**
+
 0. **Monetización** (ver `ECONOMY.md`): crear los productos en el Creator Dashboard y pegar sus ids
    (todos están a `0` con `TODO: SET IN CREATOR DASHBOARD`); probar las compras de prueba de Studio
    (Robux, cancelar, pack parcial, pase); mirar la analítica (store_open → purchase_prompt →

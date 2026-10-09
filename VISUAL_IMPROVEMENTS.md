@@ -79,3 +79,12 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | Jerarquía: DISPARAR (anillo, centro transparente) > APUNTAR > salto y agacharse > recargar > granada y cuerpo a cuerpo; habilidades como tarjetas cuadradas; tira pequeña de poco uso. | Antes eran círculos casi iguales. | `TouchLayout.luau`, `TouchIcons.luau` |
 | Marcador en pastillas (tu equipo azul a la izquierda), munición junto a recargar, vida «100» + barra fina, killfeed de 3 filas con ancho fijo. | Información compacta y centro limpio. | `HUD.luau` |
 
+
+## HUD móvil (sesión de pulido final, ver `SESION_PULIDO_FINAL_5H.md`)
+| Qué | Por qué | Dónde |
+|---|---|---|
+| Tira de poco uso (menú, marcador, emotes, grafiti) y tira de habilidades (impulso, supersalto, poción) como UNA pieza: un fondo grafito, solo los iconos encima. | Menos «círculos iguales»; la importancia visual de lo que no es combate baja. | `TouchLayout.luau` (`STRIPS`, `placeStrip`) |
+| Vida táctil en la paleta del HUD: blanca, amarilla con poca vida, roja al borde; el daño recibido se ve en rojo. | El verde no era de la paleta (grafito, blanco, amarillo, azul, rojo). | `HUD.luau` (`TOUCH_HEALTH`) |
+| Sin emojis en el HUD táctil de partida (avisos, banners, bomba, radar, zona, consejos, racha, bandera); granada del aviso dibujada. | Un emoji a color se ve de prototipo y cambia según el teléfono. | `UI.HudText`, `UI.StripEmoji` |
+| Aviso grande (racha, ACE, 1 contra N) en la zona de arriba, pequeño y sin rebote. | Cruzaba toda la pantalla por encima del aviso de baja y del registro. | `HUD.luau` + `HUDZones` |
+| Correr y agacharse en amarillo mientras están puestos. | Eran de pulsar y soltar y no se sabía si estaban puestos. | `TouchLayout.Tick` |
