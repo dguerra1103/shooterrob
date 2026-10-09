@@ -140,3 +140,59 @@ python -X utf8 tools/blender/to_luau.py ARX27
 
 Para añadir una: `tools/blender/weapons/<arma>.py` (copiar una existente), generar, y registrarla en
 `WeaponMeshKit.Weapons`, `WeaponVisual.Weapons` y la paleta en `Weapons.luau` (`CLASSIC_LOOK`).
+
+---
+
+# Segunda tanda (misma jornada, 9 de octubre de 2026)
+
+## Armas
+
+Siete modelos más, con lo que **las 14 armas de fuego principales y secundarias tienen modelo nuevo**:
+
+| Arma | Familia | Triángulos (Blender) | En Roblox | Identidad |
+|---|---|---|---|---|
+| Nova Drift | Subfusil bullpup | 1660 | 1888 | Verde azulado, luz lima |
+| Raptor DMR | Tirador | 2016 | 3066 | Dorado desierto, visor prismático hueco |
+| Breach Hammer | Escopeta semiautomática | 2128 | 2706 | Amarillo de obra, tambor, luz roja |
+| Ghostline XR | Francotirador con supresor | 1912 | 3626 | Blanco fantasma, luz azul fría |
+| Tempest Core | Lanzacohetes | 2564 | 4418 | Naranja, cabeza roja, franjas amarillas |
+| Hand Cannon | Revólver | 1304 | 1864 | Acero, rojo oscuro, luz ámbar |
+| Phantom Sidewind | Pistola de ráfagas | 1280 | 1634 | Magenta y cian |
+
+Siguen con el modelo de piezas antiguo: Splat-X, Ballesta, Calabazooka y las cuerpo a cuerpo.
+
+Galería actualizada: `assets/weapons/_gallery/01_poster.jpg` (las 14) y `00_coleccion.jpg`.
+
+## Probado en partida (modo QA, Studio)
+
+Las 14 armas se equiparon una a una dentro de una partida y se capturó reposo, disparo, apuntado y
+recarga (`tools/studio/weapontest.js`). Las 14 se ven, disparan y recargan. Lo que salió y se arregló:
+
+- **Havoc Pump:** la carrillera de la culata tapaba media pantalla al apuntar. Culata rebajada.
+- **Raptor DMR:** el visor era macizo y tapaba la vista al apuntar. Rehecho como túnel hueco con lente
+  y retículo; comprobado.
+- **ARX-27:** ventana del visor más abierta (de la primera tanda).
+
+Sin verificar: que la bomba, el cerrojo y la corredera se muevan con buen aspecto (las capturas son
+fotos fijas, no se ha visto la animación), y el aspecto de cada arma en el personaje de los demás.
+
+## Bots parados en Desert Base: arreglado
+
+Dos causas, las dos medidas en Studio:
+
+1. **El terreno quedaba 2 studs alto en todos los mapas.** `Terrain:FillBlock` deja la superficie 2
+   studs por encima del tope del bloque. `TacKit.terrain` no lo compensaba, así que la arena o la
+   hierba tapaban las losas y dejaban las puertas bajas. Corregido en `TacKit/init.luau`
+   (`T.TERRAIN_RISE`).
+2. **Las puertas y el pasillo de la base cerrada miden 4-5 studs**, y el cálculo de rutas de los bots
+   pedía holgura de radio 2: «sin ruta», y los bots empujaban contra la pared. Ahora `Bots.computePath`
+   reintenta con el radio justo de un personaje.
+
+Resultado en una partida forzada en Desert Base: 8 de 9 bots en movimiento, ninguno dentro de la base,
+marcador 8–2 a los dos minutos.
+
+## Organización
+
+- `CONTINUAR.md`: documento de entrada (estado, dónde está cada cosa, cómo se trabaja, pendientes).
+- `tools/studio/`: herramientas para manejar Studio desde la terminal, con su `README.md`.
+- `tools/blender/BRIEF.md`: encargo completo para modelar un arma; `register.py` la registra.

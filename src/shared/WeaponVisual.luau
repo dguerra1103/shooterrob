@@ -248,6 +248,13 @@ WeaponVisual.Families = {
 -- lo necesita (si no, las de Weapons). Además, cualquier sección de las familias (Sprint, Inspect...).
 WeaponVisual.Weapons = {
 	ARX27 = { Model = "ARX27" }, -- (malla de Blender: Shared/WeaponMeshKit)
+	PhantomSidewind = { Model = "PhantomSidewind" },
+	HandCannon = { Model = "HandCannon" },
+	NovaLauncher = { Model = "NovaLauncher" },
+	GhostlineXR = { Model = "GhostlineXR" },
+	BreachHammer = { Model = "BreachHammer" },
+	RaptorDMR = { Model = "RaptorDMR" },
+	NovaDrift = { Model = "NovaDrift" },
 	TitanLMG = { Model = "TitanLMG" },
 	Viper = { Model = "Viper" },
 	VortexBR = { Model = "VortexBR" },

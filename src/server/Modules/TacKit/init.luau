@@ -399,8 +399,13 @@ Mall.capHook = T.cap
 Geometry.capHook = T.cap
 
 -- Terreno: relleno bajo el mapa (para que nada flote) y colinas de fondo
+T.TERRAIN_RISE = 2
 function T.terrain(material, sx, sz, cf)
-	workspace.Terrain:FillBlock((cf or CFrame.new()) * CFrame.new(0, -3, 0), V(sx, 6, sz), material)
+	-- (medido en Studio: la superficie del terreno queda 2 studs por ENCIMA del tope del bloque que se
+	-- rellena. Sin compensarlo, la arena o la hierba subían 2 studs sobre el suelo de los mapas: tapaban
+	-- las losas, dejaban las puertas bajas y el cálculo de rutas de los bots no encontraba salida de las
+	-- bases cerradas. TERRAIN_RISE lo compensa: la superficie queda en la Y de cf)
+	workspace.Terrain:FillBlock((cf or CFrame.new()) * CFrame.new(0, -3 - T.TERRAIN_RISE, 0), V(sx, 6, sz), material)
 end
 
 return T

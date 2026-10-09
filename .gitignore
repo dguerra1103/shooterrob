@@ -5,3 +5,6 @@ tests/.cache/
 
 # Blender: copias de seguridad automáticas
 *.blend1
+tools/studio/.sync.stamp
+tools/studio/*.json
+tools/studio/*.png

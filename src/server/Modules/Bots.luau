@@ -454,19 +454,25 @@ end
 local function computePath(agent, goal)
 	agent.Waypoints = nil
 	agent.WaypointIndex = 0
-	local path = PathfindingService:CreatePath({
-		AgentRadius = 2,
-		AgentHeight = 5,
-		AgentCanJump = true,
-		WaypointSpacing = 6,
-		Costs = { CrackedLava = math.huge, Water = math.huge }, -- nunca por la lava ni por el agua
-	})
-	local ok = pcall(function()
-		path:ComputeAsync(agent.Root.Position, goal)
-	end)
-	if ok and path.Status == Enum.PathStatus.Success then
-		agent.Waypoints = path:GetWaypoints()
-		agent.WaypointIndex = 1
+	-- Primero con holgura (radio 2: no roza las esquinas); si así no hay ruta, con el radio justo de un
+	-- personaje. Las bases cerradas tienen puertas y pasillos de 4-5 studs por los que una persona pasa
+	-- pero un agente de radio 2 no: sin el segundo intento los bots se quedaban dentro (Desert Base)
+	for _, radius in { 2, 1 } do
+		local path = PathfindingService:CreatePath({
+			AgentRadius = radius,
+			AgentHeight = 5,
+			AgentCanJump = true,
+			WaypointSpacing = 6,
+			Costs = { CrackedLava = math.huge, Water = math.huge }, -- nunca por la lava ni por el agua
+		})
+		local ok = pcall(function()
+			path:ComputeAsync(agent.Root.Position, goal)
+		end)
+		if ok and path.Status == Enum.PathStatus.Success then
+			agent.Waypoints = path:GetWaypoints()
+			agent.WaypointIndex = 1
+			return
+		end
 	end
 end
 

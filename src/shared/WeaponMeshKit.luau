@@ -15,7 +15,7 @@ local WeaponMeshKit = {}
 
 WeaponMeshKit.Folder = "WeaponViewModels"
 -- Armas con modelo nuevo (nombre del arma = nombre del módulo de datos y de la plantilla)
-WeaponMeshKit.Weapons = { "ARX27", "Specter9", "Signal7", "HavocPump", "VortexBR", "Viper", "TitanLMG" }
+WeaponMeshKit.Weapons = { "ARX27", "Specter9", "Signal7", "HavocPump", "VortexBR", "Viper", "TitanLMG", "NovaDrift", "RaptorDMR", "BreachHammer", "GhostlineXR", "NovaLauncher", "HandCannon", "PhantomSidewind" }
 -- false = sin fundir (cada primitiva es una pieza: más piezas, mismo aspecto); para depurar
 WeaponMeshKit.Union = true
 
