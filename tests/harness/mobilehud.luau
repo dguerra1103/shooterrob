@@ -161,6 +161,44 @@ end
 local wide = MobileHUD.Resolve(Vector2.new(892, 412), { Screen = Vector2.new(892, 412) })
 local narrow = MobileHUD.Resolve(Vector2.new(740, 412), { Screen = Vector2.new(740, 412), Breakpoint = "STANDARD_PHONE" })
 check(892 - wide.Jump.Center.X > 740 - narrow.Jump.Center.X, "ULTRAWIDE: grupo derecho más hacia dentro que en 16:9")
+-- Detector de solapes (Fase 16): cajas VISUAL y TOUCH con aire mínimo, también con los opcionales
+local all = {}
+for _, c in MobileHUD.Controls do table.insert(all, c.Id) end
+for _, dims in matrix do
+	local screen, size = Vector2.new(dims[1], dims[2]), Vector2.new(dims[3], dims[4])
+	local layout = MobileHUD.Resolve(size, { Screen = screen })
+	local list = MobileHUD.Collisions(layout, all, MobileHUD.MinTouchGap)
+	local text = {}
+	for _, c in list do table.insert(text, c[1] .. "/" .. c[2] .. ":" .. c.Kind) end
+	check(#list == 0, dims[1] .. "x" .. dims[2] .. ": 0 choques de cajas táctiles con " .. MobileHUD.MinTouchGap .. " px de aire (con correr y disparo izquierdo) " .. table.concat(text, " "))
+	for _, c in MobileHUD.Controls do
+		local info = layout[c.Id]
+		check(info.Hit.X > info.Size.X and info.Hit.Y > info.Size.Y, dims[1] .. "x" .. dims[2] .. ": " .. c.Id .. " toca algo más que su dibujo")
+	end
+end
+-- (el detector sí ve los choques: dos controles en el mismo sitio, y cajas que se rozan)
+local stacked = MobileHUD.Resolve(Vector2.new(892, 412), { Custom = { Fire = { X = 0.7, Y = 0.7 }, Aim = { X = 0.7, Y = 0.7 } } })
+local hits = MobileHUD.Collisions(stacked, { "Fire", "Aim" }, 0)
+check(#hits == 1 and hits[1].Kind == "Visual", "dos controles en el mismo sitio: choque visual")
+local close = MobileHUD.Resolve(Vector2.new(892, 412), { Custom = { Fire = { X = 0.5, Y = 0.8 }, Aim = { X = 0.5 + 84 / 892, Y = 0.8 } } })
+local near = MobileHUD.Collisions(close, { "Fire", "Aim" }, MobileHUD.MinTouchGap)
+check(#near == 1 and near[1].Kind == "Touch", "dibujos separados pero cajas táctiles juntas: choque táctil")
+-- Editor: bloquea solo lo roto, avisa del resto
+local stackedCheck = MobileHUD.CheckLayout(Vector2.new(892, 412), stacked, { "Fire", "Aim" })
+check(#stackedCheck.Blocking == 1, "editor: disparar encima de apuntar no se puede guardar")
+local closeCheck = MobileHUD.CheckLayout(Vector2.new(892, 412), close, { "Fire", "Aim" })
+check(#closeCheck.Blocking == 0 and #closeCheck.Warnings == 1, "editor: muy juntos se avisa, pero se puede guardar")
+local centered = MobileHUD.Resolve(Vector2.new(892, 412), { Custom = { Reload = { X = 0.5, Y = 0.5 } } })
+local centerCheck = MobileHUD.CheckLayout(Vector2.new(892, 412), centered, { "Reload" })
+check(#centerCheck.Warnings == 1 and centerCheck.Warnings[1][2] == "Center", "editor: un botón en la mira se avisa")
+local defaultCheck = MobileHUD.CheckLayout(Vector2.new(892, 412), wide)
+check(#defaultCheck.Blocking == 0 and #defaultCheck.Warnings == 0, "editor: la disposición por defecto no tiene avisos")
+-- Hueco libre entre botones (avisos de una línea)
+local a0, a1 = MobileHUD.FreeSpan({ { Min = Vector2.new(100, 0), Max = Vector2.new(200, 50) }, { Min = Vector2.new(500, 0), Max = Vector2.new(560, 50) } }, 10, 30, 0, 892)
+check(a0 == 560 and a1 == 892, "hueco libre más grande entre obstáculos (" .. tostring(a0) .. "-" .. tostring(a1) .. ")")
+local b0, b1 = MobileHUD.FreeSpan({ { Min = Vector2.new(0, 0), Max = Vector2.new(892, 50) } }, 10, 30, 0, 892)
+check(b0 == nil and b1 == nil, "sin hueco: nada")
+
 -- Disposición propia: fracciones de la pantalla (vale al girar o cambiar de móvil)
 local a = MobileHUD.Resolve(Vector2.new(844, 390), { Custom = { Fire = { X = 0.25, Y = 0.5 } } })
 local b = MobileHUD.Resolve(Vector2.new(1024, 768), { Custom = { Fire = { X = 0.25, Y = 0.5 } } })

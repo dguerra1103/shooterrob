@@ -115,6 +115,7 @@ TESTS=(
 	touchbtns
 	mobilehud
 	hudeditor
+	hudstress
 	aimfx
 	realhits
 	aimassist
