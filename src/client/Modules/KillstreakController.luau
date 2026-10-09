@@ -95,7 +95,7 @@ local function updateRadar()
 	if radarLabel.Visible ~= visible then
 		radarLabel.Visible = visible
 	end
-	-- (solo se escribe si cambia el segundo: esto va cada fotograma)
+	-- (solo se escribe si cambia el segundo: esto va cuatro veces por segundo)
 	local text = UI.HudText("📡 RADAR " .. math.max(0, math.ceil(left)) .. "s")
 	if radarLabel.Text ~= text then
 		radarLabel.Text = text
