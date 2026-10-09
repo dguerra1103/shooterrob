@@ -19,6 +19,7 @@ propios**. Falta probar en un móvil real, medir rendimiento y pulir lo que se l
 | Armas: galería | `assets/weapons/_gallery/` (`01_poster.jpg`, `00_coleccion.jpg`, capturas `en_roblox_*`) |
 | Armas: datos que usa el juego | `src/shared/WeaponMeshes/<Arma>.luau` (generados, no editar) |
 | Armas: cómo se montan en el juego | `src/shared/WeaponMeshKit.luau` |
+| Efectos de cada arma (llamaradas, luces) | `src/client/Modules/WeaponFX.luau` (tabla `WeaponFX.Weapons`) |
 | Iconos | `assets/icons/` (PNG) y `src/shared/Icons.luau` (ids de Roblox) |
 | Herramientas para Studio | `tools/studio/` (ver su `README.md`) |
 | Pruebas automáticas | `tests/` (`check.sh`, `run_all.sh`; ver `tests/README.md`) |

@@ -524,6 +524,7 @@ local function createViewmodel(tool)
 	-- Skins con "Pulse": los detalles de neón laten
 	table.clear(pulseParts)
 	pulseSkin = WeaponModels.GetPalette(weaponName, viewSkin(tool))
+	ClientState.ViewmodelPulse = pulseSkin.Pulse ~= nil -- (WeaponFX no toca las luces que ya anima la skin)
 	if pulseSkin.Pulse then
 		for _, part in model:GetDescendants() do
 			if part:IsA("BasePart") and part:GetAttribute("Role") == "Accent" then

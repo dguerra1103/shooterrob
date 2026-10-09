@@ -238,3 +238,24 @@ base y las medidas, no una revisión visual de los bordes.
 - **Katana, Martillo y Guadaña:** se construyen en Studio pero **no se han equipado en partida** (el
   modo QA no da armas cuerpo a cuerpo y hay que equiparlas desde el menú). Usan el mismo camino que el
   cuchillo.
+
+## Efectos de las armas (`src/client/Modules/WeaponFX.luau`)
+
+Módulo nuevo, solo cosmético y solo en primera persona. Escucha los avisos del arma
+(`ClientState.WeaponEvent`), no toca `WeaponController`.
+
+- **Llamarada de boca por arma:** color, tamaño, número de lenguas y chispas propios (tabla
+  `WeaponFX.Weapons`). Fuego en las de pólvora; energía violeta en la Vortex; gotas de pintura de dos
+  colores en la Splat-X; rebufo por detrás en los lanzacohetes.
+- **Luces de neón vivas:** laten en reposo, destellan en blanco con cada disparo, se van poniendo al
+  color «caliente» con el fuego sostenido y, al recargar, se apagan y vuelven a encenderse con un destello.
+- **Llamas permanentes:** vela y resplandor que parpadea en la Calabazooka, chispas eléctricas en la
+  boca de la Vortex, brasa en el Tempest Core, volutas verdes en la Guadaña, chispas en el filo de la Katana.
+- **Golpe cuerpo a cuerpo:** estela de chispas del color del arma.
+- Se recorta con la calidad (Baja 45 %, Media 80 %) y un 30 % más en pantallas táctiles.
+  `WeaponFX.Enabled = false` lo apaga; `WeaponFX.Scale` cambia el tamaño general.
+
+**Probado en partida** (ARX-27, Titan, Vortex, Nova Drift, Calabazooka): se ven la llamarada, las
+chispas, el destello de las luces y el apagado en la recarga; sin errores en la consola. No se han visto
+en movimiento (son capturas) ni se ha medido su coste en un móvil. Las otras 16 armas usan el mismo
+código con su fila de la tabla y no se han mirado una a una.

@@ -64,6 +64,7 @@ local ClientState = {
 	-- ("Equip", arma) · ("Fire", arma) · ("ReloadStart", arma, { Empty, Duration }) · ("ReloadCancel", arma)
 	-- · ("Inspect", arma) · ("InspectCancel", arma)
 	WeaponEvent = Instance.new("BindableEvent"),
+	ViewmodelPulse = false, -- la skin del arma en mano ya anima su neón (WeaponController); lo lee WeaponFX
 }
 
 -- ¿Hay algún menú que impida jugar (disparar, moverse con el ratón...)?
