@@ -464,6 +464,29 @@ function Movement.Init()
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.C, Enum.KeyCode.LeftControl, Enum.KeyCode.ButtonR3)
 
+	-- Saltar (táctil, Fase 15): el botón es nuestro (va en el grupo de combate con su jerarquía; el de
+	-- Roblox se esconde en TouchLayout) y hace EXACTAMENTE lo que hace el de Roblox: mientras el dedo
+	-- está encima, Humanoid.Jump = true en cada fotograma, justo después del ControlModule de Roblox
+	-- (que lo pone a false si nadie salta). Misma altura, mismo coste de estamina, mismo autosalto.
+	local jumpHeld = false
+	if TouchLayout.BindButton("Jump", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			jumpHeld = not ClientState.IsBlocked()
+		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+			jumpHeld = false
+		end
+		return Enum.ContextActionResult.Pass
+	end) then
+		RunService:BindToRenderStep("TouchJump", Enum.RenderPriority.Input.Value + 1, function()
+			if jumpHeld and humanoid and humanoid.Health > 0 then
+				humanoid.Jump = true
+			end
+		end)
+	end
+	Movement.TouchJumpHeld = function()
+		return jumpHeld
+	end
+
 	-- Si la ventana pierde el foco dejamos de correr
 	UserInputService.WindowFocusReleased:Connect(function()
 		sprintHeld = false

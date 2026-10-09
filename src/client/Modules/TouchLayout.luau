@@ -6,10 +6,16 @@
 -- función recibe (nombre, estado, input). Además: SetBadge (número pequeño: granadas, cargas),
 -- SetCooldown (habilidades), SetCard (tarjeta del arma), SetActive (apuntando) y SetHidden.
 --
--- Disposición: shared/MobileHUD (alrededor del botón de saltar de Roblox, leído en vivo; jerarquía:
--- DISPARAR > APUNTAR > acciones > poco uso; centro libre). El jugador puede moverlos, cambiar su
--- tamaño y su opacidad (Ajustes → Controles → Personalizar HUD: HUDEditor), y se guarda en sus
--- ajustes (Settings.HudLayout, validado en el servidor).
+-- Disposición: shared/MobileHUD (Fase 15: clase de pantalla por su forma, escala lógica y GRUPO DE
+-- COMBATE del pulgar derecho metido hacia dentro en pantallas alargadas; jerarquía: DISPARAR >
+-- APUNTAR > salto y agacharse > recargar > el resto; centro y zona de cámara libres). El jugador puede
+-- moverlos, cambiar su tamaño y su opacidad (Ajustes → Controles → Personalizar HUD: HUDEditor), y se
+-- guarda en sus ajustes (Settings.HudLayout, validado en el servidor).
+--
+-- Zona segura (Fase 15): los botones van en una ScreenGui con ScreenInsets = CoreUISafeInsets (la
+-- zona que da el motor sin la muesca/cámara frontal NI los botones de Roblox de arriba); nada se
+-- calcula con medidas inventadas de muesca. El salto es nuestro (va en el grupo) y el de Roblox se
+-- esconde.
 --
 -- Toques: cada botón sigue a SU dedo (InputObject) hasta que lo suelta, aunque salga del botón. El de
 -- DISPARAR, por defecto, deja además girar la cámara con el mismo dedo (Settings.FireDrag): no se
@@ -33,10 +39,10 @@ TouchLayout.EditingLayout = nil :: { [string]: any }?
 TouchLayout.OnRelayout = nil :: ((layout: { [string]: any }, size: Vector2) -> ())?
 
 local player = Players.LocalPlayer
-local buttons = {} -- [acción] = entrada (ver createButton)
+local buttons: { [string]: any } = {} -- [acción] = entrada (ver createButton)
 local registered = {} -- [acción] = posición pedida por el código (solo se guarda: manda MobileHUD)
 local gui
-local layout = {} -- disposición resuelta (MobileHUD.Resolve)
+local layout: { [string]: any } = {} -- disposición resuelta (MobileHUD.Resolve)
 local breakpoint = "PHONE"
 local hiddenBy = {} -- [acción] = true si su módulo la esconde (sin cargas, ajuste...)
 local blockedNow = false
@@ -45,15 +51,21 @@ local fireTouches = {} -- [InputObject] = acción (disparo arrastrando)
 local editing = false
 
 local COLORS = {
-	Face = Color3.fromRGB(14, 16, 22),
+	Face = Color3.fromRGB(14, 16, 22), -- grafito
 	Stroke = Color3.fromRGB(235, 238, 245),
 	Active = Color3.fromRGB(255, 205, 60), -- amarillo de la marca: solo para estados
 	Warn = Color3.fromRGB(255, 176, 64),
 	Empty = Color3.fromRGB(255, 92, 72),
 	Ally = Color3.fromRGB(70, 150, 255),
 }
--- Transparencia del fondo, el borde y el icono con opacidad 1 (se suman a la del control)
-local FACE_ALPHA, STROKE_ALPHA, ICON_ALPHA = 0.42, 0.5, 0.02
+-- Estilo (Fase 15). Opacidad del fondo grafito según la importancia (20-40 %), borde muy fino y
+-- claro, icono casi opaco. DISPARAR: centro más transparente y borde más visible (no tapa al
+-- enemigo y se distingue de todo lo demás). Al pulsar, el fondo sube un poco.
+local FILL = { Fire = 0.2, Primary = 0.36, Action = 0.32, Utility = 0.22 }
+local FILL_PRESSED = 0.16
+local STROKE = { Fire = { 2.5, 0.8 }, Default = { 1.5, 0.45 }, Accent = { 2, 0.95 } } -- grosor, opacidad
+local ICON_OPACITY = 0.94
+local PRESS_SCALE, PRESS_TIME = 0.95, 0.08
 
 local function touchDevice()
 	return UserInputService.TouchEnabled
@@ -71,9 +83,13 @@ local function ensureGui()
 	gui = Instance.new("ScreenGui")
 	gui.Name = "TouchButtons"
 	gui.ResetOnSpawn = false
-	-- (IgnoreGuiInset → ScreenInsets = DeviceSafeInsets: todo dentro de la zona segura del
-	-- dispositivo, fuera de la muesca y de la barra de inicio)
-	gui.IgnoreGuiInset = true
+	-- (botones interactivos: zona segura del motor SIN la interfaz de Roblox de arriba ni la muesca o
+	-- la cámara frontal, Enum.ScreenInsets.CoreUISafeInsets. IgnoreGuiInset = false es lo mismo en
+	-- motores que no tengan ScreenInsets)
+	gui.IgnoreGuiInset = false
+	pcall(function()
+		gui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+	end)
 	gui.DisplayOrder = 3
 	gui.Parent = player:WaitForChild("PlayerGui")
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -82,34 +98,52 @@ local function ensureGui()
 	return gui
 end
 
--- Tamaño de la zona donde van los botones (la zona segura) y su esquina en pantalla
-local function areaSize(): (Vector2, Vector2)
+-- Tamaño de la zona donde van los botones (la zona segura), su esquina en pantalla y el tamaño de la
+-- pantalla entera (ViewportSize: la forma de la pantalla decide la clase y la escala)
+local function areaSize(): (Vector2, Vector2, Vector2)
 	local g = ensureGui()
+	local camera = workspace.CurrentCamera
+	local screen = camera and camera.ViewportSize
+	if typeof(screen) ~= "Vector2" or screen.X < 50 or screen.Y < 50 then
+		screen = Vector2.new(844, 390)
+	end
 	local size, origin = g.AbsoluteSize, g.AbsolutePosition
 	if typeof(size) ~= "Vector2" or size.X < 50 or size.Y < 50 then
-		local camera = workspace.CurrentCamera
-		size = camera and camera.ViewportSize or Vector2.new(844, 390)
+		size = screen
 		origin = Vector2.zero
 	end
 	if typeof(origin) ~= "Vector2" then
 		origin = Vector2.zero
 	end
-	return size, origin
+	return size, origin, screen
 end
 
--- Centro (y diámetro) del botón de saltar de Roblox en nuestra zona (el real si existe y se ve)
-local function jumpCenter(size: Vector2, origin: Vector2): (Vector2, number)
+-- El botón de saltar de Roblox (PlayerModule/TouchJump) se esconde mientras exista el nuestro: el
+-- salto va en el grupo de combate con su tamaño y su estilo. Roblox lo vuelve a enseñar a veces
+-- (al reaparecer, al cambiar el humanoide): se vigila su Visible.
+local robloxJumpWatched = nil
+local function hideRobloxJump()
+	if not buttons.Jump then
+		return
+	end
 	local pg = player:FindFirstChildOfClass("PlayerGui")
 	local touchGui = pg and pg:FindFirstChild("TouchGui")
 	local frame = touchGui and touchGui:FindFirstChild("TouchControlFrame")
 	local jump = frame and frame:FindFirstChild("JumpButton")
-	if jump and jump:IsA("GuiObject") and jump.Visible then
-		local p, s = jump.AbsolutePosition, jump.AbsoluteSize
-		if typeof(p) == "Vector2" and typeof(s) == "Vector2" and s.X > 10 then
-			return p + s / 2 - origin, s.X
-		end
+	if not (jump and jump:IsA("GuiObject")) then
+		return
 	end
-	return MobileHUD.JumpRect(size)
+	if jump.Visible then
+		jump.Visible = false
+	end
+	if robloxJumpWatched ~= jump then
+		robloxJumpWatched = jump
+		jump:GetPropertyChangedSignal("Visible"):Connect(function()
+			if jump.Visible and buttons.Jump then
+				jump.Visible = false
+			end
+		end)
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -134,37 +168,38 @@ local function paint(entry)
 	if not editing and control and control.Fade and ClientState and ClientState.Aiming then
 		opacity *= MobileHUD.AimFade
 	end
-	local pressed = entry.Pressed and 0.2 or 0
-	local face = entry.Face
-	face.BackgroundTransparency = math.clamp(1 - (1 - FACE_ALPHA + pressed) * opacity, 0, 1)
+	local role = entry.Id == "Fire" and "Fire" or (control and control.Role) or "Action"
+	local fill = (FILL[role] or FILL.Action) + (entry.Pressed and FILL_PRESSED or 0)
+	entry.Face.BackgroundTransparency = math.clamp(1 - fill * opacity, 0, 1)
 	local accent = entry.Active and COLORS.Active or (entry.Emphasis == 2 and COLORS.Empty) or (entry.Emphasis == 1 and COLORS.Warn) or nil
+	local stroke = accent and STROKE.Accent or (entry.Id == "Fire" and STROKE.Fire) or STROKE.Default
 	entry.Stroke.Color = accent or COLORS.Stroke
-	entry.Stroke.Thickness = accent and 3 or 2
-	entry.Stroke.Transparency = math.clamp(1 - (1 - (accent and 0.05 or STROKE_ALPHA)) * opacity, 0, 1)
-	local iconAlpha = math.clamp(1 - (1 - ICON_ALPHA) * math.max(opacity, 0.35), 0, 1)
+	entry.Stroke.Thickness = stroke[1]
+	entry.Stroke.Transparency = math.clamp(1 - stroke[2] * math.max(opacity, 0.4), 0, 1)
+	if entry.Ring then
+		-- (DISPARAR: anillo interior fino, como una retícula)
+		entry.Ring.Color = accent or COLORS.Stroke
+		entry.Ring.Transparency = math.clamp(1 - 0.35 * opacity, 0, 1)
+	end
+	local iconAlpha = math.clamp(1 - ICON_OPACITY * math.max(opacity, 0.35), 0, 1)
 	for _, piece in entry.Icon:GetDescendants() do
 		if piece:IsA("Frame") then
 			if piece.BackgroundTransparency < 1 then
 				piece.BackgroundTransparency = iconAlpha
 			end
-			local stroke = piece:FindFirstChildOfClass("UIStroke")
-			if stroke then
-				stroke.Transparency = iconAlpha
+			local pieceStroke = piece:FindFirstChildOfClass("UIStroke")
+			if pieceStroke then
+				pieceStroke.Transparency = iconAlpha
 			end
 		elseif piece:IsA("TextLabel") then
 			piece.TextTransparency = iconAlpha
 		end
 	end
-	if entry.CardTexts then
-		for _, label in entry.CardTexts do
-			label.TextTransparency = iconAlpha
-		end
-	end
 	TouchIcons.Tint(entry.Icon, accent or Color3.new(1, 1, 1))
-	-- (la recarga necesaria se ve algo más grande, sin parpadear)
-	local scale = (entry.Pressed and 0.9 or 1) * (entry.Emphasis == 2 and 1.1 or 1)
+	-- (al pulsar baja un poco; la recarga necesaria se ve algo más grande, sin parpadear ni rebotar)
+	local scale = (entry.Pressed and PRESS_SCALE or 1) * (entry.Emphasis == 2 and 1.06 or 1)
 	if entry.Scale.Scale ~= scale then
-		tween(entry.Scale, 0.08, { Scale = scale })
+		tween(entry.Scale, PRESS_TIME, { Scale = scale })
 	end
 end
 
@@ -180,6 +215,12 @@ local function place(entry)
 	entry.Button.Position = UDim2.fromOffset(math.floor(info.Center.X - hit.X / 2 + 0.5), math.floor(info.Center.Y - hit.Y / 2 + 0.5))
 	entry.Button.Size = UDim2.fromOffset(math.floor(hit.X + 0.5), math.floor(hit.Y + 0.5))
 	entry.Face.Size = UDim2.fromOffset(math.floor(info.Size.X + 0.5), math.floor(info.Size.Y + 0.5))
+	local control = MobileHUD.ById[entry.Id]
+	-- (esquinas según la forma: círculo, tarjeta cuadrada o tarjeta del arma)
+	local shape = control and control.Shape or "Round"
+	local radius = shape == "Round" and UDim.new(0.5, 0) or UDim.new(0, math.floor(math.min(info.Size.X, info.Size.Y) * (shape == "Card" and 0.3 or 0.28) + 0.5))
+	entry.Corner.CornerRadius = radius
+	entry.CoverCorner.CornerRadius = radius
 	local iconPx = math.min(info.Size.X, info.Size.Y)
 	if not entry.CardTexts and entry.IconPx ~= math.floor(iconPx) then
 		entry.IconPx = math.floor(iconPx)
@@ -187,12 +228,14 @@ local function place(entry)
 		for _, child in entry.Icon:GetChildren() do
 			child:Destroy()
 		end
-		local control = MobileHUD.ById[entry.Id]
 		if control and control.Icon ~= "Card" then
-			TouchIcons.Draw(control.Icon, entry.Icon, iconPx * 0.56)
+			-- (mismo tamaño de icono respecto a su botón en todos: 52 %; DISPARAR algo menos, 44 %)
+			local fraction = entry.Id == "Fire" and 0.44 or 0.52
+			entry.Icon.Size = UDim2.fromScale(fraction, fraction)
+			TouchIcons.Draw(control.Icon, entry.Icon, iconPx * fraction)
 		end
 	end
-	if entry.CardFit then
+	if entry.CardTexts then
 		fitCard(entry)
 	end
 	paint(entry)
@@ -209,41 +252,44 @@ local function textWidth(text: string, size: number, font: Enum.Font): number
 	return (utf8.len(text) or #text) * size * 0.62
 end
 
--- Tarjeta del arma: cada texto en UNA línea; se encoge desde su tamaño (× el de la tarjeta) hasta 11
--- px y, si aun así no cabe, lo corta TextTruncate («…»)
-local MIN_CARD_TEXT = 11
+-- Tarjeta del arma (Fase 15: muestra el ARMA A LA QUE SE CAMBIA, pequeña; la munición va aparte,
+-- junto a recargar): icono de cambiar y el nombre en UNA línea; se encoge desde 13 px (× el tamaño de
+-- la tarjeta) hasta 12 px y, si aun así no cabe, lo corta TextTruncate («…»)
+local MIN_CARD_TEXT = 12
 fitCard = function(entry)
 	local info = layout[entry.Id]
-	if not entry.CardFit or not info then
+	if not entry.CardTexts or not info then
 		return
 	end
-	local scale = info.Size.Y / 50
-	-- (fila de arriba: «1/2» a la derecha ocupa solo lo que mide y el nombre usa el resto)
-	local title, sub = entry.CardTexts.Title, entry.CardTexts.Sub
-	local subSize = math.max(MIN_CARD_TEXT, math.floor(12 * scale + 0.5))
-	local subWidth = sub.Text ~= "" and math.ceil(textWidth(sub.Text, subSize, sub.Font)) + 2 or 0
-	sub.TextSize = subSize
-	sub.AnchorPoint = Vector2.new(1, 0)
-	sub.Position = UDim2.new(1, -8, sub.Position.Y.Scale, 0)
-	sub.Size = UDim2.new(0, subWidth, sub.Size.Y.Scale, 0)
-	local titleWidth = info.Size.X - 18 - (subWidth > 0 and subWidth + 6 or 0)
-	title.Size = UDim2.new(0, math.max(10, titleWidth), title.Size.Y.Scale, 0)
-	for label, spec in entry.CardFit do
-		local width = label == title and titleWidth or info.Size.X * spec.W - 10
-		local size = math.max(MIN_CARD_TEXT, math.floor(spec.Max * scale + 0.5))
-		while size > MIN_CARD_TEXT and label.Text ~= "" and textWidth(label.Text, size, label.Font) > width do
-			size -= 1
+	local scale = info.Size.Y / 32
+	local swapSize = math.floor(info.Size.Y * 0.5 + 0.5)
+	entry.CardIcon.Size = UDim2.fromOffset(swapSize, swapSize)
+	entry.CardIcon.Position = UDim2.new(0, 10, 0.5, 0)
+	if entry.CardIconPx ~= swapSize then
+		entry.CardIconPx = swapSize
+		for _, child in entry.CardIcon:GetChildren() do
+			child:Destroy()
 		end
-		if label ~= sub and label.TextSize ~= size then
-			label.TextSize = size
-		end
+		TouchIcons.Draw("Swap", entry.CardIcon, swapSize)
+	end
+	local title = entry.CardTexts.Title
+	local left = 10 + swapSize + 8
+	local width = info.Size.X - left - 10
+	title.Position = UDim2.fromOffset(left, 0)
+	title.Size = UDim2.new(0, math.max(10, width), 1, 0)
+	local size = math.max(MIN_CARD_TEXT, math.floor(13 * scale + 0.5))
+	while size > MIN_CARD_TEXT and title.Text ~= "" and textWidth(title.Text, size, title.Font) > width do
+		size -= 1
+	end
+	if title.TextSize ~= size then
+		title.TextSize = size
 	end
 end
 
 -- Botón de un control: zona táctil (algo mayor que el dibujo) con su cara, icono, globo y recarga
 local function createButton(actionName, handler)
 	local control = MobileHUD.ById[actionName]
-	local isCard = control and typeof(control.Size) == "Vector2"
+	local isCard = control and control.Shape == "Card"
 	-- (DISPARAR con «arrastrar para apuntar»: la zona no se come el toque y la cámara también lo usa)
 	local passThrough = actionName == "Fire" and (settings().FireDrag or 1) == 1
 	local button
@@ -267,20 +313,38 @@ local function createButton(actionName, handler)
 	face.Active = false
 	face.Parent = button
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = isCard and UDim.new(0, 12) or UDim.new(0.5, 0)
+	corner.CornerRadius = UDim.new(0.5, 0)
 	corner.Parent = face
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = COLORS.Stroke
-	stroke.Thickness = 2
+	stroke.Thickness = 1.5
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	stroke.Parent = face
 	local scale = Instance.new("UIScale")
 	scale.Parent = face
+	-- (DISPARAR: anillo interior fino; el centro queda casi transparente)
+	local ring
+	if actionName == "Fire" or actionName == "LeftFire" then
+		local inner = Instance.new("Frame")
+		inner.Name = "InnerRing"
+		inner.AnchorPoint = Vector2.new(0.5, 0.5)
+		inner.Position = UDim2.fromScale(0.5, 0.5)
+		inner.Size = UDim2.fromScale(0.78, 0.78)
+		inner.BackgroundTransparency = 1
+		inner.Parent = face
+		local innerCorner = Instance.new("UICorner")
+		innerCorner.CornerRadius = UDim.new(0.5, 0)
+		innerCorner.Parent = inner
+		ring = Instance.new("UIStroke")
+		ring.Color = COLORS.Stroke
+		ring.Thickness = 1
+		ring.Parent = inner
+	end
 	local icon = Instance.new("Frame")
 	icon.Name = "Icon"
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
 	icon.Position = UDim2.fromScale(0.5, 0.5)
-	icon.Size = UDim2.fromScale(isCard and 1 or 0.56, isCard and 1 or 0.56)
+	icon.Size = UDim2.fromScale(isCard and 1 or 0.52, isCard and 1 or 0.52)
 	icon.BackgroundTransparency = 1
 	icon.Parent = face
 	-- Globo (cantidad: granadas, cargas) arriba a la derecha
@@ -290,10 +354,10 @@ local function createButton(actionName, handler)
 	badge.Position = UDim2.fromScale(0.86, 0.14)
 	badge.Size = UDim2.fromOffset(26, 18)
 	badge.BackgroundColor3 = COLORS.Face
-	badge.BackgroundTransparency = 0.1
+	badge.BackgroundTransparency = 0.15
 	badge.TextColor3 = Color3.new(1, 1, 1)
 	badge.Font = Enum.Font.GothamBold
-	badge.TextSize = 13
+	badge.TextSize = 12
 	badge.Text = ""
 	badge.Visible = false
 	badge.ZIndex = 4
@@ -308,7 +372,7 @@ local function createButton(actionName, handler)
 	cover.Position = UDim2.fromScale(0, 1)
 	cover.Size = UDim2.fromScale(1, 0)
 	cover.BackgroundColor3 = Color3.new(0, 0, 0)
-	cover.BackgroundTransparency = 0.35
+	cover.BackgroundTransparency = 0.4
 	cover.BorderSizePixel = 0
 	cover.ZIndex = 2
 	cover.Visible = false
@@ -322,7 +386,7 @@ local function createButton(actionName, handler)
 	timer.Size = UDim2.fromScale(1, 1)
 	timer.Font = Enum.Font.GothamBold
 	timer.TextColor3 = Color3.new(1, 1, 1)
-	timer.TextSize = 16
+	timer.TextSize = 14
 	timer.Text = ""
 	timer.ZIndex = 3
 	timer.Parent = face
@@ -331,7 +395,10 @@ local function createButton(actionName, handler)
 		Id = actionName,
 		Button = button,
 		Face = face,
+		Corner = corner,
+		CoverCorner = coverCorner,
 		Stroke = stroke,
+		Ring = ring,
 		Scale = scale,
 		Icon = icon,
 		Badge = badge,
@@ -344,39 +411,32 @@ local function createButton(actionName, handler)
 		PassThrough = passThrough,
 		Owner = nil :: InputObject?, -- el dedo que lo tiene pulsado
 		OwnerConnection = nil :: RBXScriptConnection?,
-		CardFit = nil :: { [TextLabel]: { W: number, Max: number } }?,
+		CardTexts = nil :: { [string]: TextLabel }?,
+		CardIcon = nil :: Frame?,
 	}
-	-- Tarjeta del arma (cambiar arma): nombre, munición y la otra arma
+	-- Tarjeta del arma (cambiar arma): icono de cambiar y el arma a la que se cambia, en una línea
 	if isCard then
-		-- (arriba: el arma y, a la derecha, qué arma es de cuántas «1/2»; abajo, grande, la munición
-		-- «30 / 120». Una sola línea cada uno: se mide el texto y se encoge hasta 11 px; si aun así no
-		-- cabe, se corta con «…». Nunca se parte en dos líneas: ver fitCard)
-		entry.CardFit = {}
-		local function text(name, x, y, w, h, size, font, color, align)
-			local label = Instance.new("TextLabel")
-			label.Name = name
-			label.BackgroundTransparency = 1
-			label.Position = UDim2.new(x, x == 0 and 10 or 0, y, 0)
-			label.Size = UDim2.new(w, x == 0 and -10 or -10, h, 0)
-			label.Font = font
-			label.TextColor3 = color
-			label.TextScaled = false
-			label.TextWrapped = false
-			label.TextSize = size
-			label.TextXAlignment = align or Enum.TextXAlignment.Left
-			label.TextYAlignment = Enum.TextYAlignment.Center
-			label.TextTruncate = Enum.TextTruncate.AtEnd
-			label.ClipsDescendants = true
-			label.Text = ""
-			label.Parent = icon
-			entry.CardFit[label] = { W = w, Max = size }
-			return label
-		end
-		entry.CardTexts = {
-			Title = text("Weapon", 0, 0.07, 0.78, 0.32, 13, Enum.Font.GothamBold, Color3.fromRGB(225, 228, 236)),
-			Sub = text("Slot", 0.78, 0.07, 0.22, 0.32, 12, Enum.Font.GothamBold, Color3.fromRGB(160, 166, 180), Enum.TextXAlignment.Right),
-			Value = text("Ammo", 0, 0.42, 1, 0.5, 22, Enum.Font.GothamBlack, Color3.new(1, 1, 1)),
-		}
+		local swap = Instance.new("Frame")
+		swap.Name = "SwapIcon"
+		swap.AnchorPoint = Vector2.new(0, 0.5)
+		swap.BackgroundTransparency = 1
+		swap.Parent = icon
+		entry.CardIcon = swap
+		local label = Instance.new("TextLabel")
+		label.Name = "Weapon"
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBold
+		label.TextColor3 = Color3.fromRGB(225, 228, 236)
+		label.TextScaled = false
+		label.TextWrapped = false
+		label.TextSize = 13
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextYAlignment = Enum.TextYAlignment.Center
+		label.TextTruncate = Enum.TextTruncate.AtEnd
+		label.ClipsDescendants = true
+		label.Text = ""
+		label.Parent = icon
+		entry.CardTexts = { Title = label }
 	end
 
 	-- Un botón es de un solo dedo a la vez (entry.Owner): un segundo dedo encima no hace nada y, si el
@@ -431,27 +491,81 @@ end
 -- Disposición
 ---------------------------------------------------------------------------
 
-local lastJumpCenter: Vector2?, lastJumpSize: number? = nil, nil
 local drawDebug -- (depuración, más abajo)
+local areaOrigin = Vector2.zero
+local stripBack: Frame? = nil
 
--- Vuelve a colocar todo (pantalla girada, disposición del jugador cambiada, salto de Roblox visible)
+-- Fondo común de la tira de poco uso (menú, marcador, emotes, grafiti): si están en fila (los de
+-- fábrica), una sola pastilla oscura detrás; si el jugador los separó, sin fondo
+local function placeStrip()
+	local ids = {}
+	for id, entry in buttons do
+		local control = MobileHUD.ById[id]
+		if control and control.Role == "Utility" and entry.Button.Visible and layout[id] then
+			table.insert(ids, id)
+		end
+	end
+	table.sort(ids, function(a, b)
+		return layout[a].Center.X < layout[b].Center.X
+	end)
+	local together = #ids >= 2
+	for i = 2, #ids do
+		local a, b = layout[ids[i - 1]], layout[ids[i]]
+		if math.abs(a.Center.Y - b.Center.Y) > 2 or (b.Center.X - a.Center.X) - (a.Size.X + b.Size.X) / 2 > 14 then
+			together = false
+		end
+	end
+	if not together then
+		if stripBack then
+			stripBack.Visible = false
+		end
+		return
+	end
+	if not stripBack then
+		local frame = Instance.new("Frame")
+		frame.Name = "UtilityStrip"
+		frame.BackgroundColor3 = COLORS.Face
+		frame.BorderSizePixel = 0
+		frame.Active = false
+		frame.ZIndex = 0
+		local frameCorner = Instance.new("UICorner")
+		frameCorner.CornerRadius = UDim.new(0.5, 0)
+		frameCorner.Parent = frame
+		frame.Parent = gui
+		stripBack = frame
+	end
+	local first, last = layout[ids[1]], layout[ids[#ids]]
+	local pad = 4
+	local x0 = first.Center.X - first.Size.X / 2 - pad
+	local x1 = last.Center.X + last.Size.X / 2 + pad
+	local h = first.Size.Y + pad * 2
+	local strip = stripBack :: Frame
+	strip.Position = UDim2.fromOffset(math.floor(x0), math.floor(first.Center.Y - h / 2))
+	strip.Size = UDim2.fromOffset(math.floor(x1 - x0), math.floor(h))
+	local _, ClientState = settings()
+	strip.BackgroundTransparency = (ClientState and ClientState.Aiming and not editing) and 0.86 or 0.72
+	strip.Visible = true
+end
+
+-- Vuelve a colocar todo (pantalla girada, cambio de zona segura, disposición del jugador cambiada)
 function TouchLayout.Relayout()
 	if not gui then
 		return
 	end
-	local size, origin = areaSize()
-	breakpoint = MobileHUD.Breakpoint(size, touchDevice())
+	local size, origin, screen = areaSize()
+	areaOrigin = origin
+	breakpoint = MobileHUD.Classify(size, touchDevice(), screen)
 	local s = settings()
-	local jump, jumpSize = jumpCenter(size, origin)
-	lastJumpCenter, lastJumpSize = jump, jumpSize
 	layout = MobileHUD.Resolve(size, {
-		Breakpoint = breakpoint,
-		Jump = jump,
+		Breakpoint = breakpoint ~= "DESKTOP" and breakpoint or nil,
+		Screen = screen,
 		Custom = editing and TouchLayout.EditingLayout or s.HudLayout,
 	})
 	for _, entry in buttons do
 		place(entry)
 	end
+	placeStrip()
+	hideRobloxJump()
 	if TouchLayout.OnRelayout then
 		TouchLayout.OnRelayout(layout, size)
 	end
@@ -460,9 +574,18 @@ function TouchLayout.Relayout()
 	end
 end
 
--- Botón de saltar de Roblox usado en la última disposición: centro y diámetro
+-- Botón de saltar (el nuestro, Fase 15) en la última disposición: centro y diámetro
 function TouchLayout.JumpRect(): (Vector2?, number?)
-	return lastJumpCenter, lastJumpSize
+	local info = layout.Jump
+	if info and buttons.Jump then
+		return info.Center, info.Size.X
+	end
+	return nil, nil
+end
+
+-- Esquina de la zona de botones en la pantalla (para pasar a las coordenadas de otra ScreenGui)
+function TouchLayout.Origin(): Vector2
+	return areaOrigin
 end
 
 -- Disposición resuelta (para el HUD, el editor y las pruebas)
@@ -483,14 +606,14 @@ end
 -- Visibilidad
 ---------------------------------------------------------------------------
 
-local function wanted(name: string): boolean
+local function wanted(name: string, ignoreBlocked: boolean?): boolean
 	if editing then
 		return true
 	end
 	if hiddenBy[name] then
 		return false
 	end
-	if blockedNow then
+	if blockedNow and not ignoreBlocked then
 		return name == "Emotes" and onlyEmotesNow
 	end
 	local s = settings()
@@ -532,11 +655,23 @@ function TouchLayout.RefreshVisibility()
 			task.spawn(entry.Handler, name, Enum.UserInputState.Cancel, nil)
 		end
 	end
+	placeStrip()
+end
+
+-- Si un control se ve en partida (sus ajustes, cargas y módulo; sin contar los menús abiertos, que
+-- lo esconden un momento). Para colocar lo demás alrededor de los botones.
+function TouchLayout.InPlay(actionName: string): boolean
+	return buttons[actionName] ~= nil and wanted(actionName, true)
 end
 
 function TouchLayout.SetHidden(actionName: string, hidden: boolean)
+	local changed = (hiddenBy[actionName] == true) ~= (hidden == true)
 	hiddenBy[actionName] = hidden or nil
 	TouchLayout.RefreshVisibility()
+	if changed and TouchLayout.OnRelayout and gui then
+		-- (lo que se coloca alrededor de los botones se recoloca: un hueco más o menos)
+		TouchLayout.OnRelayout(layout, (areaSize()))
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -589,7 +724,7 @@ function TouchLayout.SetCooldown(actionName: string, fraction: number, text: str
 	end
 end
 
--- Tarjeta del arma: { Title = nombre o estado, Value = "24 / 90", Sub = "1/2", ValueColor = color }
+-- Tarjeta del arma: { Title = el arma a la que se cambia } (Fase 15: la munición va aparte)
 function TouchLayout.SetCard(actionName: string, info: { [string]: any })
 	local entry = buttons[actionName]
 	if entry and entry.CardTexts then
@@ -603,10 +738,6 @@ function TouchLayout.SetCard(actionName: string, info: { [string]: any })
 		end
 		if changed then
 			fitCard(entry)
-		end
-		local color = info.ValueColor
-		if typeof(color) == "Color3" and entry.CardTexts.Value.TextColor3 ~= color then
-			entry.CardTexts.Value.TextColor3 = color
 		end
 	end
 end
@@ -657,8 +788,9 @@ local function watchFireDrag()
 end
 
 ---------------------------------------------------------------------------
--- Depuración (GameConfig.MobileHUDDebug, solo en Studio): zona segura, zonas táctiles, centro libre,
--- zona de cámara del pulgar derecho, resolución y tipo de pantalla
+-- Depuración (GameConfig.MobileHUDDebug = true Y Studio; nunca en un servidor publicado): SAFE RECT,
+-- CENTER DEAD ZONE, CAMERA SWIPE ZONE, LEFT/RIGHT THUMB ZONE y BUTTON HITBOXES, con la clase de
+-- pantalla, su proporción, la escala y los insets
 ---------------------------------------------------------------------------
 
 local debugGui
@@ -671,16 +803,22 @@ drawDebug = function()
 	end
 	debugGui = Instance.new("ScreenGui")
 	debugGui.Name = "MobileHUDDebug"
-	debugGui.IgnoreGuiInset = true
+	-- (las mismas coordenadas que los botones: su misma zona segura)
+	debugGui.IgnoreGuiInset = false
+	pcall(function()
+		debugGui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+	end)
 	debugGui.DisplayOrder = 90
 	debugGui.ResetOnSpawn = false
 	debugGui.Parent = gui.Parent
-	local size = areaSize()
-	local function box(position, s, color, label)
+	local size, origin, screen = areaSize()
+	local function box(position, s, color, label, fill)
 		local frame = Instance.new("Frame")
-		frame.BackgroundTransparency = 1
+		frame.BackgroundColor3 = color
+		frame.BackgroundTransparency = fill and 0.85 or 1
 		frame.Position = UDim2.fromOffset(position.X, position.Y)
 		frame.Size = UDim2.fromOffset(s.X, s.Y)
+		frame.Active = false
 		frame.Parent = debugGui
 		local stroke = Instance.new("UIStroke")
 		stroke.Color = color
@@ -693,24 +831,35 @@ drawDebug = function()
 			text.TextColor3 = color
 			text.TextSize = 11
 			text.Font = Enum.Font.GothamBold
+			text.TextXAlignment = Enum.TextXAlignment.Left
 			text.Text = label
 			text.Parent = frame
 		end
 	end
-	-- (la zona segura respecto a la pantalla entera: lo que quitan la muesca y las barras)
-	local camera = workspace.CurrentCamera
-	local screen = camera and camera.ViewportSize or size
-	local _, origin = areaSize()
-	box(Vector2.zero, size, Color3.fromRGB(60, 255, 120), string.format("zona segura %dx%d · pantalla %dx%d · %s · inset %d,%d", size.X, size.Y, screen.X, screen.Y, breakpoint, origin.X, origin.Y))
-	local clear = MobileHUD.CenterClear(size)
-	box(size / 2 - Vector2.new(clear, clear), Vector2.new(clear * 2, clear * 2), Color3.fromRGB(255, 80, 80), "centro libre")
-	box(Vector2.new(size.X * 0.5, 0), Vector2.new(size.X * 0.5, size.Y * 0.62), Color3.fromRGB(80, 160, 255), "cámara (pulgar derecho)")
-	-- (zona táctil de cada control con su nombre, su tamaño real y su opacidad)
-	for name, info in layout do
-		local entry = buttons[name]
-		if entry and entry.Button.Visible then
-			box(info.Center - info.Hit / 2, info.Hit, Color3.fromRGB(255, 220, 60), string.format("%s %d px %d%%", name, info.Size.X, info.Opacity * 100))
+	-- SAFE RECT: la zona segura (CoreUISafeInsets) respecto a la pantalla entera
+	box(Vector2.zero, size, Color3.fromRGB(60, 255, 120), string.format(" SAFE RECT %dx%d · pantalla %dx%d (%.2f:1) · %s · escala %.2f · inset %d,%d", size.X, size.Y, screen.X, screen.Y, math.max(screen.X, screen.Y) / math.max(1, math.min(screen.X, screen.Y)), breakpoint, MobileHUD.Scale(breakpoint, screen), origin.X, origin.Y))
+	-- Zonas (las de los controles visibles)
+	-- (los controles de la partida, aunque un menú los esconda en este momento)
+	local visible = {}
+	for name in buttons do
+		if layout[name] and wanted(name, true) then
+			table.insert(visible, name)
 		end
+	end
+	local zones = MobileHUD.Zones(size, layout, visible)
+	local clear = zones.Center.Radius
+	box(zones.Center.Center - Vector2.new(clear, clear), Vector2.new(clear * 2, clear * 2), Color3.fromRGB(255, 80, 80), " CENTER DEAD ZONE", true)
+	box(zones.Swipe.Min, zones.Swipe.Max - zones.Swipe.Min, Color3.fromRGB(80, 160, 255), " CAMERA SWIPE ZONE", true)
+	if zones.LeftThumb then
+		box(zones.LeftThumb.Min, zones.LeftThumb.Max - zones.LeftThumb.Min, Color3.fromRGB(190, 120, 255), " LEFT THUMB ZONE")
+	end
+	if zones.RightThumb then
+		box(zones.RightThumb.Min, zones.RightThumb.Max - zones.RightThumb.Min, Color3.fromRGB(255, 150, 60), " RIGHT THUMB ZONE")
+	end
+	-- BUTTON HITBOXES: zona táctil de cada control visible con su nombre, tamaño real y opacidad
+	for _, name in visible do
+		local info = layout[name]
+		box(info.Center - info.Hit / 2, info.Hit, Color3.fromRGB(255, 220, 60), string.format("%s %d %d%%", name, info.Size.X, info.Opacity * 100))
 	end
 end
 
@@ -718,9 +867,10 @@ end
 -- API
 ---------------------------------------------------------------------------
 
--- Estados que cambian solos: apuntando (los de poco uso se apagan), recarga necesaria y el botón de
--- saltar de Roblox (aparece un poco después). Solo se toca algo si cambia.
-local lastAim, lastJump = nil, nil
+-- Estados que cambian solos: apuntando (los secundarios bajan un poco), recarga necesaria o en curso,
+-- la zona segura y el botón de saltar de Roblox (aparece un poco después: se esconde). Solo se toca
+-- algo si cambia.
+local lastAim, lastArea = nil, nil
 function TouchLayout.Tick()
 	local _, ClientState = settings()
 	if not ClientState or not gui then
@@ -731,6 +881,7 @@ function TouchLayout.Tick()
 		lastAim = aiming
 		TouchLayout.SetActive("Aim", aiming)
 		TouchLayout.Repaint()
+		placeStrip()
 	end
 	local def = ClientState.CurrentDef
 	local level = 0
@@ -745,12 +896,15 @@ function TouchLayout.Tick()
 		end
 	end
 	TouchLayout.SetEmphasis("Reload", level)
+	TouchLayout.SetActive("Reload", ClientState.Reloading == true)
+	-- (la zona segura puede cambiar sin cambiar el tamaño de la pantalla: barra de Roblox, giro)
 	local size, origin = areaSize()
-	local jump = jumpCenter(size, origin)
-	if lastJump == nil or (jump - lastJump).Magnitude > 2 then
-		lastJump = jump
+	local key = size + origin * 10000
+	if lastArea == nil or (key - lastArea).Magnitude > 1 then
+		lastArea = key
 		TouchLayout.Relayout()
 	end
+	hideRobloxJump()
 end
 
 local watching = false

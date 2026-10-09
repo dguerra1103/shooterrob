@@ -583,6 +583,11 @@ local function load(player)
 		merged.Settings.Quality = "Auto"
 		merged.Settings.QualityVersion = GameConfig.DefaultSettings.QualityVersion
 	end
+	-- Disposición de los controles táctiles de una versión anterior (Fase 15): se migra sin borrar lo
+	-- del jugador (MobileHUD.MigrateLayout: si no la había personalizado, usa la nueva; si sí, la suya)
+	if merged.Settings.HudLayoutVersion ~= MobileHUD.LayoutVersion then
+		merged.Settings.HudLayout, merged.Settings.HudLayoutVersion = MobileHUD.MigrateLayout(merged.Settings.HudLayout, merged.Settings.HudLayoutVersion)
+	end
 	-- Ajustes nuevos que aún no tenía guardados (después de la migración de calidad)
 	for key, value in GameConfig.DefaultSettings do
 		if merged.Settings[key] == nil then

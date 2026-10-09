@@ -3,7 +3,8 @@
 -- toca uno para elegirlo y se arrastra para moverlo; TAMAÑO y OPACIDAD con dos barras. GUARDAR lo
 -- guarda en los ajustes del jugador (Settings.HudLayout: los guarda el servidor con el resto del
 -- perfil, después de validarlos con shared/MobileHUD), CANCELAR lo deja como estaba y RESTABLECER
--- vuelve a la disposición por defecto. Mientras está abierto no se juega (ClientState.HUDEditorOpen).
+-- vuelve a la disposición por defecto (la de la Fase 15, la de la versión MobileHUD.LayoutVersion).
+-- Mientras está abierto no se juega (ClientState.HUDEditorOpen).
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -86,7 +87,7 @@ local function drawOverlay(layout)
 			item.Ring.Visible = id == selected
 			local corner = item.Ring:FindFirstChildOfClass("UICorner")
 			if corner then
-				corner.CornerRadius = info.Size.X > info.Size.Y + 4 and UDim.new(0, 14) or UDim.new(0.5, 0)
+				corner.CornerRadius = (control and control.Shape ~= "Round") and UDim.new(0, 12) or UDim.new(0.5, 0)
 			end
 		end
 	end
@@ -286,7 +287,12 @@ local function build()
 	-- Fondo oscuro por debajo de los botones (los botones se ven encima) y el editor por encima
 	dim = UI.new("ScreenGui", { Name = "HUDEditorDim", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 2, Parent = playerGui })
 	UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0, Parent = dim })
-	gui = UI.new("ScreenGui", { Name = "HUDEditor", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 20, Parent = playerGui })
+	-- (la misma zona segura que los botones, CoreUISafeInsets: así lo que se arrastra cae justo donde
+	-- queda el botón)
+	gui = UI.new("ScreenGui", { Name = "HUDEditor", IgnoreGuiInset = false, ResetOnSpawn = false, DisplayOrder = 20, Parent = playerGui })
+	pcall(function()
+		gui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+	end)
 	-- (toda la pantalla recoge los toques: ni la cámara ni los controles reciben nada)
 	local catcher = UI.new("TextButton", {
 		Name = "Catcher",
