@@ -216,3 +216,13 @@ DOM, SND, CTF, KOTH en combate intenso, ADS, cargador vacío, francotirador, edi
 8. Editor: intentar poner DISPARAR encima de APUNTAR (no debe guardar) y dejarlos solo cerca (debe
    avisar y guardar).
 9. Con `MobileHUDDebug = true` en Studio (no en el commit): nada en rojo durante la partida.
+
+## Resultado final
+
+- `tests/check.sh`: Rojo build y luau-lsp sin errores.
+- `tests/run_all.sh` completo: **OK 152, FALLOS 0** (incluye `mobilehud`, `hudeditor`, `hudstress`, navegación de los 9 mapas, arranque de los 10 modos y ciclo de 10 partidas).
+- Layout por defecto: 0 solapes visuales y 0 táctiles (separación mínima 4 px) en las 10 resoluciones de la matriz, con y sin opcionales (Fase 15: 9 por tamaño).
+- S26 simulado (892x412): solapes visuales 1 → 0, táctiles 8 → 0; ULTRAWIDE_PHONE; 0 controles fuera de la zona segura.
+- HUDZones: 0 problemas (`Validate` vacío) en combate intenso en los 10 modos.
+- Sin cambios en daño, retroceso, asistencia de apuntado, cadencia, mapas, bots, economía, monetización, pase ni armas. ProductIds en 0, UniverseId/PlaceId sin tocar, QA y depuración desactivados. Sin publicar.
+- Multijugador probado en simulación (10 jugadores en el mock), no en un servidor real: pendiente de validar en Studio y en el teléfono (sección 14).
