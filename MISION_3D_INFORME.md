@@ -196,3 +196,45 @@ marcador 8–2 a los dos minutos.
 - `CONTINUAR.md`: documento de entrada (estado, dónde está cada cosa, cómo se trabaja, pendientes).
 - `tools/studio/`: herramientas para manejar Studio desde la terminal, con su `README.md`.
 - `tools/blender/BRIEF.md`: encargo completo para modelar un arma; `register.py` la registra.
+
+---
+
+# Tercera tanda (misma jornada)
+
+## Armas
+
+Las siete que quedaban, con lo que **las 21 armas del juego tienen modelo de Blender**:
+
+| Arma | Tipo | Triángulos (Blender) | En Roblox | Identidad |
+|---|---|---|---|---|
+| Splat-X | Marcadora de pintura | 2000 | 4850 | Rosa, cian, amarillo; tolva con bolas |
+| Ballesta | Ballesta | 1740 | 3424 | Verde bosque, luz ámbar |
+| Calabazooka | Lanzador de Halloween | 2644 | 5354 | Calabaza, enredadera, sombrero de bruja |
+| Colmillo | Cuchillo | 432 | 718 | Naranja y cian |
+| Katana | Cuerpo a cuerpo | 488 | 572 | Carmesí, filo cian |
+| Martillo de juguete | Cuerpo a cuerpo | 788 | 2082 | Rojo, amarillo y azul |
+| Guadaña | Cuerpo a cuerpo | 616 | 1726 | Calabaza y filo verde tóxico |
+
+Las cuerpo a cuerpo mantienen la orientación, el punto de agarre y el largo de las originales para que
+valgan las animaciones de golpe que ya había.
+
+Galería: `assets/weapons/_gallery/01_poster.jpg` (las 21) y `00_coleccion.jpg`.
+
+## Mapas tras bajar el terreno
+
+Se forzaron los nueve mapas uno a uno con el modo QA (Duelo por equipos) y en todos se midió el
+terreno y el movimiento de los bots: superficie entre -0,3 y 0 (antes 1,7–2), ningún bot dentro de su
+base y marcador avanzando. No se recorrió cada mapa entero: la comprobación es una captura desde la
+base y las medidas, no una revisión visual de los bordes.
+
+## Probado en partida (tercera tanda)
+
+- **Splat-X, Ballesta y Calabazooka:** equipadas con el modo QA; se ven, disparan y apuntan. Dos
+  arreglos tras verlas: el visor de la Ballesta era un tubo macizo (ahora es un réflex abierto) y las
+  aletas de murciélago de la Calabazooka tapaban la vista al apuntar (ahora van hacia abajo).
+- **Colmillo:** al equiparlo con el modelo nuevo no se veía nada y la consola daba un error en cada
+  fotograma (`WeaponController`: las cuerpo a cuerpo traen el punto de mira que exige la plantilla, pero
+  no tienen distancia de apuntado). Corregido; el cuchillo se ve y golpea.
+- **Katana, Martillo y Guadaña:** se construyen en Studio pero **no se han equipado en partida** (el
+  modo QA no da armas cuerpo a cuerpo y hay que equiparlas desde el menú). Usan el mismo camino que el
+  cuchillo.

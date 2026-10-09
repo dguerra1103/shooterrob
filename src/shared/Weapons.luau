@@ -829,6 +829,18 @@ local CLASSIC_PALETTES = {
 	Cannon = { Sheen = 0, DarkSheen = 0.06, Body = RGB(40, 42, 48), Panel = RGB(200, 40, 40), Dark = RGB(20, 21, 26), Accent = RGB(255, 205, 95), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(200, 40, 40), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
 	-- PHANTOM (pistola de ráfagas: magenta y cian)
 	Phantom = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(235, 60, 150), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(235, 60, 150), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- KATANA (katana: carmesí y filo cian)
+	Katana = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(215, 40, 50), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(215, 40, 50), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- TOY (martillo de juguete: rojo, amarillo y azul)
+	Toy = { Sheen = 0, DarkSheen = 0.06, Body = RGB(235, 50, 45), Panel = RGB(235, 50, 45), Accent = RGB(238, 250, 255), Accent2 = RGB(255, 205, 40), Lens = RGB(90, 170, 255), Trim = RGB(50, 120, 255), Rubber = RGB(30, 52, 110), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- REAPER (guadaña: naranja calabaza y filo verde tóxico)
+	Reaper = { Sheen = 0, DarkSheen = 0.06, Body = RGB(48, 46, 59), Panel = RGB(255, 120, 20), Accent = RGB(120, 255, 80), Accent2 = RGB(150, 70, 220), Lens = RGB(90, 170, 255), Trim = RGB(255, 120, 20), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- PUMPKIN (Calabazooka: calabaza, enredadera verde, luz de vela y morado)
+	Pumpkin = { Sheen = 0, DarkSheen = 0.06, Body = RGB(62, 52, 82), Panel = RGB(255, 120, 20), Accent = RGB(255, 200, 60), Accent2 = RGB(150, 70, 220), Lens = RGB(120, 230, 140), Trim = RGB(110, 200, 60), Rubber = RGB(115, 90, 60), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- SPLAT (marcadora de pintura: rosa, cian, amarillo y luz lima)
+	Splat = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(255, 60, 170), Accent = RGB(170, 255, 80), Accent2 = RGB(60, 220, 255), Lens = RGB(150, 230, 255), Trim = RGB(255, 220, 50), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- HUNTER (ballesta: verde bosque y luz ámbar)
+	Hunter = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(60, 170, 80), Accent = RGB(255, 190, 70), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(60, 170, 80), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
 	-- Metal pavonado y madera
 	Wood = { Sheen = 0.04, DarkSheen = 0.1, BodyMaterial = MAT.Metal, Body = RGB(50, 52, 56), Panel = RGB(140, 84, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
 	-- Color arena (desierto)
@@ -846,7 +858,13 @@ Weapons.ClassicPalettes = CLASSIC_PALETTES
 local CLASSIC_LOOK = {
 	ARX27 = "Pulse", HavocPump = "Havoc", Specter9 = "Pulse", Signal7 = "Pulse", VortexBR = "Vortex",
 	NovaDrift = "Drift", RaptorDMR = "Raptor", BreachHammer = "Breach", TitanLMG = "Titan", GhostlineXR = "Ghost",
-	NovaLauncher = "Tempest", Viper = "Pulse", HandCannon = "Cannon", PhantomSidewind = "Phantom", Knife = "Knife",
+	NovaLauncher = "Tempest", Viper = "Pulse", HandCannon = "Cannon", PhantomSidewind = "Phantom", Knife = "Pulse",
+	Katana = "Katana",
+	ToyHammer = "Toy",
+	Scythe = "Reaper",
+	Calabazooka = "Pumpkin",
+	SplatX = "Splat",
+	Crossbow = "Hunter",
 }
 if Weapons.Style == "Clasico" then
 	for name, def in Weapons.List do

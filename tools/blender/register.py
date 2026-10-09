@@ -40,6 +40,11 @@ for arg in sys.argv[1:]:
     p = "src/shared/Weapons.luau"
     s = load(p)
     s2, n = re.subn(r'(\b%s = )"[A-Za-z]+"' % name, r'\1"%s"' % look, s, count=1)
-    assert n == 1, "no encuentro %s en CLASSIC_LOOK" % name
+    if n == 0:
+        # (arma que no estaba en CLASSIC_LOOK: se añade al final de la tabla)
+        start = s.index("local CLASSIC_LOOK = {")
+        end = s.index("}", start)
+        eol = "\r\n" if "\r\n" in s else "\n"
+        s2 = s[:end] + '\t%s = "%s",%s' % (name, look, eol) + s[end:]
     save(p, s2)
     print("registrada", name, look)

@@ -5,7 +5,7 @@ Este es el documento de entrada. Léelo primero; lo demás cuelga de aquí.
 ## Estado en una frase
 
 Shooter 5v5 completo en código (Luau + Rojo), ya **probado en Roblox Studio** (antes solo con pruebas
-fuera del motor), con **14 armas de fuego modeladas en Blender** dentro del juego y **60 iconos
+fuera del motor), con **las 21 armas modeladas en Blender** dentro del juego y **60 iconos
 propios**. Falta probar en un móvil real, medir rendimiento y pulir lo que se lista abajo.
 
 ## Dónde está cada cosa
@@ -84,11 +84,12 @@ Deja `wt_<Arma>_1..4.png`: reposo, disparo, apuntando y recarga.
 ## Pendiente, por orden de impacto
 
 1. **Móvil real:** nada de lo nuevo se ha probado en un teléfono ni se ha medido (FPS, memoria).
-2. **Revisar los nueve mapas tras bajar el terreno 2 studs** (`TacKit.TERRAIN_RISE`): comprobados
-   Desert Base y Coastal; faltan los otros siete (que no queden huecos ni escalones en los bordes).
-3. **Ver las armas en movimiento:** bomba, cerrojo y corredera solo se han visto en fotos fijas.
-4. **Armas que siguen con el modelo antiguo:** Splat-X, Ballesta, Calabazooka y las cuerpo a cuerpo
-   (Colmillo, Martillo, Katana, Guadaña).
+2. **Ver las armas en movimiento:** bomba, cerrojo, corredera y los golpes cuerpo a cuerpo solo se han
+   visto en fotos fijas. Y recorrer los mapas enteros tras bajar el terreno 2 studs (medidos los nueve
+   desde la base: correcto; no se han revisado los bordes).
+3. **Pasar a mallas con chaflán:** importar a mano un `.fbx` con el importador 3D de Studio y decidir.
+4. **Equilibrio visual de las armas en primera persona:** algunos visores son altos (Phantom, Titan) y
+   la Ballesta ocupa mucho ancho.
 5. **Animaciones propias** (AnimationIds): las armas usan las animaciones por código.
 6. **Iconos sin colocar** y rangos/precios que siguen con emoji dentro de frases.
 7. **Avatar con extremidades finas** con el uniforme; texto «HAS MUERTO» montado sobre el objetivo.
