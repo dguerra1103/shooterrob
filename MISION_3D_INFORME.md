@@ -96,13 +96,16 @@ Datos que sí hay:
   Titan 3848, Havoc Pump 4142, Signal-7 4162 (los cilindros se teselan más al fundir).
 - Piezas por arma: de 12 a 14 (antes, el ARX-27 de piezas tenía 93).
 
+**Pruebas automáticas (Lune, fuera de Studio):** batería completa con las siete armas registradas:
+151 OK y 1 fallo (`scopesway`, que ya fallaba antes de la sesión). `tests/check.sh` sin errores.
+
 ## G. Control de versiones
 
 Commits de la jornada en `claude/intelligent-fermi-cz7und`:
 - `06e2619` Prueba en Studio: arreglos del motor real, iconos propios y acabado de armas
 - `01b5243` Armas modeladas en Blender: kit, tubería a Roblox y ARX-27 Pulse
 - `c92e4eb` Colección de armas modeladas en Blender: seis armas nuevas en el juego
-- (este informe, en el commit siguiente)
+- `16a66b6` ARX-27: visor más abierto al apuntar; informe de la misión 3D
 
 El flujo de GitHub Actions solo construye y valida en cada push; publicar es manual.
 
