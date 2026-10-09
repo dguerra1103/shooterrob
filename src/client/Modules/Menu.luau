@@ -2783,11 +2783,6 @@ function Menu.Init()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
-	-- (la zona segura del dispositivo, como el HUD: el botón de la tienda de la esquina no queda debajo
-	-- de la cámara frontal o la muesca; el panel va centrado y en proporción, igual que antes)
-	pcall(function()
-		gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
-	end)
 
 	-- Botón superior (útil en móvil)
 	-- (en el teléfono, pequeño: debajo del minimapa y sin tapar nada)
