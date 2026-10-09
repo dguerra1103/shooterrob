@@ -12,6 +12,7 @@ local GameConfig = require(Shared.GameConfig)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local HUDZones = require(script.Parent.HUDZones)
 
 local player = Players.LocalPlayer
 
@@ -81,6 +82,9 @@ local function ensureLabel()
 		Visible = false,
 		Parent = gui,
 	}, { UI.corner(6) })
+	if phone then
+		HUDZones.Register("Hint", label, "BOTTOM_NOTICE", 2, { Fit = true })
+	end
 	return label
 end
 

@@ -5,6 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
+local HUDZones = require(script.Parent.HUDZones)
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared").Sounds)
 
 local player = Players.LocalPlayer
@@ -155,6 +157,16 @@ function BombHUD.Init()
 		ZIndex = 2,
 		Parent = barBack,
 	})
+	-- Táctil (Fase 16): el estado de la bomba va con el objetivo, bajo el minimapa; el progreso de
+	-- plantar o desactivar, bajo la mira (fuera del centro libre). Antes los dos iban fijos arriba y
+	-- encima de la mira y en una partida pisaban las medallas y el aviso de baja
+	if InputMode.TouchUI() then
+		label.Size = UDim2.fromOffset(220, 20)
+		barBack.Size = UDim2.fromOffset(200, 18)
+		barText.TextSize = 13
+		HUDZones.Register("BombStatus", label, "TOP_LEFT", 1, { Gui = gui, Fit = true })
+		HUDZones.Register("BombProgress", barBack, "BOTTOM_NOTICE", 0, { Gui = gui })
+	end
 	task.spawn(function()
 		while gui.Parent do
 			update()

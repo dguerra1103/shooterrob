@@ -24,6 +24,7 @@ local Settings = require(script.Parent.Settings)
 local RewardFX = require(script.Parent.RewardFX)
 local ScopeSway = require(script.Parent.ScopeSway)
 local TouchLayout = require(script.Parent.TouchLayout)
+local HUDZones = require(script.Parent.HUDZones)
 
 local player = Players.LocalPlayer
 
@@ -40,6 +41,7 @@ local phone = false
 local touchHUD = false
 local killFeedMax = 3
 local killBaseScale = 1
+local killScaleNow = 0.6 -- (táctil: la escala del aviso de baja que cabe en su zona)
 local thumbnails = {}
 
 local function tween(inst, time, props, style)
@@ -1042,8 +1044,16 @@ local function showMedal(text)
 			table.insert(list, child)
 		end
 	end
-	if #list >= 3 then
-		list[1]:Destroy()
+	-- (táctil, Fase 16: como mucho 2 a la vez; la más vieja deja sitio a la nueva)
+	local maxMedals = touchHUD and 2 or 3
+	table.sort(list, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	while #list >= maxMedals do
+		local oldest = table.remove(list, 1)
+		if oldest then
+			oldest:Destroy()
+		end
 	end
 	local badge = UI.label({
 		LayoutOrder = nextOrder(),
@@ -1056,8 +1066,13 @@ local function showMedal(text)
 		BackgroundTransparency = 0.2,
 		Parent = refs.Medals,
 	}, { UI.corner(8), UI.stroke(Color3.fromRGB(255, 200, 60), 2, 0.1) })
-	local scale = UI.new("UIScale", { Scale = 1.6, Parent = badge })
-	tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	-- (táctil: entra con un pulso pequeño, sin rebote; dura menos)
+	local scale = UI.new("UIScale", { Scale = touchHUD and 1.12 or 1.6, Parent = badge })
+	if touchHUD then
+		tween(scale, 0.12, { Scale = 1 })
+	else
+		tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	end
 	-- Un brillo cruza la medalla y suena un "cling" (más alto cuantas más medallas juntas)
 	badge.ClipsDescendants = true
 	local shine = UI.new("Frame", {
@@ -1084,7 +1099,7 @@ local function showMedal(text)
 	end)
 	Debris:AddItem(shine, 0.7)
 	Sounds.Play("Kill", nil, 1.6 + 0.15 * #list, 0.35)
-	task.delay(2.6, function()
+	task.delay(touchHUD and 2 or 2.6, function()
 		if badge.Parent then
 			tween(badge, 0.3, { TextTransparency = 1, BackgroundTransparency = 1 })
 			task.wait(0.3)
@@ -1406,8 +1421,15 @@ local function showKillBanner(victim, headshot)
 	tween(refs.KillPlate, 0.18, { Size = UDim2.fromOffset(plateWidth, 56) })
 	refs.KillBanner.Visible = true
 	-- (cuantas más bajas seguidas, más grande entra y más se sacude)
-	refs.KillScale.Scale = killBaseScale * (1.5 + 0.25 * math.min(multiCount - 1, 4))
-	tween(refs.KillScale, 0.3, { Scale = killBaseScale }, Enum.EasingStyle.Back)
+	if touchHUD then
+		-- (táctil, Fase 16: un pequeño pulso sin rebote; crecer al 150 % tapaba los botones y lo de
+		-- alrededor)
+		refs.KillScale.Scale = killScaleNow * 1.12
+		tween(refs.KillScale, 0.12, { Scale = killScaleNow })
+	else
+		refs.KillScale.Scale = killBaseScale * (1.5 + 0.25 * math.min(multiCount - 1, 4))
+		tween(refs.KillScale, 0.3, { Scale = killBaseScale }, Enum.EasingStyle.Back)
+	end
 	if multi then
 		refs.KillBanner.Rotation = multiCount % 2 == 0 and -6 or 6
 		tween(refs.KillBanner, 0.35, { Rotation = 0 }, Enum.EasingStyle.Elastic)
@@ -2423,7 +2445,7 @@ local function render(dt)
 		refs.StreakText.Text = "Racha x" .. streak .. nextText
 		-- (sin racha no se enseña: menos cosas en pantalla mientras se lucha)
 		refs.StreakText.Visible = streak > 0
-		refs.StreakFill.Parent.Visible = streak > 0
+		refs.StreakFill.Parent.Visible = streak > 0 and not touchHUD
 		refs.StreakFill.Size = UDim2.fromScale(1, math.clamp(streak / 10, 0, 1))
 	end
 
@@ -2516,8 +2538,9 @@ local function render(dt)
 			refs.TouchWeapon.TextColor3 = nameColor
 			setText(refs.TouchAmmoText, ammo)
 		end
-		if hudCache.NextWeapon ~= hudCache.CardNext then
-			hudCache.CardNext = hudCache.NextWeapon
+		-- (CardNext empieza en false: con una sola arma desde el principio también se esconde)
+		if hudCache.CardNext == nil or (hudCache.NextWeapon or false) ~= hudCache.CardNext then
+			hudCache.CardNext = hudCache.NextWeapon or false
 			TouchLayout.SetCard("SwapWeapon", { Title = hudCache.NextWeapon or "" })
 			-- (con una sola arma no hay a qué cambiar: la tarjeta no se ve)
 			TouchLayout.SetHidden("SwapWeapon", hudCache.NextWeapon == nil)
@@ -2751,41 +2774,52 @@ local function layoutTouchHUD(_, _size: Vector2)
 	refs.KillFeed.Position = UDim2.fromOffset(math.floor(kfRight), math.floor(kfTop))
 	refs.KillFeed.Size = UDim2.fromOffset(kfW, killFeedMax * (rowH + 2))
 
-	-- Aviso de baja y medallas: arriba, bajo el marcador, entre el minimapa y el registro de bajas
-	local topBottom = 8 + 28 + 18
-	local bw = 410 * killBaseScale
-	local mapRight = (ClientState.MinimapLeft or 14) + (ClientState.MinimapSize or 96) + 8
-	local lo = mapRight + bw / 2
-	local hi = kfRight - kfW - 8 - bw / 2
-	local cx = math.clamp(size.X / 2, lo, math.max(lo, hi))
-	local cy = topBottom + 4 + 32 * killBaseScale
-	if lo > hi then
-		-- (pantalla estrecha: centrado bajo el marcador si cabe por encima del registro de bajas; si
-		-- no, por debajo de él, pero nunca dentro del centro libre)
-		cx = size.X / 2
-		if cy + 32 * killBaseScale > kfTop - 2 then
-			cy = math.max(cy, kfTop + killFeedMax * (rowH + 2) + 4 + 32 * killBaseScale)
-			cy = math.min(cy, size.Y / 2 - clear - 32 * killBaseScale - 4)
+	-- Zonas del resto (Fase 16, HUDZones): lo que aparece y desaparece durante la partida se apila en
+	-- su zona sin tocar ningún botón, la munición, la vida ni el registro de bajas
+	local mapLeft = ClientState.MinimapLeft or 14
+	local mapSize = ClientState.MinimapSize or 96
+	local mapTop = UI.TopbarBottom()
+	local mapBottom = ClientState.MinimapBottom or (mapTop + mapSize)
+	local obstacles = {}
+	for _, r in rects do
+		table.insert(obstacles, { Min = r.Center - r.Size / 2, Max = r.Center + r.Size / 2 })
+	end
+	table.insert(obstacles, { Min = Vector2.new(kfRight - kfW, kfTop), Max = Vector2.new(kfRight, kfTop + killFeedMax * (rowH + 2)) })
+	table.insert(obstacles, { Min = Vector2.new(mapLeft, mapTop), Max = Vector2.new(mapLeft + mapSize, mapBottom) })
+	table.insert(obstacles, { Min = best - dims / 2 - Vector2.new(0, streakH), Max = best + dims / 2 })
+	-- (lo más alto de los controles de la izquierda: hasta ahí llega la columna bajo el minimapa)
+	local leftTop = size.Y
+	for _, r in rects do
+		if r.Center.X < size.X / 2 and r.Center.Y > size.Y * 0.35 then
+			leftTop = math.min(leftTop, r.Center.Y - r.Size.Y / 2)
 		end
 	end
-	refs.KillBanner.Position = UDim2.fromOffset(math.floor(cx), math.floor(cy))
-	refs.Medals.AnchorPoint = Vector2.new(0.5, 0)
-	refs.Medals.Position = UDim2.fromOffset(math.floor(cx), math.floor(cy + 32 * killBaseScale + 4))
-
-	-- Avisos de puntos (+XP): a la izquierda, bajo el minimapa y el objetivo (nunca junto a la mira)
-	local mapBottom = ClientState.MinimapBottom or 156
-	refs.Popups.AnchorPoint = Vector2.new(0, 0)
-	refs.Popups.Position = UDim2.fromOffset(ClientState.MinimapLeft or 16, math.floor(mapBottom + 64))
-	refs.Popups.Size = UDim2.fromOffset(220, 80)
+	local scoreBottom = 8 + 28 + ((refs.Mode.Visible and refs.Mode.Text ~= "") and 20 or 6)
+	local feedLeft = mapLeft + mapSize + 8
+	local feedRight = kfRight - kfW - 8
+	if feedRight - feedLeft < 200 then
+		-- (pantalla estrecha: el registro de bajas va a la derecha, por debajo de la tira; el centro
+		-- puede usar todo el ancho entre el minimapa y el borde por encima de él)
+		feedRight = size.X - 8
+	end
+	local feedWidth = feedRight - feedLeft
+	-- Aviso de baja y medallas: lo que quepa en el hueco (en teléfonos estrechos, más pequeños)
+	local bannerScale = math.min(killBaseScale, (feedWidth - 4) / 410)
+	if refs.KillScale.Scale ~= bannerScale and not refs.KillBanner.Visible then
+		refs.KillScale.Scale = bannerScale
+	end
+	killScaleNow = bannerScale
+	refs.Medals.Size = UDim2.fromOffset(math.floor(feedWidth / 0.75), 34)
+	refs.Popups.Size = UDim2.fromOffset(math.min(260, feedWidth), 60)
 	local popupList = refs.Popups:FindFirstChildOfClass("UIListLayout")
 	if popupList then
-		popupList.HorizontalAlignment = Enum.HorizontalAlignment.Left
+		popupList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	end
-	-- Avisos de texto: bajo el centro libre, centrados
-	refs.Toast.AnchorPoint = Vector2.new(0.5, 0)
-	refs.Toast.Position = UDim2.fromOffset(math.floor(size.X / 2), math.floor(size.Y / 2 + clear + 12))
-	refs.Toast.Size = UDim2.fromOffset(320, 20)
-	refs.Toast.TextXAlignment = Enum.TextXAlignment.Center
+	HUDZones.SetZones({
+		TOP_LEFT = { Min = Vector2.new(mapLeft, mapBottom + 6), Max = Vector2.new(math.min(size.X / 2 - clear - 8, mapLeft + 230), leftTop - 6) },
+		TOP_FEED = { Min = Vector2.new(feedLeft, scoreBottom), Max = Vector2.new(feedRight, size.Y / 2 - clear - 4), CenterX = size.X / 2 },
+		BOTTOM_NOTICE = { Min = Vector2.new(8, size.Y / 2 + clear + 6), Max = Vector2.new(size.X - 8, size.Y - 4), CenterX = size.X / 2, Span = true },
+	}, obstacles, size / 2, clear)
 end
 
 function HUD.Init()
@@ -2814,6 +2848,28 @@ function HUD.Init()
 	buildPlayerPanel()
 	buildFeedsAndOverlays()
 	if touchHUD then
+		-- Zonas (Fase 16): lo que aparece durante la partida se apila en su sitio (ver HUDZones)
+		local function hasLabels(frame)
+			return function()
+				return frame:FindFirstChildWhichIsA("TextLabel") ~= nil
+			end
+		end
+		refs.CarrierBanner.Size = UDim2.fromOffset(280, 20)
+		refs.Banner.Size = UDim2.fromOffset(300, 20)
+		refs.Banner.TextSize = 16
+		refs.Banner.TextScaled = true
+		HUDZones.Register("CarrierBanner", refs.CarrierBanner, "TOP_FEED", 0, { Fit = true })
+		HUDZones.Register("FlagBanner", refs.Banner, "TOP_FEED", 1, { Fit = true })
+		HUDZones.Register("KillBanner", refs.KillBanner, "TOP_FEED", 2, {
+			-- (reserva su tamaño de reposo: el pulso al aparecer no empuja lo de abajo)
+			Size = function()
+				return Vector2.new(420, 64) * killScaleNow
+			end,
+		})
+		HUDZones.Register("Medals", refs.Medals, "TOP_FEED", 3, { Active = hasLabels(refs.Medals) })
+		HUDZones.Register("Popups", refs.Popups, "TOP_FEED", 4, { Active = hasLabels(refs.Popups) })
+		HUDZones.Register("Toast", refs.Toast, "BOTTOM_NOTICE", 1, { Fit = true })
+		HUDZones.Start()
 		TouchLayout.OnRelayout = layoutTouchHUD
 		task.defer(TouchLayout.Relayout)
 		-- (el ataque aéreo solo se ve con cargas: con él, el registro de bajas puede tener una fila menos)

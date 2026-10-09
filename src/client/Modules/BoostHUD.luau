@@ -3,10 +3,12 @@
 -- (igual que en el servidor) y se corrigen con cada actualización de datos.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shop = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Shop"))
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
+local HUDZones = require(script.Parent.HUDZones)
 
 local player = Players.LocalPlayer
 
@@ -30,6 +32,8 @@ local function render()
 	end
 	label.Text = table.concat(parts, "   ")
 	label.Visible = #parts > 0 and not ClientState.InMainMenu and not ClientState.MenuOpen
+		-- (táctil, Fase 16: en plena pelea no; se ve al morir, en el calentamiento y en los menús)
+		and not (InputMode.TouchUI() and HUDZones.Fighting())
 end
 
 function BoostHUD.Init()

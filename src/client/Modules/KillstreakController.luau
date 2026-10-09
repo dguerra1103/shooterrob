@@ -13,6 +13,7 @@ local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
 local TouchLayout = require(script.Parent.TouchLayout)
+local HUDZones = require(script.Parent.HUDZones)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -207,6 +208,12 @@ function KillstreakController.Init()
 		Visible = false,
 		Parent = gui,
 	})
+
+	if InputMode.TouchUI() then
+		radarLabel.Size = UDim2.fromOffset(200, 18)
+		radarLabel.TextSize = 15
+		HUDZones.Register("Radar", radarLabel, "TOP_LEFT", 2, { Gui = gui, Fit = true })
+	end
 
 	TouchLayout.BindAction("Airstrike", function(_, state)
 		if state == Enum.UserInputState.Begin then

@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local ClientState = require(script.Parent.ClientState)
@@ -94,6 +95,13 @@ local function buildScore()
 	scoreLabel.AnchorPoint = Vector2.new(0, 0.5)
 	-- (en el teléfono, a la derecha de la mira pero por encima: debajo salen los avisos)
 	scoreLabel.Position = isPhone() and UDim2.new(0.5, 36, 0.5, -24) or UDim2.new(0.5, 36, 0.5, 30)
+	-- (táctil, Fase 16: justo fuera del centro libre, a la derecha y por encima: la mira queda limpia)
+	if InputMode.TouchUI() then
+		local camera = workspace.CurrentCamera
+		local viewport = camera and camera.ViewportSize or Vector2.new(844, 390)
+		local clear = math.min(viewport.X, viewport.Y) * 0.17
+		scoreLabel.Position = UDim2.new(0.5, math.floor(clear + 8), 0.5, -math.floor(clear * 0.7))
+	end
 	scoreLabel.TextXAlignment = Enum.TextXAlignment.Left
 	scoreLabel.Size = UDim2.fromOffset(220, 36)
 	scoreLabel.BackgroundTransparency = 1

@@ -14,6 +14,7 @@ local GameConfig = require(Shared.GameConfig)
 local Sounds = require(Shared.Sounds)
 
 local TouchLayout = require(script.Parent.TouchLayout)
+local HUDZones = require(script.Parent.HUDZones)
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
 
@@ -229,6 +230,8 @@ local function buildStaminaBar()
 		BackgroundColor3 = Color3.fromRGB(235, 240, 250),
 		Parent = staminaBar,
 	}, { UI.corner(3) })
+	-- (táctil, Fase 16: con los avisos de bajo la mira, fuera del centro libre)
+	HUDZones.Register("Stamina", staminaBar, "BOTTOM_NOTICE", 3)
 end
 
 local function updateStaminaBar()

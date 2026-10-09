@@ -10,6 +10,7 @@ local GameConfig = require(Shared.GameConfig)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local HUDZones = require(script.Parent.HUDZones)
 
 local player = Players.LocalPlayer
 
@@ -104,6 +105,8 @@ function EventHUD.Init()
 			end
 			gui.Enabled = name ~= nil and data ~= nil and not ClientState.InMainMenu
 				and (ReplicatedStorage:GetAttribute("State") ~= "Playing" or os.clock() < shownUntil)
+				-- (táctil, Fase 16: en plena pelea no; junto al minimapa pisaba el aviso de baja)
+				and not (compact and HUDZones.Fighting())
 			if gui.Enabled then
 				local count = data.EventCandy or 0
 				if count >= goal then

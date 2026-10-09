@@ -9,6 +9,7 @@ local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local HUDZones = require(script.Parent.HUDZones)
 
 local ZoneName = {}
 
@@ -157,7 +158,9 @@ function ZoneName.Update(dt)
 	-- y entonces va arriba, no debajo)
 	local touchOnly = InputMode.TouchUI()
 	local below = phone and 40 or (touchOnly and 50 or 6)
-	label.Position = UDim2.fromOffset(phone and (ClientState.MinimapLeft or 14) or 16, top + below)
+	if not HUDZones.Managed(label) then
+		label.Position = UDim2.fromOffset(phone and (ClientState.MinimapLeft or 14) or 16, top + below)
+	end
 end
 
 function ZoneName.Init()
@@ -179,6 +182,11 @@ function ZoneName.Init()
 		Parent = gui,
 	})
 	scale = UI.new("UIScale", { Parent = label })
+	if InputMode.TouchUI() then
+		label.Size = UDim2.fromOffset(200, 18)
+		label.TextSize = 13
+		HUDZones.Register("ZoneName", label, "TOP_LEFT", 3, { Gui = gui })
+	end
 	RunService.Heartbeat:Connect(function(dt)
 		local ok, err = pcall(ZoneName.Update, dt)
 		if not ok then

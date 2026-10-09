@@ -9,6 +9,7 @@ local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
+local HUDZones = require(script.Parent.HUDZones)
 
 local player = Players.LocalPlayer
 
@@ -61,7 +62,7 @@ local function update()
 	if not gui.Enabled then
 		return
 	end
-	if touchUI then
+	if touchUI and not HUDZones.Enabled() then
 		placeTouch()
 	end
 	for _, letter in LETTERS do
@@ -108,6 +109,8 @@ function DominationHUD.Init()
 	if touchUI then
 		UI.new("UIScale", { Scale = 0.65, Parent = row })
 		row:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Left
+		-- (Fase 16: su sitio lo da la zona de arriba a la izquierda, bajo el minimapa)
+		HUDZones.Register("DomFlags", row, "TOP_LEFT", 1, { Gui = gui })
 	end
 	for i, letter in LETTERS do
 		local stroke = UI.stroke(Color3.new(0, 0, 0), 2, 0)

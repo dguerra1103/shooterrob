@@ -14,6 +14,7 @@ local Sounds = require(Shared.Sounds)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local HUDZones = require(script.Parent.HUDZones)
 
 local player = Players.LocalPlayer
 
@@ -55,6 +56,8 @@ end
 local function update()
 	local gift, left = nextGift()
 	gui.Enabled = gift ~= nil and not ClientState.InMainMenu and not ClientState.Dead
+		-- (táctil, Fase 16: en plena pelea no; ocupaba el sitio del aviso de baja junto al minimapa)
+		and not (compact and HUDZones.Fighting())
 	if not gift then
 		return
 	end
