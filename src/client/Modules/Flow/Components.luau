@@ -133,6 +133,15 @@ function C.root(parent, name)
 		if viewport.Y < 2 then
 			viewport = Vector2.new(1280, 720)
 		end
+		-- (la ScreenGui va con su zona segura, CoreUISafeInsets: muesca y barra de Roblox. La raíz mide
+		-- lo que mide la ScreenGui, no la pantalla entera: si no, en un teléfono con muesca o barra lo
+		-- de abajo y lo de la derecha se salía de la pantalla. Sin zona segura, son iguales)
+		if parent and parent:IsA("ScreenGui") then
+			local area = parent.AbsoluteSize
+			if typeof(area) == "Vector2" and area.X > 50 and area.Y > 50 then
+				viewport = area
+			end
+		end
 		-- (zona segura: muesca y barra de Roblox; la ScreenGui ya usa ScreenInsets si existe)
 		local insetTop = 0
 		local ok, inset = pcall(function()
@@ -152,6 +161,9 @@ function C.root(parent, name)
 	local camera = workspace.CurrentCamera
 	if camera then
 		camera:GetPropertyChangedSignal("ViewportSize"):Connect(refresh)
+	end
+	if parent and parent:IsA("ScreenGui") then
+		parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
 	end
 	return frame, refresh
 end

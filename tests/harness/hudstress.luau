@@ -298,6 +298,21 @@ task.wait(0.2)
 settle()
 check(not TL.Entries().Sprint.Button.Visible and not TL.Entries().LeftFire.Button.Visible, "apagados: no se ven")
 
+-- (Fase 17) Menús (Flow) dentro de la zona segura: la raíz mide lo que la ScreenGui con su zona
+-- segura (muesca + barra de Roblox), no la pantalla entera; antes lo de abajo y la derecha se salía
+do
+	local menu = pg:FindFirstChild("MainMenu")
+	local root = menu and menu:FindFirstChild("FlowRoot")
+	local scale = root and root:FindFirstChildOfClass("UIScale")
+	if root and scale then
+		local area = menu.AbsoluteSize
+		local w, h = root.Size.X.Offset * scale.Scale, root.Size.Y.Offset * scale.Scale
+		check(w <= area.X + 1 and h <= area.Y + 1, string.format("menús dentro de la zona segura (%dx%d en %dx%d)", w, h, area.X, area.Y))
+	else
+		check(false, "menús: raíz del flujo encontrada")
+	end
+end
+
 -- 4) Reaparecer 5 veces con dedos encima: nada se queda pulsado
 for round = 1, 5 do
 	local fire, aim, jump = fakeTouch(), fakeTouch(), fakeTouch()
