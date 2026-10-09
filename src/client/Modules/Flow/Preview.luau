@@ -39,7 +39,7 @@ for i = 1, 5 do
 end
 
 local CAMERAS = {
-	Hero = { Pos = Vector3.new(1.2, 3.1, -9.5), Look = Vector3.new(0.4, 2.6, 0), FOV = 34 },
+	Hero = { Pos = Vector3.new(1.2, 3.1, -11.4), Look = Vector3.new(0.4, 2.75, 0), FOV = 34 },
 	Bust = { Pos = Vector3.new(0.6, 3.9, -5.2), Look = Vector3.new(0.2, 3.4, 0), FOV = 34 },
 	Squad = { Pos = Vector3.new(0, 3.6, -15.5), Look = Vector3.new(0, 2.8, 1.5), FOV = 42 },
 	Lineup = { Pos = Vector3.new(0, 3.6, -19), Look = Vector3.new(0, 2.8, 1), FOV = 40 },
@@ -151,18 +151,24 @@ local function solveArm(model, side, targetGrip, targetPos, pole)
 		return CFrame.fromMatrix(from, right, -down, back)
 	end
 	local upperCF = boneCFrame(shoulder, elbow) * CFrame.new(-aShoulderU.Position)
-	local wristPos = target - (targetGrip and targetGrip:VectorToWorldSpace(gripOffset) or Vector3.new(0, -0.1, 0))
+	-- (la mano se coloca para que su GripAttachment ENTERO, con su giro, coincida con el objetivo: es lo
+	-- mismo que hace el IKControl del juego, que usa ese Attachment como extremo. En los R15 de verdad
+	-- el GripAttachment viene girado; ignorar su giro deja el arma apuntando al suelo)
+	local gripHand = targetGrip and (targetGrip * (aGrip and aGrip.CFrame or CFrame.new()):Inverse()) or nil
+	local wristPos = gripHand and (gripHand * aWristH.CFrame).Position or (target - Vector3.new(0, -0.1, 0))
 	local lowerCF = boneCFrame((upperCF * aElbowU.CFrame).Position, wristPos) * CFrame.new(-aElbowL.Position)
 	local handCF
 	if targetGrip then
-		handCF = targetGrip * CFrame.new(-(aGrip and aGrip.Position or Vector3.zero))
+		handCF = gripHand
 	else
 		handCF = lowerCF * aWristL.CFrame * aWristH.CFrame:Inverse()
 	end
-	-- C0 = Part0⁻¹ · Part1 · C1 (con Transform = identidad)
-	shoulderJoint.C0 = torso.CFrame:Inverse() * upperCF * shoulderJoint.C1
-	elbowJoint.C0 = upperCF:Inverse() * lowerCF * elbowJoint.C1
-	wristJoint.C0 = lowerCF:Inverse() * handCF * wristJoint.C1
+	-- Part1 = Part0 · C0 · Transform · C1⁻¹ → Transform = C0⁻¹ · Part0⁻¹ · Part1 · C1. Se escribe en
+	-- Transform y no en C0 porque los personajes de Roblox con las uniones nuevas (AnimationConstraint
+	-- en vez de Motor6D) tienen C0 de solo lectura; Transform vale para las dos
+	shoulderJoint.Transform = shoulderJoint.C0:Inverse() * torso.CFrame:Inverse() * upperCF * shoulderJoint.C1
+	elbowJoint.Transform = elbowJoint.C0:Inverse() * upperCF:Inverse() * lowerCF * elbowJoint.C1
+	wristJoint.Transform = wristJoint.C0:Inverse() * lowerCF:Inverse() * handCF * wristJoint.C1
 	return true
 end
 

@@ -9,7 +9,7 @@ Poses.List = {
 	Ready = { Name = "Arma lista", Rarity = "Común", Icon = "🎯", Description = "Arma en alto, listo para la siguiente." },
 	Bajada = { Name = "Arma baja", Rarity = "Raro", Icon = "😌", Price = 400, Description = "Tranquilo, con el arma apuntando al suelo." },
 	AlCielo = { Name = "Al cielo", Rarity = "Épico", Icon = "🙌", Price = 900, Description = "El arma en alto, apuntando al cielo." },
-	Saludo = { Name = "Saludo", Rarity = "Épico", Icon = "🫡", Description = "Saludo militar, con el arma colgada." },
+	Saludo = { Name = "Saludo", Rarity = "Épico", Icon = "✋", Description = "Saludo militar, con el arma colgada." },
 	Brazos = { Name = "Brazos cruzados", Rarity = "Épico", Icon = "💪", Description = "Brazos cruzados y mirada al frente." },
 	Senala = { Name = "Señala al frente", Rarity = "Legendario", Icon = "👉", Description = "Señala a la cámara: el siguiente eres tú." },
 }

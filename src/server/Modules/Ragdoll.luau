@@ -36,10 +36,29 @@ function Ragdoll.Apply(character, push)
 		return false
 	end
 	local root = character:FindFirstChild("HumanoidRootPart")
+	-- Uniones del personaje: Motor6D en los de siempre; en los personajes con las uniones nuevas de
+	-- Roblox son AnimationConstraint (entre dos Attachment), y casi todas traen ya su rótula
+	-- (BallSocketConstraint) preparada para cuando se apagan
 	local motors = {}
+	local sockets = {} -- [Attachment] = rótula que ya trae el personaje
 	for _, d in character:GetDescendants() do
 		if d:IsA("Motor6D") and d.Part0 and d.Part1 then
-			table.insert(motors, d)
+			table.insert(motors, { Joint = d, Part0 = d.Part0, Part1 = d.Part1, C0 = d.C0, C1 = d.C1 })
+		elseif d:IsA("AnimationConstraint") and d.Attachment0 and d.Attachment1 then
+			local part0, part1 = d.Attachment0.Parent, d.Attachment1.Parent
+			if part0 and part1 and part0:IsA("BasePart") and part1:IsA("BasePart") then
+				table.insert(motors, {
+					Joint = d, Part0 = part0, Part1 = part1,
+					C0 = d.Attachment0.CFrame, C1 = d.Attachment1.CFrame, Attachment0 = d.Attachment0,
+				})
+			end
+		elseif d:IsA("BallSocketConstraint") then
+			if d.Attachment0 then
+				sockets[d.Attachment0] = d
+			end
+			if d.Attachment1 then
+				sockets[d.Attachment1] = d
+			end
 		end
 	end
 	if #motors == 0 then
@@ -57,6 +76,17 @@ function Ragdoll.Apply(character, push)
 	-- limita cuánto se dobla y los límites de giro, cuánto rota sobre sí mismo
 	local alongBone = CFrame.Angles(0, 0, math.pi / 2)
 	for _, motor in motors do
+		local own = motor.Attachment0 and sockets[motor.Attachment0]
+		if own then
+			-- (unión nueva con su rótula ya puesta: basta con apagar la unión)
+			local apart = Instance.new("NoCollisionConstraint")
+			apart.Part0 = motor.Part0
+			apart.Part1 = motor.Part1
+			apart.Parent = motor.Part1
+			own.Enabled = true
+			motor.Joint.Enabled = false
+			continue
+		end
 		local a0 = Instance.new("Attachment")
 		a0.Name = "RagdollA0"
 		a0.CFrame = motor.C0 * alongBone
@@ -74,14 +104,14 @@ function Ragdoll.Apply(character, push)
 		socket.Name = "RagdollSocket"
 		socket.Attachment0 = a0
 		socket.Attachment1 = a1
-		local limit = LIMITS[motor.Name] or { 45, 15 }
+		local limit = LIMITS[motor.Joint.Name] or { 45, 15 }
 		socket.LimitsEnabled = true
 		socket.UpperAngle = limit[1]
 		socket.TwistLimitsEnabled = true
 		socket.TwistLowerAngle = -limit[2]
 		socket.TwistUpperAngle = limit[2]
 		socket.Parent = motor.Part1
-		motor.Enabled = false
+		motor.Joint.Enabled = false
 	end
 	-- Las piezas del cuerpo chocan con el suelo (si no, atravesarían el suelo); la raíz no
 	for _, part in character:GetChildren() do

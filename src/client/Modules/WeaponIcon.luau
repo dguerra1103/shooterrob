@@ -13,9 +13,11 @@ local FOV = 20
 function WeaponIcon.Create(weaponName, skinId, props, view, aspect)
 	local viewport = Instance.new("ViewportFrame")
 	viewport.BackgroundTransparency = 1
-	viewport.Ambient = Color3.fromRGB(170, 170, 185)
-	viewport.LightColor = Color3.fromRGB(255, 255, 255)
-	viewport.LightDirection = Vector3.new(-1, -1.5, -0.6)
+	-- (luz de estudio: ambiente algo frío y más bajo, y luz principal cálida desde arriba y delante,
+	-- para que se lean los volúmenes y brillen el metal y los ribetes)
+	viewport.Ambient = Color3.fromRGB(150, 156, 178)
+	viewport.LightColor = Color3.fromRGB(255, 244, 226)
+	viewport.LightDirection = Vector3.new(-0.8, -1.6, -0.9)
 	for key, value in props or {} do
 		viewport[key] = value
 	end

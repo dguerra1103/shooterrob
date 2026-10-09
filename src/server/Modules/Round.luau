@@ -1148,7 +1148,10 @@ local function eliminationRounds(s)
 			task.wait(0.2)
 		end
 		for _, player in Players:GetPlayers() do
-			if not player:GetAttribute("InMenu") then
+			-- (también quien pulsó JUGAR y está acabando la cuenta atrás en su pantalla: su cliente avisa
+			-- de que sale del menú justo al terminarla, un instante después de este punto, y sin esto
+			-- entraba siempre de espectador en la primera ronda)
+			if not player:GetAttribute("InMenu") or player:GetAttribute("Ready") == true then
 				if isDeadPlayer(player) then
 					task.spawn(Respawn.Load, player)
 				end
@@ -1518,7 +1521,7 @@ local function endRound()
 			local extra = math.floor((GameConfig.Coins.WinStreak or 0) * math.min(winStreak - 1, GameConfig.Coins.WinStreakMax or 5) * winScale)
 			if extra > 0 then
 				local given = PlayerData.AddCoins(player, extra)
-				Remotes.Notify:FireClient(player, "Challenge", "🔥 ¡" .. winStreak .. " victorias seguidas!  +" .. given .. " 🪙")
+				Remotes.Notify:FireClient(player, "Challenge", "🔥 ¡" .. winStreak .. " victorias seguidas!  +" .. given .. " 💰")
 			end
 			if not soloMatch then
 				PlayerData.Increment(player, "Wins", 1)
@@ -1527,7 +1530,7 @@ local function endRound()
 				-- (completa también contra bots: es una vez al día, no se puede abusar)
 				local firstWin = PlayerData.ClaimFirstWin(player, 1)
 				if firstWin then
-					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 🪙")
+					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 💰")
 				end
 			end
 			PlayerData.Track(player, "Win", 1)

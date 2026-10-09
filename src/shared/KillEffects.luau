@@ -11,7 +11,7 @@ KillEffects.List = {
 	Fantasma = { Name = "Fantasma", Rarity = "Épico", Icon = "👻", Price = 900, Description = "Su fantasma sale volando." },
 	Calavera = { Name = "Calavera", Rarity = "Legendario", Icon = "💀", Price = 1200, Description = "Calavera gigante y humo rojo." },
 	Rayo = { Name = "Rayo", Rarity = "Legendario", Icon = "⚡", Price = 1500, Description = "Un rayo cae del cielo." },
-	Monedas = { Name = "Lluvia de monedas", Rarity = "Legendario", Icon = "🪙", Price = 1500, Description = "Revienta en monedas de oro." },
+	Monedas = { Name = "Lluvia de monedas", Rarity = "Legendario", Icon = "💰", Price = 1500, Description = "Revienta en monedas de oro." },
 	AgujeroNegro = { Name = "Agujero negro", Rarity = "Mítico", Icon = "🌀", Price = 3000, Description = "Se lo traga un agujero negro." },
 	Pintura = { Name = "Pintura", Rarity = "Épico", Icon = "🎨", Price = 900, Description = "Revienta en bolas de pintura y lo deja todo manchado." },
 	Arcoiris = { Name = "Arcoíris", Rarity = "Legendario", Icon = "🌈", Price = 1800, Description = "Un arcoíris sale disparado de tu rival." },

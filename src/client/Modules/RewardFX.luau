@@ -346,7 +346,7 @@ function RewardFX.FlyCoins(target, count, icon)
 			coin.BackgroundTransparency = 1
 			coin.Font = Enum.Font.GothamBold
 			coin.TextSize = 28
-			coin.Text = icon or "🪙"
+			coin.Text = icon or "💰"
 			coin.ZIndex = 4
 			coin.Parent = gui
 			tween(coin, 0.55, { Position = UDim2.fromOffset(goal.X, goal.Y) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)

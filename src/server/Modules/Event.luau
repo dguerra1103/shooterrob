@@ -123,7 +123,7 @@ addProgress = function(player, amount, pickup)
 	if pickup then
 		local coins = PlayerData.AddCoins(player, CONFIG.CandyCoins) -- (envía los datos al cliente, contador incluido)
 		local itemName = CONFIG.Item or "objeto"
-		Remotes.Notify:FireClient(player, "XP", ITEM_ICON .. " " .. string.upper(string.sub(itemName, 1, 1)) .. string.sub(itemName, 2) .. "  +" .. coins .. " 🪙  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
+		Remotes.Notify:FireClient(player, "XP", ITEM_ICON .. " " .. string.upper(string.sub(itemName, 1, 1)) .. string.sub(itemName, 2) .. "  +" .. coins .. " 💰  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
 	else
 		PlayerData.SendUpdate(player)
 		Remotes.Notify:FireClient(player, "Challenge", ITEM_ICON .. " +" .. amount .. " " .. ITEMS .. " de regalo  (" .. math.min(count, CONFIG.Goal) .. "/" .. CONFIG.Goal .. ")")
@@ -143,7 +143,7 @@ addProgress = function(player, amount, pickup)
 				local amount = milestone.Coins or milestone.Compensate or 0
 				if amount > 0 then
 					PlayerData.AddCoins(player, amount, false) -- premio fijo (no lo dobla el VIP)
-					Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! +" .. amount .. " 🪙")
+					Remotes.Notify:FireClient(player, "Challenge", ICON .. " ¡" .. milestone.Count .. " " .. ITEMS .. "! +" .. amount .. " 💰")
 				end
 			end
 		end

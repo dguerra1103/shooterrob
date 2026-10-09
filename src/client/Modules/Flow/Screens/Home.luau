@@ -15,6 +15,7 @@ local Remotes = require(Shared.Remotes)
 local Ranks = require(Shared.Ranks)
 local Weapons = require(Shared.Weapons)
 local MonetizationConfig = require(Shared.Economy.MonetizationConfig)
+local Icons = require(Shared.Icons)
 
 local Modules = script.Parent.Parent.Parent
 local ClientState = require(Modules.ClientState)
@@ -70,10 +71,11 @@ local function buildLogo(parent)
 end
 
 local function iconButton(parent, icon, order, onClick)
+	local image = Icons.IsImage(icon)
 	local button = C.new("TextButton", {
-		Name = "Icon_" .. icon,
+		Name = "Icon_" .. (image and tostring(order) or icon),
 		AutoButtonColor = false,
-		Text = icon,
+		Text = image and "" or icon,
 		TextSize = 20,
 		Font = Enum.Font.GothamBold,
 		TextColor3 = Colors.White,
@@ -83,6 +85,18 @@ local function iconButton(parent, icon, order, onClick)
 		LayoutOrder = order,
 		Parent = parent,
 	}, { C.corner(4), C.stroke() })
+	if image then
+		C.new("ImageLabel", {
+			Name = "Image",
+			BackgroundTransparency = 1,
+			Image = icon,
+			ScaleType = Enum.ScaleType.Fit,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(30, 30),
+			Parent = button,
+		})
+	end
 	C.feel(button)
 	button.Activated:Connect(function()
 		UISound.Play("Click")
@@ -125,40 +139,40 @@ local function buildTopBar(parent)
 	refs.Level = C.text({ Name = "Level", Text = "NIVEL 1", Role = "Number", TextSize = 14, Color = Colors.YellowText, Size = UDim2.new(0, 70, 0, 16), Position = UDim2.fromOffset(56, 28), Parent = profile })
 	refs.XP = C.progress({ Size = UDim2.new(1, -136, 0, 6), Position = UDim2.fromOffset(126, 34), Parent = profile })
 	-- Monedas (con "+" a la tienda)
-	local _, coins = C.currency(bar, "🪙", 2, function()
+	local _, coins = C.currency(bar, Icons.Coin, 2, function()
 		flow.SetState("Store", { Tab = "COINS" })
 	end)
 	refs.Coins = coins
 	-- Amigos (invitar), novedades, retos y ajustes
-	local friends = iconButton(bar, "👥", 3, function()
+	local friends = iconButton(bar, Icons.Friends, 3, function()
 		Home.OpenClan()
 	end)
 	refs.FriendsDot = C.dot(friends, false)
-	local news = iconButton(bar, "✉", 4, function()
+	local news = iconButton(bar, Icons.Mail, 4, function()
 		local ok, News = pcall(require, Modules.News)
 		if ok and News.Open then
 			News.Open()
 		end
 	end)
 	refs.NewsDot = C.dot(news, false)
-	iconButton(bar, "🔔", 5, function()
+	iconButton(bar, Icons.Bell, 5, function()
 		Menu.Open("Retos")
 	end)
-	iconButton(bar, "⚙", 6, function()
+	iconButton(bar, Icons.Gear, 6, function()
 		Menu.Open("Ajustes")
 	end)
 	return bar
 end
 
 local MENU = {
-	{ Id = "Armory", Text = "ARMAMENTO", Icon = "🔫" },
-	{ Id = "Operator", Text = "OPERADOR", Icon = "🪖" },
-	{ Id = "Squad", Text = "ESCUADRA", Icon = "👥" },
-	{ Id = "Shop", Text = "TIENDA", Icon = "🛒" },
-	{ Id = "Pass", Text = "PASE DE BATALLA", Icon = "🎖️" },
-	{ Id = "Events", Text = "EVENTOS", Icon = "📅", Desktop = true },
-	{ Id = "Clan", Text = "CLAN", Icon = "🛡", Desktop = true },
-	{ Id = "Settings", Text = "AJUSTES", Icon = "⚙", Desktop = true },
+	{ Id = "Armory", Text = "ARMAMENTO", Icon = Icons.Rifle },
+	{ Id = "Operator", Text = "OPERADOR", Icon = Icons.Helmet },
+	{ Id = "Squad", Text = "ESCUADRA", Icon = Icons.Squad },
+	{ Id = "Shop", Text = "TIENDA", Icon = Icons.Cart },
+	{ Id = "Pass", Text = "PASE DE BATALLA", Icon = Icons.Medal },
+	{ Id = "Events", Text = "EVENTOS", Icon = Icons.Calendar, Desktop = true },
+	{ Id = "Clan", Text = "CLAN", Icon = Icons.Shield, Desktop = true },
+	{ Id = "Settings", Text = "AJUSTES", Icon = Icons.Gear, Desktop = true },
 }
 
 local function onMenu(id)
@@ -248,7 +262,7 @@ local function missionRow(parent, order)
 		local progress = math.min(challenge.Progress or 0, challenge.Goal or 1)
 		count.Text = string.format("%d/%d", progress, challenge.Goal or 1)
 		bar:Set(challenge.Done and 1 or progress / math.max(1, challenge.Goal or 1))
-		rewardText.Text = challenge.XP and (tostring(challenge.XP) .. " XP") or (tostring(challenge.Coins or 0) .. " 🪙")
+		rewardText.Text = challenge.XP and (tostring(challenge.XP) .. " XP") or (tostring(challenge.Coins or 0) .. " 💰")
 		reward.BackgroundColor3 = challenge.Done and Colors.Green or Colors.Yellow
 	end
 end
@@ -266,7 +280,7 @@ local function buildRight(parent)
 	refs.Daily = C.button({
 		Name = "Daily",
 		Text = "RECOMPENSA DIARIA",
-		Icon = "🎁",
+		Icon = Icons.Gift,
 		Sub = "TOCA PARA RECOGER",
 		Style = "Primary",
 		TextSize = 22,
@@ -306,7 +320,7 @@ local function buildRight(parent)
 		Wheel.Open()
 	end)
 	refs.ChipBoost = chip("Boost", "⚡ XP DOBLE", Colors.Blue, 3, function() end)
-	refs.ChipFirstWin = chip("FirstWin", "🏆 1.ª VICTORIA +" .. tostring(GameConfig.FirstWinOfDay and GameConfig.FirstWinOfDay.Coins or 0) .. " 🪙", Colors.PanelLight, 4, function()
+	refs.ChipFirstWin = chip("FirstWin", "🏆 1.ª VICTORIA +" .. tostring(GameConfig.FirstWinOfDay and GameConfig.FirstWinOfDay.Coins or 0) .. " 💰", Colors.PanelLight, 4, function()
 		flow.Play()
 	end)
 	refs.Chips = chips
@@ -362,19 +376,20 @@ local function buildBottom(parent)
 	local ranked = C.button({ Name = "RankCard", Text = "", Style = "Ghost", Position = UDim2.fromOffset(282, 0), Size = UDim2.fromOffset(280, 76), Parent = row, OnClick = function()
 		Home.OpenLeaderboard()
 	end })
-	refs.RankTitle = C.text({ Text = "", Role = "TitleItalic", TextSize = 22, Rich = true, Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 26), ZIndex = 5, Parent = ranked })
-	refs.RankBar = C.progress({ Size = UDim2.new(1, -28, 0, 6), Position = UDim2.fromOffset(14, 40), ZIndex = 5, Parent = ranked })
-	refs.RankNext = C.text({ Text = "", Role = "BodyBold", TextSize = 12, Color = Colors.TextDim, Position = UDim2.fromOffset(14, 50), Size = UDim2.new(1, -28, 0, 18), ZIndex = 5, Parent = ranked })
+	refs.RankEmblem = C.new("ImageLabel", { Name = "Emblem", BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(56, 56), ZIndex = 5, Parent = ranked })
+	refs.RankTitle = C.text({ Text = "", Role = "TitleItalic", TextSize = 22, Rich = true, Position = UDim2.fromOffset(76, 8), Size = UDim2.new(1, -90, 0, 26), ZIndex = 5, Parent = ranked })
+	refs.RankBar = C.progress({ Size = UDim2.new(1, -90, 0, 6), Position = UDim2.fromOffset(76, 40), ZIndex = 5, Parent = ranked })
+	refs.RankNext = C.text({ Text = "", Role = "BodyBold", TextSize = 12, Color = Colors.TextDim, Position = UDim2.fromOffset(76, 50), Size = UDim2.new(1, -90, 0, 18), ZIndex = 5, Parent = ranked })
 	refs.RankCard = ranked
 	-- Accesos rápidos a la derecha
 	local quick = C.new("Frame", { Name = "Quick", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 14), Size = UDim2.fromOffset(600, 56), Parent = row }, {
 		C.list(8, Enum.FillDirection.Horizontal, Enum.HorizontalAlignment.Right),
 	})
 	for i, spec in {
-		{ "INVENTARIO", "🎒", function() Menu.Open("Skins") end },
-		{ "ARMAS", "🔫", function() flow.SetState("Armory") end },
-		{ "RACHAS", "✈", function() Home.OpenStreaks() end },
-		{ "PERSONALIZAR", "👕", function() flow.SetState("Operator") end },
+		{ "INVENTARIO", Icons.Backpack, function() Menu.Open("Skins") end },
+		{ "ARMAS", Icons.Rifle, function() flow.SetState("Armory") end },
+		{ "RACHAS", Icons.Jet, function() Home.OpenStreaks() end },
+		{ "PERSONALIZAR", Icons.Shirt, function() flow.SetState("Operator") end },
 	} do
 		C.button({ Name = "Quick_" .. spec[1], Text = spec[1], Icon = spec[2], Style = "Ghost", TextSize = 15, Size = UDim2.fromOffset(140, 50), Order = i, Parent = quick, OnClick = spec[3] })
 	end
@@ -460,7 +475,7 @@ function Home.OpenClan()
 	C.text({ Text = string.format("👥 Amigos en este servidor: %d  ·  +10%% XP y monedas por amigo", player:GetAttribute("FriendsHere") or 0), Role = "BodyBold", TextSize = 14, Color = Colors.TextDim, Wrap = true, Size = UDim2.new(1, 0, 0, 36), ZIndex = 43, Parent = body })
 	local referral = (GameConfig.Referral and GameConfig.Referral.InviterCoins) or 0
 	local invite
-	invite = C.button({ Text = "INVITAR AMIGOS  +" .. referral .. " 🪙", Icon = "✉", Style = "Primary", TextSize = 20, Position = UDim2.fromOffset(0, 46), Size = UDim2.new(1, 0, 0, 52), ZIndex = 43, Parent = body, OnClick = function()
+	invite = C.button({ Text = "INVITAR AMIGOS  +" .. referral .. " 💰", Icon = "✉", Style = "Primary", TextSize = 20, Position = UDim2.fromOffset(0, 46), Size = UDim2.new(1, 0, 0, 52), ZIndex = 43, Parent = body, OnClick = function()
 		local ok, canInvite = pcall(SocialService.CanSendGameInviteAsync, SocialService, player)
 		if ok and canInvite then
 			pcall(function()
@@ -474,7 +489,7 @@ function Home.OpenClan()
 		end
 	end })
 	if GameConfig.Group and GameConfig.Group.Id ~= 0 then
-		local label = "ÚNETE AL GRUPO  +" .. GameConfig.Group.Coins .. " 🪙"
+		local label = "ÚNETE AL GRUPO  +" .. GameConfig.Group.Coins .. " 💰"
 		local groupButton
 		groupButton = C.button({ Text = label, Icon = "⭐", Style = "Ghost", TextSize = 18, Position = UDim2.fromOffset(0, 108), Size = UDim2.new(1, 0, 0, 48), ZIndex = 43, Parent = body, OnClick = function()
 			local function claim()
@@ -495,7 +510,7 @@ function Home.OpenClan()
 			end
 			local labelNode = groupButton:FindFirstChild("Label", true)
 			if labelNode then
-				labelNode.Text = done and ("¡+" .. tostring(result) .. " 🪙! GRACIAS") or tostring(result == "NotMember" and "ÚNETE EN LA PÁGINA DEL JUEGO" or (result or "NO SE PUDO"))
+				labelNode.Text = done and ("¡+" .. tostring(result) .. " 💰! GRACIAS") or tostring(result == "NotMember" and "ÚNETE EN LA PÁGINA DEL JUEGO" or (result or "NO SE PUDO"))
 			end
 			UISound.Play(done and "Reward" or "Error")
 		end })
@@ -520,6 +535,8 @@ end
 ---------------------------------------------------------------------------
 
 local shownPromo, shownPreviewKey
+local waitingCharacter = false
+local watchCharacter
 
 local function nextWeapon(data)
 	local best
@@ -624,7 +641,8 @@ function Home.Refresh()
 	local points = data.RankPoints or 0
 	local tier = Ranks.Get(points)
 	local fraction, nextTier = Ranks.Progress(points)
-	refs.RankTitle.Text = string.format('%s <font color="#%s">%s</font>  ·  %d RP', tier.Icon, tier.Color:ToHex(), C.upper(tier.Name), points)
+	refs.RankEmblem.Image = tier.Image or ""
+	refs.RankTitle.Text = string.format('<font color="#%s">%s</font>  ·  %d RP', tier.Color:ToHex(), C.upper(tier.Name), points)
 	refs.RankBar:Set(fraction)
 	refs.RankBar.Fill.BackgroundColor3 = tier.Color
 	refs.RankNext.Text = nextTier and string.format("Faltan %d RP para %s", nextTier.Min - points, nextTier.Name) or "¡Rango máximo!"
@@ -632,14 +650,65 @@ function Home.Refresh()
 	-- Personaje: se rehace si cambia el arma o el traje
 	local key = tostring(data.Primary) .. "/" .. tostring(data.EquippedOutfit) .. "/" .. tostring(data.EquippedSkin) .. "/" .. tostring(data.EquippedCharm)
 	if preview and key ~= shownPreviewKey and flow.State == "Home" then
-		shownPreviewKey = key
-		Home.RefreshPreview()
+		-- (si el personaje aún no ha aparecido no se da por hecho: se reintenta en cuanto exista)
+		if Home.RefreshPreview() then
+			shownPreviewKey = key
+		elseif not waitingCharacter then
+			waitingCharacter = true
+			task.spawn(function()
+				local deadline = os.clock() + 20
+				while os.clock() < deadline do
+					local character = player.Character
+					if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChildOfClass("Humanoid") then
+						break
+					end
+					task.wait(0.25)
+				end
+				task.wait(0.3) -- (que le dé tiempo a ponerse el traje)
+				waitingCharacter = false
+				if flow.State == "Home" then
+					Home.Refresh()
+				end
+			end)
+		end
 	end
+end
+
+-- El servidor viste al personaje por partes y lo vuelve a vestir al asignarle equipo: si la copia del
+-- lobby se hizo a medias (sin cinturón, guantes o rodilleras), se rehace cuando el traje deja de cambiar
+local watched, watchConnections, watchToken = nil, {}, 0
+function watchCharacter(character)
+	if character == watched then
+		return
+	end
+	for _, connection in watchConnections do
+		connection:Disconnect()
+	end
+	watchConnections = {}
+	watched = character
+	if not character then
+		return
+	end
+	local function changed(instance)
+		if not (instance:IsA("BasePart") or instance:IsA("Folder")) then
+			return
+		end
+		watchToken += 1
+		local token = watchToken
+		task.delay(0.6, function()
+			if token == watchToken and watched == character and character.Parent and flow.State == "Home" then
+				shownPreviewKey = nil
+				Home.Refresh()
+			end
+		end)
+	end
+	table.insert(watchConnections, character.DescendantAdded:Connect(changed))
+	table.insert(watchConnections, character.DescendantRemoving:Connect(changed))
 end
 
 function Home.RefreshPreview()
 	if not preview then
-		return
+		return false
 	end
 	local model = preview:SetCharacter("me", player)
 	local data = ClientState.Data
@@ -648,6 +717,12 @@ function Home.RefreshPreview()
 		preview:SetWeapon("me", data.Primary, Menu.SkinFor and Menu.SkinFor(data, data.Primary) or nil, data.EquippedCharm)
 	end
 	preview:SetAnimation("me", "MenuIdle")
+	if model then
+		-- (de tres cuartos: de frente el arma apunta a la cámara y no se ve; se puede girar arrastrando)
+		preview:Turn("me", math.rad(-38))
+		watchCharacter(player.Character)
+	end
+	return model ~= nil
 end
 
 local function applyLayout()

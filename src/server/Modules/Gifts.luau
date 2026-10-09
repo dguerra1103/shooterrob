@@ -50,7 +50,7 @@ end
 local function describe(gift)
 	local parts = {}
 	if gift.Coins then
-		table.insert(parts, "+" .. gift.Coins .. " 🪙")
+		table.insert(parts, "+" .. gift.Coins .. " 💰")
 	end
 	if gift.XP then
 		table.insert(parts, "+" .. gift.XP .. " XP")

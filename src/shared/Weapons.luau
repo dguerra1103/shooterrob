@@ -801,19 +801,21 @@ Weapons.Airstrike = {
 Weapons.Style = "Clasico"
 
 local MAT = Enum.Material
+-- Sheen / DarkSheen: brillo (Reflectance) del cuerpo y de las piezas de metal oscuro; TrimAccent: los
+-- ribetes llevan el color de acento también con el acabado de fábrica. Las skins no los usan.
 local CLASSIC_PALETTES = {
-	-- Polímero negro con muebles color arena
-	Black = { Body = RGB(46, 48, 52), Panel = RGB(160, 135, 98), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- Polímero negro azulado con muebles color arena y ribetes naranjas
+	Black = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(40, 42, 46), Panel = RGB(190, 156, 106), Dark = RGB(26, 27, 31), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
 	-- Metal pavonado y madera
-	Wood = { Body = RGB(52, 54, 58), Panel = RGB(122, 78, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
+	Wood = { Sheen = 0.04, DarkSheen = 0.1, BodyMaterial = MAT.Metal, Body = RGB(50, 52, 56), Panel = RGB(140, 84, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
 	-- Color arena (desierto)
-	Tan = { Body = RGB(182, 156, 114), Panel = RGB(44, 44, 47), Dark = RGB(32, 32, 34), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	Tan = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(196, 164, 112), Panel = RGB(40, 41, 46), Dark = RGB(32, 32, 34), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
 	-- Verde oliva militar
-	Olive = { Body = RGB(78, 86, 60), Panel = RGB(104, 112, 80), Dark = RGB(32, 33, 30), Accent = RGB(255, 140, 40), Accent2 = RGB(128, 84, 48), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	Olive = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(74, 88, 52), Panel = RGB(112, 124, 78), Dark = RGB(32, 33, 30), Accent = RGB(255, 140, 40), Accent2 = RGB(128, 84, 48), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
 	-- Acero inoxidable y cachas de madera
-	Steel = { Body = RGB(178, 180, 186), Panel = RGB(118, 72, 40), Dark = RGB(60, 62, 66), Accent = RGB(255, 140, 40), Accent2 = RGB(118, 72, 40), Lens = RGB(70, 120, 175), BodyMaterial = MAT.Metal, PanelMaterial = MAT.Wood, AccentMaterial = MAT.SmoothPlastic },
+	Steel = { Sheen = 0.12, DarkSheen = 0.1, Body = RGB(186, 190, 198), Panel = RGB(130, 76, 38), Dark = RGB(60, 62, 66), Accent = RGB(255, 140, 40), Accent2 = RGB(118, 72, 40), Lens = RGB(70, 120, 175), BodyMaterial = MAT.Metal, PanelMaterial = MAT.Wood, AccentMaterial = MAT.SmoothPlastic },
 	-- Dos tonos: corredera negra y armazón arena
-	TwoTone = { Body = RGB(176, 152, 112), Panel = RGB(48, 50, 54), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.SmoothPlastic },
+	TwoTone = { Sheen = 0.02, DarkSheen = 0.1, Body = RGB(190, 160, 112), Panel = RGB(44, 46, 52), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.SmoothPlastic },
 	-- Cuchillo: hoja de acero, mango negro
 	Knife = { Body = RGB(40, 40, 44), Panel = RGB(150, 152, 158), Dark = RGB(170, 172, 178), Accent = RGB(120, 122, 128), Accent2 = RGB(200, 200, 205), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.Metal },
 }

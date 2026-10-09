@@ -67,6 +67,7 @@ local function paint(part, role, pal)
 	elseif role == "Dark" then
 		part.Color = pal.Dark
 		part.Material = Enum.Material.Metal
+		part.Reflectance = pal.DarkSheen or 0
 	elseif role == "Metal" then
 		part.Color = Color3.fromRGB(200, 202, 210)
 		part.Material = Enum.Material.Metal
@@ -107,6 +108,7 @@ local function paint(part, role, pal)
 		part.Color = pal.Body
 		-- Polímero con textura fina (el plástico liso parecía de juguete)
 		part.Material = pal.BodyMaterial or Enum.Material.Plastic
+		part.Reflectance = pal.Sheen or 0
 	end
 	-- Cuerpo y paneles con la imagen del camuflaje (el color blanco no la tiñe)
 	if role == "Body" or role == "Panel" or role == nil then

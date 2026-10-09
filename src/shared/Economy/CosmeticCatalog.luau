@@ -6,6 +6,7 @@
 -- estadísticas.
 local Shared = script.Parent.Parent
 local Skins = require(Shared.Skins)
+local Icons = require(Shared.Icons)
 local Outfits = require(Shared.Outfits)
 local Charms = require(Shared.Charms)
 local KillEffects = require(Shared.KillEffects)
@@ -22,15 +23,15 @@ local Catalog = {}
 
 -- Tipo → su lista, dónde se guarda lo que tienes y lo que llevas, y su sección de la tienda
 Catalog.Kinds = {
-	Skin = { List = Skins.List, Owned = "Skins", Equipped = "EquippedSkin", Default = "Default", Label = "SKIN DE ARMA", Category = "ARMAS", Icon = "🔫" },
-	Outfit = { List = Outfits.List, Owned = "Outfits", Equipped = "EquippedOutfit", Default = "Default", Label = "TRAJE DE OPERADOR", Category = "OPERADORES", Icon = "🪖" },
-	Charm = { List = Charms.List, Owned = "Charms", Equipped = "EquippedCharm", Default = "Default", Label = "COLGANTE", Category = "CHARMS", Icon = "🔑" },
-	Card = { List = PlayerCards.List, Owned = "Cards", Equipped = "EquippedCard", Default = "Default", Label = "TARJETA DE JUGADOR", Category = "CHARMS", Icon = "🪪" },
-	Title = { List = Titles.List, Owned = "Titles", Equipped = "EquippedTitle", Default = "Novato", Label = "TÍTULO", Category = "CHARMS", Icon = "🏷️" },
-	KillEffect = { List = KillEffects.List, Owned = "KillEffects", Equipped = "EquippedKillEffect", Default = "Default", Label = "EFECTO DE BAJA", Category = "EFECTOS", Icon = "💥" },
-	MVPIntro = { List = Poses.Intros, Owned = "MVPIntros", Equipped = "EquippedMVPIntro", Default = Poses.DefaultIntro, Label = "INTRO DE MVP", Category = "EFECTOS", Icon = "🌟" },
-	Pose = { List = Poses.List, Owned = "Poses", Equipped = "EquippedPose", Default = Poses.Default, Label = "POSE DE VICTORIA", Category = "EMOTES", Icon = "🙌" },
-	Spray = { List = Sprays.List, Owned = "Sprays", Equipped = "EquippedSpray", Default = "Default", Label = "GRAFITI", Category = "EMOTES", Icon = "🎨" },
+	Skin = { List = Skins.List, Owned = "Skins", Equipped = "EquippedSkin", Default = "Default", Label = "SKIN DE ARMA", Category = "ARMAS", Icon = Icons.Rifle },
+	Outfit = { List = Outfits.List, Owned = "Outfits", Equipped = "EquippedOutfit", Default = "Default", Label = "TRAJE DE OPERADOR", Category = "OPERADORES", Icon = Icons.Helmet },
+	Charm = { List = Charms.List, Owned = "Charms", Equipped = "EquippedCharm", Default = "Default", Label = "COLGANTE", Category = "CHARMS", Icon = Icons.Keychain },
+	Card = { List = PlayerCards.List, Owned = "Cards", Equipped = "EquippedCard", Default = "Default", Label = "TARJETA DE JUGADOR", Category = "CHARMS", Icon = Icons.IdCard },
+	Title = { List = Titles.List, Owned = "Titles", Equipped = "EquippedTitle", Default = "Novato", Label = "TÍTULO", Category = "CHARMS", Icon = Icons.Ribbon },
+	KillEffect = { List = KillEffects.List, Owned = "KillEffects", Equipped = "EquippedKillEffect", Default = "Default", Label = "EFECTO DE BAJA", Category = "EFECTOS", Icon = Icons.Explosion },
+	MVPIntro = { List = Poses.Intros, Owned = "MVPIntros", Equipped = "EquippedMVPIntro", Default = Poses.DefaultIntro, Label = "INTRO DE MVP", Category = "EFECTOS", Icon = Icons.Spotlight },
+	Pose = { List = Poses.List, Owned = "Poses", Equipped = "EquippedPose", Default = Poses.Default, Label = "POSE DE VICTORIA", Category = "EMOTES", Icon = Icons.Pose },
+	Spray = { List = Sprays.List, Owned = "Sprays", Equipped = "EquippedSpray", Default = "Default", Label = "GRAFITI", Category = "EMOTES", Icon = Icons.Spray },
 }
 Catalog.KindOrder = { "Skin", "Outfit", "Charm", "Card", "Title", "KillEffect", "MVPIntro", "Pose", "Spray" }
 
@@ -38,13 +39,13 @@ Catalog.KindOrder = { "Skin", "Outfit", "Charm", "Card", "Title", "KillEffect", 
 Catalog.Categories = {
 	{ Id = "FEATURED", Text = "DESTACADO", Icon = "⭐" },
 	{ Id = "ARMAS", Text = "ARMAS", Icon = "🔫", Kinds = { "Skin" } },
-	{ Id = "OPERADORES", Text = "OPERADORES", Icon = "🪖", Kinds = { "Outfit" } },
+	{ Id = "OPERADORES", Text = "OPERADORES", Icon = "🎖", Kinds = { "Outfit" } },
 	{ Id = "CHARMS", Text = "CHARMS", Icon = "🔑", Kinds = { "Charm", "Card", "Title" } },
 	{ Id = "EFECTOS", Text = "EFECTOS", Icon = "💥", Kinds = { "KillEffect", "MVPIntro" } },
 	{ Id = "EMOTES", Text = "POSES", Icon = "🙌", Kinds = { "Pose", "Spray" } },
 	{ Id = "BUNDLES", Text = "PACKS", Icon = "📦" },
 	{ Id = "PASS", Text = "PASE", Icon = "🎖️" },
-	{ Id = "COINS", Text = "MONEDAS", Icon = "🪙" },
+	{ Id = "COINS", Text = "MONEDAS", Icon = "💰" },
 }
 
 Catalog.RarityOrder = { "Común", "Raro", "Épico", "Legendario", "Mítico" }

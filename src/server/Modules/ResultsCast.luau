@@ -48,7 +48,7 @@ local function usable(model)
 	local root = model and model:FindFirstChild("HumanoidRootPart")
 	local torso = model and model:FindFirstChild("UpperTorso")
 	local waist = torso and torso:FindFirstChild("Waist")
-	return humanoid ~= nil and root ~= nil and humanoid.Health > 0 and waist ~= nil and waist:IsA("Motor6D")
+	return humanoid ~= nil and root ~= nil and humanoid.Health > 0 and waist ~= nil and (waist:IsA("Motor6D") or waist:IsA("AnimationConstraint"))
 end
 
 local function copy(model)

@@ -1324,7 +1324,7 @@ KILL_FX.Monedas = function(position)
 		})
 		return coin
 	end, 24, 1.6)
-	floatingText(position + Vector3.new(0, 2, 0), "+🪙", 80, Vector3.new(0, 4, 0), 1.4, Color3.fromRGB(255, 220, 80))
+	floatingText(position + Vector3.new(0, 2, 0), "+💰", 80, Vector3.new(0, 4, 0), 1.4, Color3.fromRGB(255, 220, 80))
 	local anchor = emitterAnchor(position, Vector3.yAxis, 2)
 	emit(anchor, {
 		Texture = TEX.Sparkle,

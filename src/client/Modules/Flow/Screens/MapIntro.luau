@@ -75,10 +75,20 @@ function MapIntro.Show(ctx)
 	-- Salida: quien entra con la partida empezada, a su ritmo; si no, cuando el servidor empieza el
 	-- despliegue (y ya pasó el mínimo para leer el nombre)
 	task.spawn(function()
+		local lateSince = nil
 		while token == my and flow.State == "MapIntro" do
 			local deploying = ReplicatedStorage:GetAttribute("Deploy") ~= nil
 			local playing = ReplicatedStorage:GetAttribute("State") == "Playing"
-			if MapIntro.ReadyToLeave() and (deploying or (ctx.Late and playing)) then
+			-- (si el despliegue acabó mientras esta pantalla cumplía su tiempo mínimo, ya no va a volver:
+			-- sin esto el jugador se quedaba aquí toda la partida. Se espera 1 s por si el servidor ha
+			-- puesto «Playing» un instante antes de empezar el despliegue)
+			if playing and not deploying then
+				lateSince = lateSince or os.clock()
+			else
+				lateSince = nil
+			end
+			local late = (ctx and ctx.Late) or (lateSince ~= nil and os.clock() - lateSince >= 1)
+			if MapIntro.ReadyToLeave() and (deploying or (late and playing)) then
 				flow.Advance("MapIntro")
 				break
 			end

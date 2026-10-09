@@ -11,6 +11,7 @@ local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
+local Icons = require(Shared.Icons)
 local Remotes = require(Shared.Remotes)
 local Sounds = require(Shared.Sounds)
 
@@ -163,9 +164,9 @@ local function potion()
 end
 
 local ACTIONS = {
-	{ Name = "Dash", Key = "E", Icon = "💨", Use = dash, Color = Color3.fromRGB(70, 160, 255) },
-	{ Name = "Jump", Key = "Z", Icon = "⏫", Use = superJump, Color = Color3.fromRGB(80, 200, 255) },
-	{ Name = "Potion", Key = "X", Icon = "🧪", Use = potion, Color = Color3.fromRGB(80, 220, 120) },
+	{ Name = "Dash", Key = "E", Icon = Icons.Dash, Use = dash, Color = Color3.fromRGB(70, 160, 255) },
+	{ Name = "Jump", Key = "Z", Icon = Icons.Jump, Use = superJump, Color = Color3.fromRGB(80, 200, 255) },
+	{ Name = "Potion", Key = "X", Icon = Icons.Potion, Use = potion, Color = Color3.fromRGB(80, 220, 120) },
 }
 
 local function build()
@@ -222,7 +223,20 @@ local function build()
 				Parent = button,
 			}, { UI.corner(2) })
 		end
-		UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Icon, TextSize = touchOnly and 40 or 28, Parent = button })
+		if Icons.IsImage(action.Icon) then
+			UI.new("ImageLabel", {
+				Name = "Icon",
+				BackgroundTransparency = 1,
+				Image = action.Icon,
+				ScaleType = Enum.ScaleType.Fit,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromScale(0.72, 0.72),
+				Parent = button,
+			})
+		else
+			UI.label({ Size = UDim2.fromScale(1, 1), Text = action.Icon, TextSize = touchOnly and 40 or 28, Parent = button })
+		end
 		local cover = UI.new("Frame", {
 			AnchorPoint = Vector2.new(0, 1),
 			Position = UDim2.fromScale(0, 1),

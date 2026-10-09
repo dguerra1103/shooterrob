@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
+local Icons = require(Shared.Icons)
 local Catalog = require(Shared.Economy.CosmeticCatalog)
 local Products = require(Shared.Economy.Products)
 local BattlePassConfig = require(Shared.Economy.BattlePassConfig)
@@ -61,9 +62,9 @@ local function rewardInfo(reward)
 		return nil
 	end
 	if reward.Type == "Coins" then
-		return { Coins = reward.Amount, Name = reward.Amount .. " MONEDAS", Rarity = reward.Amount >= 500 and "Épico" or "Raro", Icon = "🪙" }
+		return { Coins = reward.Amount, Name = reward.Amount .. " MONEDAS", Rarity = reward.Amount >= 500 and "Épico" or "Raro", Icon = Icons.Coin }
 	elseif reward.Type == "Crate" then
-		return { Name = (reward.Amount or 1) .. " CAJA", Rarity = "Raro", Icon = "📦" }
+		return { Name = (reward.Amount or 1) .. " CAJA", Rarity = "Raro", Icon = Icons.Crate }
 	end
 	return Catalog.Item(reward.Type, reward.Id)
 end
@@ -101,11 +102,11 @@ local function slideIn(granted)
 			if not slideLayer.Parent then
 				return
 			end
-			local info = reward.Type == "Coins" and { Name = "+" .. reward.Amount .. " MONEDAS", Icon = "🪙", Rarity = "Raro" } or Catalog.Item(reward.Type, reward.Id) or { Name = tostring(reward.Id), Rarity = "Común" }
+			local info = reward.Type == "Coins" and { Name = "+" .. reward.Amount .. " MONEDAS", Icon = Icons.Coin, Rarity = "Raro" } or Catalog.Item(reward.Type, reward.Id) or { Name = tostring(reward.Id), Rarity = "Común" }
 			local row = C.panel({ Name = "Slide", Size = UDim2.fromOffset(300, 56), Parent = slideLayer }, { Alpha = 0.05, Accent = ItemArt.RarityColor(info.Rarity), StrokeColor = ItemArt.RarityColor(info.Rarity), StrokeAlpha = 0.4 })
 			C.text({ Text = info.Icon or "★", TextSize = 26, AlignX = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(40, 56), Parent = row })
 			C.text({ Text = C.upper(info.Name or ""), Role = "TitleItalic", TextSize = 18, Scaled = true, Position = UDim2.fromOffset(52, 6), Size = UDim2.new(1, -60, 0, 24), Parent = row })
-			C.text({ Text = reward.Duplicate and ("YA LO TENÍAS: +" .. (reward.Coins or 0) .. " 🪙") or ("NIVEL " .. tostring(reward.Tier or "") .. " · " .. (reward.Track == "Premium" and "PREMIUM" or "GRATIS")), Role = "Title", TextSize = 12, Color = Colors.TextDim, Position = UDim2.fromOffset(52, 30), Size = UDim2.new(1, -60, 0, 18), Parent = row })
+			C.text({ Text = reward.Duplicate and ("YA LO TENÍAS: +" .. (reward.Coins or 0) .. " 💰") or ("NIVEL " .. tostring(reward.Tier or "") .. " · " .. (reward.Track == "Premium" and "PREMIUM" or "GRATIS")), Role = "Title", TextSize = 12, Color = Colors.TextDim, Position = UDim2.fromOffset(52, 30), Size = UDim2.new(1, -60, 0, 18), Parent = row })
 			Transition.SlideIn(row, Vector2.new(320, 0), 0.25)
 			UISound.Play("Claim", 1 + i * 0.05)
 			task.delay(2.6, function()
@@ -180,7 +181,7 @@ local function renderDetail()
 	end })
 	local _ = action
 	if info.Kind then
-		C.button({ Name = "Preview", Text = "", Icon = "👁", Style = "Ghost", TextSize = 18, Position = phone and UDim2.new(1, -(pad + 44), 0, 12) or UDim2.fromOffset(x + 198, 92), Size = UDim2.fromOffset(phone and 44 or 48, phone and 40 or 44), Parent = detail, OnClick = function()
+		C.button({ Name = "Preview", Text = "", Icon = Icons.Eye, Style = "Ghost", TextSize = 18, Position = phone and UDim2.new(1, -(pad + 44), 0, 12) or UDim2.fromOffset(x + 198, 92), Size = UDim2.fromOffset(phone and 44 or 48, phone and 40 or 44), Parent = detail, OnClick = function()
 			Inspect.Open(rootFrame, info, {
 				OnBuy = function() end,
 				OnEquip = function(item)
@@ -447,7 +448,7 @@ function Pass.Build(flowController, root)
 	seasonLabel = C.text({ Text = "", Role = "Title", TextSize = 16, Color = Colors.YellowText, Position = UDim2.fromOffset(172, 60), Size = UDim2.fromOffset(420, 20), Parent = screen })
 	timerLabel = C.text({ Name = "Timer", Text = "", Role = "Number", TextSize = 14, Color = Colors.TextDim, Position = UDim2.fromOffset(172, 80), Size = UDim2.fromOffset(300, 18), Parent = screen })
 	-- Derecha arriba: premium y +1 nivel
-	premiumButton = C.button({ Name = "Premium", Text = "PREMIUM", Icon = "🎖️", Style = "Primary", TextSize = 18, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 18), Size = UDim2.fromOffset(280, 48), Parent = screen, Sound = "Click", OnClick = function()
+	premiumButton = C.button({ Name = "Premium", Text = "PREMIUM", Icon = Icons.Medal, Style = "Primary", TextSize = 18, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 18), Size = UDim2.fromOffset(280, 48), Parent = screen, Sound = "Click", OnClick = function()
 		local v = view()
 		local s = season()
 		if s and not (v and v.HasPremium) then
@@ -491,7 +492,7 @@ function Pass.Build(flowController, root)
 	local missionsInner = C.new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = missionsPanel }, { C.padding(10, 14, 10, 14) })
 	C.header(missionsInner, "MISIONES DE TEMPORADA", nil, 0)
 	missionsList = C.new("ScrollingFrame", { Name = "List", BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(0, 30), Size = UDim2.new(1, 0, 1, -30), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 3, Parent = missionsInner }, { C.list(6) })
-	missionsToggle = C.button({ Name = "MissionsToggle", Text = "MISIONES", Icon = "🎯", Style = "Ghost", TextSize = 14, Anchor = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -10), Size = UDim2.fromOffset(150, 40), ZIndex = 6, Parent = screen, OnClick = function()
+	missionsToggle = C.button({ Name = "MissionsToggle", Text = "MISIONES", Icon = Icons.Crosshair, Style = "Ghost", TextSize = 14, Anchor = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -10), Size = UDim2.fromOffset(150, 40), ZIndex = 6, Parent = screen, OnClick = function()
 		missionsPanel.Visible = not missionsPanel.Visible
 		missionsPanel.ZIndex = 9
 		local label = missionsToggle:FindFirstChild("Label", true)

@@ -64,11 +64,11 @@ target.AbsolutePosition = roblox.Vector2.new(600, 400); target.AbsoluteSize = ro
 RewardFX.FlyCoins(target, 5)
 task.wait(0.1)
 local flying = 0
-for _, c in gui:GetChildren() do if (c.ClassName == "TextLabel" or c.__className == "TextLabel") and c.Text == "🪙" then flying += 1 end end
+for _, c in gui:GetChildren() do if (c.ClassName == "TextLabel" or c.__className == "TextLabel") and c.Text == "💰" then flying += 1 end end
 check(flying >= 1, "salen monedas volando (" .. flying .. ")")
 task.wait(1)
 flying = 0
-for _, c in gui:GetChildren() do if (c.ClassName == "TextLabel" or c.__className == "TextLabel") and c.Text == "🪙" then flying += 1 end end
+for _, c in gui:GetChildren() do if (c.ClassName == "TextLabel" or c.__className == "TextLabel") and c.Text == "💰" then flying += 1 end end
 check(flying == 0 and target:FindFirstChildOfClass("UIScale") ~= nil, "llegan al contador y este da un salto")
 RewardFX.FlyCoins(nil, 3) -- (sin contador no hace nada)
 -- Prioridad: subir de rango pasa delante (y no se pierde con la cola llena)

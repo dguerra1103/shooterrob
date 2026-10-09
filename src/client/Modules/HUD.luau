@@ -9,6 +9,7 @@ local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
+local Icons = require(Shared.Icons)
 local GameConfig = require(Shared.GameConfig)
 local Skins = require(Shared.Skins)
 local Sounds = require(Shared.Sounds)
@@ -545,14 +546,14 @@ local function buildPlayerPanel()
 		Parent = health,
 	}, { UI.corner(13), UI.gloss() })
 	refs.HealthText = UI.label({ Size = UDim2.fromScale(1, 1), Text = "100", TextSize = phone and 14 or 18, Parent = health })
-	UI.label({
+	UI.new("ImageLabel", {
+		Name = "HealthIcon",
+		BackgroundTransparency = 1,
+		Image = Icons.Heart,
+		ScaleType = Enum.ScaleType.Fit,
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(0, -6, 0.5, 0),
-		Size = UDim2.fromOffset(phone and 20 or 28, phone and 20 or 28),
-		Text = "✚",
-		TextSize = phone and 20 or 28,
-		TextColor3 = Color3.fromRGB(90, 230, 110),
-		TextStrokeTransparency = 0,
+		Size = UDim2.fromOffset(phone and 22 or 30, phone and 22 or 30),
 		Parent = health,
 	})
 
@@ -1268,7 +1269,7 @@ local function describeReward(reward)
 	if not reward then
 		return nil
 	elseif reward.Type == "Coins" then
-		return "🪙 +" .. tostring(reward.Amount)
+		return "💰 +" .. tostring(reward.Amount)
 	elseif reward.Type == "Skin" then
 		return "🎨 Skin " .. Skins.Get(reward.Id).Name
 	elseif reward.Type == "Crate" then
@@ -1357,7 +1358,7 @@ local function onNotify(kind, text)
 		Sounds.Play("Kill", nil, 1.9, 0.4)
 	elseif kind == "Loot" and type(text) == "table" then
 		local color = typeof(text.Color) == "Color3" and text.Color or Color3.new(1, 1, 1)
-		local reward = "+" .. tostring(text.Coins or 0) .. " 🪙" .. ((text.XP or 0) > 0 and ("  +" .. text.XP .. " XP") or "")
+		local reward = "+" .. tostring(text.Coins or 0) .. " 💰" .. ((text.XP or 0) > 0 and ("  +" .. text.XP .. " XP") or "")
 		popup("📦 Botín " .. tostring(text.Rarity) .. "  " .. reward, color)
 		if text.Rarity == "Legendario" then
 			if not RewardFX.Celebrate("📦 ¡BOTÍN LEGENDARIO!", reward, color, true) then
@@ -1384,10 +1385,10 @@ local function onNotify(kind, text)
 		timedLabel(refs.Banner, "💰 " .. text, 3.5)
 	elseif kind == "Wanted" then
 		-- Te has convertido en el buscado: todos ven tu cartel
-		bigMessage("💰 ¡TE BUSCAN! " .. tostring(text) .. " 🪙 por tu cabeza", Color3.fromRGB(255, 120, 80))
+		bigMessage("💰 ¡TE BUSCAN! " .. tostring(text) .. " 💰 por tu cabeza", Color3.fromRGB(255, 120, 80))
 		Sounds.Play("Flag")
 	elseif kind == "BountyClaimed" then
-		bigMessage("💰 ¡RECOMPENSA COBRADA! +" .. tostring(text) .. " 🪙", Color3.fromRGB(255, 210, 60))
+		bigMessage("💰 ¡RECOMPENSA COBRADA! +" .. tostring(text) .. " 💰", Color3.fromRGB(255, 210, 60))
 		Sounds.Play("Kill")
 	elseif type(text) == "string" or type(text) == "number" then
 		-- (un aviso de un tipo nuevo con datos en tabla no se escribe tal cual)
@@ -1818,7 +1819,7 @@ local function onMatchSummary(summary)
 	refs.SummaryLevel.Text = "NIVEL " .. level
 	refs.SummaryFill.Size = UDim2.fromScale(math.clamp((summary.StartXP or 0) / perLevel, 0, 1), 1)
 	refs.SummaryXP.Text = "+0 XP"
-	refs.SummaryCoins.Text = "+0 🪙"
+	refs.SummaryCoins.Text = "+0 💰"
 	local levelsUp = math.max(0, (summary.Level or level) - level)
 	local startRank = summary.StartRank or summary.RankPoints or 0
 	local endRank = summary.RankPoints or startRank
@@ -1881,7 +1882,7 @@ local function onMatchSummary(summary)
 			end
 			local t = i / steps
 			refs.SummaryXP.Text = "+" .. math.floor(summary.XP * t) .. " XP"
-			refs.SummaryCoins.Text = "+" .. math.floor((summary.Coins or 0) * t) .. " 🪙"
+			refs.SummaryCoins.Text = "+" .. math.floor((summary.Coins or 0) * t) .. " 💰"
 			-- (tic-tic mientras cuenta, cada vez más agudo)
 			if i % 3 == 0 then
 				Sounds.Play("Click", nil, 1 + t * 0.6, 0.4)
@@ -2288,7 +2289,7 @@ local function checkAchievements(data)
 		for id, achievement in ready do
 			if not readyAchievements[id] then
 				bigMessage("🏅 ¡LOGRO! " .. achievement.Icon .. " " .. achievement.Text, Color3.fromRGB(120, 255, 160))
-				timedLabel(refs.Toast, "Recógelo en el menú → Perfil: +" .. tostring(achievement.Coins) .. " 🪙", 4)
+				timedLabel(refs.Toast, "Recógelo en el menú → Perfil: +" .. tostring(achievement.Coins) .. " 💰", 4)
 				RewardFX.EdgeFlash(Color3.fromRGB(120, 255, 160), 0.5)
 				RewardFX.Fanfare(false)
 				break -- (uno por actualización: si saltan varios a la vez, el resto sale en el Perfil)

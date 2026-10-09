@@ -189,7 +189,7 @@ local function renderInfo()
 		actionLabel.Text = "EQUIPAR"
 		yellow = true
 	elseif price then
-		actionLabel.Text = string.format("%sCOMPRAR  🪙 %d", onSale and "🔥 " or "", price)
+		actionLabel.Text = string.format("%sCOMPRAR  💰 %d", onSale and "🔥 " or "", price)
 		yellow = data ~= nil and (data.Coins or 0) >= price
 		actionLabel.TextColor3 = yellow and DARK or Colors.TextDim
 	else

@@ -9,6 +9,7 @@ local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 local Theme = require(script.Parent.Theme)
 local UISound = require(script.Parent.UISound)
 local PlayerCards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PlayerCards"))
+local Icons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Icons"))
 
 local C = {}
 local Colors = Theme.Colors
@@ -174,6 +175,32 @@ end
 
 -- role: "Title" | "TitleItalic" | "Number" | "Body" | "BodyBold"
 function C.text(props)
+	-- (un icono propio en un hueco de texto: se dibuja la imagen, ajustada al mismo hueco)
+	if Icons.IsImage(props.Text) then
+		local size = props.Size or UDim2.fromOffset((props.TextSize or Theme.Size.Body) + 12, (props.TextSize or Theme.Size.Body) + 12)
+		local holder = new("Frame", {
+			BackgroundTransparency = 1,
+			Size = size,
+			Position = props.Position or UDim2.new(),
+			AnchorPoint = props.Anchor or props.AnchorPoint or Vector2.new(),
+			LayoutOrder = props.Order or 0,
+			ZIndex = props.ZIndex or 1,
+			Name = props.Name or "Icon",
+			Parent = props.Parent,
+		})
+		new("ImageLabel", {
+			Name = "Image",
+			BackgroundTransparency = 1,
+			Image = props.Text,
+			ScaleType = Enum.ScaleType.Fit,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(0.9, 0.9),
+			ZIndex = props.ZIndex or 1,
+			Parent = holder,
+		})
+		return holder
+	end
 	local role = props.Role or "Body"
 	local label = new("TextLabel", {
 		BackgroundTransparency = 1,
@@ -323,6 +350,47 @@ function C.feel(button, opts)
 	return scale
 end
 
+-- Icono: una imagen propia (Shared/Icons, "rbxassetid://...") o, si no, un emoji o texto como siempre.
+-- props: Icon, Size, Position, TextSize (tamaño del emoji; la imagen se ajusta a ese alto), Color,
+-- Role, Name, ZIndex, Parent
+function C.icon(props)
+	if Icons.IsImage(props.Icon) then
+		local side = (props.TextSize or 18) + 12
+		local holder = new("Frame", {
+			Name = props.Name or "Icon",
+			BackgroundTransparency = 1,
+			Size = props.Size or UDim2.fromOffset(side, side),
+			Position = props.Position,
+			ZIndex = props.ZIndex,
+			Parent = props.Parent,
+		})
+		new("ImageLabel", {
+			Name = "Image",
+			BackgroundTransparency = 1,
+			Image = props.Icon,
+			ScaleType = Enum.ScaleType.Fit,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(side, side),
+			ZIndex = props.ZIndex,
+			Parent = holder,
+		})
+		return holder
+	end
+	return C.text({
+		Name = props.Name,
+		Text = props.Icon or "",
+		Role = props.Role or "Title",
+		TextSize = props.TextSize or 18,
+		Color = props.Color,
+		AlignX = Enum.TextXAlignment.Center,
+		Size = props.Size,
+		Position = props.Position,
+		ZIndex = props.ZIndex,
+		Parent = props.Parent,
+	})
+end
+
 -- Botón del flujo. opts: Text, Icon, Style ("Primary" amarillo | "Menu" lateral | "Ghost" | "Danger"),
 -- Size, Position, Anchor, Order, Parent, OnClick, TextSize, Sub (texto pequeño debajo), Sound
 function C.button(opts)
@@ -379,13 +447,12 @@ function C.button(opts)
 		Parent = button,
 	}, { C.padding(0, 14, 0, style == "Menu" and 16 or 14) })
 	if hasIcon then
-		C.text({
+		C.icon({
 			Name = "Icon",
-			Text = opts.Icon,
+			Icon = opts.Icon,
 			Role = "TitleItalic",
 			TextSize = textSize,
 			Color = fg,
-			AlignX = Enum.TextXAlignment.Center,
 			Size = UDim2.new(0, textSize + 8, 1, 0),
 			ZIndex = button.ZIndex + 1,
 			Parent = inner,
@@ -442,7 +509,7 @@ function C.setSelected(button, selected)
 	if label then
 		tween(label, Theme.Time.Fast, { TextColor3 = fg })
 	end
-	if icon then
+	if icon and icon:IsA("TextLabel") then
 		tween(icon, Theme.Time.Fast, { TextColor3 = fg })
 	end
 end
@@ -547,7 +614,7 @@ end
 -- Moneda/divisa de la barra superior: icono, cantidad y botón "+" amarillo
 function C.currency(parent, icon, order, onPlus)
 	local box = C.panel({ Size = UDim2.fromOffset(150, 40), Order = order, Parent = parent })
-	C.text({ Text = icon, Role = "Title", TextSize = 22, AlignX = Enum.TextXAlignment.Center, Size = UDim2.new(0, 36, 1, 0), Parent = box })
+	C.icon({ Icon = icon, Role = "Title", TextSize = 22, Size = UDim2.new(0, 36, 1, 0), Parent = box })
 	local amount = C.text({ Name = "Amount", Text = "0", Role = "Number", TextSize = 22, Size = UDim2.new(1, -78, 1, 0), Position = UDim2.fromOffset(36, 0), Parent = box })
 	if onPlus then
 		local plus = new("TextButton", {

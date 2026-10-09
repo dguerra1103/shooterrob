@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
+local Icons = require(Shared.Icons)
 local Shop = require(Shared.Shop)
 local Catalog = require(Shared.Economy.CosmeticCatalog)
 local Products = require(Shared.Economy.Products)
@@ -173,7 +174,7 @@ local function bundleCard(bundle, opts)
 		C.corner(4),
 		C.new("UIGradient", { Rotation = 35, Color = ColorSequence.new(colors[1], colors[2] or colors[1]) }),
 	})
-	C.text({ Text = bundle.Icon or "📦", TextSize = 54, AlignX = Enum.TextXAlignment.Center, Scaled = true, Position = UDim2.fromOffset(10, 14), Size = UDim2.fromOffset(phone and 130 or 190, phone and 60 or 76), Parent = card })
+	C.text({ Text = bundle.Icon or Icons.Crate, TextSize = 54, AlignX = Enum.TextXAlignment.Center, Scaled = true, Position = UDim2.fromOffset(10, 14), Size = UDim2.fromOffset(phone and 130 or 190, phone and 60 or 76), Parent = card })
 	C.text({ Text = C.upper(bundle.Name or "PACK DE INICIO"), Role = "TitleItalic", TextSize = 22, Color = Colors.White, Stroke = 1, Wrap = true, Scaled = true, AlignX = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(10, phone and 80 or 96), Size = UDim2.fromOffset(phone and 130 or 190, phone and 50 or 56), Parent = card })
 	if opts.Tag then
 		C.text({ Text = opts.Tag, Role = "Title", TextSize = 13, Color = Colors.White, AlignX = Enum.TextXAlignment.Center, Position = UDim2.new(0, 10, 1, -30), Size = UDim2.fromOffset(phone and 130 or 190, 18), Parent = card })
@@ -205,7 +206,7 @@ local function bundleCard(bundle, opts)
 	if (bundle.Coins or 0) > 0 then
 		local holder = C.new("Frame", { Name = "B_Coins", BackgroundTransparency = 1, Size = UDim2.fromOffset(cell, cell), LayoutOrder = 99, Parent = row })
 		local art = ItemArt.Backdrop(holder, "Legendario", { Size = UDim2.fromScale(1, 1) })
-		C.text({ Text = "🪙", TextSize = 40, AlignX = Enum.TextXAlignment.Center, Scaled = true, Position = UDim2.fromScale(0.2, 0.08), Size = UDim2.fromScale(0.6, 0.55), Parent = art })
+		C.text({ Text = "💰", TextSize = 40, AlignX = Enum.TextXAlignment.Center, Scaled = true, Position = UDim2.fromScale(0.2, 0.08), Size = UDim2.fromScale(0.6, 0.55), Parent = art })
 		C.text({ Text = tostring(bundle.Coins), Role = "Number", TextSize = 20, Color = Colors.White, AlignX = Enum.TextXAlignment.Center, Position = UDim2.fromScale(0, 0.66), Size = UDim2.fromScale(1, 0.26), Parent = art })
 	end
 	-- Lo que ya tienes y lo que vale por separado (cuentas reales)
@@ -216,10 +217,10 @@ local function bundleCard(bundle, opts)
 		local saving = math.floor((1 - bundle.Robux / value.Robux) * 100 + 0.5)
 		table.insert(lines, string.format("Por separado: <s>R$ %d</s>  ·  <font color=\"#6EE06E\">-%d%%</font>", value.Robux, saving))
 	elseif value.Complete and value.Coins > 0 and value.Robux == 0 then
-		table.insert(lines, string.format("Lo que trae vale 🪙 %d en la tienda", value.Coins))
+		table.insert(lines, string.format("Lo que trae vale 💰 %d en la tienda", value.Coins))
 	end
 	if status.Owned > 0 and status.Owned < status.Total then
-		table.insert(lines, string.format("Ya tienes %d de %d: te devolvemos 🪙 %d", status.Owned, status.Total, status.Compensation))
+		table.insert(lines, string.format("Ya tienes %d de %d: te devolvemos 💰 %d", status.Owned, status.Total, status.Compensation))
 	end
 	C.text({ Name = "Value", Text = table.concat(lines, "\n"), Rich = true, Role = "Body", TextSize = 13, Color = Colors.TextDim, Wrap = true, AlignY = Enum.TextYAlignment.Top, Position = UDim2.new(0, left, 1, phone and -64 or -70), Size = UDim2.new(1, -(left + (phone and 168 or 250)), 0, 56), Parent = card })
 	-- Precio y botones
@@ -345,7 +346,7 @@ local function renderCoins()
 	for i, pack in Shop.CoinPacks do
 		productCard(packs, {
 			Name = pack.Name,
-			Icon = "🪙",
+			Icon = Icons.Coin,
 			Title = tostring(pack.Coins),
 			Sub = C.upper(pack.Name) .. (pack.Tag and ("  ·  " .. pack.Tag .. " monedas por Robux") or ""),
 			Button = Products.Enabled(pack) and ("R$ " .. tostring(StoreData.Robux(pack))) or "PRÓXIMAMENTE",
@@ -379,9 +380,9 @@ local function renderCoins()
 	local vip = data and data.VIP
 	productCard(vipRow, {
 		Name = "VIP",
-		Icon = "👑",
+		Icon = Icons.Crown,
 		Title = "VIP",
-		Sub = "x2 XP y monedas · nombre dorado · grafiti exclusivo · +" .. (MonetizationConfig.Rules.VIPDailyCoins or 0) .. " 🪙 al día",
+		Sub = "x2 XP y monedas · nombre dorado · grafiti exclusivo · +" .. (MonetizationConfig.Rules.VIPDailyCoins or 0) .. " 💰 al día",
 		Button = vip and "✓ YA ERES VIP" or (Shop.VIPPassId ~= 0 and ("R$ " .. tostring(StoreData.Robux({ ProductId = Shop.VIPPassId, Robux = Shop.VIPRobux }, Enum.InfoType.GamePass))) or "PRÓXIMAMENTE"),
 		Enabled = not vip and Shop.VIPPassId ~= 0,
 		OnClick = function()
@@ -531,7 +532,7 @@ function Store.Build(flowController, root)
 	titleLabel = C.text({ Text = "TIENDA", Role = "TitleItalic", TextSize = 46, Position = UDim2.fromOffset(170, 14), Size = UDim2.fromOffset(300, 54), Stroke = 2, Parent = screen })
 	-- Monedas (con + que lleva a MONEDAS); los Robux los enseña Roblox en su ventana
 	local currencyRow = C.new("Frame", { Name = "Currency", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -24, 0, 22), Size = UDim2.fromOffset(160, 40), Parent = screen })
-	local _, amount = C.currency(currencyRow, "🪙", 1, function()
+	local _, amount = C.currency(currencyRow, Icons.Coin, 1, function()
 		Store.SelectTab("COINS")
 	end)
 	coinsLabel = amount

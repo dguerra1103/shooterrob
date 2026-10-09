@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
+local Icons = require(Shared.Icons)
 local Catalog = require(Shared.Economy.CosmeticCatalog)
 local WeaponModels = require(Shared.WeaponModels)
 
@@ -235,7 +236,7 @@ function Reveal.Show(payload)
 		nameText = payload.Title or "PASE"
 		rarityText = ""
 	elseif (payload.Coins or 0) > 0 then
-		local coin = C.text({ Text = "🪙", TextSize = 120, AlignX = Enum.TextXAlignment.Center, Scaled = true, Size = UDim2.fromScale(1, 0.8), Parent = center })
+		local coin = C.text({ Text = "💰", TextSize = 120, AlignX = Enum.TextXAlignment.Center, Scaled = true, Size = UDim2.fromScale(1, 0.8), Parent = center })
 		pop(coin, 0.2, 0.5)
 		nameText = "+" .. tostring(payload.Coins or 0) .. " MONEDAS"
 		rarityText = ""
@@ -261,9 +262,9 @@ function Reveal.Show(payload)
 	-- Extras: monedas devueltas y bonus de primera compra
 	local extras = {}
 	if (payload.Compensation or 0) > 0 then
-		table.insert(extras, "+" .. payload.Compensation .. " 🪙 por lo que ya tenías")
+		table.insert(extras, "+" .. payload.Compensation .. " 💰 por lo que ya tenías")
 	elseif #items > 0 and (payload.Coins or 0) > 0 and payload.Title ~= nil then
-		table.insert(extras, "+" .. payload.Coins .. " 🪙")
+		table.insert(extras, "+" .. payload.Coins .. " 💰")
 	end
 	if bonus then
 		table.insert(extras, "🎁 Bonus de primera compra: tarjeta " .. C.upper(bonus.Name))
@@ -327,7 +328,7 @@ function Reveal.Show(payload)
 		pop(equip, 0.9, 0.7)
 	end
 	if payload.Pass and Reveal.OnOpenPass then
-		local see = C.button({ Name = "SeePass", Text = "VER PASE", Icon = "🎖️", Style = "Primary", TextSize = phone and 18 or 22, Size = UDim2.fromOffset(phone and 200 or 240, phone and 48 or 56), Order = 1, Parent = buttons, OnClick = function()
+		local see = C.button({ Name = "SeePass", Text = "VER PASE", Icon = Icons.Medal, Style = "Primary", TextSize = phone and 18 or 22, Size = UDim2.fromOffset(phone and 200 or 240, phone and 48 or 56), Order = 1, Parent = buttons, OnClick = function()
 			close()
 			if Reveal.OnOpenPass then
 				Reveal.OnOpenPass()

@@ -461,7 +461,7 @@ GameConfig.XP = {
 -- Medallas de baja (como en los shooters de móvil): aviso en pantalla y XP extra (contra bots,
 -- reducida como el resto del XP). LongShot: distancia mínima en studs (sin explosivos ni cuerpo a cuerpo)
 GameConfig.Medals = {
-	FirstBlood = { Text = "🩸 PRIMERA SANGRE", Name = "Primera sangre", XP = 40 },
+	FirstBlood = { Text = "💥 PRIMERA SANGRE", Name = "Primera sangre", XP = 40 },
 	Revenge = { Text = "😤 VENGANZA", Name = "Venganza", XP = 30 },
 	LongShot = { Text = "🔭 LARGA DISTANCIA", Name = "Larga distancia", XP = 30, Distance = 90 },
 	StreakEnder = { Text = "🛑 CAZARRACHAS", Name = "Cazarrachas", XP = 50, Streak = 3 },

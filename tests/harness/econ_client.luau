@@ -195,7 +195,7 @@ check(textOf(infernoCard.Action) == "EQUIPADO ✓", "la tarjeta de la tienda dic
 -- Compra con monedas: confirmación de dos pasos
 Store.SelectTab("EMOTES")
 local poseCard = find(content, function(d) return d.Name == "Item_Pose:AlCielo" end)
-check(poseCard and find(poseCard, function(d) return d.Name == "Price" and d.Text == "🪙 900" end), "pose con su precio en monedas")
+check(poseCard and find(poseCard, function(d) return d.Name == "Price" and d.Text == "💰 900" end), "pose con su precio en monedas")
 poseCard.Action.Activated:Fire()
 local confirm = find(pg, function(d) return d.Name == "Confirm" end)
 check(confirm and find(confirm, function(d) return d.Name == "Balance" and string.find(d.Text, "te quedarán 2100", 1, true) end), "confirmación con lo que te queda")
@@ -223,7 +223,7 @@ Store.SelectTab("BUNDLES")
 local redCard = find(content, function(d) return d.Name == "Bundle_RedOps" end)
 local value = redCard and find(redCard, function(d) return d.Name == "Value" end)
 check(value and string.find(value.Text, "R$ 625", 1, true) and string.find(value.Text, "-36%", 1, true), "por separado R$ 625 (-36 %): " .. tostring(value and value.Text))
-check(string.find(value.Text, "Ya tienes 1 de 5", 1, true) and string.find(value.Text, "1790", 1, true), "parcial: ya tienes 1 de 5 y se devuelven 1790 🪙")
+check(string.find(value.Text, "Ya tienes 1 de 5", 1, true) and string.find(value.Text, "1790", 1, true), "parcial: ya tienes 1 de 5 y se devuelven 1790 💰")
 check(find(redCard, function(d) return d.Name == "B_Skin:OperacionRoja" and d:FindFirstChild("Owned") end), "lo que ya tienes sale como ✓ TUYO")
 -- Tienda sin productos (todos a 0): PRÓXIMAMENTE, sin ventanas de compra
 local artico = find(content, function(d) return d.Name == "Bundle_Artico" end)

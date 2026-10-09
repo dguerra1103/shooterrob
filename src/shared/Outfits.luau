@@ -272,13 +272,59 @@ local function restoreColors(character)
 	end
 end
 
--- Quita el traje actual del personaje (y le devuelve sus colores)
+-- Accesorios del avatar que taparían el traje: los que cubren el cuerpo (espalda, cintura, hombros,
+-- ropa en capas, disfraces de cuerpo entero) se esconden mientras se lleva un traje; el pelo y la cara
+-- se quedan, y los sombreros solo si el traje no trae casco. Se esconden (no se destruyen) para poder
+-- devolverlos al quitar el traje.
+local KEEP_ACCESSORY = {
+	[Enum.AccessoryType.Hair] = true,
+	[Enum.AccessoryType.Face] = true,
+	[Enum.AccessoryType.Eyebrow] = true,
+	[Enum.AccessoryType.Eyelash] = true,
+}
+local MAX_ACCESSORY_SIZE = 2.4 -- (studs: un accesorio mayor que esto cubre medio personaje)
+local HEAD_PIECES = { "CombatHelmet", "Pumpkin", "SantaHat", "MummyHead", "CowboyHat", "Tricorn", "KnightHelm" }
+
+local function hideAccessories(character, keepHats)
+	for _, accessory in character:GetChildren() do
+		if accessory:IsA("Accessory") then
+			local handle = accessory:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") then
+				local kind = accessory.AccessoryType
+				local keep = KEEP_ACCESSORY[kind] or (keepHats and kind == Enum.AccessoryType.Hat)
+				local size = handle.Size
+				if not keep or math.max(size.X, size.Y, size.Z) > MAX_ACCESSORY_SIZE then
+					if handle:GetAttribute("OrigTransparency") == nil then
+						handle:SetAttribute("OrigTransparency", handle.Transparency)
+					end
+					handle.Transparency = 1
+				end
+			end
+		end
+	end
+end
+
+local function restoreAccessories(character)
+	for _, accessory in character:GetChildren() do
+		if accessory:IsA("Accessory") then
+			local handle = accessory:FindFirstChild("Handle")
+			local transparency = handle and handle:GetAttribute("OrigTransparency")
+			if type(transparency) == "number" then
+				handle.Transparency = transparency
+				handle:SetAttribute("OrigTransparency", nil)
+			end
+		end
+	end
+end
+
+-- Quita el traje actual del personaje (y le devuelve sus colores y sus accesorios)
 function Outfits.Remove(character)
 	local old = character:FindFirstChild("Outfit")
 	if old then
 		old:Destroy()
 	end
 	restoreColors(character)
+	restoreAccessories(character)
 end
 
 -- Pone el traje `id` en el personaje (R15). Devuelve true si se aplicó.
@@ -316,6 +362,11 @@ function Outfits.Apply(character, id)
 	end
 
 	rememberColors(character)
+	local headgear = false
+	for _, piece in HEAD_PIECES do
+		headgear = headgear or o.Pieces[piece] == true
+	end
+	hideAccessories(character, not headgear)
 	-- La ropa clásica taparía los colores del traje
 	for _, child in character:GetChildren() do
 		if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") then

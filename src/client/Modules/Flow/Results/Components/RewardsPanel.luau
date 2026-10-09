@@ -33,7 +33,7 @@ local function icon(parent, kind)
 			C.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 232, 110), Color3.fromRGB(214, 140, 0)) }),
 			C.stroke(Color3.fromRGB(140, 90, 0), 2, 0.1),
 		})
-		C.text({ Text = "🪙", TextSize = 18, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = holder })
+		C.text({ Text = "💰", TextSize = 18, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = holder })
 	elseif kind == "Pass" then
 		-- Medalla del pase: escudo dorado
 		C.new("Frame", { BackgroundColor3 = Color3.fromRGB(255, 200, 60), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(30, 34), Parent = holder }, {
