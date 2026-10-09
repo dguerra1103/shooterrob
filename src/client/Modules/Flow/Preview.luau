@@ -53,6 +53,8 @@ local function strip(model)
 			or d:IsA("Light") or d:IsA("IKControl") or d:IsA("Fire") or d:IsA("Smoke") then
 			d:Destroy()
 		elseif d:IsA("BasePart") then
+			-- (tu propio personaje lleva el cuerpo oculto en primera persona; la copia no)
+			d.LocalTransparencyModifier = 0
 			d.CanCollide = false
 			d.CanTouch = false
 			d.CanQuery = false

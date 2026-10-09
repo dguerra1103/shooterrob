@@ -46,6 +46,11 @@ GameConfig.ModeSettings = {
 }
 -- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
 GameConfig.SoldierUniform = true
+-- Cuerpo estándar con traje o uniforme: quien lleva un traje de operador o el uniforme de soldado juega
+-- con el cuerpo de bloques normal de Roblox (mismas proporciones para todos). Sin esto, los avatares
+-- con cuerpos muy finos o disfraces se quedaban sin brazos ni piernas visibles bajo el chaleco, y cada
+-- avatar tenía un tamaño de blanco distinto. La cabeza, la cara y el pelo son los del jugador.
+GameConfig.StandardBody = true
 -- Sangre en los impactos y bajas (mapas realistas). false (por defecto): impactos realistas sin sangre
 -- (polvo y fibras de la ropa). true: una nube rojo oscuro y gotitas. OJO: en el cuestionario de
 -- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.

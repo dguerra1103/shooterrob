@@ -259,3 +259,17 @@ Módulo nuevo, solo cosmético y solo en primera persona. Escucha los avisos del
 chispas, el destello de las luces y el apagado en la recarga; sin errores en la consola. No se han visto
 en movimiento (son capturas) ni se ha medido su coste en un móvil. Las otras 16 armas usan el mismo
 código con su fila de la tabla y no se han mirado una a una.
+
+## Cuarta tanda: pulido tras probar
+
+- **Personaje sin brazos ni piernas con el uniforme:** la causa era la ropa en capas del avatar (un
+  disfraz de cuerpo entero): Roblox deja de dibujar el cuerpo que queda debajo, y esconder el accesorio
+  no lo devuelve. Ahora los trajes quitan la ropa en capas (`Outfits`), y quien lleva traje o uniforme
+  juega con el cuerpo de bloques estándar (`GameConfig.StandardBody`, en `Loadout`): mismas proporciones
+  para todos. Comprobado en el lobby y en el servidor.
+- **«HAS MUERTO»** ya no se monta con el aviso del objetivo (bajado en `HUD`).
+- **Modo QA:** el comando `Weapon` acepta también armas cuerpo a cuerpo (`QAServer`).
+- **Martillo de juguete y Guadaña:** equipados en partida y vistos en primera persona.
+  **Katana:** equipada (sale en la lista de armas), pero me eliminaron antes de la captura; no se ha
+  visto en la mano.
+- Pendiente nuevo: en el texto «ELIMINADO POR…» la silueta del arma tapa parte del nombre.

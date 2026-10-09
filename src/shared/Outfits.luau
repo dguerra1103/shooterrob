@@ -289,7 +289,12 @@ local function hideAccessories(character, keepHats)
 	for _, accessory in character:GetChildren() do
 		if accessory:IsA("Accessory") then
 			local handle = accessory:FindFirstChild("Handle")
-			if handle and handle:IsA("BasePart") then
+			if accessory:FindFirstChildWhichIsA("WrapLayer", true) then
+				-- Ropa en capas (chaquetas, disfraces de cuerpo entero): Roblox deja de dibujar el cuerpo
+				-- que queda debajo, así que esconderla no basta (el personaje se quedaba sin brazos ni
+				-- piernas bajo el chaleco). Se quita, como la camisa y el pantalón; vuelve al reaparecer
+				accessory:Destroy()
+			elseif handle and handle:IsA("BasePart") then
 				local kind = accessory.AccessoryType
 				local keep = KEEP_ACCESSORY[kind] or (keepHats and kind == Enum.AccessoryType.Hat)
 				local size = handle.Size

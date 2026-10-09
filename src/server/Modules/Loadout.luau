@@ -63,6 +63,30 @@ function Loadout.UniformFor(player, data)
 	return Outfits.Soldier(player.Team and player.Team.TeamColor.Color or nil)
 end
 
+-- Cuerpo de bloques normal para quien va con traje o uniforme (GameConfig.StandardBody)
+local function standardBody(character)
+	if GameConfig.StandardBody ~= true then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	pcall(function()
+		local description = humanoid:GetAppliedDescription()
+		for _, limb in { "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" } do
+			description[limb] = 0
+		end
+		description.BodyTypeScale = 0
+		description.ProportionScale = 0
+		description.WidthScale = 1
+		description.DepthScale = 1
+		description.HeightScale = 1
+		description.HeadScale = 1
+		humanoid:ApplyDescription(description)
+	end)
+end
+
 local function giveLoadout(player, character)
 	local data = PlayerData.WaitFor(player, 15)
 	if player.Character ~= character then
@@ -87,6 +111,10 @@ local function giveLoadout(player, character)
 		while not player:HasAppearanceLoaded() and os.clock() - started < 5 do
 			task.wait(0.1)
 		end
+		if player.Character ~= character then
+			return
+		end
+		standardBody(character)
 		if player.Character ~= character then
 			return
 		end

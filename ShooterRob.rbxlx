@@ -1648,6 +1648,11 @@ GameConfig.ModeSettings = {
 }
 -- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
 GameConfig.SoldierUniform = true
+-- Cuerpo estándar con traje o uniforme: quien lleva un traje de operador o el uniforme de soldado juega
+-- con el cuerpo de bloques normal de Roblox (mismas proporciones para todos). Sin esto, los avatares
+-- con cuerpos muy finos o disfraces se quedaban sin brazos ni piernas visibles bajo el chaleco, y cada
+-- avatar tenía un tamaño de blanco distinto. La cabeza, la cara y el pelo son los del jugador.
+GameConfig.StandardBody = true
 -- Sangre en los impactos y bajas (mapas realistas). false (por defecto): impactos realistas sin sangre
 -- (polvo y fibras de la ropa). true: una nube rojo oscuro y gotitas. OJO: en el cuestionario de
 -- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
@@ -3326,7 +3331,12 @@ local function hideAccessories(character, keepHats)
 	for _, accessory in character:GetChildren() do
 		if accessory:IsA("Accessory") then
 			local handle = accessory:FindFirstChild("Handle")
-			if handle and handle:IsA("BasePart") then
+			if accessory:FindFirstChildWhichIsA("WrapLayer", true) then
+				-- Ropa en capas (chaquetas, disfraces de cuerpo entero): Roblox deja de dibujar el cuerpo
+				-- que queda debajo, así que esconderla no basta (el personaje se quedaba sin brazos ni
+				-- piernas bajo el chaleco). Se quita, como la camisa y el pantalón; vuelve al reaparecer
+				accessory:Destroy()
+			elseif handle and handle:IsA("BasePart") then
 				local kind = accessory.AccessoryType
 				local keep = KEEP_ACCESSORY[kind] or (keepHats and kind == Enum.AccessoryType.Hat)
 				local size = handle.Size
@@ -20347,6 +20357,30 @@ function Loadout.UniformFor(player, data)
 	return Outfits.Soldier(player.Team and player.Team.TeamColor.Color or nil)
 end
 
+-- Cuerpo de bloques normal para quien va con traje o uniforme (GameConfig.StandardBody)
+local function standardBody(character)
+	if GameConfig.StandardBody ~= true then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	pcall(function()
+		local description = humanoid:GetAppliedDescription()
+		for _, limb in { "Torso", "LeftArm", "RightArm", "LeftLeg", "RightLeg" } do
+			description[limb] = 0
+		end
+		description.BodyTypeScale = 0
+		description.ProportionScale = 0
+		description.WidthScale = 1
+		description.DepthScale = 1
+		description.HeightScale = 1
+		description.HeadScale = 1
+		humanoid:ApplyDescription(description)
+	end)
+end
+
 local function giveLoadout(player, character)
 	local data = PlayerData.WaitFor(player, 15)
 	if player.Character ~= character then
@@ -20371,6 +20405,10 @@ local function giveLoadout(player, character)
 		while not player:HasAppearanceLoaded() and os.clock() - started < 5 do
 			task.wait(0.1)
 		end
+		if player.Character ~= character then
+			return
+		end
+		standardBody(character)
 		if player.Character ~= character then
 			return
 		end
@@ -30934,12 +30972,25 @@ end
 function COMMANDS.Weapon(player, args)
 	local id = args.Id
 	local def = type(id) == "string" and Weapons.Get(id)
-	if not def or def.Type ~= "Gun" then
+	if not def or (def.Type ~= "Gun" and not table.find(Weapons.Melees, id)) then
 		reply(player, "Error", "Arma desconocida: " .. tostring(id))
 		return
 	end
 	local list = Loadout.DefaultList(PlayerData.Get(player))
-	list[1] = id
+	if def.Type == "Gun" then
+		list[1] = id
+	else
+		-- (cuerpo a cuerpo: sustituye a la que lleve la clase; se saca con la tecla 3)
+		local slot = #list + 1
+		for i, name in list do
+			local other = Weapons.Get(name)
+			if other and other.Type ~= "Gun" then
+				slot = i
+				break
+			end
+		end
+		list[slot] = id
+	end
 	Loadout.Give(player, list)
 	reply(player, "Ack", "Equipada: " .. (def.DisplayName or id))
 end
@@ -44278,6 +44329,8 @@ local function strip(model)
 			or d:IsA("Light") or d:IsA("IKControl") or d:IsA("Fire") or d:IsA("Smoke") then
 			d:Destroy()
 		elseif d:IsA("BasePart") then
+			-- (tu propio personaje lleva el cuerpo oculto en primera persona; la copia no)
+			d.LocalTransparencyModifier = 0
 			d.CanCollide = false
 			d.CanTouch = false
 			d.CanQuery = false
@@ -54904,7 +54957,8 @@ local function buildFeedsAndOverlays()
 	})
 	refs.DeathText = UI.label({
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.17),
+		-- (más abajo que antes: a 0.17 se montaba con el aviso del objetivo de Buscar y destruir)
+		Position = UDim2.fromScale(0.5, 0.25),
 		Size = UDim2.fromOffset(800, 60),
 		Text = "",
 		TextSize = 40,
