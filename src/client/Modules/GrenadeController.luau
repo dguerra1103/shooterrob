@@ -81,14 +81,18 @@ function GrenadeController.CookLeft()
 end
 
 local lastKey
+local lastGunGame = nil
 local function updateWidget()
 	local gunGame = ReplicatedStorage:GetAttribute("Mode") == "GUN"
 	local active = not ClientState.InMainMenu and not gunGame
 	-- (con pantalla táctil el cartel no sale: está el botón 💣, que tampoco sale en la Escalada)
 	widget.Visible = active and not touchOnly
-	local touchButton = TouchLayout.GetButton("Grenade")
-	if touchButton then
-		touchButton.Visible = active and not ClientState.IsBlocked()
+	-- (el botón táctil lo enseña TouchLayout con sus reglas: menús, editor de HUD, muerte. Aquí solo
+	-- se esconde en la Escalada de armas, y solo al cambiar. Antes se escribía su Visible en cada
+	-- fotograma y, con el editor de HUD abierto, la granada desaparecía y no se podía colocar)
+	if touchOnly and gunGame ~= lastGunGame then
+		lastGunGame = gunGame
+		TouchLayout.SetHidden("Grenade", gunGame)
 	end
 	if not active then
 		cookStart = nil
@@ -207,6 +211,7 @@ function GrenadeController.Init()
 	end)
 
 	RunService.Heartbeat:Connect(updateWidget)
+	GrenadeController.Tick = updateWidget -- (pruebas: un fotograma)
 end
 
 return GrenadeController

@@ -399,6 +399,18 @@ check(#result.Blocking >= 1, "editor: disparar encima de apuntar se detecta")
 check(Editor.Save() == false and Editor.IsOpen(), "editor: no se guarda con disparar encima de apuntar")
 Editor.Reset()
 check(#Editor.Check().Blocking == 0, "editor: restablecer deja la disposición nueva, sin choques")
+-- (Fase 17) Con el editor abierto, los módulos que corren cada fotograma no esconden controles: la
+-- granada se escondía (GrenadeController escribía su Visible con «bloqueado» en cada fotograma)
+local GrenadeController = req(game.StarterPlayer.Client.Modules.GrenadeController)
+for _ = 1, 3 do
+	if GrenadeController.Tick then GrenadeController.Tick() end
+	TL.Tick()
+end
+local hiddenInEditor = {}
+for id, entry in TL.Entries() do
+	if not entry.Button.Visible then table.insert(hiddenInEditor, id) end
+end
+check(#hiddenInEditor == 0, "editor: se ven todos los controles tras varios fotogramas " .. table.concat(hiddenInEditor, ","))
 check(Editor.Save() == true, "editor: se guarda")
 -- (cerca sí se puede: solo se avisa)
 local near = MobileHUD.Resolve(Vector2.new(W, H), { Screen = Vector2.new(W, H), Custom = { Reload = { X = 0.66, Y = 0.8 } } })
