@@ -215,7 +215,7 @@ Pruebas nuevas o actualizadas (todas en `tests/run_all.sh`):
 Se mantienen: `touchbtns`, `hudeditor`, `mobilehud`, `phonefx`, `movement`, `abilities`, `clientboot`,
 `hudclient`.
 
-Resultado de la batería completa: ver «Resultado final» al final del documento.
+Resultado de la batería completa: ver «Resultado final» y la sección 11 (tras el arreglo de InputMode: check sin errores, run_all **151 OK, 0 fallos**).
 
 ## 9. MATRIZ
 
@@ -287,3 +287,8 @@ Prueba nueva `inputmode` (táctil + «teclado» sin ratón = HUD táctil complet
 **Para verlo en el teléfono hay que publicar** (Actions → Publicar en Roblox, a mano y con el Place
 ID; no lo hago yo) o probar en Studio con el emulador. Hasta entonces el teléfono enseña la versión
 vieja.
+
+Batería tras el arreglo (`d1daa8a`): `tests/check.sh` sin errores; `tests/run_all.sh` **OK: 151 ·
+FALLOS: 0** (150 + la prueba nueva `inputmode`). Una pasada intermedia dio 2 fallos (`enemysounds`,
+`gunfeel`) por un fallo de InputMode con valores no booleanos; arreglado comparando estrictamente con
+`true`.
