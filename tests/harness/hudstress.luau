@@ -319,6 +319,28 @@ for round = 1, 5 do
 	fire.Lift(); aim.Lift(); jump.Lift()
 end
 
+-- (Fase 17) Correr con botón (de pulsar y soltar): se ve puesto y al reaparecer ya no se corre
+Settings.Set("AutoSprint", 0)
+task.wait(0.2)
+local Movement = req(game.StarterPlayer.Client.Modules.Movement)
+local sprintFinger = fakeTouch()
+TL.Entries().Sprint.Press(sprintFinger)
+sprintFinger.Lift()
+TL.Tick()
+check(Movement.SprintHeld() == true and TL.Entries().Sprint.Active == true, "correr puesto: el botón lo enseña")
+TL.Entries().Slide.Handler("Slide", roblox.Enum.UserInputState.Begin, nil)
+TL.Tick()
+check(ClientState.Crouching ~= true or TL.Entries().Slide.Active == true, "agachado: el botón lo enseña")
+hum.Health = 0
+pcall(function() hum.Died:Fire() end)
+char, hum = newCharacter()
+task.wait(0.1)
+TL.Tick()
+check(Movement.SprintHeld() == false and TL.Entries().Sprint.Active == false, "al reaparecer no se sigue corriendo")
+check(TL.Entries().Slide.Active == false, "al reaparecer no se sigue agachado")
+Settings.Set("AutoSprint", 1)
+task.wait(0.2)
+
 -- 5) Menú abierto con el dedo encima, y cerrado: no se reactiva nada
 local finger = fakeTouch()
 TL.Entries().Fire.Press(finger)

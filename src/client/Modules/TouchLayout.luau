@@ -1032,6 +1032,9 @@ function TouchLayout.Tick()
 	end
 	TouchLayout.SetEmphasis("Reload", level)
 	TouchLayout.SetActive("Reload", ClientState.Reloading == true)
+	-- (los que son de pulsar y soltar enseñan si están puestos: agachado, correr con botón)
+	TouchLayout.SetActive("Slide", ClientState.Crouching == true)
+	TouchLayout.SetActive("Sprint", ClientState.SprintToggled == true)
 	-- (la zona segura puede cambiar sin cambiar el tamaño de la pantalla: barra de Roblox, giro)
 	local size, origin = areaSize()
 	local key = size + origin * 10000

@@ -410,6 +410,10 @@ local function onCharacter(newCharacter)
 		stopSlide = nil
 	end
 	ClientState.Sliding = false
+	-- (al reaparecer no se sigue corriendo: el botón de correr en táctil es de pulsar y soltar, y antes
+	-- quedaba encendido de la vida anterior)
+	sprintHeld = false
+	ClientState.SprintToggled = false
 	iceMover = nil -- era del personaje anterior
 	humanoid = newCharacter:WaitForChild("Humanoid")
 	wasFrozen = false -- el humanoide nuevo empieza con el salto activado (después de cambiarlo)
@@ -444,11 +448,13 @@ function Movement.Init()
 		if input and input.UserInputType == Enum.UserInputType.Touch then
 			if state == Enum.UserInputState.Begin and not ClientState.IsBlocked() then
 				sprintHeld = not sprintHeld
+				ClientState.SprintToggled = sprintHeld
 			end
 		elseif state == Enum.UserInputState.Begin then
 			sprintHeld = true
 		elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
 			sprintHeld = false
+			ClientState.SprintToggled = false
 		end
 		return Enum.ContextActionResult.Pass
 	end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
@@ -489,10 +495,14 @@ function Movement.Init()
 	Movement.TouchJumpHeld = function()
 		return jumpHeld
 	end
+	Movement.SprintHeld = function()
+		return sprintHeld
+	end
 
 	-- Si la ventana pierde el foco dejamos de correr
 	UserInputService.WindowFocusReleased:Connect(function()
 		sprintHeld = false
+		ClientState.SprintToggled = false
 	end)
 
 	player.CharacterAdded:Connect(onCharacter)
