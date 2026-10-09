@@ -494,6 +494,8 @@ end
 ---------------------------------------------------------------------------
 
 local drawDebug -- (depuración, más abajo)
+local wanted: (string, boolean?) -> boolean -- (visibilidad, más abajo)
+TouchLayout.LastCollisions = {} :: { any }
 local areaOrigin = Vector2.zero
 local stripBack: Frame? = nil
 
@@ -568,6 +570,22 @@ function TouchLayout.Relayout()
 	end
 	placeStrip()
 	hideRobloxJump()
+	-- Detector de solapes (Fase 16): en cada recolocación (giro, resolución, disposición propia,
+	-- restablecer, reaparecer...) se revisan las cajas de los controles que se ven en partida
+	local visible = {}
+	for name in buttons do
+		if layout[name] and wanted(name, true) then
+			table.insert(visible, name)
+		end
+	end
+	TouchLayout.LastCollisions = MobileHUD.Collisions(layout, visible, editing and 0 or MobileHUD.MinTouchGap)
+	if #TouchLayout.LastCollisions > 0 and GameConfig.MobileHUDDebug and RunService:IsStudio() then
+		local text = {}
+		for _, c in TouchLayout.LastCollisions do
+			table.insert(text, c[1] .. "/" .. c[2] .. " (" .. c.Kind .. ")")
+		end
+		warn("[MobileHUD] controles que se pisan: " .. table.concat(text, ", "))
+	end
 	if TouchLayout.OnRelayout then
 		TouchLayout.OnRelayout(layout, size)
 	end
@@ -608,7 +626,7 @@ end
 -- Visibilidad
 ---------------------------------------------------------------------------
 
-local function wanted(name: string, ignoreBlocked: boolean?): boolean
+wanted = function(name: string, ignoreBlocked: boolean?): boolean
 	if editing then
 		return true
 	end
@@ -664,6 +682,18 @@ end
 -- lo esconden un momento). Para colocar lo demás alrededor de los botones.
 function TouchLayout.InPlay(actionName: string): boolean
 	return buttons[actionName] ~= nil and wanted(actionName, true)
+end
+
+-- Suelta todos los controles pulsados (al morir, al reaparecer, al acabar la partida): ningún botón
+-- se queda «pulsado», disparando o apuntando, y los dedos viejos ya no pueden soltar nada nuevo
+function TouchLayout.ReleaseAll()
+	for name, entry in buttons do
+		if entry.Pressed or entry.Owner then
+			release(entry)
+			task.spawn(entry.Handler, name, Enum.UserInputState.Cancel, nil)
+		end
+	end
+	table.clear(fireTouches)
 end
 
 function TouchLayout.SetHidden(actionName: string, hidden: boolean)
@@ -795,13 +825,16 @@ end
 -- pantalla, su proporción, la escala y los insets
 ---------------------------------------------------------------------------
 
-local debugGui
+local debugGui, debugZoneGui
 drawDebug = function()
 	if not (GameConfig.MobileHUDDebug and RunService:IsStudio()) then
 		return
 	end
 	if debugGui then
 		debugGui:Destroy()
+	end
+	if debugZoneGui then
+		debugZoneGui:Destroy()
 	end
 	debugGui = Instance.new("ScreenGui")
 	debugGui.Name = "MobileHUDDebug"
@@ -858,10 +891,38 @@ drawDebug = function()
 	if zones.RightThumb then
 		box(zones.RightThumb.Min, zones.RightThumb.Max - zones.RightThumb.Min, Color3.fromRGB(255, 150, 60), " RIGHT THUMB ZONE")
 	end
-	-- BUTTON HITBOXES: zona táctil de cada control visible con su nombre, tamaño real y opacidad
+	-- VISUAL RECT (blanco) y TOUCH RECT (amarillo) de cada control; en ROJO los que chocan
+	local bad = {}
+	for _, c in MobileHUD.Collisions(layout, visible, MobileHUD.MinTouchGap) do
+		bad[c[1]], bad[c[2]] = true, true
+	end
 	for _, name in visible do
 		local info = layout[name]
-		box(info.Center - info.Hit / 2, info.Hit, Color3.fromRGB(255, 220, 60), string.format("%s %d %d%%", name, info.Size.X, info.Opacity * 100))
+		local red = bad[name]
+		box(info.Center - info.Size / 2, info.Size, red and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(240, 240, 240), nil, red)
+		box(info.Center - info.Hit / 2, info.Hit, red and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(255, 220, 60), string.format(" %s %d %d%%", name, info.Size.X, info.Opacity * 100))
+	end
+	-- Elementos de las zonas del HUD (otra pantalla: la zona segura del dispositivo); en ROJO si pisan
+	-- algo
+	local okZones, HUDZones = pcall(require, script.Parent.HUDZones)
+	if okZones then
+		local zoneGui = Instance.new("ScreenGui")
+		zoneGui.Name = "Zones"
+		zoneGui.IgnoreGuiInset = true
+		zoneGui.DisplayOrder = 91
+		zoneGui.ResetOnSpawn = false
+		zoneGui.Parent = gui.Parent
+		debugZoneGui = zoneGui
+		local wrong = {}
+		for _, issue in HUDZones.Validate() do
+			wrong[issue[1]] = true
+		end
+		local saved = debugGui
+		debugGui = zoneGui
+		for id, rect in HUDZones.Placed do
+			box(rect.Min, rect.Max - rect.Min, wrong[id] and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(60, 230, 230), " " .. id, wrong[id])
+		end
+		debugGui = saved
 	end
 end
 
@@ -873,10 +934,18 @@ end
 -- la zona segura y el botón de saltar de Roblox (aparece un poco después: se esconde). Solo se toca
 -- algo si cambia.
 local lastAim, lastArea = nil, nil
+local lastDebugDraw = 0
 function TouchLayout.Tick()
 	local _, ClientState = settings()
 	if not ClientState or not gui then
 		return
+	end
+	if ClientState.IsBlocked() ~= blockedNow then
+		TouchLayout.RefreshVisibility()
+	end
+	if GameConfig.MobileHUDDebug and os.clock() - lastDebugDraw > 1 then
+		lastDebugDraw = os.clock()
+		task.defer(drawDebug)
 	end
 	local aiming = ClientState.Aiming == true
 	if aiming ~= lastAim then
@@ -920,6 +989,18 @@ local function watch()
 		camera:GetPropertyChangedSignal("ViewportSize"):Connect(TouchLayout.Relayout)
 	end
 	watchFireDrag()
+	-- Al morir y al reaparecer, todo suelto (Fase 16)
+	local function onCharacter(character)
+		TouchLayout.ReleaseAll()
+		local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+		if humanoid and humanoid:IsA("Humanoid") then
+			humanoid.Died:Connect(TouchLayout.ReleaseAll)
+		end
+	end
+	player.CharacterAdded:Connect(onCharacter)
+	if player.Character then
+		task.spawn(onCharacter, player.Character)
+	end
 	-- Ajustes de controles: disposición, correr solo, disparo izquierdo y disparar arrastrando
 	local _, ClientState = settings()
 	if ClientState then

@@ -270,8 +270,65 @@ local function close(save: boolean, silent: boolean?)
 	end
 end
 
-function HUDEditor.Save()
+-- Revisión de la disposición que se está editando (Fase 16, MobileHUD.CheckLayout): solo bloquea
+-- dos controles de combate uno encima del otro; avisa si se tocan o si algo entra en el centro
+function HUDEditor.Check()
+	local size = areaOf()
+	local s = Settings.Get()
+	local ids = {}
+	for _, control in MobileHUD.Controls do
+		local off = (control.Id == "LeftFire" and (s.LeftFire or 0) ~= 1) or (control.Id == "Sprint" and (s.AutoSprint or 1) == 1)
+		if not off and TouchLayout.Entries()[control.Id] then
+			table.insert(ids, control.Id)
+		end
+	end
+	return MobileHUD.CheckLayout(size, TouchLayout.GetLayout(), ids)
+end
+
+local function describe(pair): string
+	local a, b = MobileHUD.ById[pair[1]], MobileHUD.ById[pair[2]]
+	if pair[2] == "Center" then
+		return (a and a.Name or pair[1]) .. " está en el centro (tapa la mira)"
+	end
+	return (a and a.Name or pair[1]) .. " y " .. (b and b.Name or pair[2])
+end
+
+-- Texto del estado (debajo de los botones del panel)
+local status: TextLabel? = nil
+local saveButton: TextButton? = nil
+local function showStatus()
+	if not status then
+		return
+	end
+	local check = HUDEditor.Check()
+	local label = status :: TextLabel
+	if #check.Blocking > 0 then
+		label.Text = "No se puede guardar: " .. describe(check.Blocking[1]) .. " están uno encima del otro"
+		label.TextColor3 = Color3.fromRGB(255, 110, 100)
+	elseif #check.Warnings > 0 then
+		local pair = check.Warnings[1]
+		label.Text = "Aviso: " .. describe(pair) .. (pair[2] == "Center" and "" or " se tocan")
+		label.TextColor3 = YELLOW
+	else
+		label.Text = "Sin choques"
+		label.TextColor3 = Color3.fromRGB(150, 220, 160)
+	end
+	if saveButton then
+		saveButton.AutoButtonColor = #check.Blocking == 0
+		saveButton.BackgroundTransparency = #check.Blocking > 0 and 0.6 or 0
+	end
+	return check
+end
+
+function HUDEditor.Save(): boolean
+	-- (dos controles de combate uno encima del otro: no se guarda, se dice por qué)
+	local check = HUDEditor.Check()
+	if #check.Blocking > 0 then
+		showStatus()
+		return false
+	end
 	close(true)
+	return true
 end
 
 function HUDEditor.Cancel()
@@ -345,7 +402,7 @@ local function build()
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 6),
-		Size = UDim2.fromOffset(width, 112),
+		Size = UDim2.fromOffset(width, 130),
 		BackgroundColor3 = PANEL,
 		BackgroundTransparency = 0.08,
 		Active = true,
@@ -398,12 +455,23 @@ local function build()
 	end
 	action(1, "RESTABLECER", Color3.fromRGB(52, 56, 68), Color3.new(1, 1, 1), HUDEditor.Reset)
 	action(2, "CANCELAR", Color3.fromRGB(52, 56, 68), Color3.new(1, 1, 1), HUDEditor.Cancel)
-	action(3, "GUARDAR", YELLOW, Color3.fromRGB(20, 20, 24), HUDEditor.Save)
+	saveButton = action(3, "GUARDAR", YELLOW, Color3.fromRGB(20, 20, 24), HUDEditor.Save)
+	status = UI.label({
+		Name = "Status",
+		Position = UDim2.fromOffset(12, 108),
+		Size = UDim2.new(1, -24, 0, 16),
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Text = "",
+		Parent = panel,
+	})
 	refreshPanel = function()
 		local control = MobileHUD.ById[selected]
 		title.Text = (control and control.Name or selected) .. "  ·  arrastra para mover"
 		showSize()
 		showOpacity()
+		showStatus()
 	end
 	refreshPanel()
 end
@@ -424,6 +492,7 @@ function HUDEditor.Open(closed: (() -> ())?): boolean
 			previousRelayout(layout, size)
 		end
 		drawOverlay(layout)
+		showStatus()
 	end
 	build()
 	apply()
