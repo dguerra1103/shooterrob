@@ -21,6 +21,7 @@ local Sounds = require(Shared.Sounds)
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 local Killcam = require(script.Parent.Killcam)
 local MainMenu = require(script.Parent.MainMenu)
 local Menu = require(script.Parent.Menu)
@@ -418,10 +419,12 @@ local function build()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = refs.SpectatePanel,
 	})
+	local touchOnly = InputMode.TouchUI()
 	UI.label({
 		Position = UDim2.fromOffset(0, 40),
 		Size = UDim2.new(1, 0, 0, 26),
-		Text = "Haz clic / clic derecho para cambiar",
+		-- (en táctil se cambia con las flechas: tocar la pantalla solo salta la killcam)
+		Text = touchOnly and "Toca las flechas para cambiar" or "Haz clic / clic derecho para cambiar",
 		TextSize = 20,
 		TextColor3 = Color3.fromRGB(215, 215, 230),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -439,6 +442,24 @@ local function build()
 		Sounds.Play("Click")
 		stopWatching()
 	end)
+	-- Táctil (Fase 17): flechas para cambiar a quién observas (antes no había forma en el móvil)
+	if touchOnly then
+		for i, step in { -1, 1 } do
+			local arrow = UI.button({
+				Name = step < 0 and "PrevTarget" or "NextTarget",
+				Position = UDim2.fromOffset(240 + (i - 1) * 62, 90),
+				Size = UDim2.fromOffset(54, 46),
+				Text = step < 0 and "◀" or "▶",
+				TextSize = 22,
+				BackgroundColor3 = Color3.fromRGB(40, 44, 56),
+				Parent = refs.SpectatePanel,
+			}, { UI.stroke(Color3.new(1, 1, 1), 2, 0.4) })
+			arrow.Activated:Connect(function()
+				Sounds.Play("Click")
+				cycle(step)
+			end)
+		end
+	end
 
 	refs.Toast = UI.label({
 		AnchorPoint = Vector2.new(0.5, 1),

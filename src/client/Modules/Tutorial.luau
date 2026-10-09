@@ -27,11 +27,11 @@ local PC_TIPS = {
 }
 local TOUCH_TIPS = {
 	{ "🕹", "Joystick a la izquierda para moverte" },
-	{ "🔫", "Botón Disparar a la derecha · Apuntar al lado" },
-	{ "⚡", "Iconos abajo: impulso, supersalto y poción" },
-	{ "💣", "Botones de granada, deslizar y cambiar arma" },
-	{ "🛒", "Botón de la tienda: pase, retos, armas y skins" },
-	{ "🎁", "Toca el regalo de arriba cuando esté listo" },
+	{ "🔫", "Disparar: el botón grande de la derecha · Apuntar a su izquierda" },
+	{ "⚡", "Encima del joystick: impulso, supersalto, poción y granada" },
+	{ "⬆", "Saltar y agacharte junto a Disparar · Recargar debajo de Apuntar" },
+	{ "🔄", "Abajo, la tarjeta del arma: tócala para cambiar de arma" },
+	{ "⚙", "Arriba a la derecha: menú y tienda, marcador, emotes y grafiti" },
 }
 
 local shown = false
