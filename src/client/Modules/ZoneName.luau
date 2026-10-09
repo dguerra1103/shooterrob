@@ -157,7 +157,7 @@ function ZoneName.Update(dt)
 	local UserInputService = game:GetService("UserInputService")
 	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 	local below = phone and 40 or (touchOnly and 50 or 6)
-	label.Position = UDim2.fromOffset(phone and 14 or 16, top + below)
+	label.Position = UDim2.fromOffset(phone and (ClientState.MinimapLeft or 14) or 16, top + below)
 end
 
 function ZoneName.Init()

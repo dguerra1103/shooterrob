@@ -145,13 +145,47 @@ local function buildTopBar()
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-	-- Táctil: marcador compacto (EQUIPO A · TIEMPO · EQUIPO B) y la línea del modo legible (≥ 12 px)
+	-- Táctil (Fase 15): marcador pequeño y horizontal, [ 43 ]  04:21  [ 38 ]: tu equipo a la izquierda
+	-- en azul, el rival a la derecha en rojo (updateScoreboard), sin cajas gruesas ni brillo. La línea
+	-- del modo solo sale cuando dice algo que cambia (calentamiento, en pie, infección...)
 	if touchHUD then
-		UI.new("UIScale", { Scale = phone and 0.72 or 0.9, Parent = top })
-		refs.Mode.TextSize = 18
-		refs.Mode.Size = UDim2.new(1, 200, 0, 20)
-		refs.Mode.Position = UDim2.fromOffset(-100, 46)
-		top.Position = UDim2.new(0.5, 0, 0, 6)
+		local pillW, timerW, h, gap = 46, 70, 28, 5
+		top.Size = UDim2.fromOffset(pillW * 2 + timerW + gap * 2, h)
+		top.Position = UDim2.new(0.5, 0, 0, 8)
+		local function restyle(box, x, w, color, alpha)
+			box.Position = UDim2.fromOffset(x, 0)
+			box.Size = UDim2.fromOffset(w, h)
+			box.BackgroundColor3 = color or box.BackgroundColor3
+			box.BackgroundTransparency = alpha
+			for _, child in box:GetChildren() do
+				if child:IsA("UIGradient") then
+					child:Destroy()
+				elseif child:IsA("UIStroke") then
+					child.Color = Color3.new(1, 1, 1)
+					child.Thickness = 1
+					child.Transparency = 0.75
+				elseif child:IsA("UICorner") then
+					child.CornerRadius = UDim.new(0, 7)
+				end
+			end
+		end
+		restyle(refs.ScoreABox, 0, pillW, nil, 0.12)
+		restyle(timerBox, pillW + gap, timerW, Color3.fromRGB(14, 16, 22), 0.4)
+		restyle(refs.ScoreBBox, pillW + gap + timerW + gap, pillW, nil, 0.12)
+		refs.ScoreA.TextSize, refs.ScoreB.TextSize, refs.Timer.TextSize = 19, 19, 16
+		for _, label in { refs.ScoreA, refs.ScoreB, refs.Timer } do
+			label.TextStrokeTransparency = 0.7
+		end
+		refs.Mode.TextSize = 12
+		refs.Mode.Size = UDim2.new(1, 240, 0, 16)
+		refs.Mode.Position = UDim2.fromOffset(-120, h + 3)
+		refs.Mode.TextStrokeTransparency = 0.5
+		refs.FlagA.Size = UDim2.fromOffset(140, h)
+		refs.FlagA.Position = UDim2.fromOffset(-8, 0)
+		refs.FlagA.TextSize = 13
+		refs.FlagB.Size = UDim2.fromOffset(140, h)
+		refs.FlagB.Position = UDim2.fromOffset(pillW * 2 + timerW + gap * 2 + 8, 0)
+		refs.FlagB.TextSize = 13
 	end
 end
 
@@ -331,6 +365,44 @@ local function buildWeaponPanel()
 		Parent = panel,
 	})
 
+	-- Táctil (Fase 15): munición compacta junto a recargar, SEPARADA de los botones: el arma en
+	-- pequeño y «30 | 120» (el cargador grande, la reserva pequeña). Blanco normal, naranja con pocas
+	-- balas, rojo vacío. La coloca layoutTouchHUD.
+	if touchHUD then
+		local block = UI.new("Frame", {
+			Name = "TouchAmmo",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Size = UDim2.fromOffset(120, 40),
+			BackgroundTransparency = 1,
+			Parent = gui,
+		})
+		refs.TouchAmmo = block
+		refs.TouchWeapon = UI.label({
+			Name = "Weapon",
+			Size = UDim2.new(1, 0, 0, 15),
+			Text = "",
+			TextSize = 12,
+			Font = Enum.Font.GothamBold,
+			TextColor3 = Color3.fromRGB(200, 204, 214),
+			TextStrokeTransparency = 0.6,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = block,
+		})
+		refs.TouchAmmoText = UI.label({
+			Name = "Ammo",
+			Position = UDim2.fromOffset(0, 14),
+			Size = UDim2.new(1, 0, 0, 26),
+			Text = "",
+			TextSize = 22,
+			Font = Enum.Font.GothamBlack,
+			RichText = true,
+			TextStrokeTransparency = 0.55,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = block,
+		})
+	end
+
 	-- Ranuras de armas (derecha) con icono 3D del arma
 	-- (en el teléfono no se ven: ahí están los botones táctiles; se cambia de arma con ⇄)
 	local slots = UI.new("Frame", {
@@ -474,6 +546,52 @@ local function buildPlayerPanel()
 		TextStrokeTransparency = 0,
 		Parent = health,
 	})
+
+	-- Táctil (Fase 15): vida compacta, «100» y una barra muy fina al lado, sin caja; la coloca
+	-- layoutTouchHUD (abajo, a la izquierda del centro, nunca encima de la mira)
+	if touchHUD then
+		health.BackgroundTransparency = 1
+		health.Size = UDim2.fromOffset(132, 22)
+		for _, child in health:GetChildren() do
+			if child:IsA("UIStroke") or child:IsA("UICorner") or (child:IsA("TextLabel") and child ~= refs.HealthText) then
+				child:Destroy()
+			end
+		end
+		-- (cruz pequeña dibujada: dos barras, sin emoji)
+		local cross = UI.new("Frame", { Name = "Cross", Size = UDim2.fromOffset(12, 12), Position = UDim2.new(0, 0, 0.5, -6), BackgroundTransparency = 1, Parent = health })
+		UI.new("Frame", { Size = UDim2.fromOffset(12, 4), Position = UDim2.fromOffset(0, 4), BackgroundColor3 = Color3.fromRGB(110, 230, 140), BorderSizePixel = 0, Parent = cross }, { UI.corner(2) })
+		UI.new("Frame", { Size = UDim2.fromOffset(4, 12), Position = UDim2.fromOffset(4, 0), BackgroundColor3 = Color3.fromRGB(110, 230, 140), BorderSizePixel = 0, Parent = cross }, { UI.corner(2) })
+		refs.HealthText.Parent = health
+		refs.HealthText.AnchorPoint = Vector2.new(0, 0.5)
+		refs.HealthText.Position = UDim2.new(0, 17, 0.5, 0)
+		refs.HealthText.Size = UDim2.fromOffset(34, 20)
+		refs.HealthText.TextSize = 16
+		refs.HealthText.Font = Enum.Font.GothamBlack
+		refs.HealthText.TextXAlignment = Enum.TextXAlignment.Left
+		refs.HealthText.TextStrokeTransparency = 0.55
+		local bar = UI.new("Frame", {
+			Name = "Bar",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 54, 0.5, 1),
+			Size = UDim2.new(1, -54, 0, 4),
+			BackgroundColor3 = Color3.fromRGB(14, 16, 22),
+			BackgroundTransparency = 0.45,
+			BorderSizePixel = 0,
+			Parent = health,
+		}, { UI.corner(2) })
+		refs.HealthChip.Parent = bar
+		refs.HealthChip.BackgroundTransparency = 0.45
+		refs.HealthFill.Parent = bar
+		for _, piece in { refs.HealthChip, refs.HealthFill } do
+			for _, child in piece:GetChildren() do
+				if child:IsA("UIGradient") then
+					child:Destroy()
+				elseif child:IsA("UICorner") then
+					child.CornerRadius = UDim.new(0, 2)
+				end
+			end
+		end
+	end
 
 	-- Racha (barra vertical a la izquierda, como en la captura)
 	local streakBar = UI.new("Frame", {
@@ -733,7 +851,7 @@ local function buildFeedsAndOverlays()
 		Parent = refs.KillBanner,
 	})
 	refs.KillTitle = UI.label({
-		Position = UDim2.fromOffset(70, 2),
+		Position = UDim2.fromOffset(touchHUD and 18 or 70, 2),
 		Size = UDim2.fromOffset(370, 34),
 		Text = "",
 		TextSize = 32,
@@ -743,7 +861,7 @@ local function buildFeedsAndOverlays()
 		Parent = refs.KillBanner,
 	})
 	refs.KillSub = UI.label({
-		Position = UDim2.fromOffset(70, 36),
+		Position = UDim2.fromOffset(touchHUD and 18 or 70, 36),
 		Size = UDim2.fromOffset(370, 24),
 		Text = "",
 		TextSize = 20,
@@ -992,9 +1110,10 @@ local function popup(text, color)
 		end
 	end
 	local label = UI.label({
-		Size = UDim2.fromOffset(phone and 260 or 400, phone and 20 or 26),
+		Size = UDim2.fromOffset(touchHUD and 220 or (phone and 260 or 400), phone and 20 or 26),
 		Text = text,
-		TextXAlignment = phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center,
+		-- (táctil, Fase 15: a la izquierda, bajo el minimapa; ver layoutTouchHUD)
+		TextXAlignment = touchHUD and Enum.TextXAlignment.Left or (phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center),
 		TextSize = 22,
 		TextScaled = true, -- (los avisos largos se encogen en vez de salirse)
 		TextColor3 = color or Color3.fromRGB(255, 230, 120),
@@ -1266,6 +1385,8 @@ local function showKillBanner(victim, headshot)
 	refs.KillTitle.TextColor3 = MULTI_COLORS[multiCount] or (multi and Color3.fromRGB(255, 215, 60)) or Color3.fromRGB(255, 70, 70)
 	refs.KillSub.Text = tostring(victim) .. (headshot and "  ·  DISPARO A LA CABEZA" or "")
 	refs.KillIcon.Text = headshot and "🎯" or "💀"
+	-- (táctil, Fase 15: sin emoji; la franja de color ya dice el tipo de baja)
+	refs.KillIcon.Visible = not touchHUD
 	refs.KillAccent.BackgroundColor3 = (headshot or multi) and Color3.fromRGB(255, 205, 60) or Color3.fromRGB(255, 70, 70)
 	-- (la placa entra desde la izquierda, rápida, y mide lo que el texto: en el teléfono no pisa el
 	-- registro de bajas)
@@ -1312,28 +1433,46 @@ local function onKillFeed(info)
 	local text
 	local weapon = info.Weapon ~= "" and (" [" .. info.Weapon .. "] ") or " ✖ "
 	if info.Headshot then
-		weapon ..= "🎯 "
+		weapon ..= touchHUD and '<font color="#FFD23C">HS</font> ' or "🎯 "
 	end
-	local victim = string.format('<font color="%s">%s</font>', UI.hex(UI.teamTint(info.VictimColor, true)), info.Victim or "?")
+	local victimName = info.Victim or "?"
+	local victim = string.format('<font color="%s">%s</font>', UI.hex(UI.teamTint(info.VictimColor, true)), victimName)
 	if killer then
 		text = string.format('<font color="%s">%s</font>%s%s', UI.hex(UI.teamTint(info.KillerColor, true)), killer, weapon, victim)
 	else
 		text = victim .. " se eliminó"
 	end
-	-- (táctil: más estrecho y bajo, con el texto a 14 px sin encoger)
+	-- (táctil, Fase 15: filas compactas de ancho fijo con el texto a 13 px sin encoger; los nombres
+	-- largos se cortan con «…» para que nunca se alargue hacia la zona de la cámara)
 	local rowW, rowH, textSize = 380, 26, 17
 	if touchHUD then
-		rowW, rowH, textSize = 250, 19, 14
+		rowW, rowH, textSize = 230, 20, 13
+		local function short(name)
+			name = tostring(name or "?")
+			if (utf8.len(name) or #name) > 12 then
+				local cut = utf8.offset(name, 12)
+				return string.sub(name, 1, (cut or 12) - 1) .. "…"
+			end
+			return name
+		end
+		killer = killer and short(killer)
+		victimName = short(victimName)
+		victim = string.format('<font color="%s">%s</font>', UI.hex(UI.teamTint(info.VictimColor, true)), victimName)
+		if killer then
+			text = string.format('<font color="%s">%s</font>%s%s', UI.hex(UI.teamTint(info.KillerColor, true)), killer, weapon, victim)
+		else
+			text = victim .. " se eliminó"
+		end
 	end
 	local entry = UI.new("Frame", {
 		Size = UDim2.fromOffset(rowW, rowH),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.55,
+		BackgroundColor3 = touchHUD and Color3.fromRGB(14, 16, 22) or Color3.new(0, 0, 0),
+		BackgroundTransparency = touchHUD and 0.5 or 0.55,
 		LayoutOrder = nextOrder(),
 		Parent = refs.KillFeed,
-	}, { UI.corner(6) })
-	if killer == player.Name or info.Victim == player.Name then
-		UI.stroke(Color3.fromRGB(255, 210, 80), 2, 0.2).Parent = entry
+	}, { UI.corner(touchHUD and 5 or 6) })
+	if info.Killer == player.Name or info.Victim == player.Name then
+		UI.stroke(Color3.fromRGB(255, 210, 80), touchHUD and 1 or 2, touchHUD and 0.3 or 0.2).Parent = entry
 	end
 	-- Como en los shooters: "Asesino [silueta del arma] Víctima" (si el arma tiene modelo; si no, texto)
 	local weaponDef = killer and type(info.WeaponId) == "string" and Weapons.Get(info.WeaponId)
@@ -1372,9 +1511,9 @@ local function onKillFeed(info)
 		name(1, killer, UI.teamTint(info.KillerColor, true))
 		iconHolder.Parent = entry
 		if info.Headshot then
-			UI.label({ LayoutOrder = 3, Size = UDim2.fromOffset(18, rowH), Text = "🎯", TextSize = textSize - 2, Parent = entry })
+			UI.label({ LayoutOrder = 3, Size = UDim2.fromOffset(touchHUD and 20 or 18, rowH), Text = touchHUD and "HS" or "🎯", TextSize = touchHUD and 12 or textSize - 2, Font = touchHUD and Enum.Font.GothamBold or nil, TextColor3 = touchHUD and Color3.fromRGB(255, 210, 60) or nil, Parent = entry })
 		end
-		name(4, info.Victim or "?", UI.teamTint(info.VictimColor, true))
+		name(4, victimName, UI.teamTint(info.VictimColor, true))
 	else
 		UI.label({
 			Size = UDim2.new(1, -12, 1, 0),
@@ -1963,19 +2102,25 @@ local function updateScoreboard()
 	local mapName = ReplicatedStorage:GetAttribute("MapName") or ""
 	local teamMode = ReplicatedStorage:GetAttribute("TeamMode") ~= false
 	refs.Timer.Text = UI.formatTime(timeLeft)
+	-- (táctil: la línea fija «mapa · modo · primero a N» no se enseña en combate; solo lo que cambia)
+	local modeStatic = false
 	if state == "Intermission" then
 		refs.Mode.Text = "Calentamiento · " .. mapName .. " · vota el siguiente mapa (" .. timeLeft .. ")"
 	elseif state == "Ended" then
 		refs.Mode.Text = "Fin de la ronda"
 	else
 		refs.Mode.Text = mapName .. " · " .. modeName .. " · Primero a " .. tostring(ReplicatedStorage:GetAttribute("ScoreToWin") or "?")
+		modeStatic = true
 		-- Eliminación: cuántos quedan en pie de cada equipo
 		local aliveA, aliveB = ReplicatedStorage:GetAttribute("AliveA"), ReplicatedStorage:GetAttribute("AliveB")
 		if aliveA and aliveB and teamA and teamB then
 			refs.Mode.Text = modeName .. " · En pie: " .. teamA .. " " .. aliveA .. " – " .. aliveB .. " " .. teamB
+			modeStatic = false
 			checkClutch(aliveA, aliveB, teamA)
 		end
 	end
+
+	refs.Mode.Visible = not (touchHUD and modeStatic)
 
 	-- Modos sin equipos: tu puntuación contra la del líder
 	if not teamMode then
@@ -2033,12 +2178,29 @@ local function updateScoreboard()
 		refs.FlagA.Text, refs.FlagA.TextColor3 = "🧑 Supervivientes", Color3.fromRGB(200, 230, 255)
 		refs.FlagB.Text, refs.FlagB.TextColor3 = "🧟 Zombis", Color3.fromRGB(150, 255, 120)
 		local zombie = player.Team and player.Team.Name == teamB and infection == "On"
+		refs.Mode.Visible = true
 		if infection == "Prep" then
 			refs.Mode.Text = modeName .. " · ¡Escóndete! La infección va a empezar"
 		elseif zombie then
 			refs.Mode.Text = modeName .. " · 🧟 Eres un zombi: ¡atrapa a los supervivientes!"
 		else
 			refs.Mode.Text = modeName .. " · ¡Sobrevive hasta que acabe el tiempo!"
+		end
+	end
+
+	-- Táctil (Fase 15): tu equipo siempre a la izquierda y en azul, el rival a la derecha en rojo
+	-- (los números, sus avisos de bandera o zona y los colores)
+	if touchHUD and teamA and teamB and player.Team and not (infection and state == "Playing") then
+		if player.Team.Name == teamB then
+			refs.ScoreA.Text, refs.ScoreB.Text = refs.ScoreB.Text, refs.ScoreA.Text
+			if zoneOwner == nil then
+				refs.FlagA.Text, refs.FlagB.Text = refs.FlagB.Text, refs.FlagA.Text
+				refs.FlagA.TextColor3, refs.FlagB.TextColor3 = refs.FlagB.TextColor3, refs.FlagA.TextColor3
+			end
+		end
+		if player.Team.Name == teamA or player.Team.Name == teamB then
+			refs.ScoreABox.BackgroundColor3 = Color3.fromRGB(46, 120, 230)
+			refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(214, 58, 58)
 		end
 	end
 
@@ -2321,31 +2483,44 @@ local function render(dt)
 		refs.AmmoBar.Visible = false
 	end
 
-	-- Táctil: tarjeta del arma junto a recargar (nombre o estado, «30 / 120» y «1/2»). Solo se
-	-- reescribe cuando cambia algo (se mira en bruto cada fotograma, sin crear textos)
+	-- Táctil (Fase 15): munición compacta junto a recargar («ARX-27» pequeño y «30 | 120») y, en la
+	-- tarjeta de cambiar arma, el arma a la que se cambia. Solo se reescribe cuando cambia algo (se
+	-- mira en bruto cada fotograma, sin crear textos)
 	if touchHUD then
 		local isGun = def ~= nil and tool ~= nil and def.Type == "Gun"
 		local reserve = isGun and (tool:GetAttribute("Reserve") or 0) or -1
-		if def ~= hudCache.CardDef or ClientState.Ammo ~= hudCache.CardAmmo or reserve ~= hudCache.CardReserve
-			or ClientState.Reloading ~= hudCache.CardReloading or hudCache.SlotText ~= hudCache.CardSlot then
+		if def ~= hudCache.CardDef or ClientState.Ammo ~= hudCache.CardAmmo or reserve ~= hudCache.CardReserve or ClientState.Reloading ~= hudCache.CardReloading then
 			hudCache.CardDef, hudCache.CardAmmo, hudCache.CardReserve = def, ClientState.Ammo, reserve
-			hudCache.CardReloading, hudCache.CardSlot = ClientState.Reloading, hudCache.SlotText
-			local title, value, color = "", "", Color3.new(1, 1, 1)
+			hudCache.CardReloading = ClientState.Reloading
+			local name, ammo, nameColor = "", "", Color3.fromRGB(200, 204, 214)
 			if def and tool then
-				title = def.DisplayName
-				value = "—"
+				name = string.upper(def.DisplayName)
+				ammo = "∞"
 				if isGun then
-					value = string.format("%d / %d", ClientState.Ammo, reserve)
-					if ClientState.Reloading then
-						title, color = "RECARGANDO…", Color3.fromRGB(140, 205, 255)
-					elseif ClientState.Ammo == 0 and reserve == 0 then
-						title, color = "SIN MUNICIÓN", Color3.fromRGB(255, 92, 72)
+					-- (blanco normal, naranja con pocas balas, rojo vacío; recargando, el nombre lo dice)
+					local color = "#FFFFFF"
+					if ClientState.Ammo <= 0 then
+						color = "#FF5C48"
 					elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
-						color = Color3.fromRGB(255, 92, 72)
+						color = "#FFB040"
+					end
+					ammo = string.format('<font color="%s">%d</font><font size="14" color="#AEB4C2">  |  %d</font>', color, ClientState.Ammo, reserve)
+					if ClientState.Reloading then
+						name, nameColor = "RECARGANDO…", Color3.fromRGB(255, 205, 60)
+					elseif ClientState.Ammo == 0 and reserve == 0 then
+						name, nameColor = "SIN MUNICIÓN", Color3.fromRGB(255, 92, 72)
 					end
 				end
 			end
-			TouchLayout.SetCard("SwapWeapon", { Title = title, Value = value, Sub = hudCache.SlotText or "", ValueColor = color })
+			setText(refs.TouchWeapon, name)
+			refs.TouchWeapon.TextColor3 = nameColor
+			setText(refs.TouchAmmoText, ammo)
+		end
+		if hudCache.NextWeapon ~= hudCache.CardNext then
+			hudCache.CardNext = hudCache.NextWeapon
+			TouchLayout.SetCard("SwapWeapon", { Title = hudCache.NextWeapon or "" })
+			-- (con una sola arma no hay a qué cambiar: la tarjeta no se ve)
+			TouchLayout.SetHidden("SwapWeapon", hudCache.NextWeapon == nil)
 		end
 	end
 
@@ -2369,6 +2544,25 @@ local function render(dt)
 		end
 	end
 	hudCache.SlotText = count > 1 and current > 0 and (current .. "/" .. count) or ""
+	-- (el arma a la que lleva el botón de cambiar: la siguiente que haya después de la actual)
+	local nextName = nil
+	if count > 1 then
+		local currentSlot = 0
+		for slot = 1, 3 do
+			if tools[slot] == tool then
+				currentSlot = slot
+			end
+		end
+		for step = 1, 3 do
+			local slotTool = tools[(currentSlot + step - 1) % 3 + 1]
+			local slotDef = slotTool and slotTool ~= tool and Weapons.Get(slotTool:GetAttribute("Weapon") or "")
+			if slotDef then
+				nextName = string.upper(slotDef.DisplayName)
+				break
+			end
+		end
+	end
+	hudCache.NextWeapon = nextName
 	for slot, row in refs.Slots do
 		local slotTool = tools[slot]
 		local weaponName = slotTool and slotTool:GetAttribute("Weapon")
@@ -2443,25 +2637,17 @@ end
 -- la pantalla, el botón de saltar de Roblox y el editor de HUD), sin pisarlos ni tapar el centro
 ---------------------------------------------------------------------------
 
-local function controlRects(size: Vector2)
+-- Rectángulos de los controles visibles, ya en coordenadas de esta interfaz (la de los botones usa
+-- otra zona segura: CoreUISafeInsets; esta, la del dispositivo)
+local function controlRects(offset: Vector2)
 	local layout = TouchLayout.GetLayout()
-	local s = Settings.Get()
 	local rects = {}
 	for id in TouchLayout.Entries() do
 		local info = layout[id]
-		local skip = (id == "Sprint" and (s.AutoSprint or 1) == 1)
-			or (id == "LeftFire" and (s.LeftFire or 0) ~= 1)
-			or (id == "Airstrike" and (player:GetAttribute("Airstrikes") or 0) <= 0)
-		if info and not skip then
-			table.insert(rects, { Id = id, Center = info.Center, Size = info.Hit })
+		if info and TouchLayout.InPlay(id) then
+			table.insert(rects, { Id = id, Center = info.Center + offset, Size = info.Hit, Draw = info.Size })
 		end
 	end
-	-- (y el botón de saltar de Roblox, que no es nuestro)
-	local jump, d = TouchLayout.JumpRect()
-	if not jump or not d then
-		jump, d = MobileHUD.JumpRect(size)
-	end
-	table.insert(rects, { Id = "Jump", Center = jump, Size = Vector2.new(d, d) })
 	return rects
 end
 
@@ -2474,81 +2660,132 @@ local function hits(rects, center: Vector2, dims: Vector2, margin: number): bool
 	return false
 end
 
-local function layoutTouchHUD(_, size: Vector2)
-	if not touchHUD or not refs.Health or typeof(size) ~= "Vector2" or size.X < 100 then
+-- Táctil (Fase 15): lo que no son botones se coloca alrededor de ellos en cinco zonas: arriba a la
+-- izquierda minimapa y objetivo (Minimap/DominationHUD), arriba en el centro el marcador, arriba a la
+-- derecha el registro de bajas bajo la tira de poco uso, abajo a la izquierda del centro la vida y,
+-- junto a recargar, la munición. El centro (mira) no lleva nada.
+local function layoutTouchHUD(_, _size: Vector2)
+	if not touchHUD or not refs.Health then
 		return
 	end
-	local rects = controlRects(size)
+	local camera = workspace.CurrentCamera
+	local size = gui.AbsoluteSize
+	if typeof(size) ~= "Vector2" or size.X < 100 then
+		size = camera and camera.ViewportSize or _size
+	end
+	if typeof(size) ~= "Vector2" or size.X < 100 then
+		return
+	end
+	local hudOrigin = typeof(gui.AbsolutePosition) == "Vector2" and gui.AbsolutePosition or Vector2.zero
+	local offset = TouchLayout.Origin() - hudOrigin
+	local rects = controlRects(offset)
+	local layout = TouchLayout.GetLayout()
 	local clear = MobileHUD.CenterClear(size)
+	local function rectOf(id)
+		local info = layout[id]
+		return info and (info.Center + offset), info and info.Size
+	end
 
-	-- Vida: lo más abajo y centrada que se pueda sin tocar ningún botón (encima va la barra de XP y
-	-- la racha). Se prueban filas de abajo arriba y posiciones a los dos lados del centro.
-	local w, h = phone and 170 or 220, phone and 16 or 20
-	local dims = Vector2.new(w, h + 26) -- (con la racha y el XP encima)
+	-- Munición: a la izquierda de recargar, alineada a la derecha y separada de los botones
+	local reloadCenter, reloadSize = rectOf("Reload")
+	if not reloadCenter then
+		reloadCenter, reloadSize = rectOf("Fire")
+	end
+	local ammoDims = Vector2.new(124, 40)
+	if reloadCenter and reloadSize then
+		local right = reloadCenter.X - reloadSize.X / 2 - 10
+		local center = Vector2.new(right - ammoDims.X / 2, reloadCenter.Y - 4)
+		refs.TouchAmmo.AnchorPoint = Vector2.new(1, 0.5)
+		refs.TouchAmmo.Position = UDim2.fromOffset(math.floor(right), math.floor(center.Y))
+		table.insert(rects, { Id = "Ammo", Center = center, Size = ammoDims })
+	end
+	refs.TouchAmmo.Size = UDim2.fromOffset(ammoDims.X, ammoDims.Y)
+
+	-- Vida: abajo, a la izquierda del centro (lo más cerca posible de su sitio sin tocar nada)
+	local dims = Vector2.new(132, 22)
+	local streakH = 18
+	local want = Vector2.new(size.X / 2 - clear - dims.X / 2 + 10, size.Y - 14 - dims.Y / 2)
 	local best, bestScore
-	local y = size.Y - 8 - dims.Y / 2
+	local y = want.Y
 	while y > size.Y / 2 + clear + dims.Y / 2 do
-		for step = 0, math.floor(size.X * 0.25 / 8) do
+		for step = 0, math.floor(size.X * 0.3 / 8) do
 			for _, sign in { -1, 1 } do
-				local center = Vector2.new(size.X / 2 + sign * step * 8, y)
-				local score = step * 8 + (size.Y - y) * 0.6
-				if (not bestScore or score < bestScore) and not hits(rects, center, dims, 4) then
+				local center = Vector2.new(want.X + sign * step * 8, y)
+				local score = step * 8 + (want.Y - y) * 0.8
+				if (not bestScore or score < bestScore) and center.X - dims.X / 2 > 8 and not hits(rects, center + Vector2.new(0, -streakH / 2), dims + Vector2.new(0, streakH), 6) then
 					best, bestScore = center, score
 				end
 			end
 		end
 		y -= 6
 	end
-	best = best or Vector2.new(size.X / 2, size.Y - 8 - dims.Y / 2)
-	local bottom = best.Y + dims.Y / 2
-	refs.Health.AnchorPoint = Vector2.new(0.5, 1)
-	refs.Health.Size = UDim2.fromOffset(w, h)
-	refs.Health.Position = UDim2.fromOffset(math.floor(best.X + 10), math.floor(bottom)) -- (+10: la cruz va a la izquierda)
-	refs.Level.AnchorPoint = Vector2.new(0.5, 1)
-	refs.Level.Size = UDim2.fromOffset(w, 4)
-	refs.Level.Position = UDim2.fromOffset(math.floor(best.X + 10), math.floor(bottom - h - 4))
-	refs.StreakText.AnchorPoint = Vector2.new(0.5, 1)
-	refs.StreakText.TextXAlignment = Enum.TextXAlignment.Center
-	refs.StreakText.Position = UDim2.fromOffset(math.floor(best.X + 10), math.floor(bottom - h - 10))
+	best = best or want
+	refs.Health.AnchorPoint = Vector2.new(0.5, 0.5)
+	refs.Health.Size = UDim2.fromOffset(dims.X, dims.Y)
+	refs.Health.Position = UDim2.fromOffset(math.floor(best.X), math.floor(best.Y))
+	refs.Level.Visible = false
+	refs.StreakText.AnchorPoint = Vector2.new(0, 1)
+	refs.StreakText.TextXAlignment = Enum.TextXAlignment.Left
+	refs.StreakText.TextSize = 13
+	refs.StreakText.Position = UDim2.fromOffset(math.floor(best.X - dims.X / 2), math.floor(best.Y - dims.Y / 2 - 2))
 
-	-- Registro de bajas: bajo los botones de arriba a la derecha; 3 filas si caben sin llegar al grupo
-	-- de la derecha (en pantallas muy bajas, 2)
-	local kfW, rowH = 250, 19
-	local kfTop = 50
-	local layout = TouchLayout.GetLayout()
+	-- Registro de bajas: bajo la tira de poco uso, alineado con ella; 3 filas como mucho, 20 px
+	local kfW, rowH = 230, 20
+	local kfTop, kfRight = 44, size.X - 12
 	for _, r in rects do
-		local info = layout[r.Id]
-		if info and r.Center.Y < size.Y * 0.2 and r.Center.X > size.X * 0.6 then
-			kfTop = math.max(kfTop, r.Center.Y + info.Size.Y / 2 + 4)
+		local control = MobileHUD.ById[r.Id]
+		if control and control.Role == "Utility" and r.Center.Y < size.Y * 0.3 then
+			kfTop = math.max(kfTop, r.Center.Y + r.Draw.Y / 2 + 8)
+			kfRight = math.min(size.X - 8, math.max(kfRight, r.Center.X + r.Draw.X / 2))
 		end
 	end
 	local limit = size.Y
 	for _, r in rects do
 		local top = r.Center.Y - r.Size.Y / 2
-		if top > kfTop and r.Center.X + r.Size.X / 2 > size.X - 12 - kfW then
-			limit = math.min(limit, top - 4)
+		if top > kfTop and r.Center.X + r.Size.X / 2 > kfRight - kfW then
+			limit = math.min(limit, top - 6)
 		end
 	end
 	killFeedMax = math.clamp(math.floor((limit - kfTop + 2) / (rowH + 2)), 2, 3)
 	refs.KillFeed.AnchorPoint = Vector2.new(1, 0)
-	refs.KillFeed.Position = UDim2.new(1, -12, 0, math.floor(kfTop))
+	refs.KillFeed.Position = UDim2.fromOffset(math.floor(kfRight), math.floor(kfTop))
 	refs.KillFeed.Size = UDim2.fromOffset(kfW, killFeedMax * (rowH + 2))
 
-	-- Aviso de baja y medallas: arriba, bajo el marcador, sin pisar el registro de bajas
-	local topBottom = 6 + 66 * (phone and 0.72 or 0.9)
+	-- Aviso de baja y medallas: arriba, bajo el marcador, entre el minimapa y el registro de bajas
+	local topBottom = 8 + 28 + 18
 	local bw = 410 * killBaseScale
-	local lo = 14 + (phone and 96 or 160) + 8 + bw / 2 -- (a la derecha del minimapa)
-	local hi = size.X - 12 - kfW - 6 - bw / 2 -- (a la izquierda del registro de bajas)
+	local mapRight = (ClientState.MinimapLeft or 14) + (ClientState.MinimapSize or 96) + 8
+	local lo = mapRight + bw / 2
+	local hi = kfRight - kfW - 8 - bw / 2
 	local cx = math.clamp(size.X / 2, lo, math.max(lo, hi))
-	local cy = topBottom + 6 + 32 * killBaseScale
+	local cy = topBottom + 4 + 32 * killBaseScale
 	if lo > hi then
-		-- (pantalla estrecha: centrado, por debajo del registro de bajas)
+		-- (pantalla estrecha: centrado bajo el marcador si cabe por encima del registro de bajas; si
+		-- no, por debajo de él, pero nunca dentro del centro libre)
 		cx = size.X / 2
-		cy = math.max(cy, kfTop + killFeedMax * (rowH + 2) + 4 + 32 * killBaseScale)
+		if cy + 32 * killBaseScale > kfTop - 2 then
+			cy = math.max(cy, kfTop + killFeedMax * (rowH + 2) + 4 + 32 * killBaseScale)
+			cy = math.min(cy, size.Y / 2 - clear - 32 * killBaseScale - 4)
+		end
 	end
 	refs.KillBanner.Position = UDim2.fromOffset(math.floor(cx), math.floor(cy))
 	refs.Medals.AnchorPoint = Vector2.new(0.5, 0)
 	refs.Medals.Position = UDim2.fromOffset(math.floor(cx), math.floor(cy + 32 * killBaseScale + 4))
+
+	-- Avisos de puntos (+XP): a la izquierda, bajo el minimapa y el objetivo (nunca junto a la mira)
+	local mapBottom = ClientState.MinimapBottom or 156
+	refs.Popups.AnchorPoint = Vector2.new(0, 0)
+	refs.Popups.Position = UDim2.fromOffset(ClientState.MinimapLeft or 16, math.floor(mapBottom + 64))
+	refs.Popups.Size = UDim2.fromOffset(220, 80)
+	local popupList = refs.Popups:FindFirstChildOfClass("UIListLayout")
+	if popupList then
+		popupList.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	end
+	-- Avisos de texto: bajo el centro libre, centrados
+	refs.Toast.AnchorPoint = Vector2.new(0.5, 0)
+	refs.Toast.Position = UDim2.fromOffset(math.floor(size.X / 2), math.floor(size.Y / 2 + clear + 12))
+	refs.Toast.Size = UDim2.fromOffset(320, 20)
+	refs.Toast.TextXAlignment = Enum.TextXAlignment.Center
 end
 
 function HUD.Init()

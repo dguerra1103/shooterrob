@@ -323,6 +323,10 @@ function Minimap.Init()
 	local viewport = camera.ViewportSize
 	local phone = UI.IsPhone()
 	size = phone and 96 or ((viewport.Y > 0 and viewport.Y < 500) and 112 or 160)
+	-- (Fase 15: en teléfonos bajos, como 568×320, algo más pequeño para que quepan las habilidades)
+	if phone and math.min(viewport.X, viewport.Y) < 350 then
+		size = 84
+	end
 	-- (debajo de los botones de Roblox de arriba a la izquierda, que si no lo tapaban)
 	-- (en pantallas táctiles; en el ordenador, arriba del todo como siempre)
 	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -336,8 +340,11 @@ function Minimap.Init()
 		Enabled = false,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
+	-- (táctil en pantallas alargadas, Fase 15: algo separado del borde, como el resto del HUD)
+	local aspect = math.max(viewport.X, viewport.Y) / math.max(1, math.min(viewport.X, viewport.Y))
+	local left = (touchOnly and aspect >= 1.95) and 22 or 14
 	frame = UI.new("Frame", {
-		Position = UDim2.fromOffset(14, top),
+		Position = UDim2.fromOffset(left, top),
 		Size = UDim2.fromOffset(size, size),
 		BackgroundColor3 = Color3.fromRGB(22, 26, 30),
 		BackgroundTransparency = 0.3,
@@ -374,6 +381,8 @@ function Minimap.Init()
 	})
 	-- (el botón de PASE · TIENDA y lo demás de la izquierda van debajo)
 	ClientState.MinimapBottom = top + size
+	ClientState.MinimapLeft = left
+	ClientState.MinimapSize = size
 	Remotes.ShotFX.OnClientEvent:Connect(onShot)
 	local accumulator = 0
 	RunService.Heartbeat:Connect(function(dt)

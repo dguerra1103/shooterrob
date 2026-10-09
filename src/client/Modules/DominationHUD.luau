@@ -44,9 +44,9 @@ local function placeTouch()
 	local height = 46 * 0.65
 	row.AnchorPoint = Vector2.new(0, 0)
 	if dashTop and top + 6 + height > dashTop - 6 then
-		row.Position = UDim2.fromOffset(14 + 96 + 8, 60)
+		row.Position = UDim2.fromOffset((ClientState.MinimapLeft or 14) + (ClientState.MinimapSize or 96) + 8, 60)
 	else
-		row.Position = UDim2.fromOffset(14, top + 6)
+		row.Position = UDim2.fromOffset(ClientState.MinimapLeft or 14, top + 6)
 	end
 end
 
