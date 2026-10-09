@@ -2,3 +2,6 @@
 *.rbxlx.lock
 sourcemap.json
 tests/.cache/
+
+# Blender: copias de seguridad automáticas
+*.blend1

@@ -7,6 +7,7 @@ local Weapons = require(script.Parent.Weapons)
 local Skins = require(script.Parent.Skins)
 local Charms = require(script.Parent.Charms)
 local WeaponVisual = require(script.Parent.WeaponVisual)
+local WeaponMeshKit = require(script.Parent.WeaponMeshKit)
 
 local WeaponModels = {}
 
@@ -92,7 +93,10 @@ local function paint(part, role, pal)
 	elseif role == "Trim" then
 		-- Ribete (Fase 9): con el acabado de fábrica es metal oscuro; con una skin, su color de acento
 		-- (así una skin se nota en el arma clásica, que casi no tiene piezas de acento)
-		if pal.TrimAccent then
+		if pal.Trim then
+			part.Color = pal.Trim
+			part.Material = Enum.Material.SmoothPlastic
+		elseif pal.TrimAccent then
 			part.Color = pal.Accent
 			part.Material = pal.AccentMaterial or Enum.Material.Neon
 		else
@@ -235,6 +239,11 @@ function WeaponModels.ExternalTemplate(weaponName)
 	end
 	local folder = game:GetService("ReplicatedStorage"):FindFirstChild("WeaponViewModels")
 	local template = folder and folder:FindFirstChild(name)
+	if not template and table.find(WeaponMeshKit.Weapons, name) then
+		-- (arma con malla que aún no se ha creado, o que este lado no crea: el servidor y los
+		-- dispositivos que no pueden. Las piezas de siempre, sin avisar: es lo previsto)
+		return nil
+	end
 	local missing = WeaponVisual.ValidateModel(template)
 	if #missing == 0 then
 		return template

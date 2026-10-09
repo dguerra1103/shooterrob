@@ -160,7 +160,7 @@ local handle = model.PrimaryPart
 check(handle:FindFirstChild("Muzzle") and handle:FindFirstChild("AimPoint") and handle:FindFirstChild("Eject"), "ARX-27: boca, mira y expulsión")
 check(#trims >= 4, "ARX-27: ribetes que toman el color de la skin (" .. #trims .. ")")
 local factory = Weapons.Get("ARX27").Palette
-check(trims[1].Color == factory.Dark, "de fábrica, los ribetes son metal oscuro (como antes)")
+check(trims[1].Color == (factory.Trim or factory.Dark), "de fábrica, los ribetes llevan el color de ribete de la paleta (o metal oscuro si no lo trae)")
 local gold = WeaponModels.Build("ARX27", WeaponVisual.GoldSkin)
 local goldTrim
 for _, part in gold:GetChildren() do

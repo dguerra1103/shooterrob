@@ -247,7 +247,7 @@ WeaponVisual.Families = {
 -- ViewOffset (CFrame) / AimDistance (studs): pose de cadera y distancia de la mira si el modelo nuevo
 -- lo necesita (si no, las de Weapons). Además, cualquier sección de las familias (Sprint, Inspect...).
 WeaponVisual.Weapons = {
-	ARX27 = { Model = nil },
+	ARX27 = { Model = "ARX27" }, -- (malla de Blender: Shared/WeaponMeshKit)
 }
 
 -- Lo que necesita un modelo externo para funcionar sin tocar el código

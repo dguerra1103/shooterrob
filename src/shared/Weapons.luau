@@ -806,6 +806,9 @@ local MAT = Enum.Material
 local CLASSIC_PALETTES = {
 	-- Polímero negro azulado con muebles color arena y ribetes naranjas
 	Black = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(40, 42, 46), Panel = RGB(190, 156, 106), Dark = RGB(26, 27, 31), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- PULSE (armas con malla, tools/blender): negro azulado, paneles naranja de la casa y testigos de
+	-- luz cian. Es la identidad de fábrica de SHOOTERROB; las skins la sustituyen como siempre.
+	Pulse = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = false, Body = RGB(36, 39, 47), Panel = RGB(245, 122, 26), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(245, 122, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
 	-- Metal pavonado y madera
 	Wood = { Sheen = 0.04, DarkSheen = 0.1, BodyMaterial = MAT.Metal, Body = RGB(50, 52, 56), Panel = RGB(140, 84, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
 	-- Color arena (desierto)
@@ -821,7 +824,7 @@ local CLASSIC_PALETTES = {
 }
 Weapons.ClassicPalettes = CLASSIC_PALETTES
 local CLASSIC_LOOK = {
-	ARX27 = "Black", HavocPump = "Wood", Specter9 = "Black", Signal7 = "Wood", VortexBR = "Tan",
+	ARX27 = "Pulse", HavocPump = "Wood", Specter9 = "Black", Signal7 = "Wood", VortexBR = "Tan",
 	NovaDrift = "Olive", RaptorDMR = "Wood", BreachHammer = "Black", TitanLMG = "Olive", GhostlineXR = "Tan",
 	NovaLauncher = "Olive", Viper = "Black", HandCannon = "Steel", PhantomSidewind = "TwoTone", Knife = "Knife",
 }

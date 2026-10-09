@@ -2,6 +2,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 require(ReplicatedStorage.Shared.Remotes) -- crea los RemoteEvents antes que nada
+-- Armas modeladas en Blender: sus plantillas se funden en segundo plano y se replican solas
+pcall(require(ReplicatedStorage.Shared.WeaponMeshKit).Init)
 
 local Modules = script.Parent.Modules
 local MapBuilder = require(Modules.MapBuilder)
