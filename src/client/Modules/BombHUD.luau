@@ -60,25 +60,25 @@ local function update()
 	if state == "Planted" then
 		local timer = ReplicatedStorage:GetAttribute("Bomb_Timer") or 0
 		beep(timer)
-		label.Text = string.format("💣 BOMBA EN %s · %d s%s", site, timer, attacking and " · ¡protégela!" or " · ¡desactívala!")
+		label.Text = UI.HudText(string.format("💣 BOMBA EN %s · %d s%s", site, timer, attacking and " · ¡protégela!" or " · ¡desactívala!"))
 		label.TextColor3 = Color3.fromRGB(255, 90, 70)
 	elseif attacking then
 		-- Quién lleva la bomba (solo el portador puede plantarla)
 		local carrier = ReplicatedStorage:GetAttribute("Bomb_Carrier")
 		if carrier == player.Name then
-			label.Text = "💣 LLEVAS LA BOMBA · plántala en A o B"
+			label.Text = UI.HudText("💣 LLEVAS LA BOMBA · plántala en A o B")
 		elseif typeof(ReplicatedStorage:GetAttribute("Bomb_Dropped")) == "Vector3" then
-			label.Text = "💣 ¡LA BOMBA ESTÁ EN EL SUELO! · recógela"
+			label.Text = UI.HudText("💣 ¡LA BOMBA ESTÁ EN EL SUELO! · recógela")
 		elseif carrier then
 			local carrierPlayer = Players:FindFirstChild(tostring(carrier))
 			local shown = carrierPlayer and carrierPlayer:IsA("Player") and carrierPlayer.DisplayName or tostring(carrier)
-			label.Text = "💣 ATACAS · " .. shown .. " lleva la bomba: cúbrele"
+			label.Text = UI.HudText("💣 ATACAS · ") .. shown .. " lleva la bomba: cúbrele"
 		else
-			label.Text = "💣 ATACAS · planta la bomba en A o B"
+			label.Text = UI.HudText("💣 ATACAS · planta la bomba en A o B")
 		end
 		label.TextColor3 = Color3.fromRGB(255, 210, 90)
 	else
-		label.Text = "🛡️ DEFIENDES · protege A y B"
+		label.Text = UI.HudText("🛡️ DEFIENDES · protege A y B")
 		label.TextColor3 = Color3.fromRGB(140, 200, 255)
 	end
 	-- Marca de la bomba en el suelo, solo para los atacantes (los defensores no la ven a través de las paredes)

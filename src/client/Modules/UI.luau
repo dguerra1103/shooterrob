@@ -255,4 +255,68 @@ function UI.hex(color)
 	return "#" .. color:ToHex()
 end
 
+-- Textos del HUD de partida sin emojis (Fase 17): en táctil, los avisos, banners y etiquetas de la
+-- partida se escriben solo con letras (el estilo del HUD es grafito, blanco y amarillo; un emoji a
+-- color se ve de prototipo y cambia de aspecto según el teléfono). Quita los pictogramas y los
+-- espacios que dejan; las letras, números, tildes, «·», «×» y flechas simples se quedan.
+local function isPictogram(code: number): boolean
+	return (code >= 0x1F000 and code <= 0x1FAFF) -- emojis
+		or (code >= 0x2600 and code <= 0x27BF) -- símbolos varios y dingbats (☀ ✈ ✔ ✚ ❤ ...)
+		or (code >= 0x2B00 and code <= 0x2BFF) -- ⬆ ⬇ ⭐
+		or (code >= 0x2300 and code <= 0x23FF) -- ⏰ ⌛
+		or code == 0xFE0F or code == 0x200D -- variantes y unión de emojis
+end
+
+function UI.StripEmoji(text: string): string
+	if type(text) ~= "string" or not utf8.len(text) then
+		return text
+	end
+	local out = {}
+	for _, code in utf8.codes(text) do
+		if not isPictogram(code) then
+			table.insert(out, utf8.char(code))
+		end
+	end
+	local clean = table.concat(out)
+	clean = string.gsub(clean, "^%s+", "")
+	clean = string.gsub(clean, "  +", function(spaces)
+		-- (los huecos largos a propósito, «   ·   », se respetan; solo se quita el que deja el emoji)
+		return #spaces >= 3 and spaces or " "
+	end)
+	clean = string.gsub(clean, "%s+$", "")
+	return clean
+end
+
+-- El texto tal cual en ordenador y mando; sin emojis en el HUD táctil
+local inputMode = nil
+local stripped: { [string]: string } = {}
+function UI.HudText(text: string): string
+	if inputMode == nil then
+		local ok, module = pcall(function()
+			return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
+		end)
+		inputMode = ok and module or false
+	end
+	if not (inputMode and inputMode.TouchUI()) or type(text) ~= "string" then
+		return text
+	end
+	-- (los avisos que se repiten cada fotograma, como la cuenta atrás de la bomba, no se recorren cada vez)
+	local clean = stripped[text]
+	if not clean then
+		clean = UI.StripEmoji(text)
+		if #text < 200 then
+			local count = 0
+			for _ in stripped do
+				count += 1
+				if count > 400 then
+					table.clear(stripped)
+					break
+				end
+			end
+			stripped[text] = clean
+		end
+	end
+	return clean
+end
+
 return UI

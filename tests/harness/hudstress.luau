@@ -146,6 +146,51 @@ check(feedRows <= 3, "registro de bajas: 3 filas como mucho con 20 bajas (" .. f
 check(medals <= 2, "medallas: 2 como mucho a la vez (" .. medals .. ")")
 checkState("TDM en pleno tiroteo")
 check(HUDZones.Placed.KillBanner ~= nil, "TDM: aviso de baja colocado")
+
+-- (Fase 17) Avisos grandes en plena pelea («¡TE BUSCAN!», reto, racha): van en la zona de arriba,
+-- no a todo el ancho por encima del aviso de baja y del registro de bajas; y en táctil, sin emojis
+Remotes.Notify.OnClientEvent:Fire("Wanted", 250)
+Remotes.Notify.OnClientEvent:Fire("Streak", "Jugador lleva una racha de 5")
+Remotes.Notify.OnClientEvent:Fire("Assist", "+50")
+task.wait(0.3)
+checkState("TDM con aviso grande")
+check(HUDZones.Placed.BigText ~= nil or HUDZones.Overflow.BigText == true, "aviso grande en su zona (o apartado si no cabe)")
+local function pictogram(text)
+	if type(text) ~= "string" or not utf8.len(text) then
+		return nil
+	end
+	for _, code in utf8.codes(text) do
+		if (code >= 0x1F000 and code <= 0x1FAFF) or (code >= 0x2600 and code <= 0x27BF) or (code >= 0x2B00 and code <= 0x2BFF) then
+			return utf8.char(code)
+		end
+	end
+	return nil
+end
+local emojiLeft = {}
+local function shownOnScreen(d, screen)
+	local node = d
+	while node and node ~= screen do
+		if node.Visible == false then
+			return false
+		end
+		node = node.Parent
+	end
+	return true
+end
+for _, screen in pg:GetChildren() do
+	if screen.__className == "ScreenGui" and screen.Enabled ~= false and screen.Name ~= "MainMenu" and screen.Name ~= "Menu" then
+		for _, d in screen:GetDescendants() do
+			local transparency = type(d.TextTransparency) == "number" and d.TextTransparency or 0
+			if (d.__className == "TextLabel" or d.__className == "TextButton") and transparency < 0.99 and shownOnScreen(d, screen) then
+				local found = pictogram(d.Text)
+				if found then
+					table.insert(emojiLeft, screen.Name .. "/" .. d.Name .. " «" .. tostring(d.Text) .. "»")
+				end
+			end
+		end
+	end
+end
+check(#emojiLeft == 0, "HUD táctil en partida sin emojis " .. table.concat(emojiLeft, " | "))
 check(HUDZones.Placed.Medals ~= nil, "TDM: medallas colocadas")
 check(HUDZones.Placed.Toast ~= nil, "TDM: aviso de texto bajo la mira")
 

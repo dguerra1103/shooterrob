@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Sounds = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Sounds"))
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local ClientState = require(script.Parent.ClientState)
 local UI = require(script.Parent.UI)
@@ -176,13 +177,22 @@ function QuestTracker.Init()
 	player.CharacterAdded:Connect(function()
 		shownUntil = os.clock() + QuestTracker.ShowTime
 	end)
-	RunService.Heartbeat:Connect(function()
+	local function update()
 		local state = ReplicatedStorage:GetAttribute("State")
-		gui.Enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
+		local enabled = not ClientState.InMainMenu and not ClientState.Dead and not ClientState.MenuOpen
 			and state ~= "Ended" -- (no encima del resumen de la partida)
-			and not phone -- (en el teléfono no cabe: los retos se ven en el menú y avisan al completarse)
+			-- (con controles táctiles no cabe, ni en teléfono ni en tableta: a la izquierda van el joystick
+			-- y las habilidades; los retos se ven en el menú y avisan al completarse. Se mira cada vez: el
+			-- modo de control puede cambiar en la partida)
+			and not phone and not InputMode.TouchUI()
 			and (state ~= "Playing" or os.clock() < shownUntil)
-	end)
+		if gui.Enabled ~= enabled then
+			gui.Enabled = enabled
+		end
+	end
+	-- (su estado desde el principio, sin esperar al primer fotograma)
+	update()
+	RunService.Heartbeat:Connect(update)
 end
 
 return QuestTracker

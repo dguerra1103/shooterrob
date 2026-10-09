@@ -91,8 +91,15 @@ local function updateRadar()
 		end
 	end
 	local left = (player:GetAttribute("RadarUntil") or 0) - workspace:GetServerTimeNow()
-	radarLabel.Visible = active and not ClientState.InMainMenu
-	radarLabel.Text = "📡 RADAR " .. math.max(0, math.ceil(left)) .. "s"
+	local visible = active and not ClientState.InMainMenu
+	if radarLabel.Visible ~= visible then
+		radarLabel.Visible = visible
+	end
+	-- (solo se escribe si cambia el segundo: esto va cada fotograma)
+	local text = UI.HudText("📡 RADAR " .. math.max(0, math.ceil(left)) .. "s")
+	if radarLabel.Text ~= text then
+		radarLabel.Text = text
+	end
 end
 
 local function updateWidget()

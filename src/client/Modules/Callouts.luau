@@ -136,7 +136,7 @@ function Callouts.Update(dt)
 		if tool and tool:GetAttribute("Weapon") then
 			local now = tool:GetAttribute("Reloading") == true
 			if now and not reloading[tool] and teammate(model) then
-				Callouts.Show(model, "🔄 ¡Recargando!")
+				Callouts.Show(model, UI.HudText("🔄 ¡Recargando!"))
 			end
 			reloading[tool] = now or nil
 		end
@@ -150,7 +150,7 @@ function Callouts.Update(dt)
 				local thrower = grenade:GetAttribute("Thrower")
 				local model = type(thrower) == "string" and modelNamed(thrower) or nil
 				if model and teammate(model) then
-					Callouts.Show(model, "💣 ¡Granada!")
+					Callouts.Show(model, UI.HudText("💣 ¡Granada!"))
 				end
 			end
 		end

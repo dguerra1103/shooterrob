@@ -746,7 +746,7 @@ local function buildFeedsAndOverlays()
 		Position = phone and UDim2.new(0.5, 0, 0, 82) or UDim2.new(0.5, 0, 1, -158),
 		Size = phone and UDim2.new(0.55, 0, 0, 22) or UDim2.fromOffset(700, 34),
 		TextScaled = phone,
-		Text = "🚩 ¡TIENES LA BANDERA! Llévala a tu base",
+		Text = UI.HudText("🚩 ¡TIENES LA BANDERA! Llévala a tu base"),
 		TextSize = 28,
 		TextColor3 = Color3.fromRGB(255, 220, 70),
 		TextStrokeTransparency = 0,
@@ -1135,7 +1135,7 @@ local function popup(text, color)
 	end
 	local label = UI.label({
 		Size = UDim2.fromOffset(touchHUD and 220 or (phone and 260 or 400), phone and 20 or 26),
-		Text = text,
+		Text = UI.HudText(text),
 		-- (táctil, Fase 15: a la izquierda, bajo el minimapa; ver layoutTouchHUD)
 		TextXAlignment = touchHUD and Enum.TextXAlignment.Left or (phone and Enum.TextXAlignment.Right or Enum.TextXAlignment.Center),
 		TextSize = 22,
@@ -1144,9 +1144,9 @@ local function popup(text, color)
 		LayoutOrder = nextOrder(),
 		Parent = refs.Popups,
 	}, { UI.new("UITextSizeConstraint", { MaxTextSize = phone and 17 or 22 }) })
-	-- (entra con un pequeño rebote)
-	local scale = UI.new("UIScale", { Scale = 1.4, Parent = label })
-	tween(scale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
+	-- (entra con un pequeño rebote; en táctil, un pulso corto sin rebote: hay mucho más en pantalla)
+	local scale = UI.new("UIScale", { Scale = touchHUD and 1.12 or 1.4, Parent = label })
+	tween(scale, touchHUD and 0.12 or 0.2, { Scale = 1 }, touchHUD and Enum.EasingStyle.Quad or Enum.EasingStyle.Back)
 	task.delay(1.4, function()
 		tween(label, 0.4, { TextTransparency = 1, TextStrokeTransparency = 1 })
 	end)
@@ -1168,20 +1168,25 @@ local function celebrate(title, subtitle, color, big, priority)
 		RewardFX.EdgeFlash(color or Color3.fromRGB(255, 210, 60), 0.5)
 		return true
 	end
-	return RewardFX.Celebrate(title, subtitle, color, big, priority)
+	return RewardFX.Celebrate(UI.HudText(title), subtitle and UI.HudText(subtitle), color, big, priority)
 end
 
 local function bigMessage(text, color)
 	local label = refs.BigText
-	label.Text = text
+	label.Text = UI.HudText(text)
 	label.TextColor3 = color or Color3.new(1, 1, 1)
 	label.TextTransparency = 0
 	label.TextStrokeTransparency = 0
-	-- (entra grande y se asienta: se anima el tamaño máximo del texto, que se encoge si no cabe)
-	local maxSize = phone and 38 or 54
-	refs.BigFit.MaxTextSize = math.floor(maxSize * 1.3)
+	-- (entra grande y se asienta: se anima el tamaño máximo del texto, que se encoge si no cabe; en
+	-- táctil, más pequeño y sin rebote, en su sitio de la zona de arriba, ver HUDZones)
+	local maxSize = touchHUD and 26 or (phone and 38 or 54)
 	label.Visible = true
-	tween(refs.BigFit, 0.25, { MaxTextSize = maxSize }, Enum.EasingStyle.Back)
+	if touchHUD then
+		refs.BigFit.MaxTextSize = maxSize
+	else
+		refs.BigFit.MaxTextSize = math.floor(maxSize * 1.3)
+		tween(refs.BigFit, 0.25, { MaxTextSize = maxSize }, Enum.EasingStyle.Back)
+	end
 	local token = {}
 	bigToken = token
 	task.delay(2.5, function()
@@ -1225,7 +1230,7 @@ local function roundResult(info)
 	if type(info.MVP) == "string" and (tonumber(info.MVPKills) or 0) > 0 then
 		line ..= string.format('   ·   ⭐ %s <font color="#C8C8D2">(%d)</font>', info.MVP, tonumber(info.MVPKills) or 0)
 	end
-	refs.BigSub.Text = line
+	refs.BigSub.Text = UI.HudText(line)
 	refs.BigSub.TextTransparency = 0
 	refs.BigSub.TextStrokeTransparency = 0.3
 	refs.BigSub.Visible = true
@@ -1247,7 +1252,7 @@ local function setText(label, text)
 end
 
 local function timedLabel(label, text, duration)
-	label.Text = text
+	label.Text = UI.HudText(text)
 	label.Visible = true
 	local token = {}
 	label:SetAttribute("Token", tostring(token))
@@ -1714,7 +1719,7 @@ local function onHitConfirm(damage, headshot, killed, serverPosition)
 		end
 		combo.fades = nil
 		local label = combo.label
-		label.Text = (killed and "💀 " or "") .. tostring(combo.total) .. (headshot and "!" or "")
+		label.Text = ((killed and not touchHUD) and "💀 " or "") .. tostring(combo.total) .. (headshot and "!" or "")
 		label.TextSize = (killed and 34 or (headshot and 32 or 26)) + math.min(math.floor(combo.total / 40), 10)
 		label.TextColor3 = color
 		label.TextTransparency = 0
@@ -2161,7 +2166,7 @@ local function updateScoreboard()
 		refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(230, 160, 30)
 		refs.FlagA.Text, refs.FlagA.TextColor3 = "TÚ", Color3.fromRGB(150, 255, 150)
 		local leader = ReplicatedStorage:GetAttribute("LeaderName") or ""
-		refs.FlagB.Text = leader ~= "" and ("👑 " .. leader) or "LÍDER"
+		refs.FlagB.Text = leader ~= "" and (UI.HudText("👑 ") .. leader) or "LÍDER"
 		refs.FlagB.TextColor3 = Color3.fromRGB(255, 210, 80)
 		return
 	end
@@ -2170,12 +2175,12 @@ local function updateScoreboard()
 	local function flagStatus(teamName)
 		local flagState = teamName and ReplicatedStorage:GetAttribute("FlagState_" .. teamName)
 		if flagState == "Home" then
-			return "🚩 En base", Color3.fromRGB(150, 255, 150)
+			return UI.HudText("🚩 En base"), Color3.fromRGB(150, 255, 150)
 		elseif flagState == "Carried" then
 			local carrier = ReplicatedStorage:GetAttribute("FlagCarrier_" .. teamName) or ""
-			return "⚠ " .. carrier, Color3.fromRGB(255, 90, 90)
+			return UI.HudText("⚠ ") .. carrier, Color3.fromRGB(255, 90, 90)
 		elseif flagState == "Dropped" then
-			return "⬇ Caída", Color3.fromRGB(255, 210, 80)
+			return UI.HudText("⬇ Caída"), Color3.fromRGB(255, 210, 80)
 		end
 		return "", Color3.new(1, 1, 1)
 	end
@@ -2206,14 +2211,14 @@ local function updateScoreboard()
 		refs.ScoreA.Text = tostring(survivors)
 		refs.ScoreB.Text = tostring(zombies)
 		refs.ScoreBBox.BackgroundColor3 = Color3.fromRGB(90, 160, 60)
-		refs.FlagA.Text, refs.FlagA.TextColor3 = "🧑 Supervivientes", Color3.fromRGB(200, 230, 255)
-		refs.FlagB.Text, refs.FlagB.TextColor3 = "🧟 Zombis", Color3.fromRGB(150, 255, 120)
+		refs.FlagA.Text, refs.FlagA.TextColor3 = UI.HudText("🧑 Supervivientes"), Color3.fromRGB(200, 230, 255)
+		refs.FlagB.Text, refs.FlagB.TextColor3 = UI.HudText("🧟 Zombis"), Color3.fromRGB(150, 255, 120)
 		local zombie = player.Team and player.Team.Name == teamB and infection == "On"
 		refs.Mode.Visible = true
 		if infection == "Prep" then
 			refs.Mode.Text = modeName .. " · ¡Escóndete! La infección va a empezar"
 		elseif zombie then
-			refs.Mode.Text = modeName .. " · 🧟 Eres un zombi: ¡atrapa a los supervivientes!"
+			refs.Mode.Text = modeName .. UI.HudText(" · 🧟 Eres un zombi: ¡atrapa a los supervivientes!")
 		else
 			refs.Mode.Text = modeName .. " · ¡Sobrevive hasta que acabe el tiempo!"
 		end
@@ -2453,10 +2458,11 @@ local function render(dt)
 		hudCache.Streak, hudCache.StreakRewards = streak, rewards
 		-- Cuánto falta para la siguiente recompensa (Radar con 3, Ataque aéreo con 5)
 		local nextText = ""
+		-- (táctil: con palabras, sin emoji)
 		if rewards and streak < 3 then
-			nextText = "  ·  📡 en " .. (3 - streak)
+			nextText = (touchHUD and "  ·  radar en " or "  ·  📡 en ") .. (3 - streak)
 		elseif rewards and streak < 5 then
-			nextText = "  ·  ✈ en " .. (5 - streak)
+			nextText = (touchHUD and "  ·  ataque aéreo en " or "  ·  ✈ en ") .. (5 - streak)
 		end
 		refs.StreakText.Text = "Racha x" .. streak .. nextText
 		-- (sin racha no se enseña: menos cosas en pantalla mientras se lucha)
@@ -2874,6 +2880,19 @@ function HUD.Init()
 		refs.Banner.Size = UDim2.fromOffset(300, 20)
 		refs.Banner.TextSize = 16
 		refs.Banner.TextScaled = true
+		-- (el aviso grande, «¡RACHA DE 5!», «1 CONTRA 3», «RONDA GANADA», va el primero de la zona de
+		-- arriba y más pequeño: antes ocupaba casi todo el ancho y tapaba el aviso de baja, las medallas
+		-- y el registro de bajas. Solo ocupa sitio mientras se lee)
+		refs.BigText.Size = UDim2.fromOffset(360, 32)
+		refs.BigSub.Size = UDim2.fromOffset(360, 20)
+		refs.BigSub.TextSize = 15
+		local function shown(label)
+			return function()
+				return label.TextTransparency < 0.99
+			end
+		end
+		HUDZones.Register("BigText", refs.BigText, "TOP_FEED", -2, { Fit = true, Active = shown(refs.BigText) })
+		HUDZones.Register("BigSub", refs.BigSub, "TOP_FEED", -1, { Fit = true, Active = shown(refs.BigSub) })
 		HUDZones.Register("CarrierBanner", refs.CarrierBanner, "TOP_FEED", 0, { Fit = true })
 		HUDZones.Register("FlagBanner", refs.Banner, "TOP_FEED", 1, { Fit = true })
 		HUDZones.Register("KillBanner", refs.KillBanner, "TOP_FEED", 2, {

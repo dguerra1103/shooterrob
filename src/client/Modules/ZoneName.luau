@@ -111,7 +111,7 @@ local function setText(name)
 		return
 	end
 	shown = name
-	label.Text = name and ("📍 " .. name) or ""
+	label.Text = name and UI.HudText("📍 " .. name) or ""
 	if name then
 		-- (al cambiar de zona, el nombre entra con un pequeño salto)
 		scale.Scale = 1.15

@@ -28,8 +28,8 @@ Hints.QAForceNew = false -- (modo QA: como si fuera nivel 1; solo lo cambia QAPa
 
 -- Textos: { PC, táctil }
 Hints.Text = {
-	Aim = { "Mantén el clic derecho para apuntar: de lejos aciertas mucho más", "Toca 🎯 para apuntar: de lejos aciertas mucho más" },
-	Reload = { "Pulsa R para recargar antes de vaciar el cargador", "Toca 🔄 para recargar antes de vaciar el cargador" },
+	Aim = { "Mantén el clic derecho para apuntar: de lejos aciertas mucho más", "Toca APUNTAR (la mira): de lejos aciertas mucho más" },
+	Reload = { "Pulsa R para recargar antes de vaciar el cargador", "Toca RECARGAR antes de vaciar el cargador" },
 	Cover = { "Ponte a cubierto: si no te dan, la vida se recupera sola", "Ponte a cubierto: si no te dan, la vida se recupera sola" },
 }
 
@@ -101,7 +101,7 @@ function Hints.Show(id)
 	seen[id] = true
 	lastAt = now
 	local hint = ensureLabel()
-	hint.Text = "💡 " .. (touchOnly() and texts[2] or texts[1])
+	hint.Text = touchOnly() and texts[2] or ("💡 " .. texts[1])
 	hint.Visible = true
 	local token = {}
 	hint:SetAttribute("Token", tostring(token))

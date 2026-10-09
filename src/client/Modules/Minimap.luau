@@ -355,7 +355,7 @@ function Minimap.Init()
 	enemyRadarLabel = UI.label({
 		Position = UDim2.new(0, 0, 1, -16),
 		Size = UDim2.new(1, 0, 0, 16),
-		Text = "📡 RADAR ENEMIGO",
+		Text = UI.HudText("📡 RADAR ENEMIGO"),
 		TextSize = 11,
 		TextColor3 = Color3.fromRGB(255, 120, 120),
 		BackgroundColor3 = Color3.fromRGB(60, 0, 0),
