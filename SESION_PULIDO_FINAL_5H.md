@@ -175,6 +175,14 @@ Ver el informe final y `git log c952627..HEAD`.
 - Los menús en el S26 se ven algo más pequeños que antes (caben enteros, pero hay menos altura útil).
 - Quitar los emojis depende de una lista de rangos Unicode: un símbolo nuevo fuera de esos rangos se
   vería; la prueba de `hudstress` lo detectaría en los avisos que simula.
+- **Dos pruebas de servidor al límite (anteriores a esta sesión)**: en la primera batería completa
+  fallaron `rounds` («deberían jugarse varias rondas») y `bomb` («los defensores protegen los sitios
+  2/5»). Ninguna toca código de esta sesión (cero cambios en `src/server`, `src/shared`, `src/first`).
+  Medido, 4 veces cada una con el código nuevo y con el del inicio de la sesión (`c952627`): `rounds`
+  juega 5-7 rondas en una ventana fija de ~40 s de reloj y pide 5 (salió justo 5 en una de cada
+  versión); `bomb` depende de a qué sitio decide ir cada bot defensor (4-5 de 5, pide 3). Pasan solas y
+  en las 16 repeticiones; la batería se repitió entera. No se han tocado (no se debilitan pruebas sin
+  más); quedan como siguiente paso: darles margen de tiempo o fijar la semilla de los bots.
 - El aviso grande puede quedar apartado unos segundos si la zona de arriba está llena (prioridad para
   él; lo que no cabe se aparta, no se monta encima).
 
