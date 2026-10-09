@@ -48,6 +48,19 @@ mock.dsData.u_6 = { Level = 3, XP = 0, Coins = 10, Skins = { Default = true }, S
 local p6 = join(6)
 check(PlayerData.Get(p6).Settings.Quality == "Ultra", "calidad elegida tras la migración se respeta")
 leave(p6)
+-- 2c. Disposición de los controles táctiles (Fase 15, versión 2): un perfil viejo sin personalizar usa
+-- la nueva; uno personalizado se conserva tal cual; la basura se limpia. Nunca se borra lo del jugador
+mock.dsData.u_7 = { Level = 2, XP = 0, Coins = 5, Skins = { Default = true }, Settings = { Quality = "Auto", QualityVersion = 2, FOV = 80, Sensitivity = 1, AimSensitivity = 0.8, HudLayout = {} } }
+local p7 = join(7)
+check(PlayerData.Get(p7).Settings.HudLayoutVersion == 2 and next(PlayerData.Get(p7).Settings.HudLayout) == nil, "disposición sin personalizar: pasa a la versión 2 (la nueva)")
+leave(p7)
+mock.dsData.u_8 = { Level = 2, XP = 0, Coins = 5, Skins = { Default = true }, Settings = { Quality = "Auto", QualityVersion = 2, FOV = 85, Sensitivity = 1, AimSensitivity = 0.8, HudLayout = { Fire = { X = 0.7, Y = 0.75, S = 1.3, O = 0.8 }, Aim = { S = 0.9 }, Bogus = { X = 1, Y = 1 } } } }
+local p8 = join(8)
+local s8 = PlayerData.Get(p8).Settings
+check(s8.HudLayoutVersion == 2 and s8.HudLayout.Fire.X == 0.7 and s8.HudLayout.Fire.Y == 0.75 and s8.HudLayout.Fire.S == 1.3 and s8.HudLayout.Fire.O == 0.8 and s8.HudLayout.Aim.S == 0.9, "disposición personalizada (versión 1): se conserva")
+check(s8.HudLayout.Bogus == nil and s8.FOV == 85, "la basura se limpia y el resto de ajustes queda intacto")
+leave(p8)
+check(mock.dsData.u_8.Settings.HudLayoutVersion == 2 and mock.dsData.u_8.Settings.HudLayout.Fire.S == 1.3, "y se guarda migrada")
 
 -- 3. Al salir, se guarda y se suelta el bloqueo
 PlayerData.Get(p2).Coins = 950

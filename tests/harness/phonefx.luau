@@ -59,7 +59,7 @@ check(title and title.TextScaled and title.Size.X.Scale > 0 and title.Position.Y
 -- centro, minimapa pequeño bajo los botones de Roblox y sin el panel de retos
 local healthText
 for _, d in hud:GetDescendants() do if d.__className == "TextLabel" and d.Text == "100" then healthText = d end end
-check(healthText and healthText.Parent.Position.X.Scale == 0.5, "la vida va abajo en el centro (no encima del joystick)")
+check(healthText and healthText.Parent.Name == "Health", "la vida, compacta («100» y una barra fina)")
 local slotsHidden = false
 for _, d in hud:GetDescendants() do
 	if d.__className == "Frame" and d.Visible == false and d.Size and d.Size.X.Offset == 230 and d.Size.Y.Offset == 196 then slotsHidden = true end
@@ -75,13 +75,12 @@ local QT = req(game.StarterPlayer.Client.Modules.QuestTracker)
 QT.Init()
 game:GetService("RunService").Heartbeat:Fire(1 / 60)
 check(pg:FindFirstChild("QuestTracker").Enabled == false, "sin el panel de retos en el teléfono")
--- Botones táctiles del teléfono (Fase 12, shared/MobileHUD): dentro de la pantalla, sin pisarse entre
--- ellos ni al botón de saltar de Roblox y fuera del centro (la mira)
+-- Botones táctiles del teléfono (shared/MobileHUD; Fase 15: el salto es nuestro y va en el grupo de
+-- combate): dentro de la pantalla, sin pisarse entre ellos y fuera del centro (la mira)
 local MobileHUD = req(RS.Shared.MobileHUD)
-for _, dims in { { 830, 380 }, { 667, 375 }, { 568, 320 }, { 932, 430 }, { 1024, 768 } } do
+for _, dims in { { 830, 380 }, { 667, 375 }, { 568, 320 }, { 932, 430 }, { 892, 412 }, { 1024, 768 } } do
 	local size = roblox.Vector2.new(dims[1], dims[2])
 	local layout = MobileHUD.Resolve(size, {})
-	local jump, jd = MobileHUD.JumpRect(size)
 	local clear = MobileHUD.CenterClear(size)
 	local ids = {}
 	for _, control in MobileHUD.Controls do
@@ -96,9 +95,6 @@ for _, dims in { { 830, 380 }, { 667, 375 }, { 568, 320 }, { 932, 430 }, { 1024,
 		if info.Center.X - half.X < 0 or info.Center.Y - half.Y < 0 or info.Center.X + half.X > size.X or info.Center.Y + half.Y > size.Y then
 			table.insert(bad, id .. " fuera")
 		end
-		if (info.Center - jump).Magnitude < (math.max(info.Size.X, info.Size.Y) + jd) / 2 then
-			table.insert(bad, id .. " pisa el salto")
-		end
 		if (info.Center - size / 2).Magnitude - math.max(info.Size.X, info.Size.Y) / 2 < clear then
 			table.insert(bad, id .. " en el centro")
 		end
@@ -106,7 +102,8 @@ for _, dims in { { 830, 380 }, { 667, 375 }, { 568, 320 }, { 932, 430 }, { 1024,
 	for _, pair in MobileHUD.Overlaps(layout, ids, 0) do
 		table.insert(bad, pair[1] .. " pisa a " .. pair[2])
 	end
-	check(#bad == 0, dims[1] .. "x" .. dims[2] .. ": ningún botón táctil pisa a otro, al salto ni a la mira " .. table.concat(bad, ", "))
+	check(layout.Jump ~= nil, dims[1] .. "x" .. dims[2] .. ": el salto va en el grupo de combate")
+	check(#bad == 0, dims[1] .. "x" .. dims[2] .. ": ningún botón táctil pisa a otro ni a la mira " .. table.concat(bad, ", "))
 end
 print("MOVIL OK")
 process.exit(0)

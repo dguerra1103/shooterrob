@@ -65,9 +65,9 @@ for _, control in MobileHUD.Controls do
 end
 local entries = TL.Entries()
 
--- Jerarquía: disparar > apuntar > el resto
+-- Jerarquía (Fase 15): disparar > apuntar > salto y agacharse > recargar > granada y cuerpo a cuerpo
 local layout, breakpoint = TL.GetLayout()
-check(breakpoint == "PHONE", "844x390 es PHONE (" .. tostring(breakpoint) .. ")")
+check(breakpoint == "ULTRAWIDE_PHONE", "844x390 (19,5:9) es ULTRAWIDE_PHONE (" .. tostring(breakpoint) .. ")")
 local fire, aim = layout.Fire, layout.Aim
 check(fire.Size.X > aim.Size.X, "disparar es más grande que apuntar")
 for id, info in layout do
@@ -75,8 +75,15 @@ for id, info in layout do
 		check(info.Size.X < aim.Size.X, id .. " es más pequeño que apuntar")
 	end
 end
+check(layout.Jump.Size.X > layout.Reload.Size.X and layout.Slide.Size.X > layout.Reload.Size.X, "salto y agacharse, medianos (más que recargar)")
+check(layout.Reload.Size.X > layout.Melee.Size.X and layout.Grenade.Size.X >= layout.Melee.Size.X, "cuerpo a cuerpo, el más pequeño del combate")
+-- Salto propio en el grupo de combate (el de Roblox se esconde)
+check(entries.Jump ~= nil and entries.Jump.Button.Visible, "botón de saltar propio")
+check(layout.Jump.Center.X > layout.Fire.Center.X, "el salto, a la derecha de disparar")
+check(layout.Aim.Center.X < layout.Fire.Center.X and layout.Aim.Center.Y < layout.Fire.Center.Y, "apuntar, arriba a la izquierda de disparar")
+check(layout.Slide.Center.Y > layout.Jump.Center.Y, "agacharse, debajo del salto")
 check(fire.Hit.X > fire.Size.X, "la zona de disparar es algo mayor que el dibujo")
-check(#MobileHUD.Overlaps(layout, nil, 0) <= 1, "los controles no se pisan")
+check(#MobileHUD.Overlaps(layout, nil, 0) == 0, "los controles no se pisan")
 local center = Vector2.new(W, H) / 2
 local clear = MobileHUD.CenterClear(Vector2.new(W, H))
 for id, info in layout do
@@ -201,6 +208,38 @@ check(#trigger == 2 and trigger[2] == Enum.UserInputState.End, "soltar el últim
 Settings.Set("LeftFire", 0)
 task.wait(0.05)
 
+-- Saltar (Fase 15): el botón es nuestro y hace lo mismo que el de Roblox (Humanoid.Jump mientras se
+-- mantiene, justo después del ControlModule de Roblox, que lo pone a false si nadie salta); el de
+-- Roblox se esconde
+local character = mock.new("Model"); character.Name = "Jugador"
+local humanoid = mock.new("Humanoid"); humanoid.Health = 100; humanoid.MaxHealth = 100; humanoid.Parent = character
+for _, n in { "HumanoidRootPart", "Head" } do local part = mock.new("Part"); part.Name = n; part.Parent = character end
+character.Parent = game.Workspace
+me.Character = character
+me.CharacterAdded:Fire(character)
+task.wait(0.2)
+local jumpStep = mock.renderSteps.TouchJump
+check(type(jumpStep) == "function", "salto propio enganchado después del ControlModule (BindToRenderStep)")
+humanoid.Jump = false
+local jumpFinger = fakeTouch()
+entries.Jump.Press(jumpFinger)
+task.wait()
+jumpStep(1 / 60)
+check(humanoid.Jump == true, "tocar saltar: salta")
+humanoid.Jump = false -- (lo que hace el ControlModule de Roblox en cada fotograma)
+jumpStep(1 / 60)
+check(humanoid.Jump == true, "mantener saltar: sigue saltando (como el botón de Roblox)")
+jumpFinger.Lift()
+task.wait()
+humanoid.Jump = false
+jumpStep(1 / 60)
+check(humanoid.Jump == false, "soltar: deja de saltar")
+local touchGui = mock.new("ScreenGui"); touchGui.Name = "TouchGui"; touchGui.Parent = pg
+local controlFrame = mock.new("Frame"); controlFrame.Name = "TouchControlFrame"; controlFrame.Parent = touchGui
+local robloxJump = mock.new("ImageButton"); robloxJump.Name = "JumpButton"; robloxJump.Visible = true; robloxJump.Parent = controlFrame
+heartbeat()
+check(robloxJump.Visible == false, "el botón de saltar de Roblox se esconde (el salto va en el grupo de combate)")
+
 -- Apuntar: el botón se marca y lo secundario se apaga un poco (sigue visible y funcionando)
 local grenadeBefore = entries.Grenade.Face.BackgroundTransparency
 ClientState.Aiming = true
@@ -224,17 +263,23 @@ check(entries.Reload.Emphasis == 1, "pocas balas: aviso suave")
 ClientState.Ammo = 30
 heartbeat()
 check(entries.Reload.Emphasis == 0, "cargador lleno: normal")
+ClientState.Reloading = true
+heartbeat()
+check(entries.Reload.Active == true, "recargando: el botón de recargar se marca")
+ClientState.Reloading = false
+heartbeat()
+check(entries.Reload.Active == false, "al acabar la recarga, normal")
 
--- Tarjeta del arma y recargas de habilidades
-TL.SetCard("SwapWeapon", { Title = "ARX-27", Value = "24 / 90", Sub = "1/2" })
-check(entries.SwapWeapon.CardTexts.Value.Text == "24 / 90" and entries.SwapWeapon.CardTexts.Title.Text == "ARX-27", "tarjeta del arma con la munición")
--- Nombre del arma: siempre una línea (sin escalar ni partir), mínimo 11 px y cortado con «…»
-for _, name in { "ARX-27", "X", "Lanzagranadas experimental de asalto pesado MK-II" } do
-	TL.SetCard("SwapWeapon", { Title = name, Value = "120 / 999", Sub = "2/2" })
+-- Tarjeta de cambiar arma (Fase 15): el arma a la que se cambia, en una línea, mínimo 12 px y
+-- cortada con «…» si no cabe (la munición va aparte, junto a recargar)
+TL.SetCard("SwapWeapon", { Title = "SPECTER-9" })
+check(entries.SwapWeapon.CardTexts.Title.Text == "SPECTER-9", "tarjeta con el arma a la que se cambia")
+check(entries.SwapWeapon.CardTexts.Value == nil, "la tarjeta ya no lleva la munición")
+for _, name in { "ARX-27", "X", "LANZAGRANADAS EXPERIMENTAL DE ASALTO PESADO MK-II" } do
+	TL.SetCard("SwapWeapon", { Title = name })
 	local title = entries.SwapWeapon.CardTexts.Title
-	local value = entries.SwapWeapon.CardTexts.Value
 	check(title.TextWrapped == false and title.TextScaled == false and title.TextTruncate == Enum.TextTruncate.AtEnd, "«" .. name .. "»: una sola línea, cortada si no cabe")
-	check(title.TextSize >= 11 and title.TextSize <= 13 and value.TextSize >= 11, "«" .. name .. "»: texto legible (" .. title.TextSize .. " px)")
+	check(title.TextSize >= 12 and title.TextSize <= 14, "«" .. name .. "»: texto legible (" .. title.TextSize .. " px)")
 end
 TL.SetCooldown("AbilityDash", 0.5, "3")
 check(entries.AbilityDash.Cover.Visible and entries.AbilityDash.Timer.Text == "3", "recarga de habilidad visible")
@@ -248,13 +293,14 @@ Settings.Set("HudLayout", { Fire = { X = 0.5, Y = 0.8, S = 1.2, O = 0.5 }, Bogus
 task.wait(0.1)
 layout = TL.GetLayout()
 check(math.abs(layout.Fire.Center.X - W * 0.5) < 1 and math.abs(layout.Fire.Center.Y - H * 0.8) < 1, "disposición propia: disparar movido")
-check(math.abs(layout.Fire.Size.X - 84 * 1.2) < 0.5, "disposición propia: tamaño")
-check(math.abs(layout.Aim.Size.X - 56 * MobileHUD.Limits.S[2]) < 0.5, "tamaño fuera de rango recortado")
+local scale = MobileHUD.Scale(breakpoint, Vector2.new(W, H))
+check(math.abs(layout.Fire.Size.X - 92 * scale * 1.2) < 0.5, "disposición propia: tamaño")
+check(math.abs(layout.Aim.Size.X - 62 * scale * MobileHUD.Limits.S[2]) < 0.5, "tamaño fuera de rango recortado")
 check(ClientState.Settings.HudLayout.Bogus == nil, "controles desconocidos fuera")
 Settings.Set("HudLayout", {})
 task.wait(0.1)
 layout = TL.GetLayout()
-check(math.abs(layout.Fire.Size.X - 84) < 0.5, "restablecer: vuelve la disposición por defecto")
+check(math.abs(layout.Fire.Size.X - 92 * scale) < 0.5, "restablecer: vuelve la disposición por defecto (la nueva)")
 
 -- Modo editor: se ven todos y tocar no dispara nada
 TL.SetEditing(true, {})

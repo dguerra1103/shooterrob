@@ -1,6 +1,8 @@
--- shared/MobileHUD (Fase 12), lógica pura: tipos de pantalla, controles sin duplicar, valores por
--- defecto válidos, validación de lo guardado (rangos, basura, parejas X/Y) y disposición dentro de
--- la pantalla y fuera del centro en las resoluciones de la matriz (FASE_12_MOVIL.md).
+-- shared/MobileHUD (Fases 12 y 15), lógica pura: clases de pantalla por su forma (ULTRAWIDE_PHONE para
+-- 19,5:9 como el S26 Ultra), escala lógica, jerarquía, controles sin duplicar, validación de lo
+-- guardado, versión y migración de la disposición, y en la matriz de resoluciones (con zonas seguras
+-- recortadas): dentro de la zona segura, sin solapes, centro libre, zona de cámara sin botones y grupo
+-- derecho metido hacia dentro en pantallas alargadas (FASE_15_HUD_S26_ULTRA.md).
 local process = require("@lune/process")
 local task = require("@lune/task")
 local roblox = require("@lune/roblox")
@@ -13,30 +15,57 @@ local MobileHUD = req(game.ReplicatedStorage.Shared.MobileHUD)
 local GameConfig = req(game.ReplicatedStorage.Shared.GameConfig)
 local TouchIcons = req(game.StarterPlayer.Client.Modules.TouchIcons)
 
--- Tipos de pantalla (pocos)
-check(MobileHUD.Breakpoint(Vector2.new(1920, 1080), false) == "DESKTOP", "sin pantalla táctil: DESKTOP")
-check(MobileHUD.Breakpoint(Vector2.new(568, 320), true) == "PHONE_SMALL", "568x320: PHONE_SMALL")
-check(MobileHUD.Breakpoint(Vector2.new(844, 390), true) == "PHONE", "844x390: PHONE")
-check(MobileHUD.Breakpoint(Vector2.new(932, 430), true) == "PHONE", "932x430: PHONE")
-check(MobileHUD.Breakpoint(Vector2.new(1024, 768), true) == "TABLET", "1024x768: TABLET")
-check(MobileHUD.Breakpoint(Vector2.new(390, 844), true) == "PHONE", "en vertical, el mismo tipo")
+-- Clases de pantalla (Fase 15): por la FORMA de la pantalla (proporción y lado corto), nunca por el
+-- modelo. El Galaxy S26 Ultra (19,5:9) en horizontal: 892×412 aprox. → ULTRAWIDE_PHONE
+check(MobileHUD.Classify(Vector2.new(1920, 1080), false) == "DESKTOP", "sin pantalla táctil: DESKTOP")
+check(MobileHUD.Classify(Vector2.new(568, 320), true) == "COMPACT_PHONE", "568x320: COMPACT_PHONE")
+check(MobileHUD.Classify(Vector2.new(667, 375), true) == "STANDARD_PHONE", "667x375 (16:9): STANDARD_PHONE")
+check(MobileHUD.Classify(Vector2.new(844, 390), true) == "ULTRAWIDE_PHONE", "844x390 (19,5:9): ULTRAWIDE_PHONE")
+check(MobileHUD.Classify(Vector2.new(896, 414), true) == "ULTRAWIDE_PHONE", "896x414: ULTRAWIDE_PHONE")
+check(MobileHUD.Classify(Vector2.new(892, 412), true) == "ULTRAWIDE_PHONE", "perfil GALAXY_S26_ULTRA (19,5:9): ULTRAWIDE_PHONE")
+check(MobileHUD.Classify(Vector2.new(1024, 768), true) == "TABLET", "1024x768: TABLET")
+check(MobileHUD.Classify(Vector2.new(412, 892), true) == "ULTRAWIDE_PHONE", "en vertical, la misma clase")
+-- (la clase sale de la pantalla entera: la zona segura con la cámara frontal y la barra de Roblox no
+-- la cambia)
+check(MobileHUD.Classify(Vector2.new(860, 354), true, Vector2.new(892, 412)) == "ULTRAWIDE_PHONE", "con zona segura recortada, sigue ULTRAWIDE_PHONE")
+-- Escala lógica: lado corto / 390 con topes por clase
+check(math.abs(MobileHUD.Scale("ULTRAWIDE_PHONE", Vector2.new(844, 390)) - 1) < 1e-6, "844x390: escala 1")
+check(MobileHUD.Scale("COMPACT_PHONE", Vector2.new(568, 320)) < 0.9, "teléfono pequeño: algo más pequeño")
+check(MobileHUD.Scale("TABLET", Vector2.new(1024, 768)) <= 1.25, "tableta: con tope")
 
--- Controles: ids únicos, papeles y tamaños coherentes
+-- Controles: ids únicos, papeles, formas y tamaños coherentes
 local seen = {}
 for _, c in MobileHUD.Controls do
 	check(not seen[c.Id], c.Id .. " no está repetido")
 	seen[c.Id] = true
 	check(MobileHUD.RoleOpacity[c.Role] ~= nil, c.Id .. " tiene un papel conocido")
-	check(c.Anchor == "Jump" or c.Anchor == "BottomLeft" or c.Anchor == "TopRight", c.Id .. " con ancla conocida")
+	check(c.Anchor == "Cluster" or c.Anchor == "BottomLeft" or c.Anchor == "TopRight", c.Id .. " con ancla conocida")
+	check(c.Shape == "Round" or c.Shape == "Square" or c.Shape == "Card", c.Id .. " con forma conocida")
 	check(c.Icon == "Card" or TouchIcons.Kinds[c.Icon] ~= nil, c.Id .. " con icono dibujado (" .. c.Icon .. ")")
 end
+check(TouchIcons.Kinds.Swap ~= nil and TouchIcons.Kinds.Jump ~= nil, "iconos de cambiar arma y saltar")
 local fire = MobileHUD.ById.Fire
+local compact = MobileHUD.Scale("COMPACT_PHONE", Vector2.new(568, 320))
 for _, c in MobileHUD.Controls do
 	if c.Id ~= "Fire" and type(c.Size) == "number" then
 		check(c.Size < fire.Size, c.Id .. " más pequeño que disparar")
-		check(c.Size * MobileHUD.Unit("PHONE_SMALL") >= 30, c.Id .. " se puede tocar con el dedo hasta en PHONE_SMALL")
+		check(c.Size * compact * (c.Hit or 1) >= 30, c.Id .. " se puede tocar con el dedo hasta en 568x320 (" .. math.floor(c.Size * compact * (c.Hit or 1)) .. " px)")
 	end
 end
+-- Jerarquía: disparar > apuntar > salto, agacharse > recargar > granada > cuerpo a cuerpo
+local by = MobileHUD.ById
+check(by.Aim.Size > by.Jump.Size and by.Jump.Size >= by.Slide.Size and by.Slide.Size > by.Reload.Size, "jerarquía: apuntar > salto ≥ agacharse > recargar")
+check(by.Reload.Size >= by.Grenade.Size and by.Grenade.Size > by.Melee.Size, "jerarquía: recargar ≥ granada > cuerpo a cuerpo")
+check(by.Fire.Anchor == "Cluster" and by.Aim.Anchor == "Cluster" and by.Jump.Anchor == "Cluster" and by.Reload.Anchor == "Cluster", "grupo de combate del pulgar derecho")
+check(by.Grenade.Anchor == "BottomLeft" and by.AbilityDash.Anchor == "BottomLeft", "granada y habilidades sobre el joystick")
+local utility = 0
+for _, c in MobileHUD.Controls do
+	if c.Role == "Utility" then
+		utility += 1
+		check(c.Anchor == "TopRight" and c.Size <= 32, c.Id .. " en la tira pequeña de arriba a la derecha")
+	end
+end
+check(utility == 4, "tira de poco uso: menú, marcador, emotes y grafiti")
 
 -- Ajustes por defecto y límites
 check(type(GameConfig.DefaultSettings.HudLayout) == "table" and next(GameConfig.DefaultSettings.HudLayout) == nil, "disposición por defecto vacía (la de fábrica)")
@@ -61,21 +90,83 @@ check(next(MobileHUD.Validate(nil)) == nil and next(MobileHUD.Validate("hola")) 
 local again = MobileHUD.Validate(clean)
 check(again.Fire.S == clean.Fire.S and again.Fire.X == clean.Fire.X, "validar dos veces da lo mismo")
 
--- Disposición por defecto en la matriz de resoluciones
-for _, dims in { { 568, 320 }, { 667, 375 }, { 844, 390 }, { 932, 430 }, { 1080, 480 }, { 1024, 768 }, { 1180, 820 } } do
-	local size = Vector2.new(dims[1], dims[2])
-	local layout = MobileHUD.Resolve(size, {})
+-- Versión de la disposición (Fase 15) y migración segura
+check(MobileHUD.LayoutVersion == 2 and GameConfig.DefaultSettings.HudLayoutVersion == MobileHUD.LayoutVersion, "versión de la disposición por defecto: 2")
+local migrated, version = MobileHUD.MigrateLayout({}, nil)
+check(next(migrated) == nil and version == 2, "sin personalizar: queda vacía (usa la nueva)")
+local own = { Fire = { X = 0.7, Y = 0.8, S = 1.2, O = 0.9 }, Aim = { S = 0.8 } }
+migrated, version = MobileHUD.MigrateLayout(own, 1)
+check(version == 2 and migrated.Fire.X == 0.7 and migrated.Fire.Y == 0.8 and migrated.Fire.S == 1.2 and migrated.Fire.O == 0.9 and migrated.Aim.S == 0.8, "personalizada: se conserva tal cual")
+migrated = MobileHUD.MigrateLayout({ Fire = { X = 9 }, Bogus = { X = 1, Y = 1 }, Aim = "x" }, nil)
+check(migrated.Fire == nil and migrated.Bogus == nil and migrated.Aim == nil, "basura de una versión vieja: se limpia sin romper")
+
+-- Disposición por defecto en la matriz de resoluciones (pantalla entera / zona segura)
+local matrix = {
+	{ 568, 320, 568, 320 }, { 667, 375, 667, 375 }, { 844, 390, 844, 390 }, { 844, 390, 750, 369 },
+	{ 896, 414, 896, 414 }, { 892, 412, 892, 412 }, { 892, 412, 860, 354 }, { 932, 430, 932, 430 },
+	{ 1024, 768, 1024, 768 }, { 1180, 820, 1180, 820 },
+}
+for _, dims in matrix do
+	local screen, size = Vector2.new(dims[1], dims[2]), Vector2.new(dims[3], dims[4])
+	local name = dims[1] .. "x" .. dims[2] .. (dims[3] ~= dims[1] and (" (zona segura " .. dims[3] .. "x" .. dims[4] .. ")") or "")
+	local layout = MobileHUD.Resolve(size, { Screen = screen })
 	local count = 0
 	for id, info in layout do
 		count += 1
-		check(info.Opacity > 0 and info.Opacity <= 1, dims[1] .. "x" .. dims[2] .. " " .. id .. " opacidad válida")
+		check(info.Opacity > 0 and info.Opacity <= 1, name .. " " .. id .. " opacidad válida")
+		local half = info.Size / 2
+		check(info.Center.X - half.X >= -0.5 and info.Center.Y - half.Y >= -0.5 and info.Center.X + half.X <= size.X + 0.5 and info.Center.Y + half.Y <= size.Y + 0.5, name .. " " .. id .. " dentro de la zona segura")
 	end
-	check(count == #MobileHUD.Controls, dims[1] .. "x" .. dims[2] .. ": todos los controles colocados")
-	check(layout.Fire.Center.X > size.X / 2 and layout.AbilityDash.Center.X < size.X / 2, dims[1] .. "x" .. dims[2] .. ": combate a la derecha, habilidades a la izquierda (joystick)")
+	check(count == #MobileHUD.Controls, name .. ": todos los controles colocados")
+	check(layout.Fire.Center.X > size.X / 2 and layout.AbilityDash.Center.X < size.X / 2, name .. ": combate a la derecha, habilidades a la izquierda (joystick)")
+	-- Sin solapes (con 4 px de aire) y nada en el centro libre
+	local ids = {}
+	for _, c in MobileHUD.Controls do
+		if not MobileHUD.Optional[c.Id] then table.insert(ids, c.Id) end
+	end
+	local over = MobileHUD.Overlaps(layout, ids, 4)
+	check(#over == 0, name .. ": ningún control pisa a otro" .. (over[1] and (" (" .. over[1][1] .. "/" .. over[1][2] .. ")") or ""))
+	local clear = MobileHUD.CenterClear(size)
+	for _, id in ids do
+		local info = layout[id]
+		check((info.Center - size / 2).Magnitude - math.max(info.Size.X, info.Size.Y) / 2 >= clear, name .. ": " .. id .. " fuera del centro libre")
+	end
+	-- Zona de cámara: un rectángulo grande a la derecha sin ningún botón dentro
+	local zones = MobileHUD.Zones(size, layout, ids)
+	local swipe = zones.Swipe
+	local area = (swipe.Max.X - swipe.Min.X) * (swipe.Max.Y - swipe.Min.Y)
+	check(area >= size.X * size.Y * 0.09, name .. ": zona de cámara grande (" .. math.floor(area / (size.X * size.Y) * 100) .. " % de la pantalla)")
+	check(swipe.Min.X >= size.X / 2, name .. ": zona de cámara en la mitad derecha")
+	for _, id in ids do
+		local info = layout[id]
+		local a, b = info.Center - info.Hit / 2, info.Center + info.Hit / 2
+		check(not (a.X < swipe.Max.X and b.X > swipe.Min.X and a.Y < swipe.Max.Y and b.Y > swipe.Min.Y), name .. ": " .. id .. " no toca la zona de cámara")
+	end
+	-- Grupo derecho: nada pegado al borde de la zona segura (margen ergonómico)
+	local outer = 0
+	for _, c in MobileHUD.Controls do
+		if c.Anchor == "Cluster" then
+			local info = layout[c.Id]
+			outer = math.max(outer, info.Center.X + info.Size.X / 2)
+		end
+	end
+	local class = MobileHUD.Classify(size, true, screen)
+	local margin = size.X - outer
+	check(margin >= 18, name .. ": el grupo de combate no toca el borde derecho (" .. math.floor(margin) .. " px)")
+	if class == "ULTRAWIDE_PHONE" then
+		check(margin >= 36, name .. ": en pantalla alargada, el grupo va más hacia dentro (" .. math.floor(margin) .. " px)")
+	end
 end
+-- En la misma altura, la pantalla alargada mete el grupo más hacia dentro que una normal
+local wide = MobileHUD.Resolve(Vector2.new(892, 412), { Screen = Vector2.new(892, 412) })
+local narrow = MobileHUD.Resolve(Vector2.new(740, 412), { Screen = Vector2.new(740, 412), Breakpoint = "STANDARD_PHONE" })
+check(892 - wide.Jump.Center.X > 740 - narrow.Jump.Center.X, "ULTRAWIDE: grupo derecho más hacia dentro que en 16:9")
 -- Disposición propia: fracciones de la pantalla (vale al girar o cambiar de móvil)
 local a = MobileHUD.Resolve(Vector2.new(844, 390), { Custom = { Fire = { X = 0.25, Y = 0.5 } } })
 local b = MobileHUD.Resolve(Vector2.new(1024, 768), { Custom = { Fire = { X = 0.25, Y = 0.5 } } })
 check(math.abs(a.Fire.Center.X - 211) < 1 and math.abs(b.Fire.Center.X - 256) < 1, "la posición propia es relativa a la pantalla")
+-- Métricas de ayuda
+local m = MobileHUD.Metrics(Vector2.new(892, 412), wide)
+check(m.Overlaps == 0 and m.Coverage < 0.12 and m.SwipeArea > 0.12, string.format("métricas 892x412: cobertura %.1f %%, cámara %.1f %%", m.Coverage * 100, m.SwipeArea * 100))
 print("MOBILEHUD OK")
 process.exit(0)

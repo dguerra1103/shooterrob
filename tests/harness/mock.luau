@@ -3,7 +3,7 @@ local roblox = require("@lune/roblox")
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 
-local Vector3, CFrame, Color3 = roblox.Vector3, roblox.CFrame, roblox.Color3
+local Vector3, CFrame, Color3, Vector2 = roblox.Vector3, roblox.CFrame, roblox.Color3, roblox.Vector2
 
 local M = {}
 
@@ -27,6 +27,7 @@ local PARENTS = {
 	TextButton = "GuiObject",
 	Frame = "GuiObject",
 	ImageLabel = "GuiObject",
+	ImageButton = "GuiObject",
 	GuiObject = "Instance",
 	SurfaceGui = "LayerCollector",
 	BillboardGui = "LayerCollector",
@@ -150,6 +151,17 @@ InstanceMeta.__index = function(self, key)
 		local parent = p.Parent
 		local world = (parent and parent.CFrame or CFrame.new()) * p.CFrame
 		return key == "WorldCFrame" and world or world.Position
+	elseif (key == "AbsoluteSize" or key == "AbsolutePosition") and self.__className == "ScreenGui" and M.screenInsets and M.camera then
+		-- Zona segura simulada (M.screenInsets = { Device = {izq, arriba, der, abajo}, Core = {...} }):
+		-- ScreenInsets (o IgnoreGuiInset: true = DeviceSafeInsets, false = CoreUISafeInsets) decide
+		-- cuál se aplica, como en Roblox
+		local viewport = M.camera.__props.ViewportSize or Vector2.new(844, 390)
+		local mode = p.ScreenInsets and tostring(p.ScreenInsets) or (p.IgnoreGuiInset and "DeviceSafeInsets" or "CoreUISafeInsets")
+		local inset = (string.find(mode, "CoreUI") and M.screenInsets.Core) or (string.find(mode, "Device") and M.screenInsets.Device) or { 0, 0, 0, 0 }
+		if key == "AbsolutePosition" then
+			return Vector2.new(inset[1], inset[2])
+		end
+		return Vector2.new(viewport.X - inset[1] - inset[3], viewport.Y - inset[2] - inset[4])
 	elseif key == "Terrain" and self.__className == "Workspace" then
 		return self:FindFirstChild("Terrain")
 	elseif key == "ExtentsSize" and p.Size then
@@ -887,6 +899,7 @@ function M.buildGame(srcRoot)
 	camera.Name = "Camera"
 	camera.Parent = workspace
 	workspace.CurrentCamera = camera
+	M.camera = camera
 
 	local function mount(dir, parent)
 		for _, file in fs.readDir(dir) do
