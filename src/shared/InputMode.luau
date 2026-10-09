@@ -12,7 +12,8 @@ local UserInputService = game:GetService("UserInputService")
 local InputMode = {}
 
 function InputMode.TouchUI(): boolean
-	if not UserInputService.TouchEnabled then
+	-- (comparaciones estrictas con true: solo cuentan los valores que da el motor)
+	if UserInputService.TouchEnabled ~= true then
 		return false
 	end
 	local ok, preferred = pcall(function()
@@ -26,7 +27,7 @@ function InputMode.TouchUI(): boolean
 			return preferred == touch
 		end
 	end
-	return not UserInputService.KeyboardEnabled or UserInputService.MouseEnabled ~= true
+	return UserInputService.KeyboardEnabled ~= true or UserInputService.MouseEnabled ~= true
 end
 
 return InputMode
