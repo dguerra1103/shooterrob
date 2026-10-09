@@ -111,6 +111,7 @@ TESTS=(
 	upper
 	daily
 	phonefx
+	inputmode
 	touchbtns
 	mobilehud
 	hudeditor

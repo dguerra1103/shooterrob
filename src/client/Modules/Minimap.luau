@@ -4,9 +4,9 @@
 -- Radar de la racha, todos los enemigos. También la zona de control y las banderas.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -329,7 +329,7 @@ function Minimap.Init()
 	end
 	-- (debajo de los botones de Roblox de arriba a la izquierda, que si no lo tapaban)
 	-- (en pantallas táctiles; en el ordenador, arriba del todo como siempre)
-	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touchOnly = InputMode.TouchUI()
 	local top = touchOnly and UI.TopbarBottom() or 14
 	scale = size / RANGE
 	gui = UI.new("ScreenGui", {

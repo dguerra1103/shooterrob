@@ -6,6 +6,7 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local ClientState = require(script.Parent.ClientState)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
@@ -51,7 +52,7 @@ function AimAssist.UsingAssistInput()
 		return true
 	end
 	-- (móvil sin teclado aunque aún no haya tocado nada)
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	return InputMode.TouchUI()
 end
 
 local function level()

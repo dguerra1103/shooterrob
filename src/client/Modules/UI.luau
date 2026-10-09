@@ -203,10 +203,9 @@ end
 
 -- ¿Teléfono? (táctil, sin teclado y pantalla baja; las tablets usan la disposición normal)
 function UI.IsPhone()
-	local UserInputService = game:GetService("UserInputService")
 	local camera = workspace.CurrentCamera
 	local size = camera and camera.ViewportSize
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and typeof(size) == "Vector2" and size.Y > 2 and size.Y < 500
+	return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode")).TouchUI() and typeof(size) == "Vector2" and size.Y > 2 and size.Y < 500
 end
 
 -- Dónde acaba la barra de botones de Roblox (menú, chat...) arriba a la izquierda: lo nuestro de esa

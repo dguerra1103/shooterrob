@@ -3,9 +3,9 @@
 -- Pantalla táctil (Fase 12): arriba a la izquierda, bajo el minimapa y más pequeñas, para dejar libre
 -- el centro (la mira) y lo de arriba en el centro (marcador y avisos de baja).
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local UI = require(script.Parent.UI)
 local ClientState = require(script.Parent.ClientState)
@@ -104,7 +104,7 @@ function DominationHUD.Init()
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		}),
 	})
-	touchUI = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	touchUI = InputMode.TouchUI()
 	if touchUI then
 		UI.new("UIScale", { Scale = 0.65, Parent = row })
 		row:FindFirstChildOfClass("UIListLayout").HorizontalAlignment = Enum.HorizontalAlignment.Left

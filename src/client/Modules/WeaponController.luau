@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
@@ -1034,7 +1035,7 @@ local function renderStep(dt)
 	-- el arma dispara sola. Ajustes: 2 = solo en pantallas táctiles (por defecto), 1 = siempre, 0 = no
 	local autoMode = math.floor(((ClientState.Settings or GameConfig.DefaultSettings).AutoFire or 2) + 0.5)
 	-- (el rayo solo cuando el arma ya puede disparar: no cada fotograma de la cadencia)
-	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touchOnly = InputMode.TouchUI()
 	if autoMode ~= 0 and (autoMode == 1 or touchOnly) and def and def.Type == "Gun"
 		and not reloadStart and not bursting and os.clock() - lastShot >= 1 / def.FireRate
 		and not ClientState.IsBlocked() and not ClientState.InMainMenu and enemyInSights() then

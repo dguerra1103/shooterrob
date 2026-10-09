@@ -8,8 +8,8 @@
 --   Alta  : todo como lo diseñó el mapa
 --   Ultra : además, un desenfoque muy suave del horizonte (más allá de 250 studs) y más partículas
 local Lighting = game:GetService("Lighting")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
@@ -29,7 +29,7 @@ ClientState.Settings = current
 local function effectiveQuality()
 	local q = current.Quality
 	if q == "Auto" or not PARTICLE_FACTOR[q] then
-		local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+		local touchOnly = InputMode.TouchUI()
 		return touchOnly and "Baja" or "Media"
 	end
 	return q

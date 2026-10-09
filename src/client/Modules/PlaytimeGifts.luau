@@ -4,8 +4,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContextActionService = game:GetService("ContextActionService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
@@ -102,7 +102,7 @@ function PlaytimeGifts.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	-- En móvil: botón pequeño arriba a la izquierda (abajo está el joystick y los retos ocupan el centro)
-	compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	compact = InputMode.TouchUI()
 	UI.WaitViewport()
 	-- (teléfono: a la derecha del minimapa, pequeño; tablet: debajo del botón de la tienda)
 	local phone = UI.IsPhone()

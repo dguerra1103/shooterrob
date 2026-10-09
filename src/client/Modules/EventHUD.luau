@@ -3,7 +3,7 @@
 -- Solo aparece si el servidor tiene un evento activo (atributo EventName).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
@@ -16,7 +16,7 @@ local player = Players.LocalPlayer
 local EventHUD = {}
 
 function EventHUD.Init()
-	local compact = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local compact = InputMode.TouchUI()
 	local gui = UI.new("ScreenGui", {
 		Name = "EventHUD",
 		ResetOnSpawn = false,

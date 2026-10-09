@@ -3,8 +3,8 @@
 -- (el servidor guarda TutorialDone).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -44,7 +44,7 @@ local function show()
 	-- Mientras se lee: ratón libre y visible, sin disparar
 	ClientState.TutorialOpen = true
 	ClientState.UpdateMouse()
-	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touch = InputMode.TouchUI()
 	local gui = UI.new("ScreenGui", {
 		Name = "Tutorial",
 		ResetOnSpawn = false,

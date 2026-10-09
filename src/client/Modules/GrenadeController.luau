@@ -3,10 +3,10 @@
 -- tecla se le quita la anilla y la mecha corre (pitidos cada vez más rápidos y cuenta atrás) y al
 -- soltar sale con menos tiempo para que el enemigo no pueda escapar. Si se acaba, sale sola.
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
@@ -160,7 +160,7 @@ function GrenadeController.Init()
 		Parent = player:WaitForChild("PlayerGui"),
 	})
 	-- (con pantalla táctil no se ve: quedaba encima de los botones; ahí está el botón 💣)
-	touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	touchOnly = InputMode.TouchUI()
 	widget = UI.new("Frame", {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -150),

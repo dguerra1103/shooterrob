@@ -30,6 +30,7 @@ local TextService = game:GetService("TextService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MobileHUD = require(Shared.MobileHUD)
+local InputMode = require(Shared.InputMode)
 local GameConfig = require(Shared.GameConfig)
 local TouchIcons = require(script.Parent.TouchIcons)
 
@@ -67,8 +68,9 @@ local STROKE = { Fire = { 2.5, 0.8 }, Default = { 1.5, 0.45 }, Accent = { 2, 0.9
 local ICON_OPACITY = 0.94
 local PRESS_SCALE, PRESS_TIME = 0.95, 0.08
 
+-- (botones táctiles cuando se juega con los dedos: shared/InputMode, el mismo criterio que el HUD)
 local function touchDevice()
-	return UserInputService.TouchEnabled
+	return InputMode.TouchUI()
 end
 
 local function settings()

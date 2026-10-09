@@ -4,6 +4,7 @@
 local GuiService = game:GetService("GuiService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Theme = require(script.Parent.Theme)
 local UISound = require(script.Parent.UISound)
@@ -101,7 +102,7 @@ end
 function C.Breakpoint()
 	local camera = workspace.CurrentCamera
 	local size = camera and camera.ViewportSize or Vector2.new(1280, 720)
-	local touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touch = InputMode.TouchUI()
 	-- (pantalla baja: teléfono apaisado o ventana pequeña; se compacta igual)
 	if size.Y < 520 then
 		return "PHONE"

@@ -3,11 +3,11 @@
 --   Z  Supersalto : salto muy alto con un poco de impulso hacia delante
 --   X  Poción     : cura con el tiempo (la valida el servidor)
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ContextActionService = game:GetService("ContextActionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
@@ -176,7 +176,7 @@ local function build()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = player:WaitForChild("PlayerGui"),
 	})
-	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touchOnly = InputMode.TouchUI()
 	local SLOT = touchOnly and 78 or 58
 	local bar = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1),

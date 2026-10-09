@@ -266,3 +266,24 @@ Batería completa sobre `1b739ab` (el código final de la fase; después solo ca
   `phonefx`, `movement`, `abilities`, `clientboot`, `hudclient`, `datastore`, la navegación de los 9
   mapas, el arranque de los 10 modos y el **ciclo de 10 partidas**.
 - Visual: **cambio implementado, pendiente de validar en el S26 Ultra** (sección 10).
+
+## 11. Primera captura del S26 Ultra (fallo encontrado y arreglado)
+
+La primera captura del teléfono es de **la versión publicada**, anterior a la Fase 12 (botones redondos
+con emoji, que se quitaron en `af79102`): no incluye las Fases 12-15 porque no se ha publicado nada.
+Pero mostraba un **fallo real que también tenía la rama**: el HUD de **ordenador** en el teléfono
+(ranuras de armas, «PASE · TIENDA», vida grande, habilidades con emoji). Por las proporciones de la
+captura la pantalla lógica es de unos 830×383, así que no era el tamaño: **el S26 Ultra dice
+`KeyboardEnabled = true`**, y 23 sitios decidían «móvil» con `TouchEnabled and not KeyboardEnabled`.
+
+Arreglo: `shared/InputMode.TouchUI()`, un solo criterio para todo el cliente. Con pantalla táctil manda
+`UserInputService.PreferredInput` (API del motor: Touch en un teléfono aunque declare teclado); si el
+motor no la tiene, táctil cuando no hay teclado **o no hay ratón** (un teléfono no tiene ratón; un
+portátil táctil con ratón sigue con la interfaz de ordenador). Lo usan el HUD, los botones táctiles,
+el minimapa, las habilidades, la granada, el ataque aéreo, la asistencia de apuntado, el visor, los
+efectos, los ajustes, los consejos, el tutorial y el resto de módulos que lo calculaban por su cuenta.
+Prueba nueva `inputmode` (táctil + «teclado» sin ratón = HUD táctil completo, ULTRAWIDE_PHONE).
+
+**Para verlo en el teléfono hay que publicar** (Actions → Publicar en Roblox, a mano y con el Place
+ID; no lo hago yo) o probar en Studio con el emulador. Hasta entonces el teléfono enseña la versión
+vieja.

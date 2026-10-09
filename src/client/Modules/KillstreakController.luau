@@ -3,10 +3,10 @@
 --  * Ataque aéreo: tecla T (cruceta derecha en mando) lanza el ataque al punto al que apuntas
 --  * Marcas rojas en el suelo antes de que caigan las bombas
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Sounds = require(Shared.Sounds)
@@ -98,7 +98,7 @@ local function updateWidget()
 	local charges = player:GetAttribute("Airstrikes") or 0
 	-- (con pantalla táctil, el botón ✈ de Roblox ya lo dice; el cartel quedaba encima de los botones)
 	strikeWidget.Visible = charges > 0 and not ClientState.InMainMenu
-		and not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+		and not InputMode.TouchUI()
 	strikeLabel.Text = "✈ T" .. (charges > 1 and (" ×" .. charges) or "")
 	-- (en el botón táctil, cuántos hay si son varios)
 	TouchLayout.SetBadge("Airstrike", charges > 1 and ("x" .. charges) or nil)

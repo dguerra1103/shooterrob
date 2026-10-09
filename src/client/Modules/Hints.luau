@@ -4,8 +4,8 @@
 -- bloquea: no quita el ratón ni para el juego.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
@@ -38,7 +38,7 @@ local label = nil
 local hipShots = {}
 
 local function touchOnly()
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	return InputMode.TouchUI()
 end
 
 -- ¿Se puede enseñar un consejo ahora? (jugador nuevo, en partida, vivo y sin nada encima)

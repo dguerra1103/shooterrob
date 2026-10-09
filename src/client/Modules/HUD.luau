@@ -4,8 +4,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local StarterGui = game:GetService("StarterGui")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
@@ -456,7 +456,7 @@ local function buildWeaponPanel()
 	end
 
 	-- Controles (estilo de la captura)
-	if not UserInputService.TouchEnabled or UserInputService.KeyboardEnabled then
+	if not InputMode.TouchUI() then
 		-- (compacta para no pisar las ranuras de armas; solo para jugadores nuevos, ver updateData)
 		local hints = UI.new("Frame", {
 			AnchorPoint = Vector2.new(1, 0),
@@ -611,7 +611,7 @@ local function buildPlayerPanel()
 	}, { UI.corner(5) })
 	-- Móvil (pantalla baja): sin la barra vertical (pisaría la tienda, el regalo y el contador del
 	-- evento) y el texto de la racha encima de la barra de vida
-	local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local touchOnly = InputMode.TouchUI()
 	streakBar.Visible = not touchOnly
 	refs.StreakText = UI.label({
 		AnchorPoint = phone and Vector2.new(0.5, 1) or Vector2.new(0, touchOnly and 1 or 0),
@@ -873,7 +873,7 @@ local function buildFeedsAndOverlays()
 
 	-- Medallas de la baja (Primera sangre, Venganza...): en fila bajo el aviso de baja (en móvil,
 	-- encima: debajo están los botones de habilidades)
-	local medalsAbove = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not phone
+	local medalsAbove = InputMode.TouchUI() and not phone
 	refs.Medals = UI.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, medalsAbove and 1 or 0),
 		-- (teléfono: justo debajo del aviso de baja, que está por encima de la mira)
@@ -2464,7 +2464,7 @@ local function render(dt)
 			elseif ClientState.Ammo == 0 and reserve == 0 then
 				setText(refs.ReloadHint, "SIN MUNICIÓN")
 			elseif ClientState.Ammo <= math.ceil(def.MagSize * 0.25) then
-				setText(refs.ReloadHint, UserInputService.KeyboardEnabled and "[R] Recargar" or "🔄 Recargar")
+				setText(refs.ReloadHint, not InputMode.TouchUI() and "[R] Recargar" or "Recargar")
 			else
 				setText(refs.ReloadHint, "")
 			end
@@ -2621,7 +2621,7 @@ function renderCrosshair(def)
 	refs.Scope.Visible = def ~= nil and def.Scope == true and aim > 0.85
 	if refs.Scope.Visible then
 		local hint = ""
-		if not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) then
+		if not InputMode.TouchUI() then
 			hint = ScopeSway.Holding and "Aguantando la respiración…"
 				or ScopeSway.OutOfBreath() and "Sin aire…"
 				or "MAYÚS · aguantar la respiración"
@@ -2792,7 +2792,7 @@ function HUD.Init()
 	task.spawn(disableCoreGui)
 	UI.WaitViewport()
 	phone = UI.IsPhone()
-	touchHUD = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	touchHUD = InputMode.TouchUI()
 	killBaseScale = phone and (touchHUD and 0.6 or 0.7) or 1
 
 	gui = UI.new("ScreenGui", {

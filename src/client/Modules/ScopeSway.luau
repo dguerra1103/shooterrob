@@ -4,6 +4,7 @@
 -- mueve más un momento hasta recuperarlo. Agachado se mueve menos; en el móvil, la mitad (allí no hay
 -- tecla para aguantar). WeaponController aplica a la cámara lo que devuelve Update cada fotograma.
 local UserInputService = game:GetService("UserInputService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local ClientState = require(script.Parent.ClientState)
 
@@ -33,7 +34,7 @@ local function holdPressed()
 end
 
 local function touchOnly()
-	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	return InputMode.TouchUI()
 end
 
 -- Cuánto se mueve ahora mismo (radianes; 0 sin visor)

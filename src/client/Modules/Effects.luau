@@ -3,7 +3,7 @@ local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local UserInputService = game:GetService("UserInputService")
+local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local ClientState = require(script.Parent.ClientState)
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
@@ -16,7 +16,7 @@ local Effects = {}
 -- Nunca cambia el hitmarker, los avisos de baja ni los impactos sobre personas (es información).
 local budgetCache, budgetKey = nil, nil
 local function budget()
-	local mobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+	local mobile = InputMode.TouchUI()
 	local key = tostring(ClientState.EffectiveQuality) .. (mobile and "|m" or "")
 	if key ~= budgetKey then
 		budgetKey = key
