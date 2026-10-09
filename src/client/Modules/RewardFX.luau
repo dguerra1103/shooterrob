@@ -199,6 +199,14 @@ function RewardFX.AddScore(amount)
 		scoreFade = nil
 	end
 	scoreTotal += amount
+	-- (táctil, Fase 17: el hueco libre junto a la mira que calcula el HUD, ver layoutTouchHUD)
+	local spot = ClientState.ScoreSpot
+	if typeof(spot) == "Vector2" and InputMode.TouchUI() then
+		local left = ClientState.ScoreSpotLeft == true
+		scoreLabel.AnchorPoint = Vector2.new(left and 1 or 0, 0.5)
+		scoreLabel.TextXAlignment = left and Enum.TextXAlignment.Right or Enum.TextXAlignment.Left
+		scoreLabel.Position = UDim2.fromOffset(math.floor(spot.X), math.floor(spot.Y))
+	end
 	scoreLabel.Visible = true
 	scoreLabel.TextTransparency = 0
 	scoreLabel.TextStrokeTransparency = 0.2

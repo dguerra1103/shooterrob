@@ -2837,6 +2837,35 @@ local function layoutTouchHUD(_, _size: Vector2)
 	if popupList then
 		popupList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	end
+	-- Puntos de la baja («+300», RewardFX): a la derecha de la mira, justo fuera del centro libre, a
+	-- la altura que no pise ni un botón ni el registro de bajas (en teléfonos pequeños el registro baja
+	-- mucho y antes el número caía encima). En coordenadas de pantalla (RewardFX no usa zona segura)
+	-- (si a la derecha no cabe, como en los teléfonos pequeños, a la izquierda de la mira; el
+	-- número se alinea hacia la mira en los dos casos)
+	local scoreDims = Vector2.new(96, 28)
+	local scoreSpot, scoreLeft = nil, false
+	for _, side in { 1, -1 } do
+		for _, k in { -0.7, -0.45, -0.2, 0.05, 0.3 } do
+			local c = Vector2.new(size.X / 2 + side * (clear + 8 + scoreDims.X / 2), size.Y / 2 + clear * k)
+			local free = true
+			for _, r in obstacles do
+				if MobileHUD.RectsCut(c - scoreDims / 2, c + scoreDims / 2, r.Min, r.Max, 2) then
+					free = false
+					break
+				end
+			end
+			if free then
+				scoreSpot = Vector2.new(side == 1 and c.X - scoreDims.X / 2 or c.X + scoreDims.X / 2, c.Y) + hudOrigin
+				scoreLeft = side == -1
+				break
+			end
+		end
+		if scoreSpot then
+			break
+		end
+	end
+	ClientState.ScoreSpot = scoreSpot
+	ClientState.ScoreSpotLeft = scoreLeft
 	HUDZones.SetZones({
 		TOP_LEFT = { Min = Vector2.new(mapLeft, mapBottom + 6), Max = Vector2.new(math.min(size.X / 2 - clear - 8, mapLeft + 230), leftTop - 6) },
 		TOP_FEED = { Min = Vector2.new(feedLeft, scoreBottom), Max = Vector2.new(feedRight, size.Y / 2 - clear - 4), CenterX = size.X / 2 },
