@@ -248,6 +248,12 @@ WeaponVisual.Families = {
 -- lo necesita (si no, las de Weapons). Además, cualquier sección de las familias (Sprint, Inspect...).
 WeaponVisual.Weapons = {
 	ARX27 = { Model = "ARX27" }, -- (malla de Blender: Shared/WeaponMeshKit)
+	TitanLMG = { Model = "TitanLMG" },
+	Viper = { Model = "Viper" },
+	VortexBR = { Model = "VortexBR" },
+	HavocPump = { Model = "HavocPump" },
+	Signal7 = { Model = "Signal7" },
+	Specter9 = { Model = "Specter9" },
 }
 
 -- Lo que necesita un modelo externo para funcionar sin tocar el código

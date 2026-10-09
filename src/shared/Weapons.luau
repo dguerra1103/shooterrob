@@ -808,7 +808,13 @@ local CLASSIC_PALETTES = {
 	Black = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(40, 42, 46), Panel = RGB(190, 156, 106), Dark = RGB(26, 27, 31), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
 	-- PULSE (armas con malla, tools/blender): negro azulado, paneles naranja de la casa y testigos de
 	-- luz cian. Es la identidad de fábrica de SHOOTERROB; las skins la sustituyen como siempre.
-	Pulse = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = false, Body = RGB(36, 39, 47), Panel = RGB(245, 122, 26), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(245, 122, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	Pulse = { Sheen = 0, DarkSheen = 0.06, TrimAccent = false, Body = RGB(34, 36, 42), Panel = RGB(245, 122, 26), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(245, 122, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- HAVOC (escopeta): la familia Pulse con el naranja más rojo, cartuchos rojos (Trim) y culotes de latón
+	Havoc = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(255, 86, 22), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(214, 168, 70), Lens = RGB(90, 170, 255), Trim = RGB(205, 34, 38), AccentMaterial = MAT.Neon, Accent2Material = MAT.Metal, PanelMaterial = MAT.SmoothPlastic },
+	-- VORTEX (arma de energía): blindaje gris hielo y conductos violeta
+	Vortex = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 32, 40), Panel = RGB(206, 216, 232), Dark = RGB(18, 19, 25), Accent = RGB(160, 96, 255), Accent2 = RGB(90, 220, 255), Lens = RGB(90, 220, 255), Trim = RGB(206, 216, 232), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
+	-- TITAN (ametralladora): la familia Pulse con la cinta de cartuchos de latón (Trim)
+	Titan = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(250, 92, 20), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(214, 168, 70), Lens = RGB(90, 170, 255), Trim = RGB(214, 168, 70), AccentMaterial = MAT.Neon, Accent2Material = MAT.Metal, PanelMaterial = MAT.SmoothPlastic },
 	-- Metal pavonado y madera
 	Wood = { Sheen = 0.04, DarkSheen = 0.1, BodyMaterial = MAT.Metal, Body = RGB(50, 52, 56), Panel = RGB(140, 84, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
 	-- Color arena (desierto)
@@ -824,9 +830,9 @@ local CLASSIC_PALETTES = {
 }
 Weapons.ClassicPalettes = CLASSIC_PALETTES
 local CLASSIC_LOOK = {
-	ARX27 = "Pulse", HavocPump = "Wood", Specter9 = "Black", Signal7 = "Wood", VortexBR = "Tan",
-	NovaDrift = "Olive", RaptorDMR = "Wood", BreachHammer = "Black", TitanLMG = "Olive", GhostlineXR = "Tan",
-	NovaLauncher = "Olive", Viper = "Black", HandCannon = "Steel", PhantomSidewind = "TwoTone", Knife = "Knife",
+	ARX27 = "Pulse", HavocPump = "Havoc", Specter9 = "Pulse", Signal7 = "Pulse", VortexBR = "Vortex",
+	NovaDrift = "Olive", RaptorDMR = "Wood", BreachHammer = "Black", TitanLMG = "Titan", GhostlineXR = "Tan",
+	NovaLauncher = "Olive", Viper = "Pulse", HandCannon = "Steel", PhantomSidewind = "TwoTone", Knife = "Knife",
 }
 if Weapons.Style == "Clasico" then
 	for name, def in Weapons.List do
