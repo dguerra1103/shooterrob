@@ -32,6 +32,10 @@ local onClosed: (() -> ())? = nil
 local previousRelayout = nil
 local overlay: { [string]: { Label: TextLabel, Ring: Frame } } = {}
 local refreshPanel: () -> () = function() end
+local panelSide: ((boolean) -> ())? = nil -- (pasa el panel arriba o abajo)
+local panelAtTop = true
+local panelFrame: Frame? = nil
+local panelCenterX = 0
 
 local function copy(layout)
 	local out = {}
@@ -136,9 +140,37 @@ function HUDEditor.MoveSelected(center: Vector2)
 	apply()
 end
 
+-- Rectángulo del panel arriba o abajo (zona segura) y si tapa el control `id`
+local function panelCovers(top: boolean, id: string): boolean
+	local frame = panelFrame
+	local info = TouchLayout.GetLayout()[id]
+	if not frame or not gui or not info then
+		return false
+	end
+	local size = gui.AbsoluteSize
+	if typeof(size) ~= "Vector2" or size.X < 50 then
+		local camera = workspace.CurrentCamera
+		size = camera and camera.ViewportSize or Vector2.new(844, 390)
+	end
+	local w, h = frame.Size.X.Offset, frame.Size.Y.Offset
+	local x0 = panelCenterX - w / 2
+	local y0 = top and 6 or size.Y - 6 - h
+	local half = info.Hit / 2
+	return info.Center.X + half.X > x0 and info.Center.X - half.X < x0 + w and info.Center.Y + half.Y > y0 and info.Center.Y - half.Y < y0 + h
+end
+HUDEditor.PanelCovers = panelCovers
+
+function HUDEditor.PanelAtTop(): boolean
+	return panelAtTop
+end
+
 function HUDEditor.Select(id: string)
 	if MobileHUD.ById[id] then
 		selected = id
+		-- (si el elegido queda debajo del panel, el panel se va al otro lado: se puede ver y arrastrar)
+		if panelSide and panelCovers(panelAtTop, id) and not panelCovers(not panelAtTop, id) then
+			panelSide(not panelAtTop)
+		end
 		refreshPanel()
 		drawOverlay(TouchLayout.GetLayout())
 	end
@@ -255,6 +287,9 @@ local function close(save: boolean, silent: boolean?)
 	previousRelayout = nil
 	gui:Destroy()
 	gui = nil
+	panelFrame = nil
+	panelSide = nil
+	panelAtTop = true
 	if dim then
 		dim:Destroy()
 		dim = nil
@@ -398,16 +433,34 @@ local function build()
 		end
 	end
 	local width = math.clamp(2 * (utilityLeft - 8 - size.X / 2), 260, 440)
+	panelCenterX = size.X / 2
+	-- (si arriba a la izquierda hay controles a la altura del panel, como el disparo izquierdo, el
+	-- panel se mete en el hueco entre ellos y la tira de arriba a la derecha, si cabe)
+	local leftLimit = 0
+	for id, info in TouchLayout.GetLayout() do
+		if TouchLayout.Entries()[id] and info.Center.X < size.X / 2 and info.Center.Y - info.Hit.Y / 2 < 6 + 130 then
+			leftLimit = math.max(leftLimit, info.Center.X + info.Hit.X / 2)
+		end
+	end
+	if leftLimit > size.X / 2 - width / 2 then
+		local gap = (utilityLeft - 8) - (leftLimit + 8)
+		if gap >= 260 then
+			width = math.min(width, gap)
+			panelCenterX = leftLimit + 8 + width / 2
+		end
+	end
 	local panel = UI.new("Frame", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 6),
+		Position = UDim2.new(0, panelCenterX, 0, 6),
 		Size = UDim2.fromOffset(width, 130),
 		BackgroundColor3 = PANEL,
 		BackgroundTransparency = 0.08,
 		Active = true,
+		ZIndex = 10, -- (por encima de los nombres de los controles)
 		Parent = gui,
 	}, { UI.corner(12), UI.stroke(Color3.fromRGB(90, 96, 112), 1, 0.2) })
+	panelFrame = panel
 	-- (el panel se puede pasar abajo para llegar a lo que tapa)
 	local flip = UI.button({
 		Name = "Flip",
@@ -419,13 +472,28 @@ local function build()
 		BackgroundColor3 = Color3.fromRGB(52, 56, 68),
 		Parent = panel,
 	})
-	local atTop = true
+	local function setSide(top: boolean)
+		panelAtTop = top
+		panel.AnchorPoint = Vector2.new(0.5, top and 0 or 1)
+		panel.Position = top and UDim2.new(0, panelCenterX, 0, 6) or UDim2.new(0, panelCenterX, 1, -6)
+		flip.Text = top and "ABAJO" or "ARRIBA"
+	end
+	panelSide = setSide
 	flip.Activated:Connect(function()
-		atTop = not atTop
-		panel.AnchorPoint = Vector2.new(0.5, atTop and 0 or 1)
-		panel.Position = atTop and UDim2.new(0.5, 0, 0, 6) or UDim2.new(0.5, 0, 1, -6)
-		flip.Text = atTop and "ABAJO" or "ARRIBA"
+		setSide(not panelAtTop)
 	end)
+	-- (empieza en el lado donde tapa menos controles: con el disparo izquierdo puesto, arriba tapaba
+	-- ese botón y no se podía coger)
+	local function covered(top)
+		local count = 0
+		for id in TouchLayout.GetLayout() do
+			if TouchLayout.Entries()[id] and panelCovers(top, id) then
+				count += 1
+			end
+		end
+		return count
+	end
+	setSide(covered(true) <= covered(false))
 	local title = UI.label({
 		Position = UDim2.fromOffset(12, 6),
 		Size = UDim2.new(1, -96, 0, 18),

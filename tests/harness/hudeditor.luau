@@ -131,6 +131,15 @@ Editor.Save()
 task.wait(0.1)
 check(next(ClientState.Settings.HudLayout) == nil, "y se guarda así")
 check((TL.GetLayout().Fire.Center - fireDefault).Magnitude < 1, "disparar en su sitio de fábrica")
+-- (Fase 17) El panel no deja ningún control debajo: al elegir uno que tapa, se va al otro lado
+Editor.Open()
+for id in entries do
+	Editor.Select(id)
+	local top = Editor.PanelAtTop()
+	check(not Editor.PanelCovers(top, id) or Editor.PanelCovers(not top, id), "panel del editor: " .. id .. " se ve y se puede arrastrar")
+end
+Editor.Cancel()
+
 -- Si se vuelve al lobby (o acaba la partida) con el editor abierto, se cancela solo: el juego no se
 -- queda bloqueado debajo de otra pantalla
 Editor.Open(function() closedCalls += 100 end)
