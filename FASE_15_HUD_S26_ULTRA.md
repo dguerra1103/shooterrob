@@ -257,3 +257,12 @@ pasan las comprobaciones geométricas.
 
 Capturas que necesito del teléfono: partida normal, apuntando, cargador vacío, francotirador y (si
 puedes) el editor abierto.
+
+## Resultado final
+
+Batería completa sobre `1b739ab` (el código final de la fase; después solo cambia documentación):
+- `tests/check.sh`: Rojo compila, luau-lsp **sin errores** (exit 0).
+- `tests/run_all.sh`: **OK: 150 · FALLOS: 0** (exit 0). Incluye `mobilehud`, `touchbtns`, `hudeditor`,
+  `phonefx`, `movement`, `abilities`, `clientboot`, `hudclient`, `datastore`, la navegación de los 9
+  mapas, el arranque de los 10 modos y el **ciclo de 10 partidas**.
+- Visual: **cambio implementado, pendiente de validar en el S26 Ultra** (sección 10).
