@@ -72,3 +72,10 @@ Pase "Stylized Tactical Roblox". Qué cambió, por qué y dónde. Todo se puede 
 | Detalle de ambiente: lonas, encofrados, buganvillas, banderines, frentes con luz, lamas, rótulos. | Lectura de "lugar diseñado"; lo fino se oculta en calidad Baja. | `Finish.luau`, `Settings.HIDE_BELOW` |
 | Fondo: silueta industrial (Construction) y vallas de marcas ficticias (Mall Rush). | Que el mapa no flote en el vacío. | `Dressing.luau` |
 
+## HUD móvil (Fase 15, referencia Galaxy S26 Ultra)
+| Qué | Por qué | Dónde |
+|---|---|---|
+| Clases de pantalla por forma (COMPACT / STANDARD / ULTRAWIDE / TABLET) y escala lógica; grupo de combate metido hacia dentro en pantallas alargadas. | En 19,5:9 los botones se iban a la esquina. | `shared/MobileHUD.luau` |
+| Jerarquía: DISPARAR (anillo, centro transparente) > APUNTAR > salto y agacharse > recargar > granada y cuerpo a cuerpo; habilidades como tarjetas cuadradas; tira pequeña de poco uso. | Antes eran círculos casi iguales. | `TouchLayout.luau`, `TouchIcons.luau` |
+| Marcador en pastillas (tu equipo azul a la izquierda), munición junto a recargar, vida «100» + barra fina, killfeed de 3 filas con ancho fijo. | Información compacta y centro limpio. | `HUD.luau` |
+

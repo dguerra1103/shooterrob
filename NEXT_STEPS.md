@@ -55,6 +55,12 @@ arreglados (dedos, gatillo compartido, correr automático, editor abierto, tarje
 **Lo siguiente es tu prueba en el teléfono**: secciones 8–11 de ese documento, y mandar capturas y la
 tabla de ergonomía. No se moverá ningún botón hasta tener ese feedback.
 
+**Fase 15 (rediseño visual del HUD móvil, referencia Galaxy S26 Ultra)** — ver
+`FASE_15_HUD_S26_ULTRA.md`. Clases de pantalla por su forma (ULTRAWIDE_PHONE para 19,5:9), grupo de
+combate metido hacia dentro con jerarquía clara, salto propio, zona de cámara libre, HUD compacto y
+versión de disposición 2 (las personalizadas se conservan). **Lo siguiente es probarlo en el S26 Ultra**
+(sección 10 de ese documento) y mandar capturas; los ajustes finos son números en `shared/MobileHUD`.
+
 **Fase 14 (pulido visual de mapas)** — ver `FASE_14_MAPAS_VISUALES.md`. Construction, Coastal y Mall
 Rush con suelo por zonas, remates de fachada, identidad A/B por color, rótulos y fondo; kit de acabados
 reutilizable `TacKit.Finish`. Sin cambios de gameplay. **Lo siguiente es mirarlos en Studio** con la
