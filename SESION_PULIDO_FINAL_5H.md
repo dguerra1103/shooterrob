@@ -207,3 +207,13 @@ Ver el informe final y `git log c952627..HEAD`.
 9. Varias bajas seguidas: el «+300» junto a la mira, sin tapar el registro de bajas.
 10. Medir con el MicroProfiler: FPS en un tiroteo 5v5 en Construction y Coastal (Auto y Alta), memoria
     tras 5 partidas seguidas y temperatura a los 10-15 minutos.
+
+## Resultado final
+
+- `tests/check.sh`: Rojo build y luau-lsp sin errores.
+- `tests/run_all.sh` completo sobre el estado final: **OK 152, FALLOS 0** (incluye `hudstress`,
+  `touchbtns`, `hudeditor`, `mobilehud`, navegación de los 9 mapas, arranque de los 10 modos y ciclo de
+  10 partidas). La primera pasada dio 150/2 (`rounds`, `bomb`): ver la sección 16.
+- `publish.yml` sin cambios; 42 ProductIds en 0; UniverseId y PlaceId sin tocar; QA y depuración
+  apagados; sin cambios en `src/server`, `src/shared` ni `src/first`. Sin publicar.
+- Pendiente de validar en Studio y en el S26 Ultra real (secciones 17 y 18).
