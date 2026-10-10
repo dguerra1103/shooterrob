@@ -631,7 +631,7 @@ end
 -- Aparición libre (FFA / Escalada): el punto más alejado de los demás
 ---------------------------------------------------------------------------
 
-local ffaCache = { Map = nil, Points = {} }
+local ffaCache = { Map = nil, Points = {}, Version = nil }
 local spawnedThisRound = {} -- [player] = true: ya apareció en esta ronda (la siguiente vez, dinámica)
 
 local function ffaSpawnFor(player, character)
@@ -657,8 +657,9 @@ local function ffaSpawnFor(player, character)
 		return
 	end
 	-- Puntos libres del mapa (se guardan mientras no cambie el mapa)
-	if ffaCache.Map ~= map then
-		ffaCache.Map, ffaCache.Points = map, {}
+	-- (SpawnsVersion: MapCheck retira los puntos a los que no se llega a pie)
+	if ffaCache.Map ~= map or ffaCache.Version ~= map:GetAttribute("SpawnsVersion") then
+		ffaCache.Map, ffaCache.Points, ffaCache.Version = map, {}, map:GetAttribute("SpawnsVersion")
 		for _, d in map:GetDescendants() do
 			if d:IsA("BasePart") and d.Name == "FFASpawn" then
 				table.insert(ffaCache.Points, d)
@@ -1576,7 +1577,7 @@ local function endRound()
 		TeamB = b.Name,
 		ScoreA = scoreA,
 		ScoreB = scoreB,
-		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
+		Winner = if teamMode then (winner and winner.Name) else (hasWinner and leader and leader.Name or nil), -- (sin puntos no gana nadie: empate)
 		Reason = MatchResults.ReasonFor(currentMode, hasWinner, reachedGoal, lastRoundHow),
 		MVP = participants[1] and participants[1].Id or nil,
 		Players = participants,
@@ -1584,7 +1585,7 @@ local function endRound()
 	Remotes.RoundEnd:FireAllClients({
 		Result = result,
 		TeamMode = teamMode,
-		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
+		Winner = if teamMode then (winner and winner.Name) else (hasWinner and leader and leader.Name or nil), -- (sin puntos no gana nadie: empate)
 		WinnerColor = winner and winner.TeamColor.Color or Color3.fromRGB(255, 200, 60),
 		ScoreA = scoreA,
 		ScoreB = scoreB,

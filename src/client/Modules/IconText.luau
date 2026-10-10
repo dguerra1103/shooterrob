@@ -7,7 +7,12 @@ local IconText = {}
 
 local GAP = 4
 
+-- emoji también puede ser una tabla { [emoji] = imagen } (un rótulo cuyo icono cambia: el rango)
 function IconText.Bind(label, emoji, image, scale)
+	local many = type(emoji) == "table" and emoji or nil
+	if many then
+		image = select(2, next(many))
+	end
 	if not (label and label:IsA("TextLabel")) or type(image) ~= "string" or image == "" then
 		return
 	end
@@ -54,6 +59,21 @@ function IconText.Bind(label, emoji, image, scale)
 			return
 		end
 		local text = label.Text
+		if many then
+			emoji = nil
+			for candidate, candidateImage in many do
+				if string.sub(text, 1, #candidate) == candidate and type(candidateImage) == "string" and candidateImage ~= "" then
+					emoji = candidate
+					icon.Image = candidateImage
+					break
+				end
+			end
+			if not emoji then
+				icon.Visible = false
+				place()
+				return
+			end
+		end
 		local prefix = emoji .. " "
 		if string.sub(text, 1, #prefix) == prefix then
 			busy = true
@@ -81,6 +101,21 @@ function IconText.Bind(label, emoji, image, scale)
 	label:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 	refresh()
 	return icon
+end
+
+-- Rótulo que empieza por el emoji de un rango («🥇 ORO +12 RP»): se dibuja su emblema
+function IconText.BindRank(label, scale)
+	local Ranks = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranks"))
+	local map = {}
+	for _, tier in Ranks.Tiers or {} do
+		if tier.Icon and tier.Image then
+			map[tier.Icon] = tier.Image
+		end
+	end
+	if next(map) == nil then
+		return nil
+	end
+	return IconText.Bind(label, map, nil, scale)
 end
 
 return IconText

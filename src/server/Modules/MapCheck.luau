@@ -304,8 +304,10 @@ end
 -- ¿Cabe un personaje de pie en floor (punto del suelo)? Devuelve el nombre de lo que estorba
 local function blocked(floor, overlap, ray)
 	local hits = workspace:GetPartBoundsInBox(CFrame.new(floor + V(0, 3.2, 0)), V(2.7, 5, 2.7), overlap)
+	local map = workspace:FindFirstChild("Map")
 	for _, q in hits do
-		if q.CanCollide then
+		-- (solo piezas del mapa: un personaje que esté ahí en ese momento no cuenta)
+		if q.CanCollide and map and q:IsDescendantOf(map) then
 			return q.Name
 		end
 	end
@@ -444,7 +446,7 @@ function MapCheck.Verify(map, onDone)
 		if not ready then
 			note("sin ruta entre las bases a los 40 s: los bots no pueden cruzar el mapa")
 		end
-		local unreachable = 0
+		local unreachable, retired = 0, 0
 		for _, target in targets do
 			local reached = false
 			for _, origin in list do
@@ -456,6 +458,11 @@ function MapCheck.Verify(map, onDone)
 			if not reached then
 				unreachable += 1
 				target:SetAttribute("Unreachable", true)
+				if target.Name == "FFASpawn" then
+					-- (nadie aparece donde no se puede salir a pie: puede ser un hueco cerrado)
+					target.Name = "FFASpawnBlocked"
+					retired += 1
+				end
 				note(("sin ruta a pie hasta %s en (%.0f, %.0f, %.0f)"):format(target.Name, target.Position.X, target.Position.Y, target.Position.Z))
 			end
 			if not map.Parent then
@@ -463,6 +470,9 @@ function MapCheck.Verify(map, onDone)
 			end
 		end
 		MapCheck.Stats.Unreachable = unreachable
+		if retired > 0 then
+			map:SetAttribute("SpawnsVersion", (map:GetAttribute("SpawnsVersion") or 0) + 1)
+		end
 		map:SetAttribute("MapCheckIssues", #MapCheck.Report)
 		map:SetAttribute("MapCheckText", table.concat(MapCheck.Report, "\n", 1, math.min(#MapCheck.Report, 20)))
 		if #MapCheck.Report > 0 then

@@ -12,6 +12,11 @@ que la sesión de Claude tenga cargadas sus herramientas. Studio tiene que estar
 | `qa_on.luau` | Activa el modo QA **solo en la copia de Studio** (no toca el repo). |
 | `weapontest.js` | Prueba armas en partida con el modo QA: `node weapontest.js HavocPump Signal7` y luego `node run.js weapontest.json`. Deja capturas `wt_<Arma>_<n>.png` (reposo, disparo, apuntado, recarga). |
 | `showcase.luau` | En modo Edit, construye todas las armas nuevas con su acabado de fábrica y las pone en fila en `workspace.SR_Showcase` (para capturarlas). |
+| `mapaudit.js` + `mapaudit.luau` | Auditoría de mapas en modo Edit: `node mapaudit.js [Mapa ...] [--tag x] [--nocheck]` y `node run.js mapaudit.json > informe.txt`. Construye cada mapa con el constructor real y mide piezas, colisiones raras, caras coplanarias, piezas flotantes, huecos del suelo, puntos de aparición dentro de objetos y rutas. Deja cuatro capturas por mapa (`map_<tag>_<Mapa>_<n>.png`); `python sheet.py <tag>` las junta en una hoja. `--nocheck` construye sin el repaso de `MapCheck` (para comparar). |
+| `maptest.js` + `maptest_server.luau` | Prueba en partida de cada mapa con el modo QA: `node maptest.js [Mapa:MODO ...]` y `node run.js maptest.json`. Por mapa: captura, estado del repaso (`MapCheck`), rutas, bots (se mueven, caídos, dentro de piezas), restos en `workspace` y medidas del cliente (llamadas de dibujo, triángulos, memoria). |
+| `probe.js` + `probe.luau` | Rutas a puntos sueltos de un mapa: `node probe.js Mapa "x,y,z" ...` y `node run.js probe.json`. |
+| `turn.sh` | Turno de Studio cuando hay otra sesión usándolo: espera al cerrojo `.studio.lock`, sincroniza, activa QA y lanza los pasos: `./turn.sh salida.txt pasos.json`. |
+| `tools_list.js` | Lista las herramientas del MCP de Studio. |
 
 ## Pasos de `run.js`
 
@@ -41,3 +46,20 @@ que la sesión de Claude tenga cargadas sus herramientas. Studio tiene que estar
 - `rojo build -o ShooterRob.rbxlx` regenera el place desde `src/`; lo que solo esté en Studio se pierde.
 - El modo QA nunca se deja activado en el repo (`GameConfig.QA.Enabled` es `false`).
 - Los `.json` y `.png` de esta carpeta no se guardan en git.
+
+## Dos sesiones a la vez
+
+Si dos sesiones manejan el mismo Studio se cortan las pruebas la una a la otra (resets de la conexión,
+partidas cambiadas). Cerrojo de cortesía: quien va a usar Studio crea `tools/studio/.studio.lock` (nombre
+y hora) y lo borra al acabar; si existe y tiene menos de 20 minutos, se espera. `sync.js` usa una marca
+de tiempo común: con dos sesiones, pasa las rutas a mano (`node sync.js ruta ...`).
+
+## Rutas de los bots: lo que se midió
+
+- La malla de navegación tarda unos segundos en existir después de construir un mapa, y en modo Edit
+  puede quedarse sin generar hasta que algo cambia: las rutas se comprueban esperando a que haya ruta
+  entre las dos bases (lo hace `mapaudit` y, en el servidor, `MapCheck.Verify`).
+- Una rampa de más de unos 30° no entra en la malla aunque un personaje la suba: `G.stairs` añade un
+  `PathfindingLink` a las de más de 27°.
+- Con terreno muy por debajo del suelo jugable (la calle de Rooftop District) las rutas salían por ahí
+  abajo: una ruta solo vale si su último punto queda a la altura del destino.

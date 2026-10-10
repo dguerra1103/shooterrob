@@ -26,6 +26,7 @@ local RewardFX = require(script.Parent.RewardFX)
 local ScopeSway = require(script.Parent.ScopeSway)
 local TouchLayout = require(script.Parent.TouchLayout)
 local HUDZones = require(script.Parent.HUDZones)
+local IconText = require(script.Parent.IconText)
 
 local player = Players.LocalPlayer
 
@@ -469,8 +470,10 @@ local function buildWeaponPanel()
 	if not InputMode.TouchUI() then
 		-- (compacta para no pisar las ranuras de armas; solo para jugadores nuevos, ver updateData)
 		local hints = UI.new("Frame", {
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -20, 0.42, 0), -- (debajo del registro de bajas)
+			-- (justo encima de las ranuras de armas, que van centradas en 0,6 y miden 196: antes empezaba en
+			-- 0,42 y, con 247 de alto, caía entera sobre ellas: los textos se montaban en las armas)
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -20, 0.6, -106),
 			Size = UDim2.fromOffset(220, 247),
 			BackgroundTransparency = 1,
 			Parent = gui,
@@ -1835,6 +1838,11 @@ local function onMatchSummary(summary)
 			deltaText = '  <font color="#FF6E6E">' .. delta .. " RP</font>"
 		end
 		return string.format('%s <font color="%s"><b>%s</b></font>%s', tier.Icon, UI.hex(tier.Color), UI.upper(tier.Name), deltaText)
+	end
+	if not refs.SummaryRank:FindFirstChild("IconText") then
+		-- (el emoji del rango pasa a ser su emblema)
+		IconText.BindRank(refs.SummaryRank)
+		IconText.BindRank(refs.SummaryLevelUp)
 	end
 	refs.SummaryRank.Text = rankText(startRank, 0)
 	task.spawn(function()

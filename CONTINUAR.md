@@ -24,6 +24,8 @@ propios**. Falta probar en un móvil real, medir rendimiento y pulir lo que se l
 | Herramientas para Studio | `tools/studio/` (ver su `README.md`) |
 | Pruebas automáticas | `tests/` (`check.sh`, `run_all.sh`; ver `tests/README.md`) |
 | Informe de la misión 3D | `MISION_3D_INFORME.md` |
+| Informe de estabilización de mapas | `ESTABILIZACION_INFORME.md` (evidencia en `assets/maps/diagnostico/`) |
+| Repaso automático de cada mapa | `src/server/Modules/MapCheck.luau` |
 | Economía, flujo de pantallas, mapas | `ECONOMY.md`, `UI_FLOW.md`, `MAP_DEVELOPMENT.md` |
 | Historial de fases anteriores | `FASE_*.md`, `NEXT_STEPS.md` (anterior a las pruebas en Studio) |
 
@@ -80,7 +82,14 @@ Deja `wt_<Arma>_1..4.png`: reposo, disparo, apuntando y recarga.
 - **El terreno de Roblox queda 2 studs por encima** del bloque que se rellena (`Terrain:FillBlock`);
   `TacKit.terrain` ya lo compensa.
 - **La ropa en capas del avatar oculta el cuerpo** aunque se esconda el accesorio: los trajes la quitan.
-- **Los bots calculan ruta con radio 2 y, si no hay, con radio 1** (puertas de 4-5 studs).
+- **Los bots calculan ruta con radio 2 y, si no hay, con radio 1** (puertas de 4-5 studs); si en un
+  mapa el 2 falla siempre, pasan a probar antes el 1.
+- **La malla de navegación no sube rampas de más de ~30°**: `G.stairs` pone un enlace de ruta en las de
+  más de 27°. Y tarda unos segundos en existir tras construir el mapa.
+- **Cada mapa se repasa al construirse** (`MapCheck`): sombras de contacto, caras coplanarias, puntos de
+  aparición dentro de objetos y rutas. Si algo falla, sale `[MapCheck]` en la consola del servidor.
+- **Dos sesiones en el mismo Studio se cortan las pruebas**: cerrojo `tools/studio/.studio.lock`
+  (ver `tools/studio/README.md`).
 - **ForgeGUI** (plan gratis) quedó sin créditos y no deja generar 3D. Los iconos nuevos se generan con
   ChatGPT (hojas de 15 con fondo transparente) y se recortan con `assets/icons/slice.py`.
 
@@ -99,7 +108,11 @@ Deja `wt_<Arma>_1..4.png`: reposo, disparo, apuntando y recarga.
 8. **Monetización:** crear los productos en el Creator Dashboard (todos los ids están a 0).
 9. **Temporada 2 del pase** antes del 1 de enero de 2027; el evento de Halloween se apaga el 4 de
    noviembre de 2026.
-10. **Prueba `scopesway`:** falla desde antes de esta etapa.
+10. **Mapas (ver `ESTABILIZACION_INFORME.md`, sección 4):** plataformas altas de Rooftop District sin
+    ruta para los bots, puntos por recolocar en Construction e Industrial Yard, y toda la mejora visual
+    (óxido de contenedores, variantes de noche muy oscuras) sin empezar.
+11. **Multijugador:** nunca ha habido dos clientes en la misma partida (el MCP solo arranca uno).
+12. **Rendimiento:** Terminal, Mall Rush y Dockyard pasan de 230 000 triángulos en escena en Studio.
 
 ## Reglas que se han seguido
 
