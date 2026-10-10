@@ -29,6 +29,11 @@ local MARKERS = {
 	Callout = true, Boundary = true, PlayerClip = true, RailCollider = true,
 }
 
+-- Piezas pintadas en el suelo: todas se apoyan en su suelo real y se separan entre sí
+local GROUND = {
+	ContactShadow = true, OilStain = true, Crack = true, TireMark = true, Puddle = true, Manhole = true, ManholeRim = true,
+}
+
 local SHADOW_BASE = 0.016 -- la sombra más baja, sobre su suelo
 local SHADOW_STEP = 0.011 -- entre sombras que se pisan
 local FACE_PUSH = 0.012 -- lo que sale la cara de la pieza pequeña
@@ -72,7 +77,7 @@ local function collect(map)
 	local list, shadows = {}, {}
 	for _, d in map:GetDescendants() do
 		if d:IsA("BasePart") and not (boundary and d:IsDescendantOf(boundary)) and not (callouts and d:IsDescendantOf(callouts)) then
-			if d.Name == "ContactShadow" then
+			if GROUND[d.Name] then
 				table.insert(shadows, entry(d))
 			elseif not MARKERS[d.Name] and d.Transparency < 0.98 then
 				table.insert(list, entry(d))
@@ -231,7 +236,7 @@ local function fixFaces(list, shadows)
 			end
 		end
 		for _, e in all do
-			if e.aligned and (e.block or e.p.Name == "ContactShadow") then
+			if e.aligned and (e.block or GROUND[e.p.Name]) then
 				if e.block then
 					face(e, "x", 1, e.x1, e.y0, e.y1, e.z0, e.z1)
 					face(e, "x", -1, e.x0, e.y0, e.y1, e.z0, e.z1)
@@ -262,11 +267,11 @@ local function fixFaces(list, shadows)
 								local ga = (g.a1 - g.a0) * (g.b1 - g.b0)
 								local small = fa <= ga and f or g
 								local other = small == f and g or f
-								if small.e.p.Name == "ContactShadow" or small.e.p:IsA("SpawnLocation") or not small.e.block then
+								if GROUND[small.e.p.Name] or small.e.p:IsA("SpawnLocation") or not small.e.block then
 									small = other
 								end
 								local id = tostring(small.e) .. small.axis .. small.sign
-								if small.e.block and not small.e.p:IsA("SpawnLocation") and small.e.p.Name ~= "ContactShadow" and not done[id] then
+								if small.e.block and not small.e.p:IsA("SpawnLocation") and not GROUND[small.e.p.Name] and not done[id] then
 									done[id] = true
 									pushFace(small.e, small.axis, small.sign, push)
 									round += 1
@@ -312,6 +317,9 @@ local function blocked(floor, overlap, ray)
 		end
 	end
 	local down = workspace:Raycast(floor + V(0, 2.5, 0), V(0, -6, 0), ray)
+	if down and map and not down.Instance:IsA("Terrain") and not down.Instance:IsDescendantOf(map) then
+		return nil -- (el rayo dio en un personaje que estaba encima: no dice nada del suelo)
+	end
 	if not down then
 		return "sin suelo"
 	elseif math.abs(down.Position.Y - floor.Y) > 1.6 then

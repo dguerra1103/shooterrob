@@ -4,6 +4,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 local MapCheck = require(script.Parent.MapCheck)
+local MapDress = require(script.Parent.MapDress)
+local MapKit = require(script.Parent.MapKit)
 
 local MapBuilder = {}
 
@@ -90,6 +92,11 @@ function MapBuilder.Build(id)
 	end
 	-- Repaso del mapa recién construido: sombras y caras coplanarias, puntos de aparición dentro de
 	-- objetos y, en segundo plano, rutas a los objetivos (ver MapCheck)
+	-- Detalle de suelo (manchas, grietas, rodadas, charcos): ver MapDress
+	local dressed, dressError = pcall(MapDress.Apply, def, MapKit)
+	if not dressed then
+		warn("[MapBuilder] detalle de suelo:", dressError)
+	end
 	local map = workspace:FindFirstChild("Map")
 	local checked, checkError = pcall(MapCheck.Finalize, map)
 	if not checked then

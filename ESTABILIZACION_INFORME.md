@@ -174,3 +174,23 @@ pesados); no se ha vuelto a medir.
 - Arquitectura, coberturas y decoración: sin tocar.
 - Dos instancias de Studio abiertas a la vez hacían que las herramientas las mezclaran: ahora se elige
   con `SR_STUDIO=<trozo del nombre>`.
+
+## Segunda tanda visual (mismo día)
+
+- **Asfalto con el color equivocado**: el color de asfalto que pide cada mapa no se aplicaba nunca (faltaba
+  en la lista de materiales de terreno) y salía el del motor, un gris verdoso claro. Por eso Dockyard se
+  veía tan pálido. Afectaba a Dockyard, Metro Yard, Rooftop District y Terminal. Corregido en `MapKit`.
+- **Detalle de suelo** (módulo nuevo `MapDress`): manchas de aceite, grietas, rodadas, charcos y tapas de
+  alcantarilla repartidos por las zonas abiertas de ocho mapas (Mall Rush no: es un interior limpio).
+  Mismo reparto en todas las partidas y simétrico. Son 60–170 piezas finas por mapa, sin colisión ni
+  sombra. `MapCheck` las apoya en su suelo y evita que se pisen.
+- **Charcos** menos brillantes; **luz de las bases** en blanco neutro (teñida de azul, la base azul tiraba
+  a lila de noche).
+- **Aviso falso del repaso** cuando había un personaje encima de un punto de aparición: corregido.
+
+Comprobado: auditoría de los nueve mapas sin caras coplanarias nuevas ni rutas rotas, y tres partidas
+(Dockyard, Industrial Yard, Mall Rush) sin errores. Mall Rush pasa de unos 250 000 a 57 000 triángulos
+en escena al quitar la hierba 3D (una muestra, en Studio). La lista de teclas del HUD ya no pisa las
+ranuras de armas (visto en partida).
+
+Visto y sin tocar: en las variantes de noche las superficies claras tiran a violeta; ya era así.

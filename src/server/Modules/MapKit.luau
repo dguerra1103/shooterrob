@@ -761,10 +761,10 @@ function Kit.puddle(position, size, seed)
 	for i = 1, 3 do
 		local d = size * (i == 1 and 1 or rng:NextNumber(0.45, 0.75))
 		local offset = i == 1 and V(0, 0, 0) or V(rng:NextNumber(-0.4, 0.4) * size, 0, rng:NextNumber(-0.4, 0.4) * size)
-		local water = deco("Puddle", V(0.04, d, d), CFrame.new(position + offset + V(0, 0.03 + i * 0.002, 0)) * CFrame.Angles(0, 0, math.pi / 2), RGB(38, 44, 52), Enum.Material.Glass)
+		local water = deco("Puddle", V(0.04, d, d), CFrame.new(position + offset + V(0, 0.03 + i * 0.002, 0)) * CFrame.Angles(0, 0, math.pi / 2), RGB(30, 34, 40), Enum.Material.Glass)
 		water.Shape = Enum.PartType.Cylinder
-		water.Transparency = 0.25
-		water.Reflectance = 0.45
+		water.Transparency = 0.5
+		water.Reflectance = 0.18
 	end
 end
 
@@ -1323,6 +1323,9 @@ local TERRAIN_DEFAULTS = {
 	Sandstone = RGB(137, 90, 71),
 	Slate = RGB(63, 127, 107),
 	Pavement = RGB(148, 148, 140),
+	-- (faltaba: el asfalto de Dockyard, Metro Yard, Rooftop District y Terminal salía con el color por
+	-- defecto del motor, un gris verdoso claro, en vez del que pide cada mapa)
+	Asphalt = RGB(115, 123, 107),
 }
 
 -- Hierba y hojas más vivas en estilo Cartoon
