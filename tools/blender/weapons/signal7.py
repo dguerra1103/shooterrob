@@ -1,13 +1,15 @@
-# SIGNAL-7 · fusil de francotirador de cerrojo (el arma más larga de SHOOTERROB).
-# Silueta: chasis esquelético con culata de ojal y carrillera regulable, guardamanos afilado con
-# placa de acento, cañón con funda hexagonal y freno de boca anguloso, visor grande con campana,
-# torretas y lente de color, bípode plegado y celdas de carga luminosas a lo largo del cajón.
+# SIGNAL-7 · fusil de francotirador de cerrojo (el arma más larga de SHOOTERROB), acabado LEGENDARIO
+# (blanco hielo y cian). Silueta: chasis esquelético con culata de ojal y carrillera regulable,
+# guardamanos afilado con placa blanca y branquias luminosas, cañón con funda hexagonal y freno de boca
+# en garra, visor grande con campana y torretas, bípode plegado, celdas de carga luminosas a lo largo
+# del cajón y cristales de hielo (Trim) en el visor, el guardamanos y la boca.
 NAME = "Signal7"
 
 PALETTE = {
     "Body": (0.045, 0.052, 0.07),
-    "Panel": (1.0, 0.33, 0.03),  # naranja de la casa, un punto más rojo (ámbar de señal)
-    "Accent": (0.1, 0.95, 0.9),  # cian algo más verde
+    "Panel": (1.0, 1.0, 1.0),  # blanco hielo
+    "Accent": (0.0, 0.3, 0.45),  # cian luminoso (la emisión del render lo aclara)
+    "Trim": (0.42, 0.86, 1.0),  # cristal de hielo
     "Dark": (0.015, 0.016, 0.021),
     "Metal": (0.5, 0.52, 0.58),
     "Lens": (0.05, 0.42, 0.7),
@@ -38,12 +40,16 @@ def build(w):
     w.profile("Forend", [(-0.86, 0.21), (-2.18, 0.17), (-2.44, 0.03), (-2.44, -0.05), (-2.24, -0.20), (-0.86, -0.20)], 0.26, "Body", 0.022)
     w.profile("ForendPlate", [(-1.00, 0.13), (-2.12, 0.10), (-2.30, -0.01), (-1.14, -0.04)], 0.276, "Panel", 0.0)
     for i, z in enumerate((-1.30, -1.50, -1.70, -1.90)):
-        w.box(f"Vent{i}", (0, 0.045, z), (0.288, 0.13, 0.05), "Dark", 0.0, rot=(-28, 0, 0))
+        w.box(f"Vent{i}", (0, 0.045, z), (0.288, 0.13, 0.05), "Accent", 0.0, rot=(-28, 0, 0))
     w.box("ForendGlow", (0, -0.125, -1.55), (0.268, 0.022, 1.20), "Accent", 0.0)
     w.box("ForendTop", (0, 0.20, -1.50), (0.10, 0.035, 1.20), "Dark", 0.008, rot=(-1.7, 0, 0))
 
     for i in range(3):
         w.box(f"ForendTooth{i}", (0, 0.222 - i * 0.011, -1.12 - i * 0.38), (0.115, 0.022, 0.10), "Dark", 0.0)
+    # Cristales del lomo y esquirla blanca bajo el arranque del guardamanos
+    w.profile("ForendCrystal0", [(-1.16, 0.205), (-1.46, 0.195), (-1.60, 0.33)], 0.07, "Trim", 0.0)
+    w.profile("ForendCrystal1", [(-1.74, 0.185), (-2.04, 0.175), (-2.20, 0.30)], 0.07, "Trim", 0.0)
+    w.profile("ForendShard", [(-0.92, -0.19), (-1.30, -0.19), (-0.98, -0.31)], 0.2, "Panel", 0.0)
     w.cyl("SlingStud", (-0.12, -0.14, -2.20), (0.12, -0.14, -2.20), 0.024, "Metal", 8)
 
     # ---------------------------------------------------------------- cañón y freno de boca
@@ -51,14 +57,17 @@ def build(w):
     w.cyl("BarrelNut", (0, BY, -2.40), (0, BY, -2.56), 0.088, "Dark", 8)
     w.cyl("BarrelSleeve", (0, BY, -2.56), (0, BY, -3.20), 0.074, "Body", 6)
     for i, z in enumerate((-2.76, -3.02)):
-        w.box(f"SleeveSlot{i}", (0, BY, z), (0.152, 0.03, 0.18), "Dark", 0.0)
+        w.box(f"SleeveSlot{i}", (0, BY, z), (0.152, 0.03, 0.18), "Accent", 0.0)
     w.cyl("SleeveBand", (0, BY, -3.20), (0, BY, -3.26), 0.084, "Panel", 8)
     # Freno de boca grande y anguloso: cuña con aleta superior, banda de acento y dos lumbreras
     w.profile("Brake", [(-3.34, 0.15), (-3.62, 0.24), (-3.775, 0.17), (-3.775, -0.05), (-3.66, -0.11), (-3.40, -0.08)], 0.20, "Body", 0.016)
     w.box("BrakeBand", (0, 0.04, -3.385), (0.222, 0.25, 0.04), "Panel", 0.0, rot=(-12, 0, 0))
     for i, z in enumerate((-3.50, -3.62)):
-        w.box(f"BrakePort{i}", (0, 0.06, z), (0.212, 0.15, 0.05), "Dark", 0.0, rot=(-16, 0, 0))
+        w.box(f"BrakePort{i}", (0, 0.06, z), (0.212, 0.15, 0.05), "Accent", 0.0, rot=(-16, 0, 0))
     w.box("BrakeGlow", (0, -0.06, -3.57), (0.208, 0.016, 0.20), "Accent", 0.0, rot=(-5, 0, 0))
+    # Garra: un cristal barrido hacia atrás por arriba y otro por abajo
+    w.profile("BrakeCrystalTop", [(-3.38, 0.16), (-3.62, 0.235), (-3.30, 0.36)], 0.08, "Trim", 0.0)
+    w.profile("BrakeCrystalBottom", [(-3.44, -0.085), (-3.30, -0.25), (-3.64, -0.105)], 0.08, "Trim", 0.0)
     w.cyl("Bore", (0, BY, -3.70), (0, BY, -3.78), 0.045, "Dark", 8)
 
     # ---------------------------------------------------------------- raíl y visor
@@ -76,10 +85,14 @@ def build(w):
     w.cyl("EyeLens", (0, SY, 1.006), (0, SY, 0.985), 0.104, "Lens", 12)
     w.box("Saddle", (0, SY, 0.08), (0.20, 0.20, 0.22), "Body", 0.02)
     w.cyl("TurretTop", (0, 0.60, 0.08), (0, 0.71, 0.08), 0.062, "Metal", 10)
-    w.cyl("TurretTopCap", (0, 0.71, 0.08), (0, 0.735, 0.08), 0.068, "Panel", 10)
+    w.cyl("TurretTopCap", (0, 0.71, 0.08), (0, 0.735, 0.08), 0.068, "Accent", 10)
     w.cyl("TurretSide", (0.09, SY, 0.08), (0.185, SY, 0.08), 0.058, "Metal", 10)
     w.cyl("TurretSideCap", (0.185, SY, 0.08), (0.205, SY, 0.08), 0.064, "Panel", 10)
     w.cyl("ParallaxKnob", (-0.09, SY, 0.08), (-0.17, SY, 0.08), 0.07, "Dark", 10)
+    w.cyl("ParallaxGlow", (-0.17, SY, 0.08), (-0.182, SY, 0.08), 0.046, "Accent", 8)
+    # Cristales del visor (por fuera del tubo: no entran en la imagen de la mira)
+    w.profile("ScopeCrystalRear", [(0.90, 0.635), (0.66, 0.635), (1.00, 0.77)], 0.06, "Trim", 0.0)
+    w.profile("ScopeCrystalFront", [(-0.60, 0.665), (-0.90, 0.665), (-0.50, 0.80)], 0.06, "Trim", 0.0)
     w.cyl("BellNeck", (0, SY, -0.40), (0, SY, -0.56), 0.112, "Body", 12)
     w.cyl("Bell", (0, SY, -0.54), (0, SY, -0.92), 0.148, "Body", 12)
     w.cyl("BellBand", (0, SY, -0.62), (0, SY, -0.68), 0.156, "Panel", 12)
@@ -113,6 +126,9 @@ def build(w):
     w.profile("Butt", [(1.72, 0.25), (1.90, 0.25), (1.92, -0.52), (1.84, -0.64), (1.70, -0.62), (1.66, -0.46)], 0.19, "Dark", 0.02)
     w.box("ButtPad", (0, -0.16, 1.94), (0.20, 0.78, 0.06), "Rubber", 0.02)
     w.box("ButtStripe", (0, -0.20, 1.80), (0.20, 0.05, 0.20), "Panel", 0.0)
+    w.profile("ButtPlate", [(1.74, 0.20), (1.86, 0.20), (1.88, -0.12), (1.74, -0.12)], 0.2, "Panel", 0.0)
+    w.box("ButtGlow", (0, -0.32, 1.78), (0.198, 0.22, 0.03), "Accent", 0.0)
+    w.box("StrutInlay", (0, -0.57, 1.24), (0.14, 0.045, 0.70), "Panel", 0.0, rot=(-15.4, 0, 0))
     w.cyl("Monopod", (0, -0.60, 1.80), (0, -0.73, 1.80), 0.03, "Metal", 8)
     w.cyl("MonopodFoot", (0, -0.73, 1.80), (0, -0.77, 1.80), 0.048, "Rubber", 8)
     w.box("StockGlow", (0, 0.075, 1.42), (0.168, 0.022, 0.46), "Accent", 0.0)

@@ -883,6 +883,10 @@ local CLASSIC_PALETTES = {
 	Hunter = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(60, 170, 80), Accent = RGB(255, 190, 70), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(60, 170, 80), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
 	-- MYTHIC (ARX-27, el arma principal): negro azulado, oro anaranjado, magma detrás y plasma y hielo delante
 	Mythic = { Sheen = 0, DarkSheen = 0.06, Body = RGB(28, 30, 40), Panel = RGB(255, 150, 28), Dark = RGB(18, 19, 25), Accent = RGB(60, 225, 255), Accent2 = RGB(255, 96, 14), Lens = RGB(150, 235, 255), Trim = RGB(255, 150, 28), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
+	-- FROST (francotirador Signal 7): blanco hielo, luz cian y cristales de hielo (Trim)
+	Frost = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 32, 40), Panel = RGB(224, 234, 244), Dark = RGB(18, 19, 25), Accent = RGB(60, 225, 255), Accent2 = RGB(150, 235, 255), Lens = RGB(90, 200, 255), Trim = RGB(140, 228, 255), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- SPECTER (subfusil Specter 9): magenta, neón violeta-rosa y aletas violeta (Trim)
+	Specter = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 28, 40), Panel = RGB(212, 40, 232), Dark = RGB(18, 17, 25), Accent = RGB(214, 80, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(200, 130, 255), Trim = RGB(132, 60, 245), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
 	-- INFERNO (fusil de magma: obsidiana, rojo brasa, grietas de magma y núcleo al blanco)
 	Inferno = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 27, 30), Panel = RGB(200, 44, 14), Accent = RGB(255, 110, 16), Accent2 = RGB(255, 208, 70), Lens = RGB(255, 150, 60), Trim = RGB(62, 54, 54), Dark = RGB(18, 17, 20), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
 	-- Metal pavonado y madera
@@ -900,7 +904,7 @@ local CLASSIC_PALETTES = {
 }
 Weapons.ClassicPalettes = CLASSIC_PALETTES
 local CLASSIC_LOOK = {
-	ARX27 = "Mythic", HavocPump = "Havoc", Specter9 = "Pulse", Signal7 = "Pulse", VortexBR = "Vortex",
+	ARX27 = "Mythic", HavocPump = "Havoc", Specter9 = "Specter", Signal7 = "Frost", VortexBR = "Vortex",
 	NovaDrift = "Drift", RaptorDMR = "Raptor", BreachHammer = "Breach", TitanLMG = "Titan", GhostlineXR = "Ghost",
 	NovaLauncher = "Tempest", Viper = "Pulse", HandCannon = "Cannon", PhantomSidewind = "Phantom", Knife = "Pulse",
 	Katana = "Katana",

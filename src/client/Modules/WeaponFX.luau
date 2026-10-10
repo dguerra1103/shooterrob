@@ -30,7 +30,7 @@ WeaponFX.Default = { Flame = { Core = YELLOW, Edge = ORANGE, Size = 0.55, Count 
 WeaponFX.Weapons = {
 	-- ARX-27 mítico: fogonazo de plasma con chispas de fuego
 	ARX27 = { Flame = { Core = RGB(190, 245, 255), Edge = RGB(40, 150, 255), Size = 0.7, Count = 5, Speed = 24, Spread = 12, Life = 0.08, Sparks = 5, SparkColor = RGB(255, 150, 40) }, Hot = RGB(255, 235, 170) },
-	Specter9 = { Flame = { Core = YELLOW, Edge = RGB(255, 100, 30), Size = 0.45, Count = 3, Speed = 24, Spread = 18, Life = 0.055, Sparks = 2 } },
+	Specter9 = { Flame = { Core = RGB(255, 205, 255), Edge = RGB(214, 80, 255), Size = 0.45, Count = 3, Speed = 24, Spread = 18, Life = 0.055, Sparks = 2 }, Hot = RGB(255, 190, 255) },
 	NovaDrift = { Flame = { Core = RGB(235, 255, 160), Edge = RGB(60, 220, 150), Size = 0.45, Count = 3, Speed = 24, Spread = 16, Life = 0.055, Sparks = 2 }, Hot = RGB(220, 255, 120) },
 	HavocPump = { Flame = { Core = YELLOW, Edge = RGB(255, 80, 20), Size = 1.1, Count = 9, Speed = 26, Spread = 34, Life = 0.11, Sparks = 10 } },
 	BreachHammer = { Flame = { Core = RGB(255, 240, 150), Edge = RGB(255, 60, 30), Size = 1.0, Count = 8, Speed = 26, Spread = 30, Life = 0.1, Sparks = 8 }, Hot = RGB(255, 60, 30) },
