@@ -451,13 +451,21 @@ local function pickGoal(agent)
 	return laneGoal(agent)
 end
 
+local radiusStats = { Map = nil, Wide = 0, Narrow = 0 }
 local function computePath(agent, goal)
 	agent.Waypoints = nil
 	agent.WaypointIndex = 0
 	-- Primero con holgura (radio 2: no roza las esquinas); si así no hay ruta, con el radio justo de un
 	-- personaje. Las bases cerradas tienen puertas y pasillos de 4-5 studs por los que una persona pasa
 	-- pero un agente de radio 2 no: sin el segundo intento los bots se quedaban dentro (Desert Base)
-	for _, radius in { 2, 1 } do
+	-- (en un mapa donde el radio 2 falla una y otra vez —casi todos: las puertas de las bases—, se
+	-- prueba antes el 1: así no se calcula dos veces cada ruta)
+	local map = workspace:FindFirstChild("Map")
+	if radiusStats.Map ~= map then
+		radiusStats.Map, radiusStats.Wide, radiusStats.Narrow = map, 0, 0
+	end
+	local narrowFirst = radiusStats.Narrow >= 6 and radiusStats.Narrow > radiusStats.Wide * 3
+	for attempt, radius in narrowFirst and { 1, 2 } or { 2, 1 } do
 		local path = PathfindingService:CreatePath({
 			AgentRadius = radius,
 			AgentHeight = 5,
@@ -471,6 +479,11 @@ local function computePath(agent, goal)
 		if ok and path.Status == Enum.PathStatus.Success then
 			agent.Waypoints = path:GetWaypoints()
 			agent.WaypointIndex = 1
+			if radius == 2 then
+				radiusStats.Wide += 1
+			elseif not narrowFirst and attempt == 2 then
+				radiusStats.Narrow += 1
+			end
 			return
 		end
 	end

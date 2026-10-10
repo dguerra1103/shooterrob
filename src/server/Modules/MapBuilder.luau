@@ -3,6 +3,7 @@
 -- se usará ese y no habrá rotación de mapas.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local MapCheck = require(script.Parent.MapCheck)
 
 local MapBuilder = {}
 
@@ -87,6 +88,14 @@ function MapBuilder.Build(id)
 	if not ok then
 		warn("[MapBuilder] decoración del evento:", err)
 	end
+	-- Repaso del mapa recién construido: sombras y caras coplanarias, puntos de aparición dentro de
+	-- objetos y, en segundo plano, rutas a los objetivos (ver MapCheck)
+	local map = workspace:FindFirstChild("Map")
+	local checked, checkError = pcall(MapCheck.Finalize, map)
+	if not checked then
+		warn("[MapBuilder] repaso del mapa:", checkError)
+	end
+	MapCheck.Verify(map)
 	MapBuilder.Current = def.Id
 	ReplicatedStorage:SetAttribute("MapName", def.Name)
 	ReplicatedStorage:SetAttribute("MapId", def.Id)

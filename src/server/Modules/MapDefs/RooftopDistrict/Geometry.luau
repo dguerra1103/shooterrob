@@ -77,10 +77,11 @@ end
 
 function Geometry.build(T)
 	local G = T.G
-	local M = Enum.Material
 
-	T.terrain(M.Asphalt, 1200, 1200, CF(0, STREET - 0.3, 0))
-	G.deco("Street", V(600, 0.2, 600), CF(0, STREET + 0.1, 0), "Street").CastShadow = false
+	-- La calle es solo decorado (una lámina que no choca), sin terreno debajo: con terreno, el motor
+	-- generaba una segunda malla de navegación 40 studs más abajo y las rutas de los bots se
+	-- calculaban por la calle (puntos de paso a y = -40) en vez de por las azoteas y los puentes
+	G.deco("Street", V(1200, 0.2, 1200), CF(0, STREET + 0.1, 0), "Street").CastShadow = false
 
 	---------------------------------------------------------------------------
 	-- CENTRO (6): azotea con la gran pantalla en medio (corta la vista de lado a lado)
@@ -145,7 +146,10 @@ function Geometry.half(T)
 		G.deco("DoorSign", V(5, 0.8, 0.2), CF(-124.5, 8, z + (z < 0 and -0.35 or 0.35)), "Red")
 	end
 	roof(T, -108, -66, -36, 36, 0, "Building", {
-		N = { { -93, -87 } }, S = { { -93, -87 } }, W = { { -26, -20 }, { -3, 3 }, { 20, 26 } }, E = {},
+		N = { { -93, -87 } }, S = { { -93, -87 } }, W = { { -26, -20 }, { -3, 3 }, { 20, 26 } },
+		-- (entre z -14 y 14 este borde queda dentro de la plataforma: sin pretil ahí, porque su tope
+		-- invisible subía por encima de ella y cerraba la boca del puente de cristal)
+		E = { { -14, 14 } },
 	})
 	-- Plataforma (6) al este del bloque oeste, con escalera y cuarto de escalera; puente de cristal
 	G.solid("Platform", V(18, 6, 28), CF(-75, 0, 0), "BuildingBlue")

@@ -355,7 +355,7 @@ local function capTilted(part, cf, size)
 			local h = T.CEILING - top
 			local mid = center + dir * ((s0 + s1) / 2)
 			local flat = CFrame.lookAt(V(mid.X, top + h / 2, mid.Z), V(mid.X, top + h / 2, mid.Z) + dir)
-			local clip = Kit.block("PlayerClip", V(width + 0.4, h, (s1 - s0) + 0.05), flat, Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
+			local clip = Kit.block("PlayerClip", V(width + (part:GetAttribute("Thin") and 0.05 or 0.4), h, (s1 - s0) + 0.05), flat, Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
 			clip.Transparency = 1
 			clip.CastShadow = false
 			first = first or clip

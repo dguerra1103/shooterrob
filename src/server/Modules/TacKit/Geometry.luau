@@ -292,7 +292,9 @@ function G.railing(a, b, look, h, opts)
 		local p = a:Lerp(b, i / posts)
 		G.deco("RailPost", V(0.3, h, 0.3), CFrame.new(p + V(0, h / 2, 0)), look)
 	end
-	local collider = Kit.block("RailCollider", V(0.5, h + 0.6, length), cf * CFrame.new(0, (h + 0.6) / 2, 0), look[1], nil, Kit.shootThroughFolder())
+	-- (opts.Thin: barandilla de una escalera estrecha; el choque fino deja más paso libre)
+	local collider = Kit.block("RailCollider", V(opts.Thin and 0.3 or 0.5, h + 0.6, length), cf * CFrame.new(0, (h + 0.6) / 2, 0), look[1], nil, Kit.shootThroughFolder())
+	collider:SetAttribute("Thin", opts.Thin or nil)
 	collider.Transparency = 1
 	collider.CastShadow = false
 	if opts.Cap then
@@ -316,6 +318,28 @@ function G.stairs(bottom, top, width, look, opts)
 	local cf = CFrame.lookAt(mid, top)
 	-- Rampa (se camina por su cara de arriba, a ras de la línea bottom-top)
 	local body = G.box("StairBody", V(width, 1, slopeLength + 0.6), cf * CFrame.new(0, -0.5, 0), look)
+	-- Enlace de ruta para los bots: la malla de navegación del motor no da por transitable una rampa
+	-- de más de unos 30° (medido en Studio: con 26,6° hay ruta, con 32° y 33,7° no), aunque un
+	-- personaje la sube sin problema. Sin el enlace, los bots no llegaban a las plantas de arriba
+	-- por estas escaleras. Va de 2 studs antes del arranque a 2 studs después del desembarco
+	if run > 0.5 and math.deg(math.atan2(rise, run)) > 27 then
+		local forward = flatDir.Unit
+		local ends = {}
+		for i, point in { bottom - forward * 2, top + forward * 2 } do
+			local attachment = Instance.new("Attachment")
+			attachment.Name = i == 1 and "StairBottom" or "StairTop"
+			attachment.Parent = body
+			attachment.WorldPosition = point + V(0, 0.3, 0)
+			ends[i] = attachment
+		end
+		local link = Instance.new("PathfindingLink")
+		link.Name = "StairLink"
+		link.Attachment0 = ends[1]
+		link.Attachment1 = ends[2]
+		link.IsBidirectional = true
+		link.Label = "Stairs"
+		link.Parent = body
+	end
 	local steps = math.max(3, math.floor(rise / 0.75 + 0.5))
 	local stepRun, stepRise = run / steps, rise / steps
 	local face = CFrame.lookAt(bottom, bottom + flatDir)
@@ -341,13 +365,17 @@ function G.stairs(bottom, top, width, look, opts)
 	end
 	local rails = opts.Rails
 	if rails then
-		local right = face.RightVector * (width / 2 - 0.2)
+		-- Escaleras de 5 o menos: la barandilla va al borde y choca fina. Con la normal, una de 4 dejaba
+		-- 2,7 studs libres entre los topes: una persona pasa rozando, pero la malla de navegación no la
+		-- daba por transitable y los bots no subían (medido en Studio)
+		local thin = width <= 5
+		local right = face.RightVector * (width / 2 - (thin and 0.1 or 0.2))
 		local ext = flatDir.Unit * 0.4
 		if rails == "Both" or rails == "Left" then
-			G.railing(bottom - right - ext, top - right + ext, opts.RailLook, 3.2, { NoToe = true, Cap = opts.Cap })
+			G.railing(bottom - right - ext, top - right + ext, opts.RailLook, 3.2, { NoToe = true, Cap = opts.Cap, Thin = thin })
 		end
 		if rails == "Both" or rails == "Right" then
-			G.railing(bottom + right - ext, top + right + ext, opts.RailLook, 3.2, { NoToe = true, Cap = opts.Cap })
+			G.railing(bottom + right - ext, top + right + ext, opts.RailLook, 3.2, { NoToe = true, Cap = opts.Cap, Thin = thin })
 		end
 	end
 	return body

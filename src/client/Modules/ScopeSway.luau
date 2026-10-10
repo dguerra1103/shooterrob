@@ -17,6 +17,10 @@ ScopeSway.ExhaleTime = 1.2 -- al quedarte sin aire, este rato se mueve el doble
 ScopeSway.Holding = false -- aguantando la respiración ahora mismo (el HUD lo dice en el visor)
 ScopeSway.Breath = 1 -- aire que queda (0..1)
 
+-- Reloj propio (suma de los dt): el aire se gasta con dt, así que el rato sin aire tiene que medirse
+-- con el mismo reloj. Con os.clock, si los fotogramas iban más lentos que su dt (tirones, o las
+-- pruebas automáticas), el «sin aire» se acababa antes de tiempo
+local clock = 0
 local exhaleUntil = 0
 local amp = 0
 local lastPitch, lastYaw = 0, 0
@@ -44,13 +48,14 @@ end
 
 -- ¿Sin aire (recuperándolo tras aguantar demasiado)?
 function ScopeSway.OutOfBreath()
-	return os.clock() < exhaleUntil
+	return clock < exhaleUntil
 end
 
 -- Devuelve el giro (cabeceo, guiñada) que hay que sumar a la cámara en ESTE fotograma: la diferencia
 -- con el balanceo del anterior (así no se acumula y al quitar el visor vuelve solo a su sitio)
 function ScopeSway.Update(dt, scoped)
-	local now = os.clock()
+	clock += dt
+	local now = clock
 	local holding = false
 	if scoped and now >= exhaleUntil and ScopeSway.Breath > 0 and holdPressed() then
 		holding = true

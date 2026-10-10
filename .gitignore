@@ -8,3 +8,6 @@ tests/.cache/
 tools/studio/.sync.stamp
 tools/studio/*.json
 tools/studio/*.png
+tools/studio/*.txt
+tools/studio/*.jpg
+tools/studio/.studio.lock
