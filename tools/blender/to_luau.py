@@ -31,7 +31,8 @@ def convert(name):
         '\tName = "%s",' % name,
         "\tPoints = {",
     ]
-    for key in POINT_ORDER:
+    # (los puntos propios de un arma, como las bocas de fuego Vent del Inferno AR, van detrás)
+    for key in POINT_ORDER + sorted(k for k in data["points"] if k not in POINT_ORDER):
         if key in data["points"]:
             p = data["points"][key]
             lines.append("\t\t%s = Vector3.new(%s, %s, %s)," % (key, num(p[0]), num(p[1]), num(p[2])))

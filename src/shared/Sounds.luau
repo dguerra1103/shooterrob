@@ -114,6 +114,7 @@ end
 Sounds.WeaponShots = {
 	ARX27 = { "Shot", 0.95, 1, "Rifle" },
 	VortexBR = { "Shot", 1.15, 0.9, "Rifle" },
+	InfernoAR = { "Shot", 0.85, 1.05, "Rifle" }, -- más grave que el ARX-27
 	Specter9 = { "Shot", 1.2, 0.8, "Light" },
 	NovaDrift = { "Shot", 1.3, 0.75, "Light" },
 	SplatX = { "Shot", 1.7, 0.6, "Paint" }, -- "pop" agudo de aire comprimido
@@ -190,6 +191,7 @@ end
 Sounds.WeaponAudio = {
 	ARX27 = slots(), -- arma de referencia: la primera que debería tener su audio propio
 	VortexBR = slots(),
+	InfernoAR = slots(),
 	Specter9 = slots(),
 	NovaDrift = slots(),
 	SplatX = slots(),
@@ -212,6 +214,7 @@ Sounds.WeaponAudio = {
 Sounds.WeaponAudioFamily = {
 	ARX27 = "Rifle",
 	VortexBR = "Rifle",
+	InfernoAR = "Rifle",
 	Specter9 = "SMG",
 	NovaDrift = "SMG",
 	Viper = "Pistol",
@@ -226,6 +229,7 @@ Sounds.WeaponAudioFamily = {
 }
 Sounds.WeaponAudioPitch = {
 	VortexBR = 1.05,
+	InfernoAR = 0.93,
 	NovaDrift = 1.06,
 	PhantomSidewind = 1.05,
 	BreachHammer = 0.92,

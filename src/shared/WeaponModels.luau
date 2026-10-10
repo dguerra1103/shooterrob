@@ -302,6 +302,82 @@ local function buildFromTemplate(template, weaponName, def, pal, withEffects, ch
 	return model
 end
 
+-- Llamas permanentes de un arma que arde (def.Blaze, ver Weapons.InfernoAR): una hoguera por punto del
+-- Handle y brasas que se quedan atrás. scale = tamaño del arma; rate = factor de cantidad (calidad);
+-- boost = llamas más grandes de lo que toca por escala (el arma del mundo se ve de lejos).
+-- Devuelve { { Emitter, Rate }, ... } para quien quiera animarlas (WeaponFX).
+local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+local SPARK_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+function WeaponModels.AddBlaze(handle, def, scale, rate, boost)
+	local fire = def and def.Blaze
+	local list = {}
+	if not fire or not handle then
+		return list
+	end
+	scale = scale or 1
+	rate = rate or 1
+	local function ramp(a, b, c)
+		return ColorSequence.new({ ColorSequenceKeypoint.new(0, a), ColorSequenceKeypoint.new(0.35, b), ColorSequenceKeypoint.new(1, c) })
+	end
+	local function taper(a, b, c)
+		return NumberSequence.new({ NumberSequenceKeypoint.new(0, a), NumberSequenceKeypoint.new(0.3, b), NumberSequenceKeypoint.new(1, c) })
+	end
+	local fadeOut = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.6, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	local first
+	for _, spot in fire.Spots do
+		local point = handle:FindFirstChild(spot.At)
+		if not point then
+			point = Instance.new("Attachment")
+			point.Name = spot.At
+			point.Position = spot.Pos * scale
+			point.Parent = handle
+		end
+		first = first or point
+		local size = spot.Size * scale * (boost or 1)
+		local e = Instance.new("ParticleEmitter")
+		e.Name = "FXBlaze"
+		e.Texture = FIRE_TEXTURE
+		e.Color = ramp(Color3.fromRGB(255, 245, 190), fire.Color, fire.Color2)
+		e.Size = taper(size * 0.45, size, size * 0.12)
+		e.Transparency = fadeOut
+		e.Lifetime = NumberRange.new(0.28, 0.55)
+		e.Speed = NumberRange.new(1.4 * scale, 3.2 * scale)
+		e.SpreadAngle = Vector2.new(22, 22)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.Rotation = NumberRange.new(0, 360)
+		e.RotSpeed = NumberRange.new(-140, 140)
+		e.Acceleration = Vector3.new(0, 2.5 * scale, 0)
+		e.LightEmission = 0.35 -- (poco aditivo y con brillo propio: así no se pierde a pleno sol)
+		e.LightInfluence = 0
+		e.Brightness = 3
+		e.LockedToPart = true
+		e.ZOffset = 0.3 * scale
+		e.Rate = spot.Rate * rate
+		e.Parent = point
+		table.insert(list, { Emitter = e, Rate = spot.Rate * rate, Sight = spot.Sight })
+	end
+	if first and (fire.Embers or 0) > 0 then
+		local e = Instance.new("ParticleEmitter")
+		e.Name = "FXEmbers"
+		e.Texture = SPARK_TEXTURE
+		e.Color = ramp(Color3.new(1, 1, 1), fire.Color, fire.Color2)
+		e.Size = taper(0.07 * scale, 0.05 * scale, 0)
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.7, 0.3), NumberSequenceKeypoint.new(1, 1) })
+		e.Lifetime = NumberRange.new(0.5, 1.1)
+		e.Speed = NumberRange.new(1.5 * scale, 4 * scale)
+		e.SpreadAngle = Vector2.new(50, 50)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.Acceleration = Vector3.new(0, 3 * scale, 0)
+		e.Drag = 1.5
+		e.LightEmission = 1
+		e.LightInfluence = 0
+		e.Rate = fire.Embers * rate
+		e.Parent = first
+		table.insert(list, { Emitter = e, Rate = fire.Embers * rate })
+	end
+	return list
+end
+
 -- charmId (opcional): colgante (Charms) para las armas de fuego
 -- scale (opcional): tamaño del modelo (1 = el de primera persona; el arma que lleva el personaje en el
 -- mundo es más pequeña, a escala de una persona: GameConfig.WorldWeaponScale)

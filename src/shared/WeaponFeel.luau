@@ -157,6 +157,7 @@ WeaponFeel.Profiles = {
 WeaponFeel.ClassOf = {
 	ARX27 = "Rifle",
 	VortexBR = "Rifle",
+	InfernoAR = "Rifle",
 	Specter9 = "SMG",
 	NovaDrift = "SMG",
 	SplatX = "SMG",

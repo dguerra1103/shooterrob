@@ -731,6 +731,61 @@ do
 	Weapons.List.Crossbow = crossbow
 end
 
+-- Inferno AR (colección Elemental): fusil de magma. Pega más que el ARX-27 pero dispara más despacio
+-- y da más culatazo. Las llamas son de WeaponFX; el modelo, de tools/blender/weapons/infernoar.py.
+do
+	local inferno = {
+		DisplayName = "Inferno AR",
+		Category = "Fusil de asalto",
+		Description = "Magma en las venas. Cada bala pega como un horno.",
+		Slot = 1,
+		Type = "Gun",
+		Palette = Palettes.Havoc,
+		UnlockLevel = 12,
+		Price = 2500,
+		Damage = 27,
+		MinDamage = 18,
+		FalloffStart = 110,
+		FalloffEnd = 320,
+		HeadshotMultiplier = 1.5,
+		FireRate = 8.5,
+		Automatic = true,
+		MagSize = 28,
+		ReserveAmmo = 140,
+		ReloadTime = 2.2,
+		Range = 600,
+		Spread = 1.8,
+		AimSpread = 0.3,
+		Pellets = 1,
+		Recoil = 0.95,
+		AimFOV = 60,
+		ViewOffset = CFrame.new(0.8, -0.85, -2.0),
+		AimDistance = 1.0,
+		RightHand = V(0, -0.48, 0.47),
+		LeftHand = V(0, -0.36, -1.3),
+		AimPoint = V(0, 0.56, 0.4),
+		Muzzle = V(0, 0.07, -2.6),
+		-- El arma arde entera: una hoguera por punto (At = punto del modelo; Pos = dónde va si el modelo no
+		-- lo trae), Size en studs y Rate en llamas/s a tamaño de primera persona. Embers = brasas/s.
+		-- Sight = está delante de la mira: es la única que baja al apuntar (en tu pantalla).
+		-- La crean WeaponModels.AddBlaze (arma del mundo, para todos) y WeaponFX (la tuya en pantalla).
+		Blaze = {
+			Color = RGB(255, 200, 70),
+			Color2 = RGB(255, 60, 8),
+			Embers = 14,
+			Spots = {
+				{ At = "Vent", Pos = V(0, 0.4, -1.18), Size = 0.62, Rate = 26, Sight = true },
+				{ At = "Vent2", Pos = V(0, 0.4, -1.5), Size = 0.7, Rate = 28, Sight = true },
+				{ At = "Vent3", Pos = V(0, 0.38, -2.1), Size = 0.5, Rate = 22, Sight = true },
+				{ At = "Vent4", Pos = V(-0.15, 0.2, -1.22), Size = 0.42, Rate = 18 },
+				{ At = "Muzzle", Pos = V(0, 0.07, -2.6), Size = 0.4, Rate = 16 },
+			},
+		},
+	}
+	inferno.Parts = Classic.ARX27(inferno) -- (respaldo si no carga la malla: las piezas del ARX-27)
+	Weapons.List.InfernoAR = inferno
+end
+
 -- Armas que el jugador puede elegir
 Weapons.Primaries = {
 	"ARX27",
@@ -747,6 +802,7 @@ Weapons.Primaries = {
 	"Calabazooka",
 	"SplatX",
 	"Crossbow",
+	"InfernoAR",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
@@ -841,6 +897,8 @@ local CLASSIC_PALETTES = {
 	Splat = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(255, 60, 170), Accent = RGB(170, 255, 80), Accent2 = RGB(60, 220, 255), Lens = RGB(150, 230, 255), Trim = RGB(255, 220, 50), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
 	-- HUNTER (ballesta: verde bosque y luz ámbar)
 	Hunter = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(60, 170, 80), Accent = RGB(255, 190, 70), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(60, 170, 80), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- INFERNO (fusil de magma: obsidiana, rojo brasa, grietas de magma y núcleo al blanco)
+	Inferno = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 27, 30), Panel = RGB(200, 44, 14), Accent = RGB(255, 110, 16), Accent2 = RGB(255, 208, 70), Lens = RGB(255, 150, 60), Trim = RGB(62, 54, 54), Dark = RGB(18, 17, 20), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
 	-- Metal pavonado y madera
 	Wood = { Sheen = 0.04, DarkSheen = 0.1, BodyMaterial = MAT.Metal, Body = RGB(50, 52, 56), Panel = RGB(140, 84, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
 	-- Color arena (desierto)
@@ -865,6 +923,7 @@ local CLASSIC_LOOK = {
 	Calabazooka = "Pumpkin",
 	SplatX = "Splat",
 	Crossbow = "Hunter",
+	InfernoAR = "Inferno",
 }
 if Weapons.Style == "Clasico" then
 	for name, def in Weapons.List do

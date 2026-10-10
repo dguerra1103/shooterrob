@@ -6,9 +6,13 @@
 -- No toca WeaponController: escucha ClientState.WeaponEvent (Equip, Fire, ReloadStart, Melee...) y busca
 -- el arma en la cámara. Solo cosmético y solo en tu pantalla. Se recorta con la calidad y en el móvil.
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 local ClientState = require(script.Parent.ClientState)
-local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
+local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local InputMode = require(Shared:WaitForChild("InputMode"))
+local Weapons = require(Shared:WaitForChild("Weapons"))
+local WeaponModels = require(Shared:WaitForChild("WeaponModels"))
 
 local WeaponFX = {}
 
@@ -24,6 +28,8 @@ local SMOKE = "rbxasset://textures/particles/smoke_main.dds"
 -- lenguas por disparo, Speed, Spread (grados), Life (s), Sparks = chispas por disparo,
 -- Kind = "Fire" (por defecto) | "Energy" (anillos y chispas, sin humo) | "Paint" (gotas).
 -- Idle: efecto permanente { Kind = "Flame" | "Spark" | "Wisp", Color, Color2, Rate, Size, At = punto }.
+-- (El arma que arde entera no está aquí sino en Weapons.<arma>.Blaze: la ven también los demás jugadores.
+-- Arde siempre; en tu pantalla crece al disparar y, al apuntar, solo bajan las llamas que tapan la mira.)
 -- Hot: color al que tiran las luces con el arma caliente. Back: rebufo por detrás (lanzacohetes).
 local ORANGE, YELLOW, WHITE = RGB(255, 140, 40), RGB(255, 225, 120), RGB(255, 255, 255)
 WeaponFX.Default = { Flame = { Core = YELLOW, Edge = ORANGE, Size = 0.55, Count = 4, Speed = 20, Spread = 14, Life = 0.07, Sparks = 2 }, Hot = RGB(255, 110, 40) }
@@ -57,6 +63,11 @@ WeaponFX.Weapons = {
 	HandCannon = { Flame = { Core = RGB(255, 240, 180), Edge = RGB(255, 150, 40), Size = 1.0, Count = 7, Speed = 24, Spread = 26, Life = 0.1, Sparks = 8 }, Hot = RGB(255, 205, 95) },
 	PhantomSidewind = { Flame = { Core = RGB(255, 220, 245), Edge = RGB(235, 60, 150), Size = 0.45, Count = 3, Speed = 22, Spread = 14, Life = 0.055, Sparks = 2 }, Hot = RGB(255, 140, 200) },
 	SplatX = { Flame = { Kind = "Paint", Core = RGB(255, 60, 170), Edge = RGB(60, 220, 255), Size = 0.3, Count = 5, Speed = 16, Spread = 24, Life = 0.25, Sparks = 0 }, Hot = RGB(255, 220, 50) },
+	-- Inferno AR: fogonazo grande y rojo (las llamas permanentes: Weapons.InfernoAR.Blaze)
+	InfernoAR = {
+		Flame = { Core = RGB(255, 225, 120), Edge = RGB(255, 70, 10), Size = 0.95, Count = 7, Speed = 24, Spread = 20, Life = 0.1, Sparks = 8, SparkColor = RGB(255, 150, 40) },
+		Hot = RGB(255, 235, 150),
+	},
 	Crossbow = { Flame = { Kind = "Energy", Core = RGB(255, 230, 160), Edge = RGB(255, 190, 70), Size = 0.25, Count = 1, Speed = 10, Spread = 4, Life = 0.08, Sparks = 3 } },
 	Katana = { Idle = { Kind = "Spark", Color = RGB(120, 230, 255), Color2 = WHITE, Rate = 4, Size = 0.1, At = "Muzzle" }, Slash = RGB(120, 230, 255) },
 	Scythe = { Idle = { Kind = "Wisp", Color = RGB(120, 255, 80), Color2 = RGB(40, 160, 60), Rate = 8, Size = 0.28, At = "Muzzle" }, Slash = RGB(120, 255, 80) },
@@ -74,9 +85,12 @@ local style = WeaponFX.Default
 local neon = {} -- { Part, Base }
 local light, lightBase
 local flameEmitter, sparkEmitter, backEmitter, idleLight
+local blaze = {} -- { Emitter, Rate }: las hogueras del arma (Weapons.<arma>.Blaze)
+local worldBlaze = {} -- las del arma del mundo de tu personaje: apagadas mientras estás en primera persona
 local flash, heat = 0, 0
 local reloadStart, reloadDuration = nil, 0
 local breath = 0
+local lastWeapon = "" -- el arma del último aviso (por si el modelo no dice cuál es)
 
 local function factor()
 	if not WeaponFX.Enabled then
@@ -129,6 +143,13 @@ local function clear()
 	end
 	model, light, lightBase = nil, nil, nil
 	flameEmitter, sparkEmitter, backEmitter, idleLight = nil, nil, nil, nil
+	blaze = {}
+	for _, e in worldBlaze do
+		if e.Parent then
+			e.Enabled = true
+		end
+	end
+	table.clear(worldBlaze)
 	flash, heat, reloadStart = 0, 0, nil
 end
 
@@ -239,6 +260,29 @@ local function attach(viewmodel, weaponName)
 			idleLight.Parent = at
 		end
 	end
+	-- El arma arde (Weapons.<arma>.Blaze): las mismas hogueras que lleva el arma del mundo, a tamaño completo
+	local def = Weapons.Get(weaponName)
+	local fire = def and def.Blaze
+	if fire and factor() > 0 then
+		blaze = WeaponModels.AddBlaze(handle, def, 1, factor() * 1.4, 1.35)
+		local first = blaze[1] and blaze[1].Emitter.Parent
+		if first then
+			idleLight = Instance.new("PointLight")
+			idleLight.Name = "FXIdleLight"
+			idleLight.Color = fire.Color
+			idleLight.Range = 7
+			idleLight.Brightness = 0.6
+			idleLight.Shadows = false
+			idleLight.Parent = first
+		end
+	end
+	-- Las del arma que llevas en la mano (la ven los demás) sobran en primera persona: ver step
+	local character = Players.LocalPlayer.Character
+	for _, item in character and character:GetDescendants() or {} do
+		if item:IsA("ParticleEmitter") and (item.Name == "FXBlaze" or item.Name == "FXEmbers") then
+			table.insert(worldBlaze, item)
+		end
+	end
 end
 
 ---------------------------------------------------------------------------
@@ -297,6 +341,11 @@ local function onMelee()
 end
 
 local function step(dt)
+	-- (el aviso de Equip puede llegar antes de que exista el arma nueva: se engancha aquí en cuanto aparece)
+	local viewmodel = camera:FindFirstChild("Viewmodel")
+	if viewmodel and viewmodel ~= model and viewmodel.PrimaryPart then
+		attach(viewmodel, tostring(viewmodel:GetAttribute("Weapon") or lastWeapon))
+	end
 	if not model then
 		return
 	end
@@ -333,6 +382,21 @@ local function step(dt)
 	if light and lightBase then
 		light.Brightness = lightBase * power * pulse + flash * 1.6 + heat * 0.5
 	end
+	if #worldBlaze > 0 then
+		local third = (camera.CFrame.Position - camera.Focus.Position).Magnitude > 1.5
+		for _, e in worldBlaze do
+			e.Enabled = third
+		end
+	end
+	if #blaze > 0 then
+		-- Arde siempre (tampoco se apaga al recargar), y más con el arma caliente y con cada disparo. Solo
+		-- las hogueras que quedan delante de la mira (Sight) bajan al apuntar, para poder ver el blanco
+		local level = 1 + heat * 0.8 + flash * 0.6
+		local aim = 1 - 0.9 * (ClientState.AimAlpha or 0)
+		for _, entry in blaze do
+			entry.Emitter.Rate = entry.Rate * level * (entry.Sight and aim or 1)
+		end
+	end
 	if idleLight then
 		idleLight.Brightness = 0.45 + 0.25 * math.noise(breath * 9, 3.1) + flash * 1.5
 	end
@@ -340,6 +404,9 @@ end
 
 function WeaponFX.Init()
 	ClientState.WeaponEvent.Event:Connect(function(name, weaponName, info)
+		if name == "Equip" or name == "Fire" then
+			lastWeapon = tostring(weaponName)
+		end
 		if name == "Equip" then
 			-- (el arma se crea justo antes de este aviso; por si acaso, se busca también un momento después)
 			local function bind()

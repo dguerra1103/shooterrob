@@ -41,6 +41,9 @@ function Loadout.MakeTool(weaponName, skinId, charmId)
 	end
 
 	local model = WeaponModels.Build(weaponName, skinId, nil, charmId, scale)
+	-- (las armas que arden: sus llamas van en el arma del mundo y las ven todos; menos cantidad que en
+	-- primera persona, que aquí puede haber diez a la vez)
+	WeaponModels.AddBlaze(model:FindFirstChild("Handle"), def, scale, 0.6, 1.7)
 	tool:SetAttribute("Charm", charmId or "Default")
 	for _, child in model:GetChildren() do
 		child.Parent = tool
