@@ -10,10 +10,6 @@ return {
 		RightHand = Vector3.new(0, -0.48, 0.47),
 		LeftHand = Vector3.new(0, -0.36, -1.3),
 		CharmPoint = Vector3.new(-0.135, -0.02, 0.6),
-		Vent = Vector3.new(0, 0.4, -1.18),
-		Vent2 = Vector3.new(0, 0.4, -1.5),
-		Vent3 = Vector3.new(0, 0.38, -2.1),
-		Vent4 = Vector3.new(-0.15, 0.2, -1.22),
 	},
 	Groups = {
 		{ Name = "Accent", Role = "Accent", Prims = {

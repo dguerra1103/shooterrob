@@ -1,7 +1,7 @@
 # INFERNO AR · fusil de asalto de magma (colección Elemental).
 # Silueta: cañón dentro de una camisa rectangular que brilla por la boca, blindaje de obsidiana con
 # púas en el lomo, grietas de magma en zigzag por todo el cuerpo, culata maciza angulosa y cargador
-# recto y ancho que es una célula de lava. Las llamas las pone el juego (WeaponFX), no la malla.
+# recto y ancho que es una célula de lava.
 import math
 
 NAME = "InfernoAR"
@@ -118,8 +118,3 @@ def build(w):
     w.point("RightHand", (0, -0.48, 0.47))
     w.point("LeftHand", (0, -0.36, -1.3))
     w.point("CharmPoint", (-0.135, -0.02, 0.6))
-    # Bocas de fuego (WeaponFX.Weapons.InfernoAR.Blaze): las dos rejillas del lomo, la camisa y un costado
-    w.point("Vent", (0, 0.4, -1.18))
-    w.point("Vent2", (0, 0.4, -1.5))
-    w.point("Vent3", (0, 0.38, -2.1))
-    w.point("Vent4", (-0.15, 0.2, -1.22))

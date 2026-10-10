@@ -114,6 +114,8 @@ class Weapon:
         bsdf = mat.node_tree.nodes.get("Principled BSDF")
         color = self.palette.get(role, (0.5, 0.5, 0.5))
         metallic, roughness, emission = ROLE_SHADING.get(role, (0.2, 0.5, 0.0))
+        # (PALETTE["Emission"] = {papel: fuerza}: papeles que en esta arma brillan, como el magma)
+        emission = self.palette.get("Emission", {}).get(role, emission)
         bsdf.inputs["Base Color"].default_value = (*color, 1)
         bsdf.inputs["Metallic"].default_value = metallic
         bsdf.inputs["Roughness"].default_value = roughness
