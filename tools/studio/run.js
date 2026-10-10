@@ -22,7 +22,7 @@ const call = (name, args) => send("tools/call", { name, arguments: args });
   for (let k = 0; k < 15 && !sid; k++) {
     const r = await call("list_roblox_studios", {});
     const s = JSON.parse(r.result.content[0].text).studios;
-    if (s.length) sid = s[0].id; else await sleep(2000);
+    const want = process.env.SR_STUDIO; const pick = want ? s.find(x => x.name.includes(want)) : s[0]; if (pick) sid = pick.id; else await sleep(2000);
   }
   if (!sid) { console.log("SIN STUDIO"); child.kill(); process.exit(3); }
   for (const st of steps) {

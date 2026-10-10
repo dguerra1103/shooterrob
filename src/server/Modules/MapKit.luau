@@ -325,7 +325,8 @@ function Kit.container(cf, color, labelText)
 	model.Name = "Container"
 	model.Parent = Kit.folder
 	local size = V(20, 8.5, 8)
-	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.CorrodedMetal, model)
+	-- (chapa pintada: el óxido de 2022 es un moteado naranja que tapaba el color y el rótulo)
+	local body = block("Body", size, cf * CFrame.new(0, size.Y / 2, 0), color, Enum.Material.Metal, model)
 	Kit.contactShadow(cf, size.X, size.Z, false, model)
 	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
 	-- Nervios, techo y marco van pegados al cuerpo: su sombra ya la da el cuerpo (sin sombra propia)

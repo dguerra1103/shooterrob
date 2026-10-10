@@ -32,13 +32,13 @@ Materials.Common = {
 	Red = { RGB(196, 46, 38), M.SmoothPlastic },
 	Blue = { RGB(40, 92, 190), M.SmoothPlastic },
 	RedSteel = { RGB(156, 40, 32), M.Metal },
-	ContainerRed = { RGB(172, 46, 38), M.CorrodedMetal },
-	ContainerGray = { RGB(112, 116, 120), M.CorrodedMetal },
-	ContainerTan = { RGB(150, 126, 94), M.CorrodedMetal },
-	ContainerBlue = { RGB(44, 86, 150), M.CorrodedMetal },
-	ContainerYellow = { RGB(214, 168, 40), M.CorrodedMetal },
-	ContainerGreen = { RGB(60, 110, 76), M.CorrodedMetal },
-	Corrugated = { RGB(132, 138, 146), M.CorrodedMetal },
+	ContainerRed = { RGB(172, 46, 38), M.Metal },
+	ContainerGray = { RGB(112, 116, 120), M.Metal },
+	ContainerTan = { RGB(150, 126, 94), M.Metal },
+	ContainerBlue = { RGB(44, 86, 150), M.Metal },
+	ContainerYellow = { RGB(214, 168, 40), M.Metal },
+	ContainerGreen = { RGB(60, 110, 76), M.Metal },
+	Corrugated = { RGB(132, 138, 146), M.Metal },
 	Dirt = { RGB(138, 116, 90), M.Ground },
 }
 
@@ -60,9 +60,9 @@ Materials.Construction = {
 	Red = { RGB(196, 46, 38), M.SmoothPlastic },
 	Blue = { RGB(40, 92, 190), M.SmoothPlastic },
 	SafetyNet = { RGB(214, 64, 40), M.Fabric }, -- red de seguridad de las plantas sin terminar
-	ContainerRed = { RGB(172, 46, 38), M.CorrodedMetal },
-	ContainerGray = { RGB(112, 116, 120), M.CorrodedMetal },
-	ContainerTan = { RGB(150, 126, 94), M.CorrodedMetal },
+	ContainerRed = { RGB(172, 46, 38), M.Metal },
+	ContainerGray = { RGB(112, 116, 120), M.Metal },
+	ContainerTan = { RGB(150, 126, 94), M.Metal },
 	Block = { RGB(168, 166, 160), M.Concrete }, -- bloques de hormigón apilados
 	Tarp = { RGB(70, 110, 160), M.Fabric },
 	-- Edificios de alrededor (ciudad cálida al atardecer)
@@ -70,7 +70,7 @@ Materials.Construction = {
 	BuildingRose = { RGB(204, 168, 156), M.Plaster },
 	BuildingGray = { RGB(176, 174, 172), M.Concrete },
 	BuildingBrick = { RGB(160, 98, 78), M.Brick },
-	Corrugated = { RGB(132, 138, 146), M.CorrodedMetal },
+	Corrugated = { RGB(132, 138, 146), M.Metal },
 	-- (Fase 14: zonas de suelo y remates de identidad; A cálido, B frío)
 	Pavers = { RGB(198, 172, 136), M.Pavement }, -- plaza A: adoquín cálido
 	ConcreteWorn = { RGB(140, 137, 132), M.Concrete }, -- patio central: hormigón gastado
@@ -125,7 +125,7 @@ Materials.Terminal = {
 	Tile = { RGB(206, 208, 212), M.CeramicTiles },
 	Carpet = { RGB(66, 76, 104), M.Fabric },
 	Glass = { RGB(110, 160, 200), M.Glass },
-	HangarWall = { RGB(170, 176, 184), M.CorrodedMetal },
+	HangarWall = { RGB(170, 176, 184), M.Metal },
 	Concrete = { RGB(190, 188, 184), M.Concrete },
 	ConcreteDark = { RGB(130, 132, 136), M.Concrete },
 	Slab = { RGB(176, 176, 174), M.Concrete },
@@ -138,13 +138,15 @@ Materials.Terminal = {
 
 -- MALL RUSH: blanco brillante con cian, magenta y naranja; pasillos de servicio grises
 Materials.MallRush = {
-	Floor = { RGB(232, 232, 236), M.Marble },
+	Floor = { RGB(226, 224, 220), M.Limestone }, -- (el mármol de 2022 tiene vetas que parecían agua)
 	FloorTile = { RGB(226, 226, 230), M.CeramicTiles },
 	Wall = { RGB(240, 240, 244), M.SmoothPlastic },
 	WallGray = { RGB(196, 200, 208), M.SmoothPlastic },
 	Ceiling = { RGB(236, 236, 240), M.SmoothPlastic },
 	Facade = { RGB(220, 222, 228), M.Concrete },
-	FacadeDark = { RGB(64, 68, 78), M.Metal },
+	-- (hormigón pintado, no metal: el metal a la sombra refleja lo oscuro y la marquesina de la base se
+	-- veía como un hueco negro)
+	FacadeDark = { RGB(84, 88, 100), M.Concrete },
 	Cyan = { RGB(0, 186, 214), M.SmoothPlastic },
 	Magenta = { RGB(226, 40, 140), M.SmoothPlastic },
 	Orange = { RGB(250, 140, 30), M.SmoothPlastic },
@@ -195,9 +197,10 @@ Materials.MetroYard = {
 	Concrete = { RGB(170, 172, 176), M.Concrete },
 	ConcreteDark = { RGB(118, 122, 128), M.Concrete },
 	Platform = { RGB(186, 188, 190), M.Concrete },
-	Tile = { RGB(226, 228, 230), M.Marble },
-	TileDark = { RGB(92, 104, 122), M.Marble },
-	Wall = { RGB(214, 216, 220), M.SmoothPlastic },
+	-- (baldosa de hormigón pulido: el mármol de 2022 tiene vetas que a pleno sol parecían agua)
+	Tile = { RGB(196, 198, 200), M.Concrete },
+	TileDark = { RGB(92, 104, 122), M.Concrete },
+	Wall = { RGB(204, 204, 200), M.Concrete },
 	WallBlue = { RGB(44, 92, 170), M.SmoothPlastic },
 	Orange = { RGB(240, 128, 36), M.SmoothPlastic },
 	Blue = { RGB(40, 96, 196), M.SmoothPlastic },
@@ -249,7 +252,7 @@ Materials.DesertBase = {
 }
 
 Materials.Dockyard = {
-	Quay = { RGB(168, 170, 172), M.Concrete },
+	Quay = { RGB(146, 148, 150), M.Concrete },
 	QuayDark = { RGB(124, 128, 132), M.Concrete },
 	Concrete = { RGB(176, 178, 180), M.Concrete },
 	ConcreteDark = { RGB(120, 124, 128), M.Concrete },

@@ -8,13 +8,14 @@ local Lighting = {}
 Lighting.Default = {
 	ClockTime = 15.2,
 	Latitude = 38,
-	Brightness = 2.8,
-	Exposure = 0,
+	Brightness = 2.5,
+	Exposure = -0.1,
 	Ambient = RGB(104, 106, 116),
 	OutdoorAmbient = RGB(150, 152, 164),
 	ShadowSoftness = 0.2,
-	Atmosphere = { Density = 0.32, Offset = 0.1, Color = RGB(206, 212, 224), Decay = RGB(130, 140, 162), Glare = 0.2, Haze = 1.5 },
-	Color = { Saturation = 0.08, Contrast = 0.12, Brightness = 0.01, Tint = RGB(255, 250, 244) },
+	-- (menos bruma y más contraste: los muros claros y el suelo se fundían en un blanco azulado)
+	Atmosphere = { Density = 0.25, Offset = 0.1, Color = RGB(206, 212, 224), Decay = RGB(130, 140, 162), Glare = 0.2, Haze = 1 },
+	Color = { Saturation = 0.15, Contrast = 0.16, Brightness = 0, Tint = RGB(255, 250, 242) },
 	Bloom = { Intensity = 0.35, Size = 22, Threshold = 2 },
 	Clouds = 0.55,
 	CloudColor = RGB(240, 242, 246),

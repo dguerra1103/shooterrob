@@ -133,3 +133,44 @@ distancia, interfaz táctil, efectos de las armas y memoria.
 3. Para repetir la auditoría: `cd tools/studio && node mapaudit.js && node run.js mapaudit.json > informe.txt`.
 4. Para una partida por mapa: `node maptest.js && node run.js maptest.json` (con el modo QA activado en
    la copia de Studio; ver `tools/studio/README.md`).
+
+---
+
+# Mejora visual de los mapas (10 de octubre de 2026)
+
+Sin Blender: las mallas no se pueden importar por script, así que la mejora se hizo sobre el generador
+(materiales, luz y terreno). Capturas a la altura de los ojos, siempre desde los mismos puntos, en
+`assets/maps/visual/` (arriba, antes; abajo, después). Herramienta: `tools/studio/mapshots.js`.
+
+## El fallo del vídeo (Mall Rush)
+
+La puerta que se veía como un rectángulo negro era la marquesina de la base: paredes y techo de metal
+oscuro y ninguna luz dentro. El metal a la sombra refleja lo oscuro y la base entera se dibujaba negra;
+al salir, aparecía el mapa de golpe. No era un fallo de carga.
+
+- Todas las bases tienen ahora dos puntos de luz suaves y sin sombras (`T.spawnZone`).
+- La marquesina de Mall Rush lleva tubos de luz y su material pasa a hormigón pintado.
+
+Comprobado con capturas dentro de la base antes y después (`MallRush_base_*.jpg`). **No comprobado en
+partida**: el Studio principal estaba en uso y se trabajó en la copia de recuperación.
+
+## Resto de cambios
+
+| Qué se veía | Causa | Cambio |
+|---|---|---|
+| Hierba alta dentro del centro comercial y de la terminal | El relleno de terreno bajo el mapa era de hierba y sus briznas 3D atravesaban los suelos | Mall Rush: relleno de pavimento, más hondo. Terminal: césped sin briznas |
+| Contenedores, vallas y hangares con un moteado naranja | El material de óxido de 2022 tapa el color y los rótulos | Chapa pintada; el óxido queda solo en chorretones pequeños |
+| Dockyard y Metro Yard lavados, casi blancos | Mucha bruma azul a corta distancia y sol duro sobre hormigón claro | Menos bruma, algo más de contraste y saturación, suelo un punto más oscuro |
+| Suelo de Metro Yard y de Mall Rush con vetas que parecían agua | El mármol de 2022 | Hormigón pulido en Metro Yard, caliza en Mall Rush |
+| Roca asomando por la plaza de Coastal | El relleno de roca quedaba a 0,3 del pavimento | Relleno más hondo |
+
+Quitar la hierba 3D de Terminal y Mall Rush debería bajar además sus triángulos (eran los dos mapas más
+pesados); no se ha vuelto a medir.
+
+## Pendiente
+
+- Verlo todo en partida y en un móvil.
+- Variantes de noche y de atardecer: no se han revisado.
+- Arquitectura, coberturas y decoración: sin tocar.
+- Dos instancias de Studio abiertas a la vez hacían que las herramientas las mezclaran: ahora se elige
+  con `SR_STUDIO=<trozo del nombre>`.

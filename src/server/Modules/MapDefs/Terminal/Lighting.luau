@@ -20,7 +20,7 @@ Lighting.Default = {
 	CloudColor = RGB(255, 186, 150),
 	SunRays = 0.12,
 	Wind = V(6, 0, 2),
-	TerrainColors = { Grass = RGB(104, 128, 70), Ground = RGB(120, 106, 84), Asphalt = RGB(80, 82, 86) },
+	TerrainColors = { Grass = RGB(104, 128, 70), LeafyGrass = RGB(98, 132, 66), Ground = RGB(120, 106, 84), Asphalt = RGB(80, 82, 86) },
 }
 
 Lighting.Variants = {

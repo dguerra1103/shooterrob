@@ -202,6 +202,20 @@ function T.spawnZone(teamIndex, cf, opts)
 		Kit.deco("SpawnPaint", V(0.6, 0.05, size.Y), cf * CFrame.new(s * (size.X / 2 - 0.5), 0.32, 0), teamColor, Enum.Material.SmoothPlastic).Color = teamColor
 	end
 	Kit.callout("BASE " .. (string.gsub(string.upper(team.Name), "O$", "A")), cf * CFrame.new(0, 10, 0), V(size.X + 10, 26, size.Y + 10))
+	-- Luz de la base: las bases son casetas o marquesinas cerradas y, sin una luz propia, por dentro se
+	-- veían negras (sobre todo con paredes oscuras): parecía un hueco sin dibujar. Dos puntos de luz
+	-- suaves, sin sombras (baratos), del blanco cálido con un toque del color del equipo
+	for _, s in { -1, 1 } do
+		local lamp = Kit.deco("SpawnLamp", V(0.4, 0.4, 0.4), cf * CFrame.new(s * size.X * 0.25, 6.5, 0), RGB(255, 244, 226), Enum.Material.Neon)
+		lamp.Transparency = 1
+		lamp.CastShadow = false
+		local light = Instance.new("PointLight")
+		light.Color = RGB(255, 240, 220):Lerp(teamColor, 0.12)
+		light.Range = math.clamp(math.max(size.X, size.Y) * 0.9, 18, 34)
+		light.Brightness = 0.9
+		light.Shadows = false
+		light.Parent = lamp
+	end
 	local points = opts.Points or {
 		V(-10, 0, 2), V(-5, 0, -3), V(0, 0, 2), V(5, 0, -3), V(10, 0, 2),
 	}
