@@ -761,7 +761,7 @@ function Kit.puddle(position, size, seed)
 	for i = 1, 3 do
 		local d = size * (i == 1 and 1 or rng:NextNumber(0.45, 0.75))
 		local offset = i == 1 and V(0, 0, 0) or V(rng:NextNumber(-0.4, 0.4) * size, 0, rng:NextNumber(-0.4, 0.4) * size)
-		local water = deco("Puddle", V(0.04, d, d), CFrame.new(position + offset + V(0, 0.03 + i * 0.002, 0)) * CFrame.Angles(0, 0, math.pi / 2), RGB(30, 34, 40), Enum.Material.Glass)
+		local water = deco("Puddle", V(0.04, d, d), CFrame.new(position + offset + V(0, 0.03 + i * 0.002, 0)) * CFrame.Angles(0, 0, math.pi / 2), RGB(30, 34, 40), Enum.Material.SmoothPlastic) -- (el cristal reflejaba el cielo: un disco celeste)
 		water.Shape = Enum.PartType.Cylinder
 		water.Transparency = 0.5
 		water.Reflectance = 0.18

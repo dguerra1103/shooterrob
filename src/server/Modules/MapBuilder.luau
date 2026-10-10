@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 local MapCheck = require(script.Parent.MapCheck)
 local MapDress = require(script.Parent.MapDress)
+local MapExtras = require(script.Parent.MapExtras)
 local MapKit = require(script.Parent.MapKit)
 
 local MapBuilder = {}
@@ -81,6 +82,14 @@ function MapBuilder.Build(id)
 	local def = MapBuilder.Defs[id or MapBuilder.Order[1]] or MapBuilder.Defs[MapBuilder.Order[1]]
 	MapBuilder.UpdateFeatured() -- (cambia a medianoche: se revisa con cada mapa)
 	def.Build()
+	-- Coberturas y decoración añadidas (ver MapExtras). Antes que la decoración del evento,
+	-- que va al azar y si no les quitaba el sitio unas veces sí y otras no
+	local extras, extrasError = pcall(function()
+		MapExtras.Apply(def, require(script.Parent.TacKit))
+	end)
+	if not extras then
+		warn("[MapBuilder] extras del mapa:", extrasError)
+	end
 	-- Gravedad del mapa (la Base Lunar tiene menos: se salta más y las granadas vuelan más)
 	workspace.Gravity = def.Gravity or 196.2
 	-- Decoración del evento de temporada (calabazas en Halloween)

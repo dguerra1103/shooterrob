@@ -194,3 +194,24 @@ en escena al quitar la hierba 3D (una muestra, en Studio). La lista de teclas de
 ranuras de armas (visto en partida).
 
 Visto y sin tocar: en las variantes de noche las superficies claras tiran a violeta; ya era así.
+
+## Coberturas y decoración (mismo día)
+
+Medición nueva (`tools/studio/cover.js`): puntos del suelo jugable sin nada tras lo que cubrirse a menos
+de 24 studs. Cinco mapas ya estaban a cero; los huecos reales estaban en cuatro:
+
+| Mapa | Puntos expuestos antes → después | Qué se añadió |
+|---|---|---|
+| Metro Yard | 55 → 1 | Jardineras, árboles, dos coches aparcados, banco, barreras, cajas y palé de bloques en la plaza y la calle del oeste |
+| Dockyard | 28 → 0 | Carga suelta en el canto del muelle (cajas, palé de bloques, bidones) y una barrera en el centro |
+| Terminal | 10 → 0 | Grupo electrógeno, dos contenedores aéreos y conos junto al avión |
+| Desert Base | 4 → 0 | Un muro de gaviones y dos barreras |
+
+Está en `src/server/Modules/MapExtras.luau`: cada pieza se pone por parejas reflejadas y solo si el sitio
+está libre en los dos lados; si no, no se pone y sale `[MapExtras]` en la consola.
+
+Comprobado: auditoría de los cuatro mapas sin caras coplanarias ni rutas rotas, y dos partidas (Metro
+Yard y Dockyard) con los bots en movimiento y sin errores.
+
+En Rooftop District la medición da falsos positivos (cuenta la parte de arriba de los pretiles), así
+que no se tocó. La arquitectura de los mapas (edificios, alturas, rutas) sigue igual.
