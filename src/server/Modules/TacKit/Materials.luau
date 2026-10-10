@@ -175,7 +175,12 @@ Materials.MallRush = {
 -- ROOFTOP DISTRICT: azoteas de hormigón gris, fachadas gris azulado, acentos azul y rojo
 Materials.RooftopDistrict = {
 	Roof = { RGB(112, 116, 124), M.Concrete },
-	RoofDark = { RGB(104, 108, 116), M.Concrete },
+	RoofDark = { RGB(92, 96, 106), M.Concrete },
+	-- (cada azotea, su suelo: se reconoce dónde estás de un vistazo)
+	RoofGravel = { RGB(136, 132, 124), M.Pebble },
+	RoofTile = { RGB(158, 104, 84), M.Pavement },
+	RoofWood = { RGB(150, 112, 78), M.WoodPlanks },
+	RoofPaver = { RGB(168, 172, 180), M.Pavement },
 	Parapet = { RGB(188, 190, 194), M.Concrete },
 	BuildingBrick = { RGB(146, 78, 64), M.Brick },
 	Building = { RGB(150, 156, 166), M.Concrete },

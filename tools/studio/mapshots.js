@@ -64,7 +64,7 @@ return "VARIANTES=" .. table.concat(names, "|") .. ";PUNTOS=" .. table.concat(pi
     const m = text.match(/VARIANTES=(.*);PUNTOS=(.*)/);
     if (!m) { console.log(name + ": " + text.slice(0, 300)); continue; }
     console.log(name + " · variantes: " + (m[1] || "ninguna"));
-    await sleep(1500);
+    await sleep(3500);
     const views = [{ cam: [0, 130, 150], at: [0, 0, 5] }];
     for (const p of m[2].split(";").filter(Boolean)) { const [x, y, z] = p.split(",").map(Number); views.push({ cam: [x, y + 4.5, z], at: [x * 0.25, y + 3, z * 0.25] }); }
     const files = [];
