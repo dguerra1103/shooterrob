@@ -455,27 +455,51 @@ function MapCheck.Verify(map, onDone)
 			note("sin ruta entre las bases a los 40 s: los bots no pueden cruzar el mapa")
 		end
 		local unreachable, retired = 0, 0
-		for _, target in targets do
-			local reached = false
+		local function reachable(target)
 			for _, origin in list do
 				if origin == target or route(origin.Position + V(0, 3, 0), target.Position + V(0, 3, 0)) then
-					reached = true
-					break
+					return true
 				end
 			end
-			if not reached then
-				unreachable += 1
-				target:SetAttribute("Unreachable", true)
-				if target.Name == "FFASpawn" then
-					-- (nadie aparece donde no se puede salir a pie: puede ser un hueco cerrado)
-					target.Name = "FFASpawnBlocked"
-					retired += 1
-				end
-				note(("sin ruta a pie hasta %s en (%.0f, %.0f, %.0f)"):format(target.Name, target.Position.X, target.Position.Y, target.Position.Z))
+			return false
+		end
+		local failed = {}
+		for _, target in targets do
+			if not reachable(target) then
+				table.insert(failed, target)
 			end
 			if not map.Parent then
 				return
 			end
+		end
+		-- La malla de navegación se sigue completando un rato después de dar por lista la primera ruta:
+		-- lo que falló se vuelve a probar tres veces (a los 5, 15 y 30 s) antes de darlo por malo (si no, se retiraba algún
+		-- punto bueno, distinto cada vez)
+		for _, pause in { 5, 10, 15 } do
+			if #failed == 0 then
+				break
+			end
+			task.wait(pause)
+			if not map.Parent then
+				return
+			end
+			local still = {}
+			for _, target in failed do
+				if not reachable(target) then
+					table.insert(still, target)
+				end
+			end
+			failed = still
+		end
+		for _, target in failed do
+			unreachable += 1
+			target:SetAttribute("Unreachable", true)
+			if target.Name == "FFASpawn" then
+				-- (nadie aparece donde no se puede salir a pie: puede ser un hueco cerrado)
+				target.Name = "FFASpawnBlocked"
+				retired += 1
+			end
+			note(("sin ruta a pie hasta %s en (%.0f, %.0f, %.0f)"):format(target.Name, target.Position.X, target.Position.Y, target.Position.Z))
 		end
 		MapCheck.Stats.Unreachable = unreachable
 		if retired > 0 then

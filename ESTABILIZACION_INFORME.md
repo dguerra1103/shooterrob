@@ -215,3 +215,21 @@ Yard y Dockyard) con los bots en movimiento y sin errores.
 
 En Rooftop District la medición da falsos positivos (cuenta la parte de arriba de los pretiles), así
 que no se tocó. La arquitectura de los mapas (edificios, alturas, rutas) sigue igual.
+
+## Arquitectura: Rooftop District, Construction e Industrial Yard (10 de octubre)
+
+- **Rooftop District**
+  - Las escaleras a la antena y al depósito suben ahora desde dentro de su azotea. Antes arrancaban
+    pegadas al pretil, en una franja sin malla de navegación, y los bots no llegaban nunca arriba;
+    además estrechaban la boca del puente al sitio A.
+  - Cada azotea tiene su suelo (grava, baldosa, tarima, losa clara), para orientarse de un vistazo.
+  - Medido en partida: 5 de 9 bots pasaron por las plataformas altas en 70 s; el repaso del mapa ya no
+    da ningún aviso (antes, cuatro).
+- **Construction**: el segundo tramo de la torre central no tenía ruta para los bots (su enlace caía
+  fuera del forjado). `G.stairs` admite ahora dónde empieza y acaba el enlace (`LinkFrom`, `LinkTo`).
+  Medido en partida: 8 de 9 bots subieron a la primera planta en 70 s; ninguno llegó a pisar la
+  segunda en ese rato (hay ruta; no se vio a ninguno completarla).
+- **Industrial Yard**: la pasarela norte pasa de 4 a 6 de ancho; con 4 y barandilla a los dos lados no
+  cabía ni un punto de aparición, y los dos que había se retiraban.
+- **Repaso de rutas**: lo que falla se vuelve a probar tres veces (hasta 30 s después) antes de darlo por malo. La malla de
+  navegación se sigue completando unos segundos y se retiraba algún punto de aparición bueno.

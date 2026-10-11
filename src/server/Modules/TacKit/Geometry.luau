@@ -325,7 +325,9 @@ function G.stairs(bottom, top, width, look, opts)
 	if run > 0.5 and math.deg(math.atan2(rise, run)) > 27 then
 		local forward = flatDir.Unit
 		local ends = {}
-		for i, point in { bottom - forward * 2, top + forward * 2 } do
+		-- (opts.LinkFrom / LinkTo: dónde se pisa de verdad antes y después, si no es en línea recta:
+		-- un arranque al borde del forjado o un desembarco entre dos huecos)
+		for i, point in { opts.LinkFrom or (bottom - forward * 2), opts.LinkTo or (top + forward * 2) } do
 			local attachment = Instance.new("Attachment")
 			attachment.Name = i == 1 and "StairBottom" or "StairTop"
 			attachment.Parent = body
