@@ -461,6 +461,13 @@ function MapCheck.Verify(map, onDone)
 					return true
 				end
 			end
+			-- (puede haber algo que no es del mapa justo encima: un muñeco de prácticas, un bot. Si se
+			-- llega a un paso de distancia, el punto vale)
+			for _, offset in { V(4, 0, 0), V(-4, 0, 0), V(0, 0, 4), V(0, 0, -4) } do
+				if route(list[1].Position + V(0, 3, 0), target.Position + offset + V(0, 3, 0)) then
+					return true
+				end
+			end
 			return false
 		end
 		local failed = {}

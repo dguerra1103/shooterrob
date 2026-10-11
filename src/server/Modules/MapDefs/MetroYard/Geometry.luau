@@ -78,21 +78,23 @@ function Geometry.build(T)
 	---------------------------------------------------------------------------
 	-- COCHERAS (taller con dos coches en mantenimiento; sitio B dentro)
 	---------------------------------------------------------------------------
-	G.shell(CF(0, 0, 72), 100, 56, 16, "Shed", {
+	-- (nave de 18 de alto: con 16, la galería a 10 se quedaba con 5,5 de techo; un personaje cabía
+	-- justo y no podía saltar, y el puesto de los bots de ahí no valía)
+	G.shell(CF(0, 0, 72), 100, 56, 18, "Shed", {
 		Front = { door(-24, 10, 12), door(24, 10, 12), door(0, 6, 5.5, UP) },
 		Back = {},
 		Left = { door(-2, 8, 9) },
 		Right = { door(-2, 8, 9) },
 	}, { Frame = "Orange" })
 	for _, x in { -30, 0, 30 } do
-		local panel = G.deco("ShedLight", V(12, 0.2, 2), CF(x, 15.7, 70), { Color3.fromRGB(255, 240, 214), Enum.Material.Neon })
+		local panel = G.deco("ShedLight", V(12, 0.2, 2), CF(x, 17.7, 70), { Color3.fromRGB(255, 240, 214), Enum.Material.Neon })
 		panel.CastShadow = false
 		T.Kit.light(panel, "PointLight", Color3.fromRGB(255, 236, 206), 32, 1.1)
 	end
 	G.deco("ShedFloor", V(99, 0.1, 55), CF(0, 0.05, 72), "ConcreteDark").CastShadow = false
-	T.cap(G.slab(CF(0, 16.5, 72), 100, 56, "Shed", { { -24, 2, 12, 36 }, { 24, 2, 12, 36 } }))
+	T.cap(G.slab(CF(0, 18.5, 72), 100, 56, "Shed", { { -24, 2, 12, 36 }, { 24, 2, 12, 36 } }))
 	for _, x in { -24, 24 } do
-		local roofLight = G.deco("ShedSkylight", V(12, 0.3, 36), CF(x, 16.8, 74), "Glass")
+		local roofLight = G.deco("ShedSkylight", V(12, 0.3, 36), CF(x, 18.8, 74), "Glass")
 		roofLight.Transparency = 0.4
 		T.cap(roofLight)
 	end

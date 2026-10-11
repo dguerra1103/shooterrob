@@ -216,6 +216,35 @@ function T.spawnZone(teamIndex, cf, opts)
 		light.Shadows = false
 		light.Parent = lamp
 	end
+	-- Mobiliario del fondo de la base (el lado contrario al mapa): taquillas, cajas de munición, un
+	-- banco y el banderín del equipo. Las bases eran habitaciones vacías. Es decorado: no choca, no
+	-- para balas ni hace sombra, así que no estorba al aparecer. opts.Bare = true: sin mobiliario
+	if not opts.Bare then
+		local back = size.Y / 2 - 0.8
+		local function prop(name, propSize, x, y, color, material)
+			local part = Kit.deco(name, propSize, cf * CFrame.new(x, y, back), color, material or Enum.Material.SmoothPlastic)
+			part.CastShadow = false
+			return part
+		end
+		for i = 0, 2 do
+			local x = -size.X / 2 + 2.2 + i * 1.8
+			prop("BaseLocker", V(1.6, 5.4, 0.9), x, 3, RGB(72, 78, 92))
+			prop("BaseLockerStripe", V(1.3, 0.45, 0.06), x, 4.6, teamColor).CFrame = cf * CFrame.new(x, 4.6, back - 0.47)
+			prop("BaseLockerVent", V(1, 0.5, 0.06), x, 1.2, RGB(40, 44, 52)).CFrame = cf * CFrame.new(x, 1.2, back - 0.47)
+		end
+		for i = 0, 1 do
+			local x = -size.X / 2 + 8.6 + i * 2.4
+			prop("AmmoCrate", V(2, 1.2, 1.3), x, 0.9, RGB(88, 98, 72), Enum.Material.Wood)
+			prop("AmmoCrateBand", V(2.06, 0.25, 1.36), x, 1.2, teamColor)
+		end
+		prop("AmmoCrate", V(2, 1.2, 1.3), -size.X / 2 + 9.8, 2.1, RGB(88, 98, 72), Enum.Material.Wood)
+		prop("BaseBench", V(5, 0.4, 1.3), size.X / 2 - 8, 1.6, RGB(60, 64, 72))
+		for _, dx in { -2, 2 } do
+			prop("BaseBenchLeg", V(0.3, 1.4, 1.1), size.X / 2 - 8 + dx, 0.85, RGB(40, 44, 52))
+		end
+		prop("BannerPole", V(0.25, 7.2, 0.25), size.X / 2 - 2, 3.75, RGB(196, 198, 204))
+		prop("TeamPennant", V(3.4, 2.4, 0.1), size.X / 2 - 3.85, 5.9, teamColor).Color = teamColor
+	end
 	local points = opts.Points or {
 		V(-10, 0, 2), V(-5, 0, -3), V(0, 0, 2), V(5, 0, -3), V(10, 0, 2),
 	}

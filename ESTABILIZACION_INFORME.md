@@ -233,3 +233,22 @@ que no se tocó. La arquitectura de los mapas (edificios, alturas, rutas) sigue 
   cabía ni un punto de aparición, y los dos que había se retiraban.
 - **Repaso de rutas**: lo que falla se vuelve a probar tres veces (hasta 30 s después) antes de darlo por malo. La malla de
   navegación se sigue completando unos segundos y se retiraba algún punto de aparición bueno.
+
+## Resto de mapas (11 de octubre)
+
+Ronda completa en partida (una por mapa, nueve seguidas): todos cargan, la malla de navegación está
+lista en menos de 6 s, los bots se mueven y usan las plantas altas en los nueve, sin errores.
+
+- **Aparecer encima del mapa** (visto dos veces en Dockyard, a 63 studs de altura): si el punto de
+  aparición está ocupado, el motor sube al personaje hasta encontrar hueco, y en una base con techo eso
+  es por encima del tope invisible. Ahora, si medio segundo después de aparecer no hay suelo debajo, el
+  jugador vuelve a una aparición libre de su equipo (`Round.settleSpawn`). Probado forzando el caso.
+- **Puntos de aparición que se retiraban al azar**: la decoración de Halloween se coloca sobre los puntos
+  de aparición libres y el repaso los daba por bloqueados. El repaso se hace ahora antes de decorar, y
+  un punto vale si se llega a un paso de él. Construction pasa de 2 retirados a 0.
+- **Metro Yard**: la nave de las cocheras sube de 16 a 18 de alto; la galería se quedaba con 5,5 de
+  techo y el puesto de los bots de ahí no valía. El repaso del mapa ya no da avisos.
+- **Bases**: taquillas, cajas de munición, un banco y el banderín del equipo al fondo de cada base (eran
+  habitaciones vacías). Es decorado sin colisión.
+
+Queda: en Halloween una calabaza puede caer justo sobre un punto de aparición libre; se aparece encima.

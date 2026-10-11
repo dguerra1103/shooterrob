@@ -92,15 +92,6 @@ function MapBuilder.Build(id)
 	end
 	-- Gravedad del mapa (la Base Lunar tiene menos: se salta más y las granadas vuelan más)
 	workspace.Gravity = def.Gravity or 196.2
-	-- Decoración del evento de temporada (calabazas en Halloween)
-	local ok, err = pcall(function()
-		require(script.Parent.Event).Decorate()
-	end)
-	if not ok then
-		warn("[MapBuilder] decoración del evento:", err)
-	end
-	-- Repaso del mapa recién construido: sombras y caras coplanarias, puntos de aparición dentro de
-	-- objetos y, en segundo plano, rutas a los objetivos (ver MapCheck)
 	-- Detalle de suelo (manchas, grietas, rodadas, charcos): ver MapDress
 	local dressed, dressError = pcall(MapDress.Apply, def, MapKit)
 	if not dressed then
@@ -111,6 +102,17 @@ function MapBuilder.Build(id)
 	if not checked then
 		warn("[MapBuilder] repaso del mapa:", checkError)
 	end
+	-- (después del repaso: va al azar y cae sobre los puntos de aparición libres; antes, el repaso los
+	-- daba por bloqueados y los movía o los retiraba, distintos en cada partida)
+	-- Decoración del evento de temporada (calabazas en Halloween)
+	local ok, err = pcall(function()
+		require(script.Parent.Event).Decorate()
+	end)
+	if not ok then
+		warn("[MapBuilder] decoración del evento:", err)
+	end
+	-- Repaso del mapa recién construido: sombras y caras coplanarias, puntos de aparición dentro de
+	-- objetos y, en segundo plano, rutas a los objetivos (ver MapCheck)
 	MapCheck.Verify(map)
 	MapBuilder.Current = def.Id
 	ReplicatedStorage:SetAttribute("MapName", def.Name)

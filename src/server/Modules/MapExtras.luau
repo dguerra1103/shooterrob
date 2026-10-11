@@ -49,7 +49,6 @@ end
 
 function MapExtras.Maps.Terminal(T, put)
 	-- Plataforma: equipos de tierra junto al avión
-	put(-10, -9, 25, 4, function(cf) T.gpu(cf) end)
 	put(-30, 41, 0, 4.5, function(cf) T.uld(cf, "ContainerBlue") end)
 	put(-30, 2, 90, 4.5, function(cf) T.uld(cf, "ContainerRed") end)
 	put(-24, 36, 0, 1.2, function(cf) T.cone(cf) end)

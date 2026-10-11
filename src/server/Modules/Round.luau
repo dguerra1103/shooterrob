@@ -634,7 +634,56 @@ end
 local ffaCache = { Map = nil, Points = {}, Version = nil }
 local spawnedThisRound = {} -- [player] = true: ya apareció en esta ronda (la siguiente vez, dinámica)
 
+-- Red de seguridad al aparecer: si el punto de aparición está ocupado (otro jugador o un bot encima),
+-- el motor sube al personaje hasta encontrar hueco, y en una base con techo eso es por encima del
+-- tope invisible, a 60 studs: se aparecía sobre el mapa (visto en Dockyard). Si medio segundo después
+-- de aparecer no hay suelo cerca debajo, se le lleva a una aparición libre de su equipo.
+local function settleSpawn(player, character)
+	task.delay(0.5, function()
+		local root = character.Parent and character:FindFirstChild("HumanoidRootPart")
+		local map = workspace:FindFirstChild("Map")
+		if not root or not map or player.Character ~= character then
+			return
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character, map:FindFirstChild("Boundary"), map:FindFirstChild("Callouts"), workspace:FindFirstChild("Bots") }
+		params.RespectCanCollide = true
+		if root.Position.Y < 34 and workspace:Raycast(root.Position, Vector3.new(0, -14, 0), params) then
+			return -- (en el suelo: todo bien)
+		end
+		local best, bestGap = nil, -1
+		for _, d in map:GetDescendants() do
+			local mine = d:IsA("SpawnLocation") and player.Team ~= nil and d.TeamColor == player.Team.TeamColor
+			if mine or (player.Team == nil and d:IsA("BasePart") and d.Name == "FFASpawn") then
+				-- (la más despejada: lejos de cualquier otro personaje)
+				local gap = math.huge
+				for _, other in Players:GetPlayers() do
+					local otherRoot = other ~= player and other.Character and other.Character:FindFirstChild("HumanoidRootPart")
+					if otherRoot then
+						gap = math.min(gap, (otherRoot.Position - d.Position).Magnitude)
+					end
+				end
+				for _, agent in Bots.Agents do
+					if agent.Root and agent.Root.Parent then
+						gap = math.min(gap, (agent.Root.Position - d.Position).Magnitude)
+					end
+				end
+				if gap > bestGap then
+					best, bestGap = d, gap
+				end
+			end
+		end
+		if best then
+			warn(("[Round] %s apareció sin suelo debajo (y = %.0f): recolocado en %s"):format(player.Name, root.Position.Y, best.Name))
+			character:PivotTo(CFrame.new(best.Position + Vector3.new(0, 3.5, 0)) * (root.CFrame - root.Position))
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end)
+end
+
 local function ffaSpawnFor(player, character)
+	settleSpawn(player, character)
 	if isTeamMode() then
 		-- Por equipos: la primera vez en la base; al reaparecer, en el punto más seguro (SpawnPicker)
 		local first = not spawnedThisRound[player]
