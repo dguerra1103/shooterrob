@@ -2,3 +2,7 @@
 *.rbxlx.lock
 sourcemap.json
 tests/.cache/
+# Herramientas descargadas en Windows y copias locales del place
+rojo.exe
+aftman.exe
+ShooterRob_tuyo.rbxlx
