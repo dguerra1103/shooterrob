@@ -39,6 +39,9 @@ end
 
 -- Cura poco a poco; se corta si el jugador muere
 local function usePotion(player)
+	if GameConfig.Abilities.Enabled == false then
+		return false -- (habilidades retiradas)
+	end
 	local config = GameConfig.Abilities.Potion
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")

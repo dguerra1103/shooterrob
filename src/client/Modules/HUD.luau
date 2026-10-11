@@ -493,12 +493,15 @@ local function buildWeaponPanel()
 			{ "Cuchillo rápido", "F" },
 			{ "Recargar", "R" },
 			{ "Inspeccionar", "V" },
-			{ "Habilidades", "E Z X" },
+			{ "Habilidades", "E Z X", Abilities = true },
 			{ "Emotes", "N" },
 			{ "Grafiti", "J" },
 			{ "Marcador", "Tab" },
 			{ "Regalo", "H" },
 		} do
+			if pair.Abilities and GameConfig.Abilities.Enabled == false then
+				continue -- (habilidades retiradas)
+			end
 			local row = UI.new("Frame", {
 				LayoutOrder = i,
 				Size = UDim2.fromOffset(220, 18),

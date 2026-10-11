@@ -143,8 +143,12 @@ GameConfig.RespawnNowDelay = 1 -- "Regenerar ahora" se puede pulsar a partir de 
 GameConfig.StartingRevives = 3 -- revivir instantáneos con los que empieza un jugador nuevo
 GameConfig.ReviveShieldTime = 2 -- segundos de escudo al revivir
 
--- Habilidades (iconos abajo en el centro): Impulso (E), Supersalto (Z) y Poción (X)
+-- Habilidades (iconos abajo en el centro): Impulso (E), Supersalto (Z) y Poción (X).
+-- Enabled = false: RETIRADAS del juego (decisión de diseño: no son propias de SHOOTERROB). Con false no
+-- hay barra, ni teclas, ni botones táctiles, ni aparecen en el tutorial ni en Operador, y el servidor
+-- rechaza la poción. El código se conserva: true las devuelve tal cual
 GameConfig.Abilities = {
+	Enabled = false,
 	Dash = { Cooldown = 6, Speed = 78, Duration = 0.2 },
 	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
 	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },

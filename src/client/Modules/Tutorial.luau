@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("InputMode"))
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Sounds = require(Shared.Sounds)
 
@@ -72,7 +73,16 @@ local function show()
 		TextColor3 = Color3.fromRGB(255, 210, 60),
 		Parent = card,
 	})
-	for i, tip in touch and TOUCH_TIPS or PC_TIPS do
+	local tips = {}
+	for _, tip in touch and TOUCH_TIPS or PC_TIPS do
+		-- (sin la línea de las habilidades si están retiradas)
+		if GameConfig.Abilities.Enabled ~= false or not string.find(tip[2], "impulso", 1, true) then
+			table.insert(tips, tip)
+		elseif string.find(tip[2], "granada", 1, true) then
+			table.insert(tips, { "💣", "Encima del joystick: la granada" })
+		end
+	end
+	for i, tip in tips do
 		local row = UI.new("Frame", {
 			Position = UDim2.fromOffset(24, 60 + (i - 1) * 46),
 			Size = UDim2.new(1, -48, 0, 40),

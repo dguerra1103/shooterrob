@@ -321,6 +321,13 @@ local function update()
 end
 
 function Abilities.Init()
+	if CONFIG.Enabled == false then
+		-- (retiradas: ni barra ni teclas; en móvil, sus tres botones se esconden)
+		for _, id in { "AbilityDash", "AbilityJump", "AbilityPotion" } do
+			pcall(TouchLayout.SetHidden, id, true)
+		end
+		return
+	end
 	build()
 	local keys = {
 		Dash = { Enum.KeyCode.E, Enum.KeyCode.DPadLeft },

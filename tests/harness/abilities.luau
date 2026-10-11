@@ -5,6 +5,7 @@ mock.taskImpl = task
 local game, req = mock.buildGame(process.args[1])
 local Shared = game.ReplicatedStorage.Shared
 local GameConfig = req(Shared.GameConfig)
+GameConfig.Abilities.Enabled = true -- (retiradas por defecto: aquí se prueba el sistema encendido)
 GameConfig.Abilities.Potion.Duration = 0.3
 GameConfig.Abilities.Potion.Cooldown = 1
 local Remotes = req(Shared.Remotes)
