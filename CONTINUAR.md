@@ -110,15 +110,13 @@ Lo que solo puede hacer el dueño del juego:
    enseña como «PRÓXIMAMENTE»).
 4. **Publicar y probar el guardado:** en Studio los DataStores no funcionan sin publicar; el progreso no
    se ha visto guardarse nunca.
-5. **Título:** `GameConfig.GameTitle` dice «SHOOTER NEW» (lobby y pantalla de carga).
 
 Lo que queda de desarrollo:
 
 6. **Chaflanes de las armas:** importar a mano un `.fbx` con el importador 3D de Studio y decidir.
 7. **Animaciones propias** (AnimationIds): las armas se animan por código; no se han visto en
    movimiento, solo en capturas.
-8. **Halloween:** una calabaza puede caer sobre un punto de aparición libre. El evento se apaga el 4 de
-   noviembre de 2026.
+8. **Halloween:** el evento se apaga solo el 4 de noviembre de 2026.
 9. **Temporada 2 del pase** antes del 1 de enero de 2027.
 10. **Habilidades** (impulso, supersalto, poción): retiradas con `GameConfig.Abilities.Enabled = false`.
     El código sigue ahí por si se rediseñan como propias.

@@ -251,4 +251,4 @@ lista en menos de 6 s, los bots se mueven y usan las plantas altas en los nueve,
 - **Bases**: taquillas, cajas de munición, un banco y el banderín del equipo al fondo de cada base (eran
   habitaciones vacías). Es decorado sin colisión.
 
-Queda: en Halloween una calabaza puede caer justo sobre un punto de aparición libre; se aparece encima.
+Corrección: las calabazas de Halloween se colocan a 5 studs de cada punto de aparición libre, no encima; no hay que tocar nada ahí.

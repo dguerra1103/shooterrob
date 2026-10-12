@@ -52,8 +52,14 @@ local function buildLogo(parent)
 	local logo = C.new("Frame", { Name = "Logo", BackgroundTransparency = 1, Position = UDim2.fromOffset(24, 14), Size = UDim2.fromOffset(380, 84), Parent = parent })
 	local title = tostring(GameConfig.GameTitle or "SHOOTER")
 	local first, rest = string.match(title, "^(%S+)%s*(.*)$")
+	local gap = " "
+	-- (título de una sola palabra con el final en amarillo: SHOOTER + ROB)
+	local accent = GameConfig.GameTitleAccent
+	if type(accent) == "string" and accent ~= "" and #title > #accent and string.sub(title, -#accent) == accent then
+		first, rest, gap = string.sub(title, 1, #title - #accent), accent, ""
+	end
 	refs.LogoTitle = C.text({
-		Text = string.format('%s <font color="%s">%s</font>', C.upper(first or title), "#" .. Colors.Yellow:ToHex(), rest ~= "" and C.upper(rest) or ""),
+		Text = string.format('%s%s<font color="%s">%s</font>', C.upper(first or title), gap, "#" .. Colors.Yellow:ToHex(), rest ~= "" and C.upper(rest) or ""),
 		Rich = true,
 		Role = "TitleItalic",
 		TextSize = 54,

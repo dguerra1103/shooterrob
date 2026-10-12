@@ -15,7 +15,8 @@ local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
 local LocalizationService = game:GetService("LocalizationService")
 
-local TITLE = "SHOOTER NEW" -- (el mismo que GameConfig.GameTitle)
+local TITLE = "SHOOTERROB" -- (el mismo que GameConfig.GameTitle)
+local TITLE_ACCENT = "ROB" -- (el final en amarillo, como GameConfig.GameTitleAccent)
 local LIMITS = { Loaded = 30, Data = 12, Map = 25, Lobby = 15 } -- (máximo por fase si algo falla)
 
 local player = Players.LocalPlayer
@@ -122,8 +123,12 @@ end
 -- Logo
 local logo = new("Frame", { Name = "Logo", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.7, 0.22), ZIndex = 3, Parent = content })
 local first, rest = string.match(TITLE, "^(%S+)%s*(.*)$")
+local titleGap = " "
+if TITLE_ACCENT ~= "" and #TITLE > #TITLE_ACCENT and string.sub(TITLE, -#TITLE_ACCENT) == TITLE_ACCENT then
+	first, rest, titleGap = string.sub(TITLE, 1, #TITLE - #TITLE_ACCENT), TITLE_ACCENT, ""
+end
 local title = label({
-	Text = string.format('%s <font color="#FFC61A">%s</font>', first or TITLE, rest or ""),
+	Text = string.format('%s%s<font color="#FFC61A">%s</font>', first or TITLE, titleGap, rest or ""),
 	Rich = true,
 	FontFace = TITLE_FONT,
 	AlignX = Enum.TextXAlignment.Center,
