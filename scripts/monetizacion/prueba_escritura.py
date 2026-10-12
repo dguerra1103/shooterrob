@@ -15,6 +15,10 @@ spec.loader.exec_module(cp)
 copy = os.path.join(tempfile.mkdtemp(), "ProductIds.luau")
 shutil.copy(cp.IDS_FILE, copy)
 cp.IDS_FILE = copy
+# (la copia empieza a 0 aunque el archivo real ya tenga ids)
+import re
+zeroed = re.sub(r"= \d+,", "= 0,", io.open(copy, encoding="utf-8", newline="").read())
+io.open(copy, "w", encoding="utf-8", newline="").write(zeroed)
 written = cp.write_ids({"Coins:Puñado": 111, "Item:Skin:Inferno": 222, "VIP": 333, "PassPremium:S1": 444, "Coins:Bóveda": 555})
 text = io.open(copy, encoding="utf-8").read()
 expected = ['["Coins:Puñado"] = 111,', '["Item:Skin:Inferno"] = 222,', "VIP = 333,", '["PassPremium:S1"] = 444,', '["Coins:Bóveda"] = 555,']

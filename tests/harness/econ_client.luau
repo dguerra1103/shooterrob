@@ -46,6 +46,9 @@ Products.Items["Skin:Inferno"].ProductId = 7001
 local red = req(RS.Shared.Economy.StoreRotation).BundleById("RedOps")
 red.ProductId = 7002
 BP.Get("S1").Premium.ProductId = 7003
+-- (los que la prueba usa como «producto sin id», aunque en ProductIds ya tengan el suyo)
+Products.TierSkip.ProductId = 0
+req(RS.Shared.Economy.StoreRotation).BundleById("Artico").ProductId = 0
 local PlayerData = req(game.ServerScriptService.Server.Modules.PlayerData)
 PlayerData.Init()
 local me = mock.new("Player")

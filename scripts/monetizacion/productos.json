@@ -1,7 +1,7 @@
 [
   {
     "description": "500 monedas del juego. Las monedas solo compran estética.",
-    "id": 0,
+    "id": 3718230744.0,
     "key": "Coins:Puñado",
     "name": "500 monedas · Puñado",
     "price": 49,
@@ -9,7 +9,7 @@
   },
   {
     "description": "1200 monedas del juego. Las monedas solo compran estética.",
-    "id": 0,
+    "id": 3718230940.0,
     "key": "Coins:Bolsa",
     "name": "1200 monedas · Bolsa",
     "price": 99,
@@ -17,7 +17,7 @@
   },
   {
     "description": "3000 monedas del juego. Las monedas solo compran estética.",
-    "id": 0,
+    "id": 3718231061.0,
     "key": "Coins:Cofre",
     "name": "3000 monedas · Cofre",
     "price": 199,
@@ -25,7 +25,7 @@
   },
   {
     "description": "8000 monedas del juego. Las monedas solo compran estética.",
-    "id": 0,
+    "id": 3718231243.0,
     "key": "Coins:Bóveda",
     "name": "8000 monedas · Bóveda",
     "price": 449,
@@ -33,7 +33,7 @@
   },
   {
     "description": "XP doble durante 30 minutos de partida. No acelera el pase de batalla ni da ventaja en combate.",
-    "id": 0,
+    "id": 3718231535.0,
     "key": "Booster:XP2",
     "name": "XP doble · 30 min",
     "price": 49,
@@ -41,7 +41,7 @@
   },
   {
     "description": "Monedas dobles durante 30 minutos de partida. No acelera el pase de batalla ni da ventaja en combate.",
-    "id": 0,
+    "id": 3718231655.0,
     "key": "Booster:Coins2",
     "name": "Monedas dobles · 30 min",
     "price": 69,
@@ -49,7 +49,7 @@
   },
   {
     "description": "Skin, traje, efecto de baja, colgante, tarjeta, pose y 1500 monedas. Solo jugadores nuevos, una vez. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718231826.0,
     "key": "Starter:Starter",
     "name": "Pack de inicio",
     "price": 99,
@@ -57,7 +57,7 @@
   },
   {
     "description": "Vía premium del pase de batalla de la temporada 1 (Zona roja): 50 niveles de recompensas. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718231935.0,
     "key": "PassPremium:S1",
     "name": "Pase premium · Temporada 1",
     "price": 399,
@@ -65,7 +65,7 @@
   },
   {
     "description": "Sube un nivel del pase de batalla de la temporada en curso.",
-    "id": 0,
+    "id": 3718232594.0,
     "key": "TierSkip:TierSkip",
     "name": "Nivel del pase",
     "price": 49,
@@ -73,7 +73,7 @@
   },
   {
     "description": "Incluye: efecto de baja Calabazas, colgante Calabacita, grafiti Calabaza y 2500 monedas. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718233032.0,
     "key": "Bundle:Halloween",
     "name": "Pack de halloween",
     "price": 199,

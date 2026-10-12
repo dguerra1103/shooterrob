@@ -19,24 +19,24 @@ ProductIds.GamePasses = {
 
 ProductIds.Products = {
 	-- Monedas
-	["Coins:Puñado"] = 0,
-	["Coins:Bolsa"] = 0,
-	["Coins:Cofre"] = 0,
-	["Coins:Bóveda"] = 0,
+	["Coins:Puñado"] = 3718230744,
+	["Coins:Bolsa"] = 3718230940,
+	["Coins:Cofre"] = 3718231061,
+	["Coins:Bóveda"] = 3718231243,
 	-- Potenciadores (30 minutos)
-	["Booster:XP2"] = 0,
-	["Booster:Coins2"] = 0,
+	["Booster:XP2"] = 3718231535,
+	["Booster:Coins2"] = 3718231655,
 	-- Pack de inicio (solo jugadores nuevos, una vez)
-	["Starter:Starter"] = 0,
+	["Starter:Starter"] = 3718231826,
 	-- Pase de batalla
-	["PassPremium:S1"] = 0,
-	["TierSkip:TierSkip"] = 0,
+	["PassPremium:S1"] = 3718231935,
+	["TierSkip:TierSkip"] = 3718232594,
 	-- Packs
 	["Bundle:RedOps"] = 0,
 	["Bundle:Artico"] = 0,
 	["Bundle:Vacio"] = 0,
 	["Bundle:Aventurero"] = 0,
-	["Bundle:Halloween"] = 0,
+	["Bundle:Halloween"] = 3718233032,
 	["Bundle:Navidad"] = 0,
 	-- Objetos sueltos
 	["Item:Skin:Inferno"] = 0,

@@ -4,6 +4,13 @@ Estado a 12 de octubre de 2026: **el sistema de pagos está hecho y pasa sus pru
 no vende nada**, porque ninguno de los 39 productos existe todavía en Roblox. Este documento es lo que
 falta para que venda. El diseño (qué se vende y por qué) está en `ECONOMY.md`.
 
+**Avance del 12 de octubre (tarde):** en la experiencia «Shooter New» (universo `10769195462`, privada)
+ya existen **10 de los 39 productos**, creados a mano en el Creator Hub con su icono y con sus ids
+apuntados en `ProductIds.luau`: las cuatro bolsas de monedas, los dos potenciadores, el pack de inicio,
+el pase premium, el nivel del pase y el pack de Halloween. Faltan 28 productos y el pase VIP. Se crearon
+con «Precios administrados» **desactivado**, porque activarlo exige aceptar unos términos de Roblox que
+tiene que aceptar el dueño de la cuenta. `5_CREAR_PRODUCTOS_TIENDA.bat` crea solo los que faltan.
+
 ## 1. Qué hay construido
 
 - **Tienda** con previsualización, compra con Robux (ventana nativa de Roblox) y con monedas del juego.
