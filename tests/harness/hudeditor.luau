@@ -70,7 +70,10 @@ local names = 0
 for _, d in editorGui:GetChildren() do
 	if string.sub(d.Name, 1, 5) == "Name_" then names += 1 end
 end
-check(names >= #MobileHUD.Controls, "cada control con su nombre (" .. names .. ")")
+-- (las tres habilidades están retiradas por defecto, GameConfig.Abilities.Enabled = false: sus botones
+-- no salen en el editor)
+local expected = #MobileHUD.Controls - (GameConfig.Abilities.Enabled == false and 3 or 0)
+check(names >= expected, "cada control visible con su nombre (" .. names .. " de " .. expected .. ")")
 
 -- Mover, tamaño y opacidad (en vivo)
 Editor.Select("Fire")

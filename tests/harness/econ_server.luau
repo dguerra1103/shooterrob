@@ -22,6 +22,9 @@ local Config = req(Shared.Economy.MonetizationConfig)
 -- (temporada 1 siempre activa en la prueba, sea cual sea la fecha)
 local s1 = BP.Get("S1")
 s1.StartsAt, s1.EndsAt = 0, 4102444800
+-- (y sin el XP doble de fin de semana: las cuentas de XP de abajo son las de un día normal. Sin esto
+-- la prueba fallaba los sábados y domingos)
+req(Shared.GameConfig).XPBoost.Enabled = false
 -- Ids de prueba (en el juego están a 0 hasta crearlos en el Creator Dashboard)
 Products.Items["Skin:Inferno"].ProductId = 9001
 Products.Items["Card:Oro"].ProductId = 9002

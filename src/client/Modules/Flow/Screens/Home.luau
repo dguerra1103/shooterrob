@@ -187,11 +187,12 @@ local function onMenu(id)
 	elseif id == "Pass" then
 		flow.SetState("Pass")
 	elseif id == "Events" then
-		-- (la tienda del evento está en DESTACADO; la ruleta ya no existe: estética de casino)
+		-- (EVENTOS lleva a los retos, donde están el progreso y los premios del evento en curso; antes
+		-- abría la tienda, igual que el botón TIENDA. La ruleta ya no existe: estética de casino)
 		if MonetizationConfig.Rules.Wheel then
 			Wheel.Open()
 		else
-			flow.SetState("Store", { Tab = "FEATURED" })
+			Menu.Open("Retos")
 		end
 	elseif id == "Clan" then
 		Home.OpenClan()

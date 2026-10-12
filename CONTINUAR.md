@@ -6,7 +6,8 @@ Este es el documento de entrada. Léelo primero; lo demás cuelga de aquí.
 
 Shooter 5v5 completo en código (Luau + Rojo), ya **probado en Roblox Studio** (antes solo con pruebas
 fuera del motor), con **las 21 armas modeladas en Blender** dentro del juego y **60 iconos
-propios**. Falta probar en un móvil real, medir rendimiento y pulir lo que se lista abajo.
+propios**. Los nueve mapas están auditados y jugados uno a uno. Falta probar en un móvil real y con
+dos jugadores, y dar de alta la monetización (lista abajo).
 
 ## Dónde está cada cosa
 
@@ -93,26 +94,36 @@ Deja `wt_<Arma>_1..4.png`: reposo, disparo, apuntando y recarga.
 - **ForgeGUI** (plan gratis) quedó sin créditos y no deja generar 3D. Los iconos nuevos se generan con
   ChatGPT (hojas de 15 con fondo transparente) y se recortan con `assets/icons/slice.py`.
 
-## Pendiente, por orden de impacto
+## Pendiente para lanzar, por orden
 
-1. **Móvil real:** nada de lo nuevo se ha probado en un teléfono ni se ha medido (FPS, memoria).
-2. **Ver las armas en movimiento:** bomba, cerrojo, corredera y los golpes cuerpo a cuerpo solo se han
-   visto en fotos fijas. Y recorrer los mapas enteros tras bajar el terreno 2 studs (medidos los nueve
-   desde la base: correcto; no se han revisado los bordes).
-3. **Pasar a mallas con chaflán:** importar a mano un `.fbx` con el importador 3D de Studio y decidir.
-4. **Equilibrio visual de las armas en primera persona:** algunos visores son altos (Phantom, Titan) y
-   la Ballesta ocupa mucho ancho.
-5. **Animaciones propias** (AnimationIds): las armas usan las animaciones por código.
-6. **Iconos sin colocar** y rangos/precios que siguen con emoji dentro de frases.
-7. **Texto de muerte:** roza la ficha del líder de arriba; y la Katana no se ha visto en la mano en partida.
-8. **Monetización:** crear los productos en el Creator Dashboard (todos los ids están a 0).
-9. **Temporada 2 del pase** antes del 1 de enero de 2027; el evento de Halloween se apaga el 4 de
+Estado a 11 de octubre de 2026: el juego se recorre entero en Studio sin errores (lobby, armamento,
+operador, tienda, pase, retos, búsqueda, partida, muerte, pantalla final y votación), los nueve mapas
+se juegan seguidos. Pruebas automáticas: 151 de 152 en la batería completa; `rounds` falla a veces dentro de la batería (espera tiempo real) y pasa siempre que se ejecuta sola.
+
+Lo que solo puede hacer el dueño del juego:
+
+1. **Móvil real:** nada se ha probado en un teléfono Android ni se ha medido ahí (FPS, memoria,
+   controles táctiles). Es lo primero: el juego es Android primero.
+2. **Dos jugadores a la vez:** todas las pruebas son un jugador con bots. En Studio: Test → Start con 2
+   jugadores (daño, bajas, reaparición, marcador, fin de partida, vuelta al lobby).
+3. **Monetización:** crear los productos en el Creator Dashboard (todos los ids están a 0; la tienda los
+   enseña como «PRÓXIMAMENTE»).
+4. **Publicar y probar el guardado:** en Studio los DataStores no funcionan sin publicar; el progreso no
+   se ha visto guardarse nunca.
+5. **Título:** `GameConfig.GameTitle` dice «SHOOTER NEW» (lobby y pantalla de carga).
+
+Lo que queda de desarrollo:
+
+6. **Chaflanes de las armas:** importar a mano un `.fbx` con el importador 3D de Studio y decidir.
+7. **Animaciones propias** (AnimationIds): las armas se animan por código; no se han visto en
+   movimiento, solo en capturas.
+8. **Halloween:** una calabaza puede caer sobre un punto de aparición libre. El evento se apaga el 4 de
    noviembre de 2026.
-10. **Mapas (ver `ESTABILIZACION_INFORME.md`, sección 4):** plataformas altas de Rooftop District sin
-    ruta para los bots, puntos por recolocar en Construction e Industrial Yard, y toda la mejora visual
-    (óxido de contenedores, variantes de noche muy oscuras) sin empezar.
-11. **Multijugador:** nunca ha habido dos clientes en la misma partida (el MCP solo arranca uno).
-12. **Rendimiento:** Terminal, Mall Rush y Dockyard pasan de 230 000 triángulos en escena en Studio.
+9. **Temporada 2 del pase** antes del 1 de enero de 2027.
+10. **Habilidades** (impulso, supersalto, poción): retiradas con `GameConfig.Abilities.Enabled = false`.
+    El código sigue ahí por si se rediseñan como propias.
+11. **Arquitectura de mapas:** hecha en Rooftop District, Construction, Industrial Yard y Metro Yard; en
+    los otros cinco no se ha cambiado porque la ronda de pruebas no dio problemas.
 
 ## Reglas que se han seguido
 
