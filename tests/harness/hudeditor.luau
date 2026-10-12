@@ -70,7 +70,11 @@ local names = 0
 for _, d in editorGui:GetChildren() do
 	if string.sub(d.Name, 1, 5) == "Name_" then names += 1 end
 end
-check(names >= #MobileHUD.Controls, "cada control con su nombre (" .. names .. ")")
+-- (cada control que existe: con las habilidades retiradas, GameConfig.Abilities.Enabled = false, sus
+-- tres botones no se crean)
+local created = 0
+for _ in TL.Entries() do created += 1 end
+check(created > 0 and names >= created, "cada control con su nombre (" .. names .. " de " .. created .. ")")
 
 -- Mover, tamaño y opacidad (en vivo)
 Editor.Select("Fire")
