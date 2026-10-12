@@ -2,7 +2,9 @@
 local GameConfig = {}
 
 -- Nombre que aparece en la pantalla de inicio y en los carteles del mapa
-GameConfig.GameTitle = "SHOOTER NEW"
+GameConfig.GameTitle = "SHOOTERROB"
+-- (el final del título que va en amarillo en el logo: SHOOTER en blanco y ROB en amarillo, sin espacio)
+GameConfig.GameTitleAccent = "ROB"
 -- Estilo de los mapas: "Tactico" (el de ahora: materiales de verdad con luz limpia y legible, color un
 -- poco vivo y brillo contenido: un shooter de Roblox moderno, MapKit.tacticalize), "Realista" (piedra, yeso, ladrillo, metal y madera de verdad, colores naturales y
 -- luz con sombras marcadas, como los shooters militares) o "Cartoon" (colores vivos, plástico liso y
