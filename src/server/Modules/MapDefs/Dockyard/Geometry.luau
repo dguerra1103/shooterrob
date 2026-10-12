@@ -40,7 +40,9 @@ function Geometry.build(T)
 	local door = G.door
 
 	-- Suelo (hasta el canto del muelle), agua y muro del muelle
-	T.terrain(M.Asphalt, 1400, 1400, CF(0, 0, 400))
+	-- (terreno de relleno 1,4 por debajo del suelo: a ras, asomaba por las capas finas del suelo
+	-- —aceras, losas, caminos— en manchas de bordes dentados, y parpadeaba contra la losa general)
+	T.terrain(M.Asphalt, 1400, 1400, CF(0, -1.4, 400))
 	workspace.Terrain:FillBlock(CF(0, -9, QUAY - 300), V(1400, 14, 600), M.Water)
 	G.floor(CF(0, 0, (QUAY + 122) / 2), 304, 122 - QUAY, "Asphalt", 1)
 	G.box("QuayWall", V(304, 10, 2), CF(0, -5, QUAY - 1), "QuayDark")

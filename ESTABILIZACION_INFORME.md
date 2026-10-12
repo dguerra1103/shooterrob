@@ -266,3 +266,19 @@ partida, presentación de equipos, partida, muerte, pantalla final y votación. 
 
 No visto: pantalla táctil (Studio no la simula desde las herramientas), dos jugadores a la vez, y el
 guardado de progreso (hace falta publicar).
+
+## El suelo con manchas (12 de octubre)
+
+Captura del usuario en Construction: manchas ocres de bordes dentados en el suelo.
+
+Causa, medida con `tools/studio/poke.luau` (altura del terreno frente a la del suelo que lo cubre, en una
+rejilla): en Construction, Desert Base, Dockyard e Industrial Yard el terreno de relleno quedaba a ras
+del suelo (y = 0,00–0,02), justo a la altura de la losa general y de las capas finas (aceras, losas,
+caminos, a 0,02–0,06). Asomaba a través en casi todos los puntos (1 940 de 2 000 en Construction) y
+parpadeaba. En Construction además era de color ocre, por eso se veía tanto.
+
+Arreglo: el relleno baja 1,4 en esos cuatro mapas. Medición después: 0 puntos en los nueve mapas.
+Auditoría y una partida en cada uno de los cuatro: sin avisos, bots en movimiento.
+
+De paso: las coberturas añadidas en el «canto del muelle» de Dockyard caían fuera del muro del muelle
+(z < −104), en una franja que no se pisa; el hueco de cobertura que tapaban no era real. Quitadas.

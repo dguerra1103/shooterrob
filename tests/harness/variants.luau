@@ -4,6 +4,11 @@ local mock = require("./mock")
 local game, req = mock.buildGame(process.args[1])
 local function check(c, m) if not c then print("FALLO: " .. m) process.exit(1) end print("ok  " .. m) end
 local MapBuilder = req(game.ServerScriptService.Server.Modules.MapBuilder)
+-- (aquí solo se mira la luz: sin el repaso, las coberturas ni el detalle de suelo, que con cientos de
+-- construcciones seguidas llevaban la prueba al límite de tiempo)
+for _, name in { "MapCheck", "MapDress", "MapExtras" } do
+	req(game.ServerScriptService.Server.Modules[name]).Enabled = false
+end
 local L = game:GetService("Lighting")
 for _, spec in { { "Construction", "Mediodía", 13.2 }, { "Construction", "Noche", 21.2 } } do
 	local seen, base = {}, nil

@@ -27,7 +27,9 @@ function Geometry.build(T)
 	---------------------------------------------------------------------------
 	-- Suelo
 	---------------------------------------------------------------------------
-	T.terrain(Enum.Material.Concrete, 1100, 1100, CF(0, -0.3, 0))
+	-- (terreno de relleno 1,4 por debajo del suelo: a ras, asomaba por las capas finas del suelo
+	-- —aceras, losas, caminos— en manchas de bordes dentados, y parpadeaba contra la losa general)
+	T.terrain(Enum.Material.Concrete, 1100, 1100, CF(0, -1.4, 0))
 	G.floor(CF(0, 0, 0), 300, 260, "Ground", 1)
 
 	---------------------------------------------------------------------------

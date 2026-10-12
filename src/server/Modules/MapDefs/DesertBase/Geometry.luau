@@ -25,7 +25,9 @@ function Geometry.build(T)
 	local M = Enum.Material
 	local door = G.door
 
-	T.terrain(M.Sand, 1400, 1400, CF(0, 0, 0))
+	-- (terreno de relleno 1,4 por debajo del suelo: a ras, asomaba por las capas finas del suelo
+	-- —aceras, losas, caminos— en manchas de bordes dentados, y parpadeaba contra la losa general)
+	T.terrain(M.Sand, 1400, 1400, CF(0, -1.4, 0))
 	G.floor(CF(0, 0, 0), 304, 244, "Sand", 1)
 	-- Losas: parque de vehículos, patio de armas y almacén
 	G.deco("MotorPoolPad", V(80, 0.12, 50), CF(0, 0.06, -80), "Pad").CastShadow = false

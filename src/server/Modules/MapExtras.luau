@@ -35,13 +35,8 @@ function MapExtras.Maps.MetroYard(T, put)
 end
 
 function MapExtras.Maps.Dockyard(T, put)
-	-- Canto del muelle: carga suelta entre las grúas
-	put(-124, -110, 0, 7, function(cf) T.crateStack(cf, "Wall") end)
-	put(-110, -108, 10, 3.5, function(cf) T.blockPallet(cf, 3) end)
-	put(-96, -112, 0, 3.5, function(cf) T.crateStack(cf, "Tower") end)
-	put(-84, -109, -20, 5, function(cf) T.crateStack(cf, "L") end)
-	put(-90, -106, 0, 1.6, function(cf) T.barrel(cf) end)
-	put(-102, -113, 0, 1.6, function(cf) T.barrel(cf, { RGB(196, 56, 44), Enum.Material.Metal }) end)
+	-- (el muelle acaba en z = -104, con un muro: más allá no se pisa. Las coberturas que se pusieron ahí
+	-- al principio quedaban fuera del mapa y se han quitado)
 	put(-116, 106, 30, 5, function(cf) T.crateStack(cf, "L") end)
 	put(-110, 110, 0, 1.6, function(cf) T.barrel(cf) end)
 	put(-57, -2, 0, 5, function(cf) T.jersey(cf, 8) end)
