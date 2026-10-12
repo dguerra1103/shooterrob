@@ -252,3 +252,17 @@ lista en menos de 6 s, los bots se mueven y usan las plantas altas en los nueve,
   habitaciones vacías). Es decorado sin colisión.
 
 Corrección: las calabazas de Halloween se colocan a 5 studs de cada punto de aparición libre, no encima; no hay que tocar nada ahí.
+
+## Pulido final (11 de octubre)
+
+Recorrido completo en Studio con capturas: lobby, armamento, operador, tienda, pase, retos, búsqueda de
+partida, presentación de equipos, partida, muerte, pantalla final y votación. Sin errores en consola.
+
+- **Título**: SHOOTERROB (SHOOTER en blanco, ROB en amarillo) en el lobby y en la pantalla de carga.
+- **Habilidades** (impulso, supersalto, poción): retiradas con `GameConfig.Abilities.Enabled = false`.
+- **EVENTOS** abre los retos (abría la tienda).
+- **Pruebas**: `econ_server` ya no depende del día (XP doble de fin de semana), `hudeditor` cuenta los
+  controles visibles y `rounds` ya no depende de la carga de la máquina.
+
+No visto: pantalla táctil (Studio no la simula desde las herramientas), dos jugadores a la vez, y el
+guardado de progreso (hace falta publicar).

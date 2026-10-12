@@ -44,14 +44,18 @@ end
 Round.Init()
 local states, modes, maps = {}, {}, {}
 local RS = game.ReplicatedStorage
-local deadline = os.clock() + 40
+-- (hasta 6 rondas o 100 s de reloj: con la máquina cargada, en 40 s fijos a veces no cabían las 5
+-- que se piden y la prueba fallaba sin que hubiera ningún fallo)
+local deadline = os.clock() + 100
 local lastState
-while os.clock() < deadline do
+local roundsSeen = 0
+while os.clock() < deadline and roundsSeen < 6 do
 	local st = RS:GetAttribute("State")
 	if st ~= lastState then
 		table.insert(states, st)
 		lastState = st
 		if st == "Playing" then
+			roundsSeen += 1
 			modes[RS:GetAttribute("Mode")] = true
 			maps[RS:GetAttribute("MapName") or "?"] = true
 			-- Una baja de prueba en cada ronda
