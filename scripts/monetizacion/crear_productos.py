@@ -9,16 +9,21 @@ src/shared/Economy/ProductIds.luau.
     --crear          -> crea los que falten y escribe los ids.
     --apuntar        -> sin crear nada, escribe los ids de los que ya existen en Roblox.
     --precios        -> con --crear, corrige el precio de los que ya existan y no coincida.
-    --regional       -> con --crear, activa los precios regionales de Roblox en lo que se cree
-                        (Roblox baja el precio en paises con menos poder de compra).
+    --regional       -> con --crear, activa los precios regionales de Roblox, tambien en los que
+                        ya existan (Roblox baja el precio en paises con menos poder de compra).
+    --preguntar      -> ensena la lista y pregunta si los crea (lo usa 5_CREAR_PRODUCTOS_TIENDA.bat).
+    --iconos         -> con --crear, sube el icono de cada producto (assets/tienda/iconos), tambien
+                        a los que ya existan.
 
-Necesita dos variables de entorno (la clave NUNCA se escribe en ningun archivo):
+Necesita dos datos. Si no estan como variables de entorno, los pide por teclado (la clave no se ve
+al escribirla y NUNCA se guarda en ningun archivo):
     ROBLOX_API_KEY       clave de Open Cloud con permisos developer-product:read, developer-product:write,
                          game-pass:read y game-pass:write sobre la experiencia
     ROBLOX_UNIVERSE_ID   id del universo (la experiencia)
 
 Es seguro repetirlo: lo que ya existe (mismo nombre) no se vuelve a crear, solo se apunta su id.
 """
+import getpass
 import io
 import json
 import os
@@ -32,12 +37,26 @@ import uuid
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CATALOG = os.path.join(ROOT, "scripts", "monetizacion", "productos.json")
 IDS_FILE = os.path.join(ROOT, "src", "shared", "Economy", "ProductIds.luau")
+ICONS = os.path.join(ROOT, "assets", "tienda", "iconos")
 API = "https://apis.roblox.com"
+
+
+def icon_path(item_key):
+    path = os.path.join(ICONS, re.sub(r"[^A-Za-z0-9]+", "_", item_key.encode("ascii", "ignore").decode()) + ".png")
+    return path if os.path.exists(path) else None
 
 
 def fail(text):
     print("ERROR: " + text)
     sys.exit(1)
+
+
+def ask(prompt, secret=False):
+    try:
+        return (getpass.getpass(prompt) if secret else input(prompt)).strip()
+    except (EOFError, KeyboardInterrupt):
+        print("")
+        return ""
 
 
 def request(method, url, key, fields=None):
@@ -47,6 +66,12 @@ def request(method, url, key, fields=None):
         boundary = "----shooterrob" + uuid.uuid4().hex
         body = io.BytesIO()
         for name, value in fields.items():
+            if isinstance(value, tuple):  # (nombre de archivo, bytes): una imagen
+                head = '--%s\r\nContent-Disposition: form-data; name="%s"; filename="%s"\r\nContent-Type: image/png\r\n\r\n'
+                body.write((head % (boundary, name, value[0])).encode("utf-8"))
+                body.write(value[1])
+                body.write(b"\r\n")
+                continue
             if isinstance(value, bool):
                 value = "true" if value else "false"
             part = '--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n' % (boundary, name, value)
@@ -106,14 +131,19 @@ def main():
     note_only = "--apuntar" in sys.argv
     fix_prices = "--precios" in sys.argv
     regional = "--regional" in sys.argv
+    icons = "--iconos" in sys.argv
     if not os.path.exists(CATALOG):
         fail("falta %s (se genera con tools/economy/productos.luau)" % CATALOG)
     catalog = json.load(io.open(CATALOG, encoding="utf-8"))
     key = os.environ.get("ROBLOX_API_KEY", "").strip()
     universe = os.environ.get("ROBLOX_UNIVERSE_ID", "").strip()
+    if not universe and sys.stdin.isatty():
+        universe = ask("Id del universo (Creator Hub > la experiencia > ... > Copy Universe ID): ")
+    if not key and universe and sys.stdin.isatty():
+        key = ask("Clave de Open Cloud (no se ve al pegarla; Enter para terminar): ", True)
     if not key or not universe.isdigit():
         print(__doc__)
-        fail("faltan ROBLOX_API_KEY y ROBLOX_UNIVERSE_ID en el entorno")
+        fail("faltan la clave de Open Cloud y el id del universo (un numero)")
 
     products_url = "%s/developer-products/v2/universes/%s/developer-products" % (API, universe)
     passes_url = "%s/game-passes/v1/universes/%s/game-passes" % (API, universe)
@@ -140,6 +170,16 @@ def main():
                 else:
                     print("             no se ha podido corregir (%s): %s" % (status, body.get("error")))
                 time.sleep(0.4)
+            changes = {}
+            if icons and create and icon_path(item["key"]):
+                changes["imageFile"] = ("icono.png", io.open(icon_path(item["key"]), "rb").read())
+            if regional and create:
+                changes["isRegionalPricingEnabled"] = True
+            if changes:
+                status, body = request("PATCH", "%s/%s" % (base, existing[id_field]), key, changes)
+                if status not in (200, 204):
+                    print("             icono o precio regional no aplicado (%s): %s" % (status, body.get("error")))
+                time.sleep(0.4)
             continue
         todo += 1
         if not create:
@@ -148,6 +188,8 @@ def main():
         fields = {"name": item["name"], "description": item["description"], "price": item["price"], "isForSale": True}
         if regional:
             fields["isRegionalPricingEnabled"] = True
+        if icons and icon_path(item["key"]):
+            fields["imageFile"] = ("icono.png", io.open(icon_path(item["key"]), "rb").read())
         status, body = request("POST", base, key, fields)
         if status not in (200, 201) or not body.get(id_field):
             print("  FALLO      %-28s (%s): %s" % (item["key"], status, body.get("error") or body))
@@ -162,7 +204,13 @@ def main():
         print("Ids escritos en src/shared/Economy/ProductIds.luau: %d de %d productos" % (written, len(catalog)))
     if not create:
         print("")
-        print("No se ha creado nada (%d por crear). Para crearlos: python scripts/monetizacion/crear_productos.py --crear" % todo)
+        if "--preguntar" in sys.argv and todo > 0 and not note_only and sys.stdin.isatty():
+            if ask("Se crearian %d productos en Roblox. Escribe SI para crearlos ahora: " % todo).upper() == "SI":
+                # (solo para esta ejecucion: no se guarda en ningun sitio)
+                os.environ["ROBLOX_API_KEY"], os.environ["ROBLOX_UNIVERSE_ID"] = key, universe
+                sys.argv = [a for a in sys.argv if a != "--preguntar"] + ["--crear"]
+                return main()
+        print("No se ha creado nada (%d por crear). Para crearlos, repite el comando con --crear" % todo)
 
 
 if __name__ == "__main__":

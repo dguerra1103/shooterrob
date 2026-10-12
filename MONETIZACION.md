@@ -33,45 +33,34 @@ Hay dos caminos. Con cualquiera de los dos, **el único archivo del juego que ca
 1. Creator Hub → *Open Cloud* → *API Keys* → *Create API Key*.
 2. Permisos, limitados a la experiencia de SHOOTERROB: `developer-product:read`,
    `developer-product:write`, `game-pass:read`, `game-pass:write`.
-3. En una terminal, en la carpeta del proyecto. La clave se pone solo en la terminal, nunca en un
-   archivo ni en un chat:
+3. Copia el id del universo: Creator Hub → la experiencia → menú «⋯» → *Copy Universe ID*.
+4. Haz doble clic en **`5_CREAR_PRODUCTOS_TIENDA.bat`**. Te pide el id del universo y la clave (al
+   pegarla no se ve, y no se guarda en ningún archivo), enseña la lista de lo que va a crear y **no crea
+   nada hasta que escribes SI**. Sube también el icono de cada producto.
 
-```bash
-export ROBLOX_API_KEY="tu-clave"
+Para activar además los precios regionales (sección 6), en una terminal en la carpeta del proyecto:
+
+```powershell
+.\5_CREAR_PRODUCTOS_TIENDA.bat --regional
 ```
 
-```bash
-export ROBLOX_UNIVERSE_ID="id-del-universo"
-```
+Se puede repetir: lo que ya existe con el mismo nombre no se duplica, solo se apunta su id (y se le
+pone el icono, o el precio regional, si faltaba). Si Roblox falla a mitad, lo ya creado queda apuntado
+y al repetir se termina el resto.
 
-```bash
-python -X utf8 scripts/monetizacion/crear_productos.py
-```
-
-Así, sin más argumentos, solo **enseña** lo que crearía. Para crearlos de verdad:
-
-```bash
-python -X utf8 scripts/monetizacion/crear_productos.py --crear
-```
-
-Se puede repetir: lo que ya existe con el mismo nombre no se duplica, solo se apunta su id. Con
-`--regional` activa además los precios regionales (sección 6).
-
-**Este script no se ha probado contra Roblox** (hace falta la clave). Está escrito sobre la
-documentación oficial de Open Cloud, y solo está probada, sin conexión, la parte que escribe los ids.
-La primera vez ejecútalo sin `--crear` y comprueba que la lista tiene sentido.
+**El script no se ha ejecutado contra el Roblox real** (hace falta la clave). Está escrito sobre la
+documentación oficial de Open Cloud y pasa 13 comprobaciones contra un Roblox simulado en el propio
+ordenador (`scripts/monetizacion/prueba_api.py`): eso prueba su lógica, no que Roblox responda
+exactamente como dice la documentación. Si falla al primer producto, manda la captura y se corrige; no
+habrá cobrado ni roto nada.
 
 **B) A mano (unos 40 minutos).** Creator Hub → la experiencia → *Monetization* → *Developer Products*
-(y *Passes* para el VIP). Crea cada uno con el nombre y el precio de la tabla de la sección 3 y pega su
-id en la línea de su clave en `ProductIds.luau`.
+(y *Passes* para el VIP). Crea cada uno con el nombre y el precio de la tabla de la sección 3, súbele su
+icono de `assets/tienda/iconos` y pega su id en la línea de su clave en `ProductIds.luau`.
 
 ### Paso 3 · Regenerar y probar
 
-```bash
-rojo build -o ShooterRob.rbxlx
-```
-
-Abre el place en Studio, entra en TIENDA y compra algo: en Studio las compras son de prueba y no
+Doble clic en `4_CONSTRUIR_Y_ABRIR_PLACE.bat`. Con el place abierto en Studio, entra en TIENDA y compra algo: en Studio las compras son de prueba y no
 cuestan Robux. Tiene que salir la escena de compra completada y el objeto en tu colección. Prueba al
 menos un objeto suelto, un pack de monedas, el pase premium y el VIP.
 
@@ -128,6 +117,14 @@ Lista generada desde la configuración del juego (`tools/economy/productos.luau`
 Las descripciones completas están en `scripts/monetizacion/productos.json`. La tabla se regenera con
 `python -X utf8 scripts/monetizacion/tabla.py`.
 
+### Iconos
+
+Cada producto tiene su icono de 512×512 en `assets/tienda/iconos` (vista de todos:
+`assets/tienda/iconos_vista.jpg`). El dibujo se generó con ChatGPT en hojas de 3×3 sin texto
+(`assets/tienda/arte`); `scripts/monetizacion/iconos.py` recorta cada casilla y le pone la categoría y
+el nombre. Estos iconos son los que salen en la ventana de compra de Roblox y en la página de la
+experiencia; dentro del juego la tienda sigue usando sus propias vistas en 3D.
+
 ## 4. Cuánto llega de cada venta
 
 - Roblox se queda el **30 %** de cada venta dentro de la experiencia; al creador le llega el **70 %**,
@@ -168,20 +165,20 @@ Ninguna está tomada por mí; lo que hay hoy en el juego es la columna «Ahora»
 
 | Decisión | Ahora | La alternativa | Recomendación |
 |---|---|---|---|
-| **Precios regionales** | Sin activar | Roblox baja el precio en países con menos poder de compra | Activarlos (`--regional`): más compradores en Latinoamérica, y lo gestiona Roblox |
+| **Precios regionales** | Sin activar | Roblox baja el precio en países con menos poder de compra | Activarlos (`5_CREAR_PRODUCTOS_TIENDA.bat --regional`): más compradores en Latinoamérica, y lo gestiona Roblox |
 | **Pagar por ventaja** (armas, daño, revivir) | Apagado | Venderlo | Mantenerlo apagado: en un shooter competitivo espanta a quien no paga, y sin jugadores no hay compradores |
 | **Cajas o ruleta de pago** | Apagado | Venderlas | Mantenerlo apagado: el azar de pago tiene normas propias en Roblox y restricciones por país |
 | **VIP** | Game Pass, pago único de 299 R$ | Suscripción mensual de Roblox | Empezar con el Game Pass; la suscripción solo compensa con jugadores fieles |
 | **Anuncios** (vídeo con recompensa, vallas en el mapa) | No hay | Añadirlos | Esperar a tener jugadores |
 | **Servidores privados de pago** | Sin decidir | Cobrarlos (se configura en el Dashboard, sin código) | Probarlo: sirve para jugar con amigos |
-| **Iconos de los productos** | Sin icono | Subir una imagen a cada uno | Hacerlo al menos para el pase, el VIP y los packs: salen en la ventana de compra |
 
 ## 7. Lo que no está comprobado
 
 - **Ninguna compra real.** Todo está probado con pruebas automáticas (compra correcta, recibo repetido,
   desconexión, fallo de guardado) y con ids ficticios; nunca con un producto de verdad.
 - **El guardado de lo comprado**, que depende de publicar.
-- **El script de creación** contra la API real.
+- **El script de creación** contra el Roblox real (solo contra uno simulado).
+- **Que Roblox acepte los iconos** tal como están (pasan por su moderación de imágenes).
 - **La tienda en un móvil.**
 
 ## 8. Mantenimiento
