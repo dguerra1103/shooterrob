@@ -107,4 +107,12 @@ function BattlePassConfig.MaxXP()
 	return BattlePassConfig.XPFor(BattlePassConfig.Tiers)
 end
 
+-- Ids del pase premium de cada temporada: en Economy/ProductIds
+do
+	local ProductIds = require(script.Parent.ProductIds)
+	for _, season in BattlePassConfig.Seasons do
+		ProductIds.Apply(season.Premium, "PassPremium", season.Id)
+	end
+end
+
 return BattlePassConfig

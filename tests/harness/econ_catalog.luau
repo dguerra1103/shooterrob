@@ -12,9 +12,11 @@ local Rotation = req(Eco.StoreRotation)
 local BP = req(Eco.BattlePassConfig)
 local Config = req(Eco.MonetizationConfig)
 local Shop = req(game.ReplicatedStorage.Shared.Shop)
+local ProductIds = req(Eco.ProductIds)
 -- Productos: ningún id inventado; todo a 0 con precio en su tramo
 for key, entry in Products.Items do
-	check(entry.ProductId == 0, key .. " sin id inventado")
+	-- (el id solo puede venir de Economy/ProductIds: 0 hasta que se cree el producto)
+	check(entry.ProductId == ProductIds.Get("Item", key), key .. " con el id de ProductIds (o 0)")
 	local kind = string.match(key, "^(%w+):")
 	local lo, hi = 29, 49
 	if kind == "KillEffect" or kind == "Pose" or kind == "MVPIntro" then lo, hi = 59, 99 elseif kind == "Skin" or kind == "Outfit" then lo, hi = 129, 199 end

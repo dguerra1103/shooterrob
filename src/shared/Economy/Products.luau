@@ -56,6 +56,15 @@ Products.Items = {
 -- Un nivel del pase (solo se ofrece dentro de la pantalla del pase)
 Products.TierSkip = { ProductId = 0, Robux = 49, Tiers = 1 } -- TODO: SET IN CREATOR DASHBOARD
 
+-- Ids: se escriben en Economy/ProductIds (un solo archivo para todos los productos)
+do
+	local ProductIds = require(script.Parent.ProductIds)
+	for key, entry in Products.Items do
+		ProductIds.Apply(entry, "Item", key)
+	end
+	ProductIds.Apply(Products.TierSkip, "TierSkip", "TierSkip")
+end
+
 function Products.Key(kind, id)
 	return tostring(kind) .. ":" .. tostring(id)
 end

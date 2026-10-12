@@ -197,6 +197,10 @@ los manda el servidor. Además, `LogEconomyEvent` registra las monedas que entra
 
 ## 10. Cómo configurarlo (Creator Dashboard)
 
+**Actualizado (12 de octubre de 2026):** todos los ids van ahora en un solo archivo,
+`src/shared/Economy/ProductIds.luau`, y hay un script que crea los 39 productos. La guía paso a paso
+está en `MONETIZACION.md`; la tabla de abajo queda como referencia de dónde vive cada definición.
+
 Crea cada producto en el [Creator Hub](https://create.roblox.com/dashboard/creations) → tu experiencia →
 **Monetización** y pega su id donde pone `TODO: SET IN CREATOR DASHBOARD`:
 

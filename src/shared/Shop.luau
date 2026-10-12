@@ -342,4 +342,23 @@ function Shop.GetPrice(kind, id, day)
 	return base, false
 end
 
+-- Ids de los productos: se escriben en un solo sitio, Economy/ProductIds (ver MONETIZACION.md)
+do
+	local ProductIds = require(script.Parent.Economy.ProductIds)
+	for _, pack in Shop.CoinPacks do
+		ProductIds.Apply(pack, "Coins", pack.Name)
+	end
+	for _, booster in Shop.Boosters do
+		ProductIds.Apply(booster, "Booster", booster.Id)
+	end
+	ProductIds.Apply(Shop.StarterPack, "Starter", "Starter")
+	for _, bundle in Shop.Bundles do
+		ProductIds.Apply(bundle, "Bundle", bundle.Id)
+	end
+	local vip = ProductIds.GamePasses.VIP
+	if type(vip) == "number" and vip ~= 0 then
+		Shop.VIPPassId = vip
+	end
+end
+
 return Shop
