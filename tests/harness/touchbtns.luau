@@ -17,6 +17,7 @@ local RS = game.ReplicatedStorage
 local Players = game:GetService("Players")
 local Teams = game:GetService("Teams")
 local GameConfig = req(RS.Shared.GameConfig)
+GameConfig.Abilities.Enabled = true -- (retiradas por defecto: aquí se prueban sus botones táctiles encendidos)
 for _, cfg in GameConfig.Teams do
 	local t = mock.new("Team"); t.Name = cfg.Name; t.TeamColor = cfg.Color; t.Parent = Teams
 end

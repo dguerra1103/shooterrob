@@ -8,7 +8,7 @@
 local MonetizationConfig = {}
 
 -- La moneda gratis del juego (se gana jugando). No hay otra moneda premium: se paga en Robux.
-MonetizationConfig.Currency = { Name = "monedas", Icon = "🪙" }
+MonetizationConfig.Currency = { Name = "monedas", Icon = "💰" }
 
 -- Cosas que existían y daban ventaja o azar de pago. Apagadas; los recibos de compras antiguas se
 -- siguen entregando (Roblox puede reintentarlos), pero no se vuelven a vender.

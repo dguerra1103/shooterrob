@@ -10,6 +10,7 @@ local InputMode = require(game:GetService("ReplicatedStorage"):WaitForChild("Sha
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Weapons = require(Shared.Weapons)
+local Icons = require(Shared.Icons)
 local Sounds = require(Shared.Sounds)
 local Remotes = require(Shared.Remotes)
 
@@ -17,6 +18,7 @@ local TouchLayout = require(script.Parent.TouchLayout)
 local ClientState = require(script.Parent.ClientState)
 local Effects = require(script.Parent.Effects)
 local UI = require(script.Parent.UI)
+local IconText = require(script.Parent.IconText)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -180,6 +182,7 @@ function GrenadeController.Init()
 		Parent = widget,
 	}, { UI.corner(10) })
 	label = UI.label({ Size = UDim2.fromScale(1, 1), Text = "💣 G", TextSize = 20, ZIndex = 2, Parent = widget })
+	IconText.Bind(label, "💣", Icons.Grenade, 1.3)
 
 	TouchLayout.BindAction("Grenade", function(_, state)
 		if state == Enum.UserInputState.Begin then

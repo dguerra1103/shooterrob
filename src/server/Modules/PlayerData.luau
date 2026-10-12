@@ -476,7 +476,7 @@ local function grantTierRewards(player)
 				if level > passLevels and (level - passLevels) % bonus.Every == 0 then
 					data.Coins += bonus.Coins
 					data.FreeCrates += bonus.Crates
-					Remotes.Notify:FireClient(player, "Challenge", "⭐ ¡Nivel " .. level .. "! +" .. bonus.Coins .. " 🪙 y " .. bonus.Crates .. (bonus.Crates == 1 and " caja" or " cajas"))
+					Remotes.Notify:FireClient(player, "Challenge", "⭐ ¡Nivel " .. level .. "! +" .. bonus.Coins .. " 💰 y " .. bonus.Crates .. (bonus.Crates == 1 and " caja" or " cajas"))
 				end
 			end
 			data.BonusLevel = data.Level
@@ -799,14 +799,14 @@ function PlayerData.HandleReferral(player)
 	dirty[player] = true
 	local inviter = Players:GetPlayerByUserId(inviterId)
 	local given = PlayerData.AddCoins(player, config.NewPlayerCoins or 0, false)
-	Remotes.Notify:FireClient(player, "Big", "👥 ¡Te invitó " .. (inviter and inviter.DisplayName or "un amigo") .. "! +" .. given .. " 🪙")
+	Remotes.Notify:FireClient(player, "Big", "👥 ¡Te invitó " .. (inviter and inviter.DisplayName or "un amigo") .. "! +" .. given .. " 💰")
 	local inviterData = inviter and profiles[inviter]
 	-- (cuentas recién creadas no dan premio al que invita: así no se abusa con cuentas de usar y tirar)
 	if inviterData and (inviterData.Referrals or 0) < (config.MaxRewards or 0) and (player.AccountAge or 0) >= (config.MinAccountAge or 0) then
 		inviterData.Referrals = (inviterData.Referrals or 0) + 1
 		local bonus = PlayerData.AddCoins(inviter, config.InviterCoins or 0, false)
 		dirty[inviter] = true
-		Remotes.Notify:FireClient(inviter, "Big", "👥 ¡" .. player.DisplayName .. " entró con tu invitación! +" .. bonus .. " 🪙")
+		Remotes.Notify:FireClient(inviter, "Big", "👥 ¡" .. player.DisplayName .. " entró con tu invitación! +" .. bonus .. " 💰")
 	end
 end
 
@@ -1076,7 +1076,7 @@ function PlayerData.RollSeason(data)
 		return "🏁 ¡Empieza la " .. season.Name .. "! Tus RP pasan a la mitad: juega para subir"
 	end
 	local tier = Ranks.Tiers[best]
-	return "🏁 ¡Fin de la " .. finished .. "! Llegaste a " .. tier.Icon .. " " .. tier.Name .. ": +" .. coins .. " 🪙. Empieza la " .. season.Name
+	return "🏁 ¡Fin de la " .. finished .. "! Llegaste a " .. tier.Icon .. " " .. tier.Name .. ": +" .. coins .. " 💰. Empieza la " .. season.Name
 end
 
 -- Premio de regreso (GameConfig.Comeback): se apunta el día de hoy; si hacía Days días o más que no
@@ -1092,7 +1092,7 @@ function PlayerData.RollComeback(data, today)
 	data.Coins += config.Coins
 	data.FreeCrates = (data.FreeCrates or 0) + config.Crates
 	data.BoostXP = (tonumber(data.BoostXP) or 0) + (config.BoostXPMinutes or 0) * 60
-	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 🪙"
+	return "👋 ¡BIENVENIDO DE VUELTA! Regalo por volver: +" .. config.Coins .. " 💰"
 		.. (config.Crates > 0 and (", " .. config.Crates .. (config.Crates == 1 and " caja gratis" or " cajas gratis")) or "")
 		.. ((config.BoostXPMinutes or 0) > 0 and (" y ⚡ XP doble " .. config.BoostXPMinutes .. " min") or "")
 end
@@ -1181,7 +1181,7 @@ function PlayerData.AddRankPoints(player, delta)
 		local text = tier.Icon .. " ¡Rango " .. tier.Name .. "!"
 		if reward.Coins then
 			data.Coins += reward.Coins
-			text ..= "  +" .. reward.Coins .. " 🪙"
+			text ..= "  +" .. reward.Coins .. " 💰"
 		end
 		if reward.Crates then
 			data.FreeCrates += reward.Crates
@@ -1317,7 +1317,7 @@ function PlayerData.Track(player, stat, amount, weaponName)
 			if entry.Progress >= def.Goal then
 				entry.Done = true
 				changed = true
-				Remotes.Notify:FireClient(player, "Challenge", "¡RETO COMPLETADO! +" .. def.Coins .. " 🪙")
+				Remotes.Notify:FireClient(player, "Challenge", "¡RETO COMPLETADO! +" .. def.Coins .. " 💰")
 				PlayerData.AddCoins(player, def.Coins, false)
 				noteMatch(player, data, "BonusCoins", def.Coins)
 				noteMatch(player, data, "Challenges", { Text = def.Text, Goal = def.Goal, Coins = def.Coins, XP = def.XP })
@@ -1352,7 +1352,7 @@ function PlayerData.Track(player, stat, amount, weaponName)
 			if entry.Progress >= def.Goal then
 				entry.Done = true
 				weeklyChanged = true
-				Remotes.Notify:FireClient(player, "Challenge", "¡RETO SEMANAL COMPLETADO! +" .. def.Coins .. " 🪙")
+				Remotes.Notify:FireClient(player, "Challenge", "¡RETO SEMANAL COMPLETADO! +" .. def.Coins .. " 💰")
 				PlayerData.AddCoins(player, def.Coins, false)
 				noteMatch(player, data, "BonusCoins", def.Coins)
 				noteMatch(player, data, "Challenges", { Text = def.Text, Goal = def.Goal, Coins = def.Coins, XP = def.XP, Weekly = true })

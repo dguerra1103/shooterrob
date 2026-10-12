@@ -7,6 +7,8 @@ local UserInputService = game:GetService("UserInputService")
 local Flow = script.Parent.Parent
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
+local Icons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Icons"))
+local IconText = require(script.Parent.Parent.Parent.IconText)
 local Transition = require(Flow.Transition)
 local UISound = require(Flow.UISound)
 local ClientState = require(Flow.Parent.ClientState)
@@ -48,10 +50,10 @@ function Confirm.Open(root, item, onConfirm, onCoins)
 	ItemArt.Thumb(box, item, { Position = UDim2.fromOffset(20, 56), Size = UDim2.fromOffset(150, 130) })
 	C.text({ Text = C.upper(item.Name), Role = "TitleItalic", TextSize = 24, Scaled = true, Position = UDim2.fromOffset(184, 60), Size = UDim2.new(1, -200, 0, 30), Parent = box })
 	C.text({ Text = C.upper(item.Rarity) .. "  ·  " .. (item.Label or ""), Role = "Title", TextSize = 13, Color = ItemArt.RarityColor(item.Rarity), Scaled = true, Position = UDim2.fromOffset(184, 92), Size = UDim2.new(1, -200, 0, 16), Parent = box })
-	C.text({ Name = "Price", Text = "🪙 " .. price, Role = "Number", TextSize = 30, Color = Colors.YellowText, Position = UDim2.fromOffset(184, 114), Size = UDim2.new(1, -200, 0, 36), Parent = box })
+	IconText.Bind(C.text({ Name = "Price", Text = "💰 " .. price, Role = "Number", TextSize = 30, Color = Colors.YellowText, Position = UDim2.fromOffset(184, 114), Size = UDim2.new(1, -200, 0, 36), Parent = box }), "💰", Icons.Coin)
 	C.text({
 		Name = "Balance",
-		Text = enough and string.format("Tienes %d 🪙 · te quedarán %d 🪙", coins, coins - price) or string.format("Te faltan %d 🪙", price - coins),
+		Text = enough and string.format("Tienes %d 💰 · te quedarán %d 💰", coins, coins - price) or string.format("Te faltan %d 💰", price - coins),
 		Role = "Body",
 		TextSize = 13,
 		Color = enough and Colors.TextDim or Colors.Red,
@@ -62,7 +64,7 @@ function Confirm.Open(root, item, onConfirm, onCoins)
 	})
 	C.button({ Name = "Cancel", Text = "CANCELAR", Style = "Ghost", TextSize = 18, Position = UDim2.new(0, 20, 1, -70), Size = UDim2.new(0.5, -26, 0, 52), Parent = box, Sound = "Back", OnClick = Confirm.Close })
 	if enough then
-		C.button({ Name = "Accept", Text = "CONFIRMAR", Icon = "🪙", Style = "Primary", TextSize = 20, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -20, 1, -70), Size = UDim2.new(0.5, -26, 0, 52), Parent = box, Sound = "Click", OnClick = function()
+		C.button({ Name = "Accept", Text = "CONFIRMAR", Icon = Icons.Coin, Style = "Primary", TextSize = 20, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -20, 1, -70), Size = UDim2.new(0.5, -26, 0, 52), Parent = box, Sound = "Click", OnClick = function()
 			Confirm.Close()
 			onConfirm()
 		end })

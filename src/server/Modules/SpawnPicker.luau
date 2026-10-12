@@ -12,12 +12,14 @@ local SpawnPicker = {}
 local MODES = { TDM = true, KOTH = true, CAL = true, DOM = true } -- (en bandera y eliminación, siempre en la base)
 local SAFE_DISTANCE = 40 -- un enemigo más cerca que esto descarta el punto
 
-local cache = { Map = nil, Free = {}, ByColor = {} }
+local cache = { Map = nil, Free = {}, ByColor = {}, Version = nil }
 
 local function points()
 	local map = workspace:FindFirstChild("Map")
-	if cache.Map ~= map then
-		cache.Map, cache.Free, cache.ByColor = map, {}, {}
+	-- (SpawnsVersion: MapCheck retira los puntos a los que no se llega a pie)
+	local version = map and map:GetAttribute("SpawnsVersion")
+	if cache.Map ~= map or cache.Version ~= version then
+		cache.Map, cache.Free, cache.ByColor, cache.Version = map, {}, {}, version
 		if map then
 			for _, d in map:GetDescendants() do
 				if d:IsA("SpawnLocation") then

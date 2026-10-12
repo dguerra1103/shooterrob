@@ -31,7 +31,7 @@ local compact = false -- móvil: solo el icono y el tiempo (arriba a la izquierd
 local function rewardText(gift)
 	local parts = {}
 	if gift.Coins then
-		table.insert(parts, gift.Coins .. " 🪙")
+		table.insert(parts, gift.Coins .. " 💰")
 	end
 	if gift.XP then
 		table.insert(parts, gift.XP .. " XP")

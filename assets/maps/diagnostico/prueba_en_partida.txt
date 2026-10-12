@@ -1,0 +1,164 @@
+=== start_stop_play
+Game Started
+=== execute_luau
+pedido Construction GUN
+=== execute_luau [Construction]
+MAPA=Construction MODO=GUN ESTADO=Playing · carpetas Map=1 · piezas=6576
+repaso: sombras 250 · caras 1306 · puntos movidos 2 · puntos sin arreglo 0 · 659 ms · malla lista a los 4.4 s · avisos 4
+  sin ruta a pie hasta FFASpawn en (-28, 1, 112)
+  sin ruta a pie hasta FFASpawn en (8, 11, -7)
+  sin ruta a pie hasta BotSpot en (-10, 20, 12)
+  sin ruta a pie hasta BotSpot en (10, 20, 12)
+workspace: Grenades(Folder,0) Bots(Folder,2672) EventCandies(Folder,20)
+bots=9 · movidos en 6 s=8 · caídos=0 · dentro de una pieza=1 Floor en (22,0,-48)
+jugador dguerra_1103 equipo=nil pos=(56,3,110)
+marcador: Rojo=nil Azul=nil · tiempo=521
+=== execute_luau [Construction cliente]
+SceneDrawcallCount=44 · SceneTriangleCount=13153 · ShadowsDrawcallCount=81 · ShadowsTriangleCount=33645 · UI2DDrawcallCount=1 · UI2DTriangleCount=62 · InstanceCount=62739 · PrimitivesCount=7558 · MovingPrimitivesCount=489 · memoria=3074 MB · fps(Studio)=47 · gui=1617
+=== execute_luau
+pedido Coastal FFA
+=== execute_luau [Coastal]
+MAPA=Coastal MODO=FFA ESTADO=Playing · carpetas Map=1 · piezas=4603
+repaso: sombras 62 · caras 682 · puntos movidos 4 · puntos sin arreglo 0 · 359 ms · malla lista a los 0.6 s · avisos 0
+workspace: Grenades(Folder,53) Bots(Folder,2716) EventCandies(Folder,20)
+bots=9 · movidos en 6 s=9 · caídos=0 · dentro de una pieza=1 Floor en (2,0,36)
+jugador dguerra_1103 equipo=nil pos=(88,3,58)
+marcador: Rojo=nil Azul=nil · tiempo=415
+=== execute_luau [Coastal cliente]
+SceneDrawcallCount=227 · SceneTriangleCount=134165 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=1 · UI2DTriangleCount=62 · InstanceCount=60826 · PrimitivesCount=5782 · MovingPrimitivesCount=512 · memoria=3128 MB · fps(Studio)=15 · gui=1539
+=== execute_luau
+pedido Terminal CTF
+=== execute_luau [Terminal]
+MAPA=Terminal MODO=CTF ESTADO=Playing · carpetas Map=1 · piezas=2175
+repaso: sombras 34 · caras 288 · puntos movidos 8 · puntos sin arreglo 0 · 63 ms · malla lista a los 0.2 s · avisos 0
+workspace: Grenades(Folder,0) Bots(Folder,2692) EventCandies(Folder,20) Flags(Folder,20)
+bots=9 · movidos en 6 s=9 · caídos=0 · dentro de una pieza=1 Floor en (-58,-0,71)
+jugador dguerra_1103 equipo=Rojo pos=(-135,3,0)
+marcador: Rojo=nil Azul=nil · tiempo=534
+=== execute_luau [Terminal cliente]
+SceneDrawcallCount=147 · SceneTriangleCount=266337 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=1 · UI2DTriangleCount=62 · InstanceCount=58579 · PrimitivesCount=3331 · MovingPrimitivesCount=486 · memoria=3095 MB · fps(Studio)=15 · gui=1605
+=== execute_luau
+pedido MallRush DOM
+=== execute_luau [MallRush]
+MAPA=MallRush MODO=DOM ESTADO=Playing · carpetas Map=1 · piezas=2573
+repaso: sombras 40 · caras 238 · puntos movidos 10 · puntos sin arreglo 0 · 70 ms · malla lista a los 0.1 s · avisos 0
+workspace: Grenades(Folder,0) Bots(Folder,2678) EventCandies(Folder,20) DomFlag_A(Model,7) DomFlag_B(Model,7) DomFlag_C(Model,7)
+bots=9 · movidos en 6 s=8 · caídos=0 · dentro de una pieza=0 
+jugador dguerra_1103 equipo=Rojo pos=(-143,3,-6)
+marcador: Rojo=nil Azul=nil · tiempo=534
+=== execute_luau [MallRush cliente]
+SceneDrawcallCount=187 · SceneTriangleCount=249803 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=1 · UI2DTriangleCount=62 · InstanceCount=58963 · PrimitivesCount=3651 · MovingPrimitivesCount=550 · memoria=2874 MB · fps(Studio)=15 · gui=1630
+=== execute_luau
+pedido RooftopDistrict KOTH
+=== execute_luau [RooftopDistrict]
+MAPA=RooftopDistrict MODO=KOTH ESTADO=Playing · carpetas Map=1 · piezas=3248
+repaso: sombras 48 · caras 225 · puntos movidos 0 · puntos sin arreglo 0 · 51 ms · malla lista a los 0 s · avisos 4
+  sin ruta a pie hasta BotSpot en (-95, 14, -84)
+  sin ruta a pie hasta BotSpot en (95, 14, -84)
+  sin ruta a pie hasta BotSpot en (-95, 8, 84)
+  sin ruta a pie hasta BotSpot en (95, 8, 84)
+workspace: Grenades(Folder,0) Bots(Folder,2994) EventCandies(Folder,20) ActiveZone(Model,6)
+bots=10 · movidos en 6 s=8 · caídos=0 · dentro de una pieza=1 Platform en (70,6,11)
+jugador dguerra_1103 equipo=Rojo pos=(-136,3,-14)
+marcador: Rojo=nil Azul=nil · tiempo=538
+=== execute_luau [RooftopDistrict cliente]
+SceneDrawcallCount=102 · SceneTriangleCount=48951 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=1 · UI2DTriangleCount=62 · InstanceCount=59632 · PrimitivesCount=4425 · MovingPrimitivesCount=508 · memoria=2915 MB · fps(Studio)=15 · gui=1622
+=== execute_luau
+pedido MetroYard SND
+=== execute_luau [MetroYard]
+MAPA=MetroYard MODO=SND ESTADO=Playing · carpetas Map=1 · piezas=3384
+repaso: sombras 68 · caras 402 · puntos movidos 0 · puntos sin arreglo 2 · 123 ms · malla lista a los 0.1 s · avisos 2
+  BotSpot en (-10, 10, 48): Floor y sin hueco libre cerca
+  BotSpot en (10, 10, 48): Floor y sin hueco libre cerca
+workspace: Grenades(Folder,0) Bots(Folder,1478) EventCandies(Folder,12) BombSite_A(Model,3) PlantedBomb(Model,5)
+bots=5 · movidos en 6 s=4 · caídos=0 · dentro de una pieza=0 
+jugador dguerra_1103 equipo=Rojo pos=(-142,4,0)
+marcador: Rojo=nil Azul=nil · tiempo=29
+=== execute_luau [MetroYard cliente]
+SceneDrawcallCount=94 · SceneTriangleCount=37537 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=0 · UI2DTriangleCount=0 · InstanceCount=58433 · PrimitivesCount=4205 · MovingPrimitivesCount=327 · memoria=2225 MB · fps(Studio)=15 · gui=1627
+=== execute_luau
+pedido DesertBase TDM
+=== execute_luau [DesertBase]
+MAPA=DesertBase MODO=TDM ESTADO=Playing · carpetas Map=1 · piezas=2522
+repaso: sombras 90 · caras 260 · puntos movidos 0 · puntos sin arreglo 1 · 71 ms · malla lista a los 0.4 s · avisos 1
+  aparición de equipo RojoSpawn2 en (-137, 1, -4): LowerTorso
+workspace: Grenades(Folder,0) Bots(Folder,2674) EventCandies(Folder,20)
+bots=9 · movidos en 6 s=9 · caídos=0 · dentro de una pieza=0 
+jugador dguerra_1103 equipo=Rojo pos=(-135,3,-8)
+marcador: Rojo=nil Azul=nil · tiempo=536
+=== execute_luau [DesertBase cliente]
+SceneDrawcallCount=80 · SceneTriangleCount=35805 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=0 · UI2DTriangleCount=0 · InstanceCount=58895 · PrimitivesCount=3724 · MovingPrimitivesCount=548 · memoria=2352 MB · fps(Studio)=15 · gui=1588
+=== execute_luau
+pedido Dockyard INF
+=== execute_luau [Dockyard]
+MAPA=Dockyard MODO=INF ESTADO=Playing · carpetas Map=1 · piezas=2985
+repaso: sombras 120 · caras 1104 · puntos movidos 2 · puntos sin arreglo 0 · 113 ms · malla lista a los 0.2 s · avisos 0
+workspace: Grenades(Folder,0) Bots(Folder,2366) EventCandies(Folder,20)
+bots=9 · movidos en 6 s=9 · caídos=0 · dentro de una pieza=0 
+jugador dguerra_1103 equipo=Rojo pos=(-142,63,8)
+marcador: Rojo=nil Azul=nil · tiempo=97
+=== execute_luau [Dockyard cliente]
+SceneDrawcallCount=355 · SceneTriangleCount=233693 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=0 · UI2DTriangleCount=0 · InstanceCount=58841 · PrimitivesCount=3685 · MovingPrimitivesCount=370 · memoria=2227 MB · fps(Studio)=15 · gui=1614
+=== execute_luau
+pedido IndustrialYard ELIM
+=== execute_luau [IndustrialYard]
+MAPA=IndustrialYard MODO=ELIM ESTADO=Playing · carpetas Map=1 · piezas=1845
+repaso: sombras 68 · caras 138 · puntos movidos 2 · puntos sin arreglo 5 · 44 ms · malla lista a los 0.1 s · avisos 5
+  aparición de equipo RojoSpawn3 en (-142, 1, 0): LowerTorso
+  FFASpawnBlocked en (-30, 8, -106): PlayerClip y sin hueco libre cerca
+  FFASpawnBlocked en (30, 8, -106): PlayerClip y sin hueco libre cerca
+  BotSpot en (-30, 8, -106): PlayerClip y sin hueco libre cerca
+  BotSpot en (30, 8, -106): PlayerClip y sin hueco libre cerca
+workspace: Grenades(Folder,0) Bots(Folder,592) EventCandies(Folder,20)
+bots=2 · movidos en 6 s=2 · caídos=0 · dentro de una pieza=0 
+jugador dguerra_1103 equipo=Rojo pos=(-142,4,8)
+marcador: Rojo=nil Azul=nil · tiempo=14
+=== execute_luau [IndustrialYard cliente]
+SceneDrawcallCount=64 · SceneTriangleCount=21895 · ShadowsDrawcallCount=0 · ShadowsTriangleCount=0 · UI2DDrawcallCount=0 · UI2DTriangleCount=0 · InstanceCount=55923 · PrimitivesCount=2621 · MovingPrimitivesCount=179 · memoria=1917 MB · fps(Studio)=15 · gui=1580
+=== get_console_output
+[PlayerData] DataStore no disponible, el progreso no se guardará: You must publish this place to the web to access DataStore.
+[Leaderboard] Sin acceso a DataStores: no hay clasificación global
+[QA] MODO QA ACTIVO (solo Studio). Abre el panel con F8, \ o el botón QA.
+[QA] Modo QA activo. F8, \ o el botón QA abren el panel.
+[MapCheck] Construcción: 4 avisos
+  sin ruta a pie hasta FFASpawn en (-28, 1, 112)
+  sin ruta a pie hasta FFASpawn en (8, 11, -7)
+  sin ruta a pie hasta BotSpot en (-10, 20, 12)
+  sin ruta a pie hasta BotSpot en (10, 20, 12)
+[QA] Siguiente partida: Construction · GUN (al acabar la actual)
+[QA] No hay partida en juego
+[Roblox][sabuiltin_Assistant.rbxm.Assistant.Packages._Index.AssistantUI.AssistantUI.Actions.ExecuteLuauActions] The execute_luau changed camera type. Resetting from Enum.CameraType.Scriptable back to Enum.CameraType.Custom
+[QA] Siguiente partida: Coastal · FFA (al acabar la actual)
+[QA] Partida terminada
+[QA] Siguiente partida: Terminal · CTF (al acabar la actual)
+[QA] Partida terminada
+[QA] Siguiente partida: MallRush · DOM (al acabar la actual)
+[QA] Partida terminada
+[QA] Siguiente partida: RooftopDistrict · KOTH (al acabar la actual)
+[QA] Partida terminada
+[MapCheck] Rooftop District: 4 avisos
+  sin ruta a pie hasta BotSpot en (-95, 14, -84)
+  sin ruta a pie hasta BotSpot en (95, 14, -84)
+  sin ruta a pie hasta BotSpot en (-95, 8, 84)
+  sin ruta a pie hasta BotSpot en (95, 8, 84)
+[QA] Siguiente partida: MetroYard · SND (al acabar la actual)
+[QA] Partida terminada
+[MapCheck] Metro Yard: 2 avisos
+  BotSpot en (-10, 10, 48): Floor y sin hueco libre cerca
+  BotSpot en (10, 10, 48): Floor y sin hueco libre cerca
+[QA] Siguiente partida: DesertBase · TDM (al acabar la actual)
+[QA] Partida terminada
+[MapCheck] Desert Base: 1 avisos
+  aparición de equipo RojoSpawn2 en (-137, 1, -4): LowerTorso
+[QA] Siguiente partida: Dockyard · INF (al acabar la actual)
+[QA] Partida terminada
+[QA] Siguiente partida: IndustrialYard · ELIM (al acabar la actual)
+[QA] Partida terminada
+[MapCheck] Industrial Yard: 5 avisos
+  aparición de equipo RojoSpawn3 en (-142, 1, 0): LowerTorso
+  FFASpawnBlocked en (-30, 8, -106): PlayerClip y sin hueco libre cerca
+  FFASpawnBlocked en (30, 8, -106): PlayerClip y sin hueco libre cerca
+  BotSpot en (-30, 8, -106): PlayerClip y sin hueco libre cerca
+  BotSpot en (30, 8, -106): PlayerClip y sin hueco libre cerca
+=== start_stop_play
+Game Stopped

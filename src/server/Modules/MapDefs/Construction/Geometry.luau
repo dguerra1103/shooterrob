@@ -62,7 +62,10 @@ function Geometry.build(T)
 	-- por el lado norte que suben hacia el centro
 	for _, s in { -1, 1 } do
 		G.stairs(V(s * 13, 0, 10), V(s * 13, L, -6), 4, "Concrete", { Rails = s < 0 and "Right" or "Left" })
-		G.stairs(V(s * 15, L, -12), V(s * 1.2, 2 * L, -12), 4, "Concrete", {})
+		-- (enlace de ruta a mano: el tramo arranca al borde del forjado y desembarca entre los dos
+		-- huecos; con los extremos por defecto caían fuera del suelo y los bots no subían a la segunda.
+		-- Los dos puntos siguen la línea de la rampa: el bot la recorre en línea recta)
+		G.stairs(V(s * 15, L, -12), V(s * 1.2, 2 * L, -12), 4, "Concrete", { LinkFrom = V(s * 14.6, L, -12), LinkTo = V(0, 2 * L, -10.2) })
 	end
 	-- Segunda: abierta, pilares en las esquinas y en el centro de cada cara y barandilla
 	for _, p in { V(-15.2, 0, -15.2), V(15.2, 0, -15.2), V(-15.2, 0, 15.2), V(15.2, 0, 15.2), V(0, 0, 15.2), V(-15.2, 0, 0), V(15.2, 0, 0) } do

@@ -731,6 +731,45 @@ do
 	Weapons.List.Crossbow = crossbow
 end
 
+-- Inferno AR (colección Elemental): fusil de magma. Pega más que el ARX-27 pero dispara más despacio
+-- y da más culatazo. El modelo es de tools/blender/weapons/infernoar.py.
+do
+	local inferno = {
+		DisplayName = "Inferno AR",
+		Category = "Fusil de asalto",
+		Description = "Magma en las venas. Cada bala pega como un horno.",
+		Slot = 1,
+		Type = "Gun",
+		Palette = Palettes.Havoc,
+		UnlockLevel = 12,
+		Price = 2500,
+		Damage = 27,
+		MinDamage = 18,
+		FalloffStart = 110,
+		FalloffEnd = 320,
+		HeadshotMultiplier = 1.5,
+		FireRate = 8.5,
+		Automatic = true,
+		MagSize = 28,
+		ReserveAmmo = 140,
+		ReloadTime = 2.2,
+		Range = 600,
+		Spread = 1.8,
+		AimSpread = 0.3,
+		Pellets = 1,
+		Recoil = 0.95,
+		AimFOV = 60,
+		ViewOffset = CFrame.new(0.8, -0.85, -2.0),
+		AimDistance = 1.0,
+		RightHand = V(0, -0.48, 0.47),
+		LeftHand = V(0, -0.36, -1.3),
+		AimPoint = V(0, 0.56, 0.4),
+		Muzzle = V(0, 0.07, -2.6),
+	}
+	inferno.Parts = Classic.ARX27(inferno) -- (respaldo si no carga la malla: las piezas del ARX-27)
+	Weapons.List.InfernoAR = inferno
+end
+
 -- Armas que el jugador puede elegir
 Weapons.Primaries = {
 	"ARX27",
@@ -747,6 +786,7 @@ Weapons.Primaries = {
 	"Calabazooka",
 	"SplatX",
 	"Crossbow",
+	"InfernoAR",
 }
 Weapons.Secondaries = { "Viper", "HandCannon", "PhantomSidewind" }
 Weapons.Secondary = "Viper" -- secundaria por defecto
@@ -801,27 +841,79 @@ Weapons.Airstrike = {
 Weapons.Style = "Clasico"
 
 local MAT = Enum.Material
+-- Sheen / DarkSheen: brillo (Reflectance) del cuerpo y de las piezas de metal oscuro; TrimAccent: los
+-- ribetes llevan el color de acento también con el acabado de fábrica. Las skins no los usan.
 local CLASSIC_PALETTES = {
-	-- Polímero negro con muebles color arena
-	Black = { Body = RGB(46, 48, 52), Panel = RGB(160, 135, 98), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- Polímero negro azulado con muebles color arena y ribetes naranjas
+	Black = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(40, 42, 46), Panel = RGB(190, 156, 106), Dark = RGB(26, 27, 31), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	-- PULSE (armas con malla, tools/blender): negro azulado, paneles naranja de la casa y testigos de
+	-- luz cian. Es la identidad de fábrica de SHOOTERROB; las skins la sustituyen como siempre.
+	Pulse = { Sheen = 0, DarkSheen = 0.06, TrimAccent = false, Body = RGB(34, 36, 42), Panel = RGB(245, 122, 26), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(245, 122, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- HAVOC (escopeta): rojo brasa, neón naranja, cartuchos rojos (Trim) y culotes y anillos de latón
+	Havoc = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(222, 44, 24), Dark = RGB(20, 21, 26), Accent = RGB(255, 132, 24), Accent2 = RGB(214, 168, 70), Lens = RGB(90, 170, 255), Trim = RGB(205, 34, 38), AccentMaterial = MAT.Neon, Accent2Material = MAT.Metal, PanelMaterial = MAT.SmoothPlastic },
+	-- VORTEX (arma de energía): blindaje gris hielo y conductos violeta
+	Vortex = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 32, 40), Panel = RGB(206, 216, 232), Dark = RGB(18, 19, 25), Accent = RGB(160, 96, 255), Accent2 = RGB(90, 220, 255), Lens = RGB(90, 220, 255), Trim = RGB(206, 216, 232), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
+	-- TITAN (ametralladora): la familia Pulse con la cinta de cartuchos de latón (Trim)
+	Titan = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(250, 92, 20), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(214, 168, 70), Lens = RGB(90, 170, 255), Trim = RGB(214, 168, 70), AccentMaterial = MAT.Neon, Accent2Material = MAT.Metal, PanelMaterial = MAT.SmoothPlastic },
+	-- DRIFT (subfusil ágil: verde azulado con luz lima)
+	Drift = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(40, 200, 150), Dark = RGB(20, 21, 26), Accent = RGB(218, 255, 97), Accent2 = RGB(255, 190, 60), Lens = RGB(97, 225, 203), Trim = RGB(225, 232, 227), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- RAPTOR (tirador: dorado desierto)
+	Raptor = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(235, 170, 50), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(249, 211, 111), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- BREACH (escopeta semiautomática: amarillo de obra y luz roja)
+	Breach = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(250, 204, 31), Dark = RGB(20, 21, 26), Accent = RGB(255, 44, 30), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(250, 204, 31), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- GHOST (francotirador con supresor: blanco fantasma y luz azul fría)
+	Ghost = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 32, 40), Panel = RGB(215, 220, 228), Dark = RGB(20, 21, 26), Accent = RGB(80, 124, 255), Accent2 = RGB(215, 220, 228), Lens = RGB(97, 149, 249), Trim = RGB(215, 220, 228), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- TEMPEST (lanzacohetes: naranja de la casa, cabeza roja (Trim) y franjas amarillas (Accent2))
+	Tempest = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(247, 92, 10), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 199, 20), Lens = RGB(90, 170, 255), Trim = RGB(219, 15, 13), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- CANNON (revólver: acero, rojo oscuro y luz ámbar)
+	Cannon = { Sheen = 0, DarkSheen = 0.06, Body = RGB(40, 42, 48), Panel = RGB(200, 40, 40), Dark = RGB(20, 21, 26), Accent = RGB(255, 205, 95), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(200, 40, 40), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- PHANTOM (pistola de ráfagas: magenta y cian)
+	Phantom = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(235, 60, 150), Dark = RGB(20, 21, 26), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(235, 60, 150), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- KATANA (katana: carmesí y filo cian)
+	Katana = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(215, 40, 50), Accent = RGB(70, 225, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(215, 40, 50), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- TOY (martillo de juguete: rojo, amarillo y azul)
+	Toy = { Sheen = 0, DarkSheen = 0.06, Body = RGB(235, 50, 45), Panel = RGB(235, 50, 45), Accent = RGB(238, 250, 255), Accent2 = RGB(255, 205, 40), Lens = RGB(90, 170, 255), Trim = RGB(50, 120, 255), Rubber = RGB(30, 52, 110), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- REAPER (guadaña: naranja calabaza y filo verde tóxico)
+	Reaper = { Sheen = 0, DarkSheen = 0.06, Body = RGB(48, 46, 59), Panel = RGB(255, 120, 20), Accent = RGB(120, 255, 80), Accent2 = RGB(150, 70, 220), Lens = RGB(90, 170, 255), Trim = RGB(255, 120, 20), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- PUMPKIN (Calabazooka: calabaza, enredadera verde, luz de vela y morado)
+	Pumpkin = { Sheen = 0, DarkSheen = 0.06, Body = RGB(62, 52, 82), Panel = RGB(255, 120, 20), Accent = RGB(255, 200, 60), Accent2 = RGB(150, 70, 220), Lens = RGB(120, 230, 140), Trim = RGB(110, 200, 60), Rubber = RGB(115, 90, 60), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- SPLAT (marcadora de pintura: rosa, cian, amarillo y luz lima)
+	Splat = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(255, 60, 170), Accent = RGB(170, 255, 80), Accent2 = RGB(60, 220, 255), Lens = RGB(150, 230, 255), Trim = RGB(255, 220, 50), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- HUNTER (ballesta: verde bosque y luz ámbar)
+	Hunter = { Sheen = 0, DarkSheen = 0.06, Body = RGB(34, 36, 42), Panel = RGB(60, 170, 80), Accent = RGB(255, 190, 70), Accent2 = RGB(255, 190, 60), Lens = RGB(90, 170, 255), Trim = RGB(60, 170, 80), Dark = RGB(20, 21, 26), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- MYTHIC (ARX-27, el arma principal): negro azulado, oro anaranjado, magma detrás y plasma y hielo delante
+	Mythic = { Sheen = 0, DarkSheen = 0.06, Body = RGB(28, 30, 40), Panel = RGB(255, 150, 28), Dark = RGB(18, 19, 25), Accent = RGB(60, 225, 255), Accent2 = RGB(255, 96, 14), Lens = RGB(150, 235, 255), Trim = RGB(255, 150, 28), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
+	-- FROST (francotirador Signal 7): blanco hielo, luz cian y cristales de hielo (Trim)
+	Frost = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 32, 40), Panel = RGB(224, 234, 244), Dark = RGB(18, 19, 25), Accent = RGB(60, 225, 255), Accent2 = RGB(150, 235, 255), Lens = RGB(90, 200, 255), Trim = RGB(140, 228, 255), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- SPECTER (subfusil Specter 9): magenta, neón violeta-rosa y aletas violeta (Trim)
+	Specter = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 28, 40), Panel = RGB(212, 40, 232), Dark = RGB(18, 17, 25), Accent = RGB(214, 80, 255), Accent2 = RGB(255, 190, 60), Lens = RGB(200, 130, 255), Trim = RGB(132, 60, 245), AccentMaterial = MAT.Neon, Accent2Material = MAT.SmoothPlastic, PanelMaterial = MAT.SmoothPlastic },
+	-- INFERNO (fusil de magma: obsidiana, rojo brasa, grietas de magma y núcleo al blanco)
+	Inferno = { Sheen = 0, DarkSheen = 0.06, Body = RGB(30, 27, 30), Panel = RGB(200, 44, 14), Accent = RGB(255, 110, 16), Accent2 = RGB(255, 208, 70), Lens = RGB(255, 150, 60), Trim = RGB(62, 54, 54), Dark = RGB(18, 17, 20), AccentMaterial = MAT.Neon, Accent2Material = MAT.Neon, PanelMaterial = MAT.SmoothPlastic },
 	-- Metal pavonado y madera
-	Wood = { Body = RGB(52, 54, 58), Panel = RGB(122, 78, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
+	Wood = { Sheen = 0.04, DarkSheen = 0.1, BodyMaterial = MAT.Metal, Body = RGB(50, 52, 56), Panel = RGB(140, 84, 44), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(122, 78, 44), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, PanelMaterial = MAT.Wood, Accent2Material = MAT.Wood },
 	-- Color arena (desierto)
-	Tan = { Body = RGB(182, 156, 114), Panel = RGB(44, 44, 47), Dark = RGB(32, 32, 34), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	Tan = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(196, 164, 112), Panel = RGB(40, 41, 46), Dark = RGB(32, 32, 34), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
 	-- Verde oliva militar
-	Olive = { Body = RGB(78, 86, 60), Panel = RGB(104, 112, 80), Dark = RGB(32, 33, 30), Accent = RGB(255, 140, 40), Accent2 = RGB(128, 84, 48), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
+	Olive = { Sheen = 0.02, DarkSheen = 0.1, TrimAccent = true, Body = RGB(74, 88, 52), Panel = RGB(112, 124, 78), Dark = RGB(32, 33, 30), Accent = RGB(255, 140, 40), Accent2 = RGB(128, 84, 48), Lens = RGB(70, 120, 175), AccentMaterial = MAT.SmoothPlastic, Accent2Material = MAT.Wood },
 	-- Acero inoxidable y cachas de madera
-	Steel = { Body = RGB(178, 180, 186), Panel = RGB(118, 72, 40), Dark = RGB(60, 62, 66), Accent = RGB(255, 140, 40), Accent2 = RGB(118, 72, 40), Lens = RGB(70, 120, 175), BodyMaterial = MAT.Metal, PanelMaterial = MAT.Wood, AccentMaterial = MAT.SmoothPlastic },
+	Steel = { Sheen = 0.12, DarkSheen = 0.1, Body = RGB(186, 190, 198), Panel = RGB(130, 76, 38), Dark = RGB(60, 62, 66), Accent = RGB(255, 140, 40), Accent2 = RGB(118, 72, 40), Lens = RGB(70, 120, 175), BodyMaterial = MAT.Metal, PanelMaterial = MAT.Wood, AccentMaterial = MAT.SmoothPlastic },
 	-- Dos tonos: corredera negra y armazón arena
-	TwoTone = { Body = RGB(176, 152, 112), Panel = RGB(48, 50, 54), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.SmoothPlastic },
+	TwoTone = { Sheen = 0.02, DarkSheen = 0.1, Body = RGB(190, 160, 112), Panel = RGB(44, 46, 52), Dark = RGB(30, 30, 33), Accent = RGB(255, 140, 40), Accent2 = RGB(120, 84, 50), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.SmoothPlastic },
 	-- Cuchillo: hoja de acero, mango negro
 	Knife = { Body = RGB(40, 40, 44), Panel = RGB(150, 152, 158), Dark = RGB(170, 172, 178), Accent = RGB(120, 122, 128), Accent2 = RGB(200, 200, 205), Lens = RGB(70, 120, 175), PanelMaterial = MAT.Metal, AccentMaterial = MAT.Metal },
 }
 Weapons.ClassicPalettes = CLASSIC_PALETTES
 local CLASSIC_LOOK = {
-	ARX27 = "Black", HavocPump = "Wood", Specter9 = "Black", Signal7 = "Wood", VortexBR = "Tan",
-	NovaDrift = "Olive", RaptorDMR = "Wood", BreachHammer = "Black", TitanLMG = "Olive", GhostlineXR = "Tan",
-	NovaLauncher = "Olive", Viper = "Black", HandCannon = "Steel", PhantomSidewind = "TwoTone", Knife = "Knife",
+	ARX27 = "Mythic", HavocPump = "Havoc", Specter9 = "Specter", Signal7 = "Frost", VortexBR = "Vortex",
+	NovaDrift = "Drift", RaptorDMR = "Raptor", BreachHammer = "Breach", TitanLMG = "Titan", GhostlineXR = "Ghost",
+	NovaLauncher = "Tempest", Viper = "Pulse", HandCannon = "Cannon", PhantomSidewind = "Phantom", Knife = "Pulse",
+	Katana = "Katana",
+	ToyHammer = "Toy",
+	Scythe = "Reaper",
+	Calabazooka = "Pumpkin",
+	SplatX = "Splat",
+	Crossbow = "Hunter",
+	InfernoAR = "Inferno",
 }
 if Weapons.Style == "Clasico" then
 	for name, def in Weapons.List do

@@ -20,6 +20,8 @@ local Modules = Flow.Parent
 local ClientState = require(Modules.ClientState)
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
+local IconText = require(script.Parent.Parent.Parent.IconText)
+local Icons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Icons"))
 local Transition = require(Flow.Transition)
 local UISound = require(Flow.UISound)
 local Preview = require(Flow.Preview)
@@ -276,6 +278,7 @@ function Inspect.Open(root, item, callbacks, opts)
 	end
 	-- Precio y acción
 	local price = C.text({ Name = "Price", Text = ItemCard.PriceText(item), Role = "Number", TextSize = 26, Color = item.Robux and Colors.Green or Colors.YellowText, Size = UDim2.new(1, 0, 0, 32), Order = 8, Parent = inner })
+	IconText.Bind(price, "💰", Icons.Coin)
 	local action = C.button({ Name = "Action", Text = "COMPRAR", Style = "Primary", TextSize = 22, Size = UDim2.new(1, 0, 0, phone and 46 or 54), Order = 9, Parent = inner, Sound = "Click", OnClick = function()
 		local state = StoreData.State(item)
 		if state == "Buy" then

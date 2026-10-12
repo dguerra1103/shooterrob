@@ -3,6 +3,10 @@
 -- se usará ese y no habrá rotación de mapas.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local MapCheck = require(script.Parent.MapCheck)
+local MapDress = require(script.Parent.MapDress)
+local MapExtras = require(script.Parent.MapExtras)
+local MapKit = require(script.Parent.MapKit)
 
 local MapBuilder = {}
 
@@ -78,8 +82,28 @@ function MapBuilder.Build(id)
 	local def = MapBuilder.Defs[id or MapBuilder.Order[1]] or MapBuilder.Defs[MapBuilder.Order[1]]
 	MapBuilder.UpdateFeatured() -- (cambia a medianoche: se revisa con cada mapa)
 	def.Build()
+	-- Coberturas y decoración añadidas (ver MapExtras). Antes que la decoración del evento,
+	-- que va al azar y si no les quitaba el sitio unas veces sí y otras no
+	local extras, extrasError = pcall(function()
+		MapExtras.Apply(def, require(script.Parent.TacKit))
+	end)
+	if not extras then
+		warn("[MapBuilder] extras del mapa:", extrasError)
+	end
 	-- Gravedad del mapa (la Base Lunar tiene menos: se salta más y las granadas vuelan más)
 	workspace.Gravity = def.Gravity or 196.2
+	-- Detalle de suelo (manchas, grietas, rodadas, charcos): ver MapDress
+	local dressed, dressError = pcall(MapDress.Apply, def, MapKit)
+	if not dressed then
+		warn("[MapBuilder] detalle de suelo:", dressError)
+	end
+	local map = workspace:FindFirstChild("Map")
+	local checked, checkError = pcall(MapCheck.Finalize, map)
+	if not checked then
+		warn("[MapBuilder] repaso del mapa:", checkError)
+	end
+	-- (después del repaso: va al azar y cae sobre los puntos de aparición libres; antes, el repaso los
+	-- daba por bloqueados y los movía o los retiraba, distintos en cada partida)
 	-- Decoración del evento de temporada (calabazas en Halloween)
 	local ok, err = pcall(function()
 		require(script.Parent.Event).Decorate()
@@ -87,6 +111,9 @@ function MapBuilder.Build(id)
 	if not ok then
 		warn("[MapBuilder] decoración del evento:", err)
 	end
+	-- Repaso del mapa recién construido: sombras y caras coplanarias, puntos de aparición dentro de
+	-- objetos y, en segundo plano, rutas a los objetivos (ver MapCheck)
+	MapCheck.Verify(map)
 	MapBuilder.Current = def.Id
 	ReplicatedStorage:SetAttribute("MapName", def.Name)
 	ReplicatedStorage:SetAttribute("MapId", def.Id)

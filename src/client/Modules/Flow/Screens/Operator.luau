@@ -189,7 +189,7 @@ local function renderInfo()
 		actionLabel.Text = "EQUIPAR"
 		yellow = true
 	elseif price then
-		actionLabel.Text = string.format("%sCOMPRAR  🪙 %d", onSale and "🔥 " or "", price)
+		actionLabel.Text = string.format("%sCOMPRAR  💰 %d", onSale and "🔥 " or "", price)
 		yellow = data ~= nil and (data.Coins or 0) >= price
 		actionLabel.TextColor3 = yellow and DARK or Colors.TextDim
 	else
@@ -409,6 +409,11 @@ local function applyLayout()
 	abilityPanel.Size = UDim2.fromOffset(narrow and 280 or 330, phone and 160 or 236)
 	actionButton.Position = UDim2.new(1, -24, 0, top + (phone and 168 or 248))
 	actionButton.Size = UDim2.fromOffset(narrow and 280 or 330, phone and 44 or 54)
+	if GameConfig.Abilities and GameConfig.Abilities.Enabled == false then
+		-- (habilidades retiradas: sin su panel, el botón sube a su sitio)
+		abilityPanel.Visible = false
+		actionButton.Position = UDim2.new(1, -24, 0, top)
+	end
 	preview.Viewport.Size = UDim2.new(0, narrow and 380 or 500, 1, -190)
 end
 

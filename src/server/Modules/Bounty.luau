@@ -81,7 +81,7 @@ local function showTag(player, value)
 	end
 	local label = tag:FindFirstChild("Text", true)
 	if label then
-		label.Text = "💰 SE BUSCA · " .. value .. " 🪙"
+		label.Text = "💰 SE BUSCA · " .. value .. " 💰"
 	end
 end
 
@@ -117,7 +117,7 @@ function Bounty.OnStreak(player, streak)
 	player:SetAttribute("Bounty", value)
 	showTag(player, value)
 	if before == 0 then
-		Remotes.Notify:FireAllClients("Bounty", "SE BUSCA: " .. player.Name .. " · " .. value .. " 🪙 por su cabeza")
+		Remotes.Notify:FireAllClients("Bounty", "SE BUSCA: " .. player.Name .. " · " .. value .. " 💰 por su cabeza")
 		Remotes.Notify:FireClient(player, "Wanted", value)
 	end
 end
@@ -133,7 +133,7 @@ end
 -- Anuncia quién cobró (o que se perdió) la recompensa
 function Bounty.Announce(victimName, value, claimerName)
 	if claimerName then
-		Remotes.Notify:FireAllClients("Bounty", claimerName .. " cobró la recompensa de " .. victimName .. " (" .. value .. " 🪙)")
+		Remotes.Notify:FireAllClients("Bounty", claimerName .. " cobró la recompensa de " .. victimName .. " (" .. value .. " 💰)")
 	else
 		Remotes.Notify:FireAllClients("Bounty", "La recompensa de " .. victimName .. " se ha perdido")
 	end

@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
+local Icons = require(Shared.Icons)
 local Remotes = require(Shared.Remotes)
 local Weapons = require(Shared.Weapons)
 -- (las armas se desbloquean solo por nivel, igual para todos: no se compran)
@@ -91,11 +92,11 @@ function Armory.Stats(def)
 end
 
 local STAT_ROWS = {
-	{ Key = "Damage", Text = "DAÑO", Icon = "✸" },
-	{ Key = "Accuracy", Text = "PRECISIÓN", Icon = "◎" },
-	{ Key = "Rate", Text = "CADENCIA", Icon = "≡" },
-	{ Key = "Mobility", Text = "MOVILIDAD", Icon = "➤" },
-	{ Key = "Control", Text = "CONTROL", Icon = "✥" },
+	{ Key = "Damage", Text = "DAÑO", Icon = Icons.Bullets },
+	{ Key = "Accuracy", Text = "PRECISIÓN", Icon = Icons.Crosshair },
+	{ Key = "Rate", Text = "CADENCIA", Icon = Icons.Bolt },
+	{ Key = "Mobility", Text = "MOVILIDAD", Icon = Icons.Dash },
+	{ Key = "Control", Text = "CONTROL", Icon = Icons.Shield },
 }
 
 ---------------------------------------------------------------------------
@@ -229,7 +230,7 @@ local function renderWeapon(animate)
 	if key ~= iconKey then
 		iconKey = key
 		iconHolder:ClearAllChildren()
-		pcall(WeaponIcon.Create, name, skin, { Name = "Weapon3D", Size = UDim2.fromScale(1, 1), ZIndex = 3, Parent = iconHolder }, "angled", 2.1)
+		pcall(WeaponIcon.Create, name, skin, { Name = "Weapon3D", Size = UDim2.fromScale(1, 1), ZIndex = 3, Parent = iconHolder }, "angled", 3.1)
 		if animate ~= false then
 			Transition.Pop(iconHolder, 0.9, 0.25)
 		end
@@ -262,7 +263,7 @@ local function renderWeapon(animate)
 		actionButton.BackgroundColor3 = Colors.Yellow
 		actionLabel.TextColor3 = DARK
 	elseif def.Price and WEAPONS_FOR_COINS then
-		actionLabel.Text = string.format("COMPRAR  🪙 %d", def.Price)
+		actionLabel.Text = string.format("COMPRAR  💰 %d", def.Price)
 		actionButton.BackgroundColor3 = (data and (data.Coins or 0) >= def.Price) and Colors.Yellow or Colors.PanelLight
 		actionLabel.TextColor3 = (data and (data.Coins or 0) >= def.Price) and DARK or Colors.TextDim
 	else

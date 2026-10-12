@@ -202,6 +202,49 @@ function T.spawnZone(teamIndex, cf, opts)
 		Kit.deco("SpawnPaint", V(0.6, 0.05, size.Y), cf * CFrame.new(s * (size.X / 2 - 0.5), 0.32, 0), teamColor, Enum.Material.SmoothPlastic).Color = teamColor
 	end
 	Kit.callout("BASE " .. (string.gsub(string.upper(team.Name), "O$", "A")), cf * CFrame.new(0, 10, 0), V(size.X + 10, 26, size.Y + 10))
+	-- Luz de la base: las bases son casetas o marquesinas cerradas y, sin una luz propia, por dentro se
+	-- veían negras (sobre todo con paredes oscuras): parecía un hueco sin dibujar. Dos puntos de luz
+	-- suaves, sin sombras (baratos), de un blanco cálido
+	for _, s in { -1, 1 } do
+		local lamp = Kit.deco("SpawnLamp", V(0.4, 0.4, 0.4), cf * CFrame.new(s * size.X * 0.25, 6.5, 0), RGB(255, 244, 226), Enum.Material.Neon)
+		lamp.Transparency = 1
+		lamp.CastShadow = false
+		local light = Instance.new("PointLight")
+		light.Color = RGB(255, 240, 220) -- (sin teñir: de noche, con el toque azul del equipo, la base azul tiraba a lila)
+		light.Range = math.clamp(math.max(size.X, size.Y) * 0.9, 18, 34)
+		light.Brightness = 0.9
+		light.Shadows = false
+		light.Parent = lamp
+	end
+	-- Mobiliario del fondo de la base (el lado contrario al mapa): taquillas, cajas de munición, un
+	-- banco y el banderín del equipo. Las bases eran habitaciones vacías. Es decorado: no choca, no
+	-- para balas ni hace sombra, así que no estorba al aparecer. opts.Bare = true: sin mobiliario
+	if not opts.Bare then
+		local back = size.Y / 2 - 0.8
+		local function prop(name, propSize, x, y, color, material)
+			local part = Kit.deco(name, propSize, cf * CFrame.new(x, y, back), color, material or Enum.Material.SmoothPlastic)
+			part.CastShadow = false
+			return part
+		end
+		for i = 0, 2 do
+			local x = -size.X / 2 + 2.2 + i * 1.8
+			prop("BaseLocker", V(1.6, 5.4, 0.9), x, 3, RGB(72, 78, 92))
+			prop("BaseLockerStripe", V(1.3, 0.45, 0.06), x, 4.6, teamColor).CFrame = cf * CFrame.new(x, 4.6, back - 0.47)
+			prop("BaseLockerVent", V(1, 0.5, 0.06), x, 1.2, RGB(40, 44, 52)).CFrame = cf * CFrame.new(x, 1.2, back - 0.47)
+		end
+		for i = 0, 1 do
+			local x = -size.X / 2 + 8.6 + i * 2.4
+			prop("AmmoCrate", V(2, 1.2, 1.3), x, 0.9, RGB(88, 98, 72), Enum.Material.Wood)
+			prop("AmmoCrateBand", V(2.06, 0.25, 1.36), x, 1.2, teamColor)
+		end
+		prop("AmmoCrate", V(2, 1.2, 1.3), -size.X / 2 + 9.8, 2.1, RGB(88, 98, 72), Enum.Material.Wood)
+		prop("BaseBench", V(5, 0.4, 1.3), size.X / 2 - 8, 1.6, RGB(60, 64, 72))
+		for _, dx in { -2, 2 } do
+			prop("BaseBenchLeg", V(0.3, 1.4, 1.1), size.X / 2 - 8 + dx, 0.85, RGB(40, 44, 52))
+		end
+		prop("BannerPole", V(0.25, 7.2, 0.25), size.X / 2 - 2, 3.75, RGB(196, 198, 204))
+		prop("TeamPennant", V(3.4, 2.4, 0.1), size.X / 2 - 3.85, 5.9, teamColor).Color = teamColor
+	end
 	local points = opts.Points or {
 		V(-10, 0, 2), V(-5, 0, -3), V(0, 0, 2), V(5, 0, -3), V(10, 0, 2),
 	}
@@ -355,7 +398,7 @@ local function capTilted(part, cf, size)
 			local h = T.CEILING - top
 			local mid = center + dir * ((s0 + s1) / 2)
 			local flat = CFrame.lookAt(V(mid.X, top + h / 2, mid.Z), V(mid.X, top + h / 2, mid.Z) + dir)
-			local clip = Kit.block("PlayerClip", V(width + 0.4, h, (s1 - s0) + 0.05), flat, Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
+			local clip = Kit.block("PlayerClip", V(width + (part:GetAttribute("Thin") and 0.05 or 0.4), h, (s1 - s0) + 0.05), flat, Color3.new(1, 1, 1), nil, Kit.shootThroughFolder())
 			clip.Transparency = 1
 			clip.CastShadow = false
 			first = first or clip
@@ -399,8 +442,13 @@ Mall.capHook = T.cap
 Geometry.capHook = T.cap
 
 -- Terreno: relleno bajo el mapa (para que nada flote) y colinas de fondo
+T.TERRAIN_RISE = 2
 function T.terrain(material, sx, sz, cf)
-	workspace.Terrain:FillBlock((cf or CFrame.new()) * CFrame.new(0, -3, 0), V(sx, 6, sz), material)
+	-- (medido en Studio: la superficie del terreno queda 2 studs por ENCIMA del tope del bloque que se
+	-- rellena. Sin compensarlo, la arena o la hierba subían 2 studs sobre el suelo de los mapas: tapaban
+	-- las losas, dejaban las puertas bajas y el cálculo de rutas de los bots no encontraba salida de las
+	-- bases cerradas. TERRAIN_RISE lo compensa: la superficie queda en la Y de cf)
+	workspace.Terrain:FillBlock((cf or CFrame.new()) * CFrame.new(0, -3 - T.TERRAIN_RISE, 0), V(sx, 6, sz), material)
 end
 
 return T

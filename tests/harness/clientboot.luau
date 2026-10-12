@@ -61,7 +61,7 @@ RS:SetAttribute("Infection", "On"); RS:SetAttribute("AliveA", 3); RS:SetAttribut
 me.Team = teamB
 task.wait(1.5)
 Remotes.Notify.OnClientEvent:Fire("Big", "🧟 ¡HAN LLEGADO LOS ZOMBIS! ¡Sobrevive!")
-Remotes.Notify.OnClientEvent:Fire("Challenge", "🥇 ¡Rango Oro!  +300 🪙  +1 caja")
+Remotes.Notify.OnClientEvent:Fire("Challenge", "🥇 ¡Rango Oro!  +300 💰  +1 caja")
 Remotes.Notify.OnClientEvent:Fire("Streak", "🧟 Bot Max se ha convertido en zombi")
 task.wait(1.5)
 -- Muerte: pantalla de muerte con el asesino

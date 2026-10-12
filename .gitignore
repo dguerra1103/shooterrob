@@ -6,3 +6,12 @@ tests/.cache/
 rojo.exe
 aftman.exe
 ShooterRob_tuyo.rbxlx
+
+# Blender: copias de seguridad automáticas
+*.blend1
+tools/studio/.sync.stamp
+tools/studio/*.json
+tools/studio/*.png
+tools/studio/*.txt
+tools/studio/*.jpg
+tools/studio/.studio.lock

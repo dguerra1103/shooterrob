@@ -46,6 +46,11 @@ GameConfig.ModeSettings = {
 }
 -- Uniforme militar para quien no lleva traje en los mapas realistas (cada jugador puede quitarlo en Ajustes)
 GameConfig.SoldierUniform = true
+-- Cuerpo estándar con traje o uniforme: quien lleva un traje de operador o el uniforme de soldado juega
+-- con el cuerpo de bloques normal de Roblox (mismas proporciones para todos). Sin esto, los avatares
+-- con cuerpos muy finos o disfraces se quedaban sin brazos ni piernas visibles bajo el chaleco, y cada
+-- avatar tenía un tamaño de blanco distinto. La cabeza, la cara y el pelo son los del jugador.
+GameConfig.StandardBody = true
 -- Sangre en los impactos y bajas (mapas realistas). false (por defecto): impactos realistas sin sangre
 -- (polvo y fibras de la ropa). true: una nube rojo oscuro y gotitas. OJO: en el cuestionario de
 -- madurez de Roblox, la sangre realista cuenta como «Moderado» (13+): actualízalo antes de activarla.
@@ -138,8 +143,12 @@ GameConfig.RespawnNowDelay = 1 -- "Regenerar ahora" se puede pulsar a partir de 
 GameConfig.StartingRevives = 3 -- revivir instantáneos con los que empieza un jugador nuevo
 GameConfig.ReviveShieldTime = 2 -- segundos de escudo al revivir
 
--- Habilidades (iconos abajo en el centro): Impulso (E), Supersalto (Z) y Poción (X)
+-- Habilidades (iconos abajo en el centro): Impulso (E), Supersalto (Z) y Poción (X).
+-- Enabled = false: RETIRADAS del juego (decisión de diseño: no son propias de SHOOTERROB). Con false no
+-- hay barra, ni teclas, ni botones táctiles, ni aparecen en el tutorial ni en Operador, y el servidor
+-- rechaza la poción. El código se conserva: true las devuelve tal cual
 GameConfig.Abilities = {
+	Enabled = false,
 	Dash = { Cooldown = 6, Speed = 78, Duration = 0.2 },
 	Jump = { Cooldown = 10, Power = 82, Forward = 22 },
 	Potion = { Cooldown = 25, Heal = 50, Duration = 2.5 },
@@ -461,7 +470,7 @@ GameConfig.XP = {
 -- Medallas de baja (como en los shooters de móvil): aviso en pantalla y XP extra (contra bots,
 -- reducida como el resto del XP). LongShot: distancia mínima en studs (sin explosivos ni cuerpo a cuerpo)
 GameConfig.Medals = {
-	FirstBlood = { Text = "🩸 PRIMERA SANGRE", Name = "Primera sangre", XP = 40 },
+	FirstBlood = { Text = "💥 PRIMERA SANGRE", Name = "Primera sangre", XP = 40 },
 	Revenge = { Text = "😤 VENGANZA", Name = "Venganza", XP = 30 },
 	LongShot = { Text = "🔭 LARGA DISTANCIA", Name = "Larga distancia", XP = 30, Distance = 90 },
 	StreakEnder = { Text = "🛑 CAZARRACHAS", Name = "Cazarrachas", XP = 50, Streak = 3 },

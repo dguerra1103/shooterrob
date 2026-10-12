@@ -8,6 +8,8 @@ local Catalog = require(ReplicatedStorage:WaitForChild("Shared").Economy.Cosmeti
 local Flow = script.Parent.Parent
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
+local Icons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Icons"))
+local IconText = require(script.Parent.Parent.Parent.IconText)
 local ItemArt = require(script.Parent.ItemArt)
 local StoreData = require(script.Parent.StoreData)
 
@@ -23,7 +25,7 @@ function ItemCard.PriceText(item)
 		local entry = StoreData.Robux({ ProductId = item.ProductId, Robux = item.Robux })
 		return "R$ " .. tostring(entry)
 	elseif item.Coins then
-		return "🪙 " .. tostring(item.Coins)
+		return "💰 " .. tostring(item.Coins)
 	end
 	return ""
 end
@@ -75,12 +77,13 @@ function ItemCard.new(parent, item, callbacks, opts)
 	-- Precio (siempre visible) con el de siempre tachado si hay descuento
 	local priceRow = C.new("Frame", { Name = "PriceRow", BackgroundTransparency = 1, Position = UDim2.fromOffset(10, y + (phone and 42 or 46)), Size = UDim2.new(1, -20, 0, 20), Parent = card })
 	local price = C.text({ Name = "Price", Text = ItemCard.PriceText(item), Role = "Number", TextSize = 18, Color = item.Robux and Colors.Green or Colors.YellowText, Size = UDim2.new(0.6, 0, 1, 0), Parent = priceRow })
+	IconText.Bind(price, "💰", Icons.Coin)
 	if item.OnSale and item.BaseCoins and item.Coins and item.Coins < item.BaseCoins then
 		C.text({ Name = "OldPrice", Text = "<s>" .. item.BaseCoins .. "</s>", Rich = true, Role = "Number", TextSize = 14, Color = Colors.TextFaint, AlignX = Enum.TextXAlignment.Right, Position = UDim2.fromScale(0.6, 0), Size = UDim2.new(0.4, 0, 1, 0), Parent = priceRow })
 	end
 	-- Botones
 	local buttonY = size.Y - (phone and 46 or 50)
-	local preview = C.button({ Name = "Preview", Text = "", Icon = "👁", Style = "Ghost", TextSize = 18, Position = UDim2.fromOffset(8, buttonY), Size = UDim2.fromOffset(phone and 44 or 50, phone and 38 or 42), Parent = card, OnClick = function()
+	local preview = C.button({ Name = "Preview", Text = "", Icon = Icons.Eye, Style = "Ghost", TextSize = 18, Position = UDim2.fromOffset(8, buttonY), Size = UDim2.fromOffset(phone and 44 or 50, phone and 38 or 42), Parent = card, OnClick = function()
 		callbacks.OnPreview(item)
 	end })
 	local action = C.button({ Name = "Action", Text = "COMPRAR", Style = "Primary", TextSize = phone and 15 or 17, Position = UDim2.fromOffset((phone and 44 or 50) + 14, buttonY), Size = UDim2.new(1, -((phone and 44 or 50) + 22), 0, phone and 38 or 42), Parent = card, Sound = "Click", OnClick = function()

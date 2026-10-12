@@ -524,6 +524,7 @@ local function createViewmodel(tool)
 	-- Skins con "Pulse": los detalles de neón laten
 	table.clear(pulseParts)
 	pulseSkin = WeaponModels.GetPalette(weaponName, viewSkin(tool))
+	ClientState.ViewmodelPulse = pulseSkin.Pulse ~= nil -- (WeaponFX no toca las luces que ya anima la skin)
 	if pulseSkin.Pulse then
 		for _, part in model:GetDescendants() do
 			if part:IsA("BasePart") and part:GetAttribute("Role") == "Accent" then
@@ -1351,10 +1352,13 @@ local function renderStep(dt)
 	local hip = visual.ViewOffset or def.ViewOffset
 	local hipOffset = phoneScreen and PHONE_HIP * hip or hip
 	local base = hipOffset
-	if points.AimPoint then
+	-- (solo las armas que apuntan: las cuerpo a cuerpo con modelo nuevo traen el punto AimPoint porque la
+	-- plantilla lo exige, pero no tienen distancia de apuntado)
+	local aimDistance = visual.AimDistance or def.AimDistance
+	if points.AimPoint and aimDistance then
 		-- (el AimPoint del arma queda en el centro exacto de la pantalla)
 		local a = points.AimPoint
-		local aimCF = CFrame.new(-a.X, -a.Y, -(visual.AimDistance or def.AimDistance) - a.Z)
+		local aimCF = CFrame.new(-a.X, -a.Y, -aimDistance - a.Z)
 		base = hipOffset:Lerp(aimCF, aimAlpha)
 	end
 

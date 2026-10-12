@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.GameConfig)
+local Icons = require(Shared.Icons)
 
 local Flow = script.Parent.Parent
 local Theme = require(Flow.Theme)
@@ -169,7 +170,7 @@ function Squad.Build(flowController, root)
 	C.button({ Text = "JUGAR", Icon = "▶", Sub = "PARTIDA 5 VS 5", Style = "Primary", TextSize = 30, Size = UDim2.fromOffset(300, 64), Order = 2, Parent = actions, OnClick = function()
 		flow.Play()
 	end })
-	C.button({ Text = "INVITAR", Icon = "✉", Style = "Ghost", TextSize = 20, Size = UDim2.fromOffset(170, 56), Order = 3, Parent = actions, OnClick = function()
+	C.button({ Text = "INVITAR", Icon = Icons.Mail, Style = "Ghost", TextSize = 20, Size = UDim2.fromOffset(170, 56), Order = 3, Parent = actions, OnClick = function()
 		local Home = flow.Screens.Home
 		if Home and Home.OpenClan then
 			flow.SetState("Home")

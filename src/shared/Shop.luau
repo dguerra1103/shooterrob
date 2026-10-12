@@ -150,7 +150,7 @@ Shop.Wheel = {
 -- Texto corto de un premio de la ruleta
 function Shop.WheelPrizeText(prize)
 	if prize.Kind == "Coins" then
-		return prize.Amount .. " 🪙"
+		return prize.Amount .. " 💰"
 	elseif prize.Kind == "Revives" then
 		return prize.Amount .. " ❤️"
 	elseif prize.Kind == "XP" then
@@ -168,7 +168,7 @@ end
 -- desconectado). Field = campo del guardado con los segundos que quedan.
 Shop.Boosters = {
 	{ Id = "XP2", Name = "XP doble", Icon = "⚡", Kind = "XP", Multiplier = 2, Minutes = 30, Robux = 49, ProductId = 0, Field = "BoostXP" },
-	{ Id = "Coins2", Name = "Monedas dobles", Icon = "🪙", Kind = "Coins", Multiplier = 2, Minutes = 30, Robux = 69, ProductId = 0, Field = "BoostCoins" },
+	{ Id = "Coins2", Name = "Monedas dobles", Icon = "💰", Kind = "Coins", Multiplier = 2, Minutes = 30, Robux = 69, ProductId = 0, Field = "BoostCoins" },
 }
 
 -- Pase VIP (Game Pass): x2 XP y x2 monedas, nombre dorado y caja diaria extra

@@ -5,6 +5,7 @@
 local Flow = script.Parent.Parent.Parent
 local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
+local Icons = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Icons"))
 local Transition = require(Flow.Transition)
 
 local Colors = Theme.Colors
@@ -14,13 +15,13 @@ local ResultActions = {}
 -- callbacks = { OnScoreboard, OnLobby, OnPlay, OnCancelAuto }
 function ResultActions.new(parent, callbacks)
 	local root = C.new("Frame", { Name = "ResultActions", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 64), Parent = parent })
-	local board = C.button({ Name = "Scoreboard", Text = "VER MARCADOR", Icon = "▤", Style = "Ghost", TextSize = 18, Position = UDim2.fromOffset(0, 8), Size = UDim2.fromOffset(230, 52), Parent = root, OnClick = function()
+	local board = C.button({ Name = "Scoreboard", Text = "VER MARCADOR", Icon = Icons.Clipboard, Style = "Ghost", TextSize = 18, Position = UDim2.fromOffset(0, 8), Size = UDim2.fromOffset(230, 52), Parent = root, OnClick = function()
 		callbacks.OnScoreboard()
 	end })
 	local play = C.button({ Name = "PlayAgain", Text = "JUGAR DE NUEVO", Icon = "▶", Sub = "", Style = "Primary", TextSize = 28, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.fromOffset(340, 64), Parent = root, OnClick = function()
 		callbacks.OnPlay()
 	end })
-	local lobby = C.button({ Name = "Lobby", Text = "VOLVER AL LOBBY", Icon = "⌂", Style = "Ghost", TextSize = 17, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -352, 0, 8), Size = UDim2.fromOffset(240, 52), Parent = root, Sound = "Back", OnClick = function()
+	local lobby = C.button({ Name = "Lobby", Text = "VOLVER AL LOBBY", Icon = Icons.Home, Style = "Ghost", TextSize = 17, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -352, 0, 8), Size = UDim2.fromOffset(240, 52), Parent = root, Sound = "Back", OnClick = function()
 		callbacks.OnLobby()
 	end })
 	lobby.BackgroundColor3 = Colors.Panel

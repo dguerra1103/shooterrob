@@ -247,7 +247,28 @@ WeaponVisual.Families = {
 -- ViewOffset (CFrame) / AimDistance (studs): pose de cadera y distancia de la mira si el modelo nuevo
 -- lo necesita (si no, las de Weapons). Además, cualquier sección de las familias (Sprint, Inspect...).
 WeaponVisual.Weapons = {
-	ARX27 = { Model = nil },
+	ARX27 = { Model = "ARX27" }, -- (malla de Blender: Shared/WeaponMeshKit)
+	InfernoAR = { Model = "InfernoAR" },
+	Crossbow = { Model = "Crossbow" },
+	SplatX = { Model = "SplatX" },
+	Calabazooka = { Model = "Calabazooka" },
+	Scythe = { Model = "Scythe" },
+	ToyHammer = { Model = "ToyHammer" },
+	Katana = { Model = "Katana" },
+	Knife = { Model = "Knife" },
+	PhantomSidewind = { Model = "PhantomSidewind" },
+	HandCannon = { Model = "HandCannon" },
+	NovaLauncher = { Model = "NovaLauncher" },
+	GhostlineXR = { Model = "GhostlineXR" },
+	BreachHammer = { Model = "BreachHammer" },
+	RaptorDMR = { Model = "RaptorDMR" },
+	NovaDrift = { Model = "NovaDrift" },
+	TitanLMG = { Model = "TitanLMG" },
+	Viper = { Model = "Viper" },
+	VortexBR = { Model = "VortexBR" },
+	HavocPump = { Model = "HavocPump" },
+	Signal7 = { Model = "Signal7" },
+	Specter9 = { Model = "Specter9" },
 }
 
 -- Lo que necesita un modelo externo para funcionar sin tocar el código

@@ -36,7 +36,9 @@ function Geometry.build(T)
 	local door, window = G.door, G.window
 	local M = Enum.Material
 
-	T.terrain(M.Grass, 1400, 1400, CF(0, -0.3, 0))
+	-- (césped segado: LeafyGrass no saca briznas 3D; con Grass medían 2 studs, tapaban la vista a ras
+	-- de suelo y son muchos triángulos para un móvil)
+	T.terrain(M.LeafyGrass, 1400, 1400, CF(0, -0.3, 0))
 	G.floor(CF(0, 0, 0), 300, 260, "Apron")
 
 	---------------------------------------------------------------------------

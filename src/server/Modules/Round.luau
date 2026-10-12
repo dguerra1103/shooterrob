@@ -631,10 +631,59 @@ end
 -- Aparición libre (FFA / Escalada): el punto más alejado de los demás
 ---------------------------------------------------------------------------
 
-local ffaCache = { Map = nil, Points = {} }
+local ffaCache = { Map = nil, Points = {}, Version = nil }
 local spawnedThisRound = {} -- [player] = true: ya apareció en esta ronda (la siguiente vez, dinámica)
 
+-- Red de seguridad al aparecer: si el punto de aparición está ocupado (otro jugador o un bot encima),
+-- el motor sube al personaje hasta encontrar hueco, y en una base con techo eso es por encima del
+-- tope invisible, a 60 studs: se aparecía sobre el mapa (visto en Dockyard). Si medio segundo después
+-- de aparecer no hay suelo cerca debajo, se le lleva a una aparición libre de su equipo.
+local function settleSpawn(player, character)
+	task.delay(0.5, function()
+		local root = character.Parent and character:FindFirstChild("HumanoidRootPart")
+		local map = workspace:FindFirstChild("Map")
+		if not root or not map or player.Character ~= character then
+			return
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character, map:FindFirstChild("Boundary"), map:FindFirstChild("Callouts"), workspace:FindFirstChild("Bots") }
+		params.RespectCanCollide = true
+		if root.Position.Y < 34 and workspace:Raycast(root.Position, Vector3.new(0, -14, 0), params) then
+			return -- (en el suelo: todo bien)
+		end
+		local best, bestGap = nil, -1
+		for _, d in map:GetDescendants() do
+			local mine = d:IsA("SpawnLocation") and player.Team ~= nil and d.TeamColor == player.Team.TeamColor
+			if mine or (player.Team == nil and d:IsA("BasePart") and d.Name == "FFASpawn") then
+				-- (la más despejada: lejos de cualquier otro personaje)
+				local gap = math.huge
+				for _, other in Players:GetPlayers() do
+					local otherRoot = other ~= player and other.Character and other.Character:FindFirstChild("HumanoidRootPart")
+					if otherRoot then
+						gap = math.min(gap, (otherRoot.Position - d.Position).Magnitude)
+					end
+				end
+				for _, agent in Bots.Agents do
+					if agent.Root and agent.Root.Parent then
+						gap = math.min(gap, (agent.Root.Position - d.Position).Magnitude)
+					end
+				end
+				if gap > bestGap then
+					best, bestGap = d, gap
+				end
+			end
+		end
+		if best then
+			warn(("[Round] %s apareció sin suelo debajo (y = %.0f): recolocado en %s"):format(player.Name, root.Position.Y, best.Name))
+			character:PivotTo(CFrame.new(best.Position + Vector3.new(0, 3.5, 0)) * (root.CFrame - root.Position))
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end)
+end
+
 local function ffaSpawnFor(player, character)
+	settleSpawn(player, character)
 	if isTeamMode() then
 		-- Por equipos: la primera vez en la base; al reaparecer, en el punto más seguro (SpawnPicker)
 		local first = not spawnedThisRound[player]
@@ -657,8 +706,9 @@ local function ffaSpawnFor(player, character)
 		return
 	end
 	-- Puntos libres del mapa (se guardan mientras no cambie el mapa)
-	if ffaCache.Map ~= map then
-		ffaCache.Map, ffaCache.Points = map, {}
+	-- (SpawnsVersion: MapCheck retira los puntos a los que no se llega a pie)
+	if ffaCache.Map ~= map or ffaCache.Version ~= map:GetAttribute("SpawnsVersion") then
+		ffaCache.Map, ffaCache.Points, ffaCache.Version = map, {}, map:GetAttribute("SpawnsVersion")
 		for _, d in map:GetDescendants() do
 			if d:IsA("BasePart") and d.Name == "FFASpawn" then
 				table.insert(ffaCache.Points, d)
@@ -1148,7 +1198,10 @@ local function eliminationRounds(s)
 			task.wait(0.2)
 		end
 		for _, player in Players:GetPlayers() do
-			if not player:GetAttribute("InMenu") then
+			-- (también quien pulsó JUGAR y está acabando la cuenta atrás en su pantalla: su cliente avisa
+			-- de que sale del menú justo al terminarla, un instante después de este punto, y sin esto
+			-- entraba siempre de espectador en la primera ronda)
+			if not player:GetAttribute("InMenu") or player:GetAttribute("Ready") == true then
 				if isDeadPlayer(player) then
 					task.spawn(Respawn.Load, player)
 				end
@@ -1518,7 +1571,7 @@ local function endRound()
 			local extra = math.floor((GameConfig.Coins.WinStreak or 0) * math.min(winStreak - 1, GameConfig.Coins.WinStreakMax or 5) * winScale)
 			if extra > 0 then
 				local given = PlayerData.AddCoins(player, extra)
-				Remotes.Notify:FireClient(player, "Challenge", "🔥 ¡" .. winStreak .. " victorias seguidas!  +" .. given .. " 🪙")
+				Remotes.Notify:FireClient(player, "Challenge", "🔥 ¡" .. winStreak .. " victorias seguidas!  +" .. given .. " 💰")
 			end
 			if not soloMatch then
 				PlayerData.Increment(player, "Wins", 1)
@@ -1527,7 +1580,7 @@ local function endRound()
 				-- (completa también contra bots: es una vez al día, no se puede abusar)
 				local firstWin = PlayerData.ClaimFirstWin(player, 1)
 				if firstWin then
-					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 🪙")
+					Remotes.Notify:FireClient(player, "Challenge", "🏆 ¡Primera victoria del día!  +" .. firstWin .. " 💰")
 				end
 			end
 			PlayerData.Track(player, "Win", 1)
@@ -1573,7 +1626,7 @@ local function endRound()
 		TeamB = b.Name,
 		ScoreA = scoreA,
 		ScoreB = scoreB,
-		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
+		Winner = if teamMode then (winner and winner.Name) else (hasWinner and leader and leader.Name or nil), -- (sin puntos no gana nadie: empate)
 		Reason = MatchResults.ReasonFor(currentMode, hasWinner, reachedGoal, lastRoundHow),
 		MVP = participants[1] and participants[1].Id or nil,
 		Players = participants,
@@ -1581,7 +1634,7 @@ local function endRound()
 	Remotes.RoundEnd:FireAllClients({
 		Result = result,
 		TeamMode = teamMode,
-		Winner = if teamMode then (winner and winner.Name) else (leader and leader.Name),
+		Winner = if teamMode then (winner and winner.Name) else (hasWinner and leader and leader.Name or nil), -- (sin puntos no gana nadie: empate)
 		WinnerColor = winner and winner.TeamColor.Color or Color3.fromRGB(255, 200, 60),
 		ScoreA = scoreA,
 		ScoreB = scoreB,

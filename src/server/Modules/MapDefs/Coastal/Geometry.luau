@@ -30,8 +30,9 @@ function Geometry.build(T)
 	-- Terreno: mar alrededor, la isla y la ladera del norte
 	---------------------------------------------------------------------------
 	workspace.Terrain:FillBlock(CF(0, -11, 0), V(1600, 16, 1600), M.Water)
-	T.terrain(M.Rock, 340, 250, CF(0, -0.3, -40))
-	T.terrain(M.Rock, 84, 36, CF(0, -0.3, 102))
+	-- (a -1,3: a -0,3 los bultos de la roca asomaban por las losas de la plaza)
+	T.terrain(M.Rock, 340, 250, CF(0, -1.3, -40))
+	T.terrain(M.Rock, 84, 36, CF(0, -1.3, 102))
 	T.terrain(M.Sand, 60, 20, CF(-95, -2.6, 96))
 	T.terrain(M.Sand, 60, 20, CF(95, -2.6, 96))
 

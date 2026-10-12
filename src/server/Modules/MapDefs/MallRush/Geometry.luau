@@ -24,7 +24,8 @@ function Geometry.build(T)
 	local G = T.G
 	local M = Enum.Material
 
-	T.terrain(M.Grass, 1200, 1200, CF(0, -0.3, 0))
+	-- (relleno sin briznas: con Grass, la hierba 3D atravesaba el suelo del centro comercial)
+	T.terrain(M.Pavement, 1200, 1200, CF(0, -1.4, 0))
 	G.floor(CF(0, 0, 0), 236, 160, "Floor")
 	-- Cúpula sobre el atrio y lucernario de la zona de comida
 	T.glassDome(CF(0, TOP + 1, 0), 44, 12)
@@ -63,6 +64,12 @@ function Geometry.half(T)
 		G.column(CF(-130.4, 0, z), 8.6, 1, "Steel")
 	end
 	T.cap(G.floor(CF(-141, 9, 0), 23, 50, "FacadeDark", 0.8))
+	-- (tubos de luz bajo la marquesina: la base no se queda a oscuras)
+	for _, z in { -14, 14 } do
+		local tube = G.deco("CarportLight", V(14, 0.2, 0.8), CF(-141, 8.1, z), { Color3.fromRGB(255, 246, 230), Enum.Material.Neon })
+		tube.CastShadow = false
+		T.Kit.light(tube, "SurfaceLight", Color3.fromRGB(255, 240, 220), 18, 1.2, Enum.NormalId.Bottom)
+	end
 	G.deco("CarportStripe", V(0.4, 1, 50), CF(-129.8, 8.4, 0), "Magenta")
 	G.box("ParkingCurb", V(32, 0.8, 1), CF(-134, 0.4, -60.5), "Concrete")
 	G.box("ParkingCurb", V(32, 0.8, 1), CF(-134, 0.4, 60.5), "Concrete")

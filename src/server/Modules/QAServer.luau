@@ -174,12 +174,25 @@ end
 function COMMANDS.Weapon(player, args)
 	local id = args.Id
 	local def = type(id) == "string" and Weapons.Get(id)
-	if not def or def.Type ~= "Gun" then
+	if not def or (def.Type ~= "Gun" and not table.find(Weapons.Melees, id)) then
 		reply(player, "Error", "Arma desconocida: " .. tostring(id))
 		return
 	end
 	local list = Loadout.DefaultList(PlayerData.Get(player))
-	list[1] = id
+	if def.Type == "Gun" then
+		list[1] = id
+	else
+		-- (cuerpo a cuerpo: sustituye a la que lleve la clase; se saca con la tecla 3)
+		local slot = #list + 1
+		for i, name in list do
+			local other = Weapons.Get(name)
+			if other and other.Type ~= "Gun" then
+				slot = i
+				break
+			end
+		end
+		list[slot] = id
+	end
 	Loadout.Give(player, list)
 	reply(player, "Ack", "Equipada: " .. (def.DisplayName or id))
 end

@@ -10,6 +10,7 @@ local Theme = require(Flow.Theme)
 local C = require(Flow.Components)
 local UISound = require(Flow.UISound)
 local Anim = require(script.Parent.Parent.Anim)
+local IconText = require(Flow.Parent.IconText)
 
 local Colors = Theme.Colors
 local DARK = Color3.fromRGB(16, 14, 8)
@@ -33,7 +34,7 @@ local function icon(parent, kind)
 			C.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 232, 110), Color3.fromRGB(214, 140, 0)) }),
 			C.stroke(Color3.fromRGB(140, 90, 0), 2, 0.1),
 		})
-		C.text({ Text = "🪙", TextSize = 18, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = holder })
+		C.text({ Text = "💰", TextSize = 18, AlignX = Enum.TextXAlignment.Center, Size = UDim2.fromScale(1, 1), Parent = holder })
 	elseif kind == "Pass" then
 		-- Medalla del pase: escudo dorado
 		C.new("Frame", { BackgroundColor3 = Color3.fromRGB(255, 200, 60), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(30, 34), Parent = holder }, {
@@ -56,6 +57,7 @@ function RewardsPanel.new(parent)
 	local root = C.panel({ Name = "RewardsPanel", Size = UDim2.fromOffset(460, 112), Parent = parent }, { Alpha = 0.16, StrokeColor = Colors.Yellow, StrokeAlpha = 0.45 })
 	C.text({ Name = "Title", Text = "RECOMPENSAS", Role = "TitleItalic", TextSize = 17, Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(200, 22), Parent = root })
 	local rankLabel = C.text({ Name = "Rank", Text = "", Role = "Title", TextSize = 14, Rich = true, AlignX = Enum.TextXAlignment.Right, Anchor = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 8), Size = UDim2.fromOffset(220, 20), Parent = root })
+	IconText.BindRank(rankLabel) -- (el emoji del rango pasa a ser su emblema)
 	local row = C.new("Frame", { Name = "Items", BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 34), Size = UDim2.new(1, -20, 0, 70), Parent = root }, {
 		C.list(8, Enum.FillDirection.Horizontal),
 	})

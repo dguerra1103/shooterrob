@@ -76,7 +76,7 @@ local function showToast(text, color)
 end
 
 local function coinsText(n)
-	return "🪙 " .. tostring(n)
+	return "💰 " .. tostring(n)
 end
 
 -- Skin con la que se ve un arma (camuflaje de maestría elegido o skin general)
@@ -274,7 +274,7 @@ local function rewardCard(reward, unlocked, premium, parent, order)
 		UI.label({ Position = UDim2.fromOffset(0, 18), Size = UDim2.new(1, 0, 0, 40), Text = "🎁", TextSize = 36, Parent = card })
 		UI.label({ Position = UDim2.fromOffset(0, 66), Size = UDim2.new(1, 0, 0, 24), Text = "Caja", TextSize = 18, Parent = card })
 	else
-		UI.label({ Position = UDim2.fromOffset(0, 18), Size = UDim2.new(1, 0, 0, 40), Text = "🪙", TextSize = 34, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 18), Size = UDim2.new(1, 0, 0, 40), Text = "💰", TextSize = 34, Parent = card })
 		UI.label({
 			Position = UDim2.fromOffset(0, 62),
 			Size = UDim2.new(1, 0, 0, 24),
@@ -601,7 +601,7 @@ local function buildProfilePage(data)
 				busy = false
 				if ok and success then
 					Sounds.Play("Kill")
-					showToast("🏅 ¡Logro conseguido! +" .. tostring(result) .. " 🪙", GREEN)
+					showToast("🏅 ¡Logro conseguido! +" .. tostring(result) .. " 💰", GREEN)
 					RewardFX.FlyCoins(headerInfo, 8)
 					RewardFX.EdgeFlash(GREEN, 0.4)
 				else
@@ -926,7 +926,7 @@ local function buildChallengesPage(data)
 				WeaponIcon.Create(data.Primary or "ARX27", prize.Skin, preview, "angled", 2.2)
 				title = "Skin " .. Skins.List[prize.Skin].Name
 			else
-				UI.label({ Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 50), Text = "🪙", TextSize = 44, Parent = cell })
+				UI.label({ Position = UDim2.fromOffset(0, 14), Size = UDim2.new(1, 0, 0, 50), Text = "💰", TextSize = 44, Parent = cell })
 				title = coinsText(prize.Coins or 0)
 			end
 			UI.label({
@@ -1495,7 +1495,7 @@ local function buildSettingsPage()
 		end)
 	end
 	-- Uniforme militar en los mapas realistas (si no llevas un traje)
-	local uniform = section(8, "🪖 Sin traje: uniforme militar o tu avatar (al reaparecer)", 92)
+	local uniform = section(8, "🎖 Sin traje: uniforme militar o tu avatar (al reaparecer)", 92)
 	local uniformMode = math.floor((current.Uniform == nil and 1 or current.Uniform) + 0.5)
 	for i, info in { { 1, "Uniforme" }, { 0, "Mi avatar" } } do
 		local selected = uniformMode == info[1]
@@ -2109,7 +2109,7 @@ local function buildShopPage(data)
 						table.insert(names, item.Name)
 					end
 				end
-				return "🪙 " .. starter.Coins .. " monedas  ·  " .. table.concat(names, " · ") .. "\nSolo estética y monedas. Una sola compra."
+				return "💰 " .. starter.Coins .. " monedas  ·  " .. table.concat(names, " · ") .. "\nSolo estética y monedas. Una sola compra."
 			end)(),
 			TextSize = 18,
 			TextWrapped = true,
@@ -2187,7 +2187,7 @@ local function buildShopPage(data)
 				elseif value.Complete and value.Robux == 0 and value.Coins > 0 then
 					valueText = "\nLo que trae vale " .. value.Coins .. " monedas en la tienda"
 				end
-				return ((bundle.Coins or 0) > 0 and ("🪙 " .. bundle.Coins .. " monedas  ·  ") or "") .. table.concat(names, " · ") .. valueText
+				return ((bundle.Coins or 0) > 0 and ("💰 " .. bundle.Coins .. " monedas  ·  ") or "") .. table.concat(names, " · ") .. valueText
 			end)(),
 			TextSize = 18,
 			TextWrapped = true,
@@ -2284,7 +2284,7 @@ local function buildShopPage(data)
 		UI.label({
 			Size = UDim2.new(1, -6, 0.48, 0),
 			Position = UDim2.new(0, 3, 0.5, 0),
-			Text = (day == Shop.DailyCrateDay and "🎁" or "🪙") .. coins,
+			Text = (day == Shop.DailyCrateDay and "🎁" or "💰") .. coins,
 			TextScaled = true,
 			TextColor3 = GOLD,
 			Parent = cell,
@@ -2420,7 +2420,7 @@ local function buildShopPage(data)
 	end
 
 	-- Monedas con Robux
-	coinsSection = sectionTitle(scroll, "🪙 Monedas", 6)
+	coinsSection = sectionTitle(scroll, "💰 Monedas", 6)
 	local packs = row(scroll, 7, 170)
 	for i, pack in Shop.CoinPacks do
 		local card = UI.new("Frame", { LayoutOrder = i, Size = UDim2.fromOffset(200, 170), BackgroundColor3 = Color3.fromRGB(60, 50, 20), Parent = packs }, {
@@ -2428,7 +2428,7 @@ local function buildShopPage(data)
 			UI.stroke(GOLD, 2, 0),
 			UI.new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 160, 60)), Rotation = 90 }),
 		})
-		UI.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 44), Text = string.rep("🪙", math.min(i + 1, 4)), TextSize = 30, Parent = card })
+		UI.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 44), Text = string.rep("💰", math.min(i + 1, 4)), TextSize = 30, Parent = card })
 		UI.label({ Position = UDim2.fromOffset(0, 56), Size = UDim2.new(1, 0, 0, 30), Text = tostring(pack.Coins), TextSize = 30, TextColor3 = GOLD, Parent = card })
 		UI.label({ Position = UDim2.fromOffset(0, 86), Size = UDim2.new(1, 0, 0, 20), Text = pack.Name, TextSize = 16, Parent = card })
 		if pack.Tag then
@@ -2514,7 +2514,7 @@ local function buildShopPage(data)
 	UI.label({
 		Position = UDim2.fromOffset(16, 42),
 		Size = UDim2.new(1, -280, 0, 40),
-		Text = "x2 XP · x2 monedas · +" .. (MonetizationConfig.Rules.VIPDailyCoins or 0) .. " 🪙 cada día · grafiti 👑 exclusivo",
+		Text = "x2 XP · x2 monedas · +" .. (MonetizationConfig.Rules.VIPDailyCoins or 0) .. " 💰 cada día · grafiti 👑 exclusivo",
 		TextSize = 18,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = vip,
@@ -2767,7 +2767,7 @@ function Menu.ClaimDaily()
 	if ok and success and type(result) == "table" then
 		Sounds.Play("Kill")
 		showToast("Día " .. result.Streak .. ": +" .. result.Coins .. " monedas" .. (result.Crate and " y una caja gratis 🎁" or ""), GOLD)
-		RewardFX.Celebrate("🎁 ¡DÍA " .. tostring(result.Streak) .. "!", "+" .. tostring(result.Coins) .. " 🪙" .. (result.Crate and "  y una caja gratis" or "") .. "  ·  ¡Vuelve mañana!", GOLD, result.Crate == true)
+		RewardFX.Celebrate("🎁 ¡DÍA " .. tostring(result.Streak) .. "!", "+" .. tostring(result.Coins) .. " 💰" .. (result.Crate and "  y una caja gratis" or "") .. "  ·  ¡Vuelve mañana!", GOLD, result.Crate == true)
 		return true
 	end
 	showToast("Ya la has recogido hoy. ¡Vuelve mañana!")

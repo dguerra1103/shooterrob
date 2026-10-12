@@ -23,10 +23,11 @@ local PARAPET = 3.2
 -- Manzana con azotea: el edificio entero (desde la calle) y pretiles en los bordes. edges = { N, S,
 -- W, E } (N = lado -Z, S = +Z, W = -X, E = +X): false = sin pretil (pegado a otra azotea), o una
 -- lista de huecos { desde, hasta } a lo largo del borde (de -X a +X o de -Z a +Z)
-local function roof(T, x0, x1, z0, z1, top, look, edges)
+-- surface = look de la superficie (cada azotea, el suyo: grava, baldosa, tarima...)
+local function roof(T, x0, x1, z0, z1, top, look, edges, surface)
 	local G = T.G
 	local body = G.solid("Building", V(x1 - x0, top - STREET, z1 - z0), CF((x0 + x1) / 2, STREET, (z0 + z1) / 2), look)
-	G.deco("RoofSurface", V(x1 - x0 - 0.4, 0.1, z1 - z0 - 0.4), CF((x0 + x1) / 2, top + 0.05, (z0 + z1) / 2), "Roof").CastShadow = false
+	G.deco("RoofSurface", V(x1 - x0 - 0.4, 0.1, z1 - z0 - 0.4), CF((x0 + x1) / 2, top + 0.05, (z0 + z1) / 2), surface or "Roof").CastShadow = false
 	-- Bandas de ventanas de las fachadas (decorado; se ven desde los puentes y al asomarse)
 	for y = top - 6, STREET + 6, -6 do
 		G.deco("FacadeWindows", V(x1 - x0 + 0.2, 1.8, z1 - z0 + 0.2), CF((x0 + x1) / 2, y, (z0 + z1) / 2), { Color3.fromRGB(56, 70, 90), Enum.Material.Glass }).CastShadow = false
@@ -77,17 +78,18 @@ end
 
 function Geometry.build(T)
 	local G = T.G
-	local M = Enum.Material
 
-	T.terrain(M.Asphalt, 1200, 1200, CF(0, STREET - 0.3, 0))
-	G.deco("Street", V(600, 0.2, 600), CF(0, STREET + 0.1, 0), "Street").CastShadow = false
+	-- La calle es solo decorado (una lámina que no choca), sin terreno debajo: con terreno, el motor
+	-- generaba una segunda malla de navegación 40 studs más abajo y las rutas de los bots se
+	-- calculaban por la calle (puntos de paso a y = -40) en vez de por las azoteas y los puentes
+	G.deco("Street", V(1200, 0.2, 1200), CF(0, STREET + 0.1, 0), "Street").CastShadow = false
 
 	---------------------------------------------------------------------------
 	-- CENTRO (6): azotea con la gran pantalla en medio (corta la vista de lado a lado)
 	---------------------------------------------------------------------------
 	roof(T, -40, 40, -30, 30, 6, "BuildingBlue", {
 		N = { { -4, 4 } }, S = { { -4, 4 } }, W = { { -4, 4 } }, E = { { -4, 4 } },
-	})
+	}, "RoofPaver")
 	-- Pantalla gigante sobre una estructura (choca: es la cobertura alta del centro)
 	T.cap(G.box("ScreenFrame", V(2, 14, 26), CF(0, 6 + 7, 0), "SteelDark"))
 	for _, s in { -1, 1 } do
@@ -102,7 +104,7 @@ function Geometry.build(T)
 	---------------------------------------------------------------------------
 	roof(T, -60, 60, -100, -54, 4, "Building", {
 		N = {}, S = { { -4, 4 } }, W = { { -82, -74 } }, E = { { -82, -74 } },
-	})
+	}, "RoofDark")
 	roof(T, -60, 60, 54, 100, 0, "BuildingLight", {
 		N = { { -4, 4 } }, S = {}, W = { { 74, 82 } }, E = { { 74, 82 } },
 	})
@@ -145,8 +147,11 @@ function Geometry.half(T)
 		G.deco("DoorSign", V(5, 0.8, 0.2), CF(-124.5, 8, z + (z < 0 and -0.35 or 0.35)), "Red")
 	end
 	roof(T, -108, -66, -36, 36, 0, "Building", {
-		N = { { -93, -87 } }, S = { { -93, -87 } }, W = { { -26, -20 }, { -3, 3 }, { 20, 26 } }, E = {},
-	})
+		N = { { -93, -87 } }, S = { { -93, -87 } }, W = { { -26, -20 }, { -3, 3 }, { 20, 26 } },
+		-- (entre z -14 y 14 este borde queda dentro de la plataforma: sin pretil ahí, porque su tope
+		-- invisible subía por encima de ella y cerraba la boca del puente de cristal)
+		E = { { -14, 14 } },
+	}, "RoofGravel")
 	-- Plataforma (6) al este del bloque oeste, con escalera y cuarto de escalera; puente de cristal
 	G.solid("Platform", V(18, 6, 28), CF(-75, 0, 0), "BuildingBlue")
 	for _, seg in { { V(-84, 6, -14), V(-66, 6, -14) }, { V(-84, 6, 14), V(-66, 6, 14) } } do
@@ -177,18 +182,21 @@ function Geometry.half(T)
 	------------------------------------------------------------------
 	roof(T, -108, -72, -100, -50, 6, "BuildingLight", {
 		N = {}, S = { { -93, -87 } }, W = {}, E = { { -82, -74 } },
-	})
+	}, "RoofTile")
 	G.stairs(V(-90, 0, -36), V(-90, 6, -50), 6, "RoofDark", { Rails = "Both", Cap = true })
 	G.solid("HighDeck", V(14, 8, 14), CF(-95, 6, -87), "Building")
 	T.cap(G.parapet(V(-102, 14, -93.5), V(-88, 14, -93.5), 2.4, "Parapet", 0.8))
 	T.cap(G.parapet(V(-101.5, 14, -94), V(-101.5, 14, -80), 2.4, "Parapet", 0.8))
-	G.stairs(V(-76, 6, -84), V(-88, 14, -84), 4, "RoofDark", { Rails = "Both", Cap = true })
+	-- Escalera a la plataforma alta: sube desde el sur de la azotea (antes subía desde el este, pegada
+	-- al pretil: arrancaba en una franja de 3,5 studs sin malla de navegación y los bots no llegaban
+	-- nunca a su puesto de arriba; además estrechaba la boca del puente al sitio A)
+	G.stairs(V(-95, 6, -68), V(-95, 14, -80), 5, "RoofDark", { Rails = "Both", Cap = true })
 	roof(T, -108, -72, 50, 100, 0, "BuildingBrick", {
 		N = { { -93, -87 } }, S = {}, W = {}, E = { { 74, 82 } },
-	})
+	}, "RoofWood")
 	bridge(T, V(-90, 0, 36), V(-90, 0, 50), 6)
 	G.solid("TankDeck", V(14, 8, 14), CF(-95, 0, 87), "BuildingLight")
-	G.stairs(V(-76, 0, 84), V(-88, 8, 84), 4, "RoofDark", { Rails = "Both", Cap = true })
+	G.stairs(V(-95, 0, 68), V(-95, 8, 80), 5, "RoofDark", { Rails = "Both", Cap = true })
 	T.cap(G.parapet(V(-102, 8, 93.5), V(-88, 8, 93.5), 2.4, "Parapet", 0.8))
 	T.cap(G.parapet(V(-101.5, 8, 94), V(-101.5, 8, 80), 2.4, "Parapet", 0.8))
 	-- Puentes de las esquinas a los sitios

@@ -53,12 +53,13 @@ function Geometry.build(T)
 	---------------------------------------------------------------------------
 	-- PLANTA DE PROCESO (A): pasarela a 8 por el norte, unidad de refrigeración al sur
 	---------------------------------------------------------------------------
-	G.floor(CF(0, UP, -106), 96, 4, "Deck", 0.8)
+	-- (6 de ancho: con 4 y barandilla a los dos lados no cabía ni un punto de aparición)
+	G.floor(CF(0, UP, -106), 96, 6, "Deck", 0.8)
 	for x = -40, 40, 16 do
 		G.column(CF(x, 0, -106), UP - 0.8, 0.8, "Steel")
 	end
-	G.railing(V(-48, UP, -107.8), V(48, UP, -107.8), "Yellow", 3.2, { Cap = true })
-	G.railing(V(-43.6, UP, -104.2), V(43.6, UP, -104.2), "Yellow", 3.2, { Cap = true })
+	G.railing(V(-48, UP, -108.8), V(48, UP, -108.8), "Yellow", 3.2, { Cap = true })
+	G.railing(V(-43.6, UP, -103.2), V(43.6, UP, -103.2), "Yellow", 3.2, { Cap = true })
 	T.cap(G.solid("CoolingUnit", V(10, 7, 14), CF(0, 0, -40), "Steel"))
 	for _, s in { -1, 1 } do
 		G.deco("CoolingFan", V(0.2, 5, 5), CF(s * 5.05, 3.8, -40), "SteelDark")
@@ -123,7 +124,7 @@ function Geometry.half(T)
 	T.cap(T.fuelTank(CF(-22, 0, -66), 9, 11))
 	T.cap(T.pipeRack(V(-40, 0, -100), V(-40, 0, -58), 9, 6))
 	G.stairs(V(-46, 0, -92), V(-46, UP, -104), 4, "Steel", { Rails = "Both", Cap = true, Closed = true })
-	G.railing(V(-48, UP, -104.2), V(-48, UP, -107.8), "Yellow", 3.2, { Cap = true })
+	G.railing(V(-48, UP, -103.2), V(-48, UP, -108.8), "Yellow", 3.2, { Cap = true })
 
 	------------------------------------------------------------------
 	-- CASETA DE BOMBAS (centro de cada mitad): se cruza por dentro, puertas desplazadas
