@@ -107,8 +107,9 @@ Lo que solo puede hacer el dueño del juego:
    controles táctiles). Es lo primero: el juego es Android primero.
 2. **Dos jugadores a la vez:** todas las pruebas son un jugador con bots. En Studio: Test → Start con 2
    jugadores (daño, bajas, reaparición, marcador, fin de partida, vuelta al lobby).
-3. **Monetización:** crear los productos en el Creator Dashboard (todos los ids están a 0; la tienda los
-   enseña como «PRÓXIMAMENTE»).
+3. **Monetización:** los 39 productos ya están creados en «Shooter New» y sus ids en
+   `src/shared/Economy/ProductIds.luau` (12 oct 2026). Falta hacer compras de prueba en Studio y publicar
+   la versión con los ids. Ver `MONETIZACION.md`.
 4. **Publicar y probar el guardado:** en Studio los DataStores no funcionan sin publicar; el progreso no
    se ha visto guardarse nunca.
 

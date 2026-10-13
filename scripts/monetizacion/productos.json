@@ -81,7 +81,7 @@
   },
   {
     "description": "Incluye: efecto de baja Ventisca, colgante Bastón de caramelo, grafiti Navidad y 2500 monedas. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718236488.0,
     "key": "Bundle:Navidad",
     "name": "Pack de navidad",
     "price": 199,
@@ -89,7 +89,7 @@
   },
   {
     "description": "Incluye: traje de operador Sheriff Vaquero, traje de operador Capitán Pirata, traje de operador Caballero Real, efecto de baja Rodadora, colgante Calavera, grafiti Pirata y 1500 monedas. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718237666.0,
     "key": "Bundle:Aventurero",
     "name": "Pack aventurero",
     "price": 299,
@@ -97,7 +97,7 @@
   },
   {
     "description": "Incluye: skin de arma Operación Roja, traje de operador Operación Roja, efecto de baja Choque rojo, tarjeta de jugador Infierno, pose de victoria Señala al frente. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718237941.0,
     "key": "Bundle:RedOps",
     "name": "Pack operación roja",
     "price": 399,
@@ -105,7 +105,7 @@
   },
   {
     "description": "Incluye: skin de arma Ártico táctico, traje de operador Ártico táctico, tarjeta de jugador Glaciar, colgante Chapa militar. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238031.0,
     "key": "Bundle:Artico",
     "name": "Pack ártico",
     "price": 249,
@@ -113,7 +113,7 @@
   },
   {
     "description": "Incluye: skin de arma Grieta del vacío, tarjeta de jugador Vacío, intro de mvp Columna de luz, colgante Calavera roja. Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238126.0,
     "key": "Bundle:Vacio",
     "name": "Pack del vacío",
     "price": 299,
@@ -121,7 +121,7 @@
   },
   {
     "description": "Tarjeta de jugador «Glaciar». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238259.0,
     "key": "Item:Card:Glaciar",
     "name": "Tarjeta de jugador Glaciar",
     "price": 39,
@@ -129,7 +129,7 @@
   },
   {
     "description": "Tarjeta de jugador «Infierno». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238469.0,
     "key": "Item:Card:Infierno",
     "name": "Tarjeta de jugador Infierno",
     "price": 49,
@@ -137,7 +137,7 @@
   },
   {
     "description": "Tarjeta de jugador «Oro real». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238578.0,
     "key": "Item:Card:Oro",
     "name": "Tarjeta de jugador Oro real",
     "price": 49,
@@ -145,7 +145,7 @@
   },
   {
     "description": "Tarjeta de jugador «Vacío». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238758.0,
     "key": "Item:Card:Vacio",
     "name": "Tarjeta de jugador Vacío",
     "price": 49,
@@ -153,7 +153,7 @@
   },
   {
     "description": "Colgante «Bala dorada». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718238890.0,
     "key": "Item:Charm:Bala",
     "name": "Colgante Bala dorada",
     "price": 39,
@@ -161,7 +161,7 @@
   },
   {
     "description": "Colgante «Calavera roja». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718239001.0,
     "key": "Item:Charm:Calaverita",
     "name": "Colgante Calavera roja",
     "price": 49,
@@ -169,7 +169,7 @@
   },
   {
     "description": "Colgante «Chapa militar». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718239198.0,
     "key": "Item:Charm:Chapa",
     "name": "Colgante Chapa militar",
     "price": 29,
@@ -177,7 +177,7 @@
   },
   {
     "description": "Efecto de baja «Choque rojo». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718239702.0,
     "key": "Item:KillEffect:ChoqueRojo",
     "name": "Efecto de baja Choque rojo",
     "price": 99,
@@ -185,7 +185,7 @@
   },
   {
     "description": "Efecto de baja «Destello dorado». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718239803.0,
     "key": "Item:KillEffect:OroFlash",
     "name": "Efecto de baja Destello dorado",
     "price": 99,
@@ -193,7 +193,7 @@
   },
   {
     "description": "Efecto de baja «Estallido píxel». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718239913.0,
     "key": "Item:KillEffect:Pixel",
     "name": "Efecto de baja Estallido píxel",
     "price": 79,
@@ -201,7 +201,7 @@
   },
   {
     "description": "Intro de MVP «Lluvia de ascuas». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718239998.0,
     "key": "Item:MVPIntro:Ascuas",
     "name": "Intro de MVP Lluvia de ascuas",
     "price": 89,
@@ -209,7 +209,7 @@
   },
   {
     "description": "Intro de MVP «Columna de luz». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718240091.0,
     "key": "Item:MVPIntro:Columna",
     "name": "Intro de MVP Columna de luz",
     "price": 99,
@@ -217,7 +217,7 @@
   },
   {
     "description": "Traje de operador «Ártico táctico». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718240172.0,
     "key": "Item:Outfit:ArticoTactico",
     "name": "Traje de operador Ártico táctico",
     "price": 149,
@@ -225,7 +225,7 @@
   },
   {
     "description": "Traje de operador «Operación Roja». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718240271.0,
     "key": "Item:Outfit:OperacionRoja",
     "name": "Traje de operador Operación Roja",
     "price": 199,
@@ -233,7 +233,7 @@
   },
   {
     "description": "Pose de victoria «Brazos cruzados». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718240366.0,
     "key": "Item:Pose:Brazos",
     "name": "Pose de victoria Brazos cruzados",
     "price": 79,
@@ -241,7 +241,7 @@
   },
   {
     "description": "Pose de victoria «Saludo». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718240449.0,
     "key": "Item:Pose:Saludo",
     "name": "Pose de victoria Saludo",
     "price": 79,
@@ -249,7 +249,7 @@
   },
   {
     "description": "Pose de victoria «Señala al frente». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718241590.0,
     "key": "Item:Pose:Senala",
     "name": "Pose de victoria Señala al frente",
     "price": 99,
@@ -257,7 +257,7 @@
   },
   {
     "description": "Skin de arma «Ártico táctico». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718241820.0,
     "key": "Item:Skin:ArticoTactico",
     "name": "Skin de arma Ártico táctico",
     "price": 129,
@@ -265,7 +265,7 @@
   },
   {
     "description": "Skin de arma «Callejero». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718242122.0,
     "key": "Item:Skin:Callejero",
     "name": "Skin de arma Callejero",
     "price": 129,
@@ -273,7 +273,7 @@
   },
   {
     "description": "Skin de arma «Ciber». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718242356.0,
     "key": "Item:Skin:Ciber",
     "name": "Skin de arma Ciber",
     "price": 149,
@@ -281,7 +281,7 @@
   },
   {
     "description": "Skin de arma «Grieta del vacío». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718242575.0,
     "key": "Item:Skin:GrietaVacio",
     "name": "Skin de arma Grieta del vacío",
     "price": 199,
@@ -289,7 +289,7 @@
   },
   {
     "description": "Skin de arma «Inferno». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718242767.0,
     "key": "Item:Skin:Inferno",
     "name": "Skin de arma Inferno",
     "price": 179,
@@ -297,7 +297,7 @@
   },
   {
     "description": "Skin de arma «Operación Roja». Solo estética: no cambia daño, vida ni estadísticas.",
-    "id": 0,
+    "id": 3718242970.0,
     "key": "Item:Skin:OperacionRoja",
     "name": "Skin de arma Operación Roja",
     "price": 179,
@@ -305,7 +305,7 @@
   },
   {
     "description": "Doble de XP y de monedas de cuenta para siempre y un extra de monedas en la recompensa diaria. No acelera el pase de batalla ni da ventaja en combate.",
-    "id": 0,
+    "id": 2029778289,
     "key": "VIP",
     "name": "VIP",
     "price": 299,

@@ -1,15 +1,19 @@
 # Monetización de SHOOTERROB: cómo ponerla a vender
 
-Estado a 12 de octubre de 2026: **el sistema de pagos está hecho y pasa sus pruebas automáticas, pero
-no vende nada**, porque ninguno de los 39 productos existe todavía en Roblox. Este documento es lo que
-falta para que venda. El diseño (qué se vende y por qué) está en `ECONOMY.md`.
+Estado a 12 de octubre de 2026: **los 39 productos ya existen en Roblox y sus ids están en el juego**.
+Falta probar una compra en Studio y publicar la versión que lleva los ids (pasos 3 y 4). El diseño (qué
+se vende y por qué) está en `ECONOMY.md`.
 
-**Avance del 12 de octubre (tarde):** en la experiencia «Shooter New» (universo `10769195462`, privada)
-ya existen **10 de los 39 productos**, creados a mano en el Creator Hub con su icono y con sus ids
-apuntados en `ProductIds.luau`: las cuatro bolsas de monedas, los dos potenciadores, el pack de inicio,
-el pase premium, el nivel del pase y el pack de Halloween. Faltan 28 productos y el pase VIP. Se crearon
-con «Precios administrados» **desactivado**, porque activarlo exige aceptar unos términos de Roblox que
-tiene que aceptar el dueño de la cuenta. `5_CREAR_PRODUCTOS_TIENDA.bat` crea solo los que faltan.
+- **Dónde**: experiencia «Shooter New» (universo `10769195462`, privada). 38 Developer Products y el
+  Game Pass VIP (`2029778289`), creados a mano en el Creator Hub, cada uno con su icono.
+- **Comprobado**: nombre y precio de los 39 en Roblox coinciden con la lista del juego, los 39 ids son
+  distintos y `ProductIds.luau` no tiene ninguno a 0.
+- **«Precios administrados» está desactivado en los 39.** Roblox lo trae activado y al guardar pide
+  aceptar unos términos de uso que tiene que aceptar el dueño de la cuenta. Se activa después desde la
+  página de productos o de pases («Gana más con Precios administrados» → *Comenzar*); es la decisión de
+  precios regionales de la sección 6.
+- **Los pasos 1 y 2 de la sección 2 ya están hechos.** Se dejan escritos por si hay que repetirlos en
+  otra experiencia.
 
 ## 1. Qué hay construido
 
@@ -184,8 +188,9 @@ Ninguna está tomada por mí; lo que hay hoy en el juego es la columna «Ahora»
 - **Ninguna compra real.** Todo está probado con pruebas automáticas (compra correcta, recibo repetido,
   desconexión, fallo de guardado) y con ids ficticios; nunca con un producto de verdad.
 - **El guardado de lo comprado**, que depende de publicar.
-- **El script de creación** contra el Roblox real (solo contra uno simulado).
-- **Que Roblox acepte los iconos** tal como están (pasan por su moderación de imágenes).
+- **El script de creación** contra el Roblox real (solo contra uno simulado): al final los productos
+  se crearon a mano en el Creator Hub.
+- **Que Roblox apruebe los iconos**: están subidos, pero pasan por su moderación de imágenes.
 - **La tienda en un móvil.**
 
 ## 8. Mantenimiento
